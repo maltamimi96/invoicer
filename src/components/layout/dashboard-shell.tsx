@@ -4,6 +4,7 @@ import { useState } from "react";
 import { AppSidebar } from "./app-sidebar";
 import { AppHeader } from "./app-header";
 import { AppearanceProvider } from "./appearance-provider";
+import { AgentPanel } from "@/components/agent/agent-panel";
 import type { Business } from "@/types/database";
 import type { Role } from "@/lib/permissions";
 import type { User } from "@supabase/supabase-js";
@@ -51,6 +52,8 @@ export function DashboardShell({ business, businesses, user, userRole, children 
           </main>
         </div>
       </div>
+
+      <AgentPanel />
     </AppearanceProvider>
   );
 }
