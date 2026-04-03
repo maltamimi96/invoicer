@@ -1,0 +1,260 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-sidebar: hsl(var(--sidebar));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-primary: hsl(var(--sidebar-primary));
+  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+  --color-sidebar-ring: hsl(var(--sidebar-ring));
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  /* Light mode — clean, high-contrast, modern SaaS */
+  --background: 210 20% 98%;
+  --foreground: 222 47% 9%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 9%;
+  --primary: 221 83% 53%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 216 20% 93%;
+  --secondary-foreground: 222 47% 9%;
+  --muted: 216 20% 93%;
+  --muted-foreground: 215 16% 40%;
+  --accent: 216 20% 93%;
+  --accent-foreground: 222 47% 9%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 214 22% 86%;
+  --input: 214 22% 86%;
+  --ring: 221 83% 53%;
+  --radius: 0.5rem;
+  /* Dark sidebar in light mode for contrast & professionalism */
+  --sidebar: 222 47% 10%;
+  --sidebar-foreground: 215 28% 88%;
+  --sidebar-primary: 217 91% 60%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 222 47% 16%;
+  --sidebar-accent-foreground: 215 28% 95%;
+  --sidebar-border: 222 47% 16%;
+  --sidebar-ring: 217 91% 60%;
+}
+
+.dark {
+  /* Dark mode — deep navy, clear card elevation, good contrast */
+  --background: 224 45% 6%;
+  --foreground: 213 27% 91%;
+  --card: 222 39% 11%;
+  --card-foreground: 213 27% 91%;
+  --popover: 222 39% 11%;
+  --popover-foreground: 213 27% 91%;
+  --primary: 217 91% 60%;
+  --primary-foreground: 222 47% 11%;
+  --secondary: 222 39% 16%;
+  --secondary-foreground: 213 27% 91%;
+  --muted: 222 39% 16%;
+  --muted-foreground: 215 18% 62%;
+  --accent: 222 39% 16%;
+  --accent-foreground: 213 27% 91%;
+  --destructive: 0 72% 55%;
+  --destructive-foreground: 213 27% 95%;
+  --border: 215 30% 19%;
+  --input: 215 30% 19%;
+  --ring: 217 91% 60%;
+  --sidebar: 224 45% 4%;
+  --sidebar-foreground: 215 28% 85%;
+  --sidebar-primary: 217 91% 60%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 222 47% 11%;
+  --sidebar-accent-foreground: 215 28% 92%;
+  --sidebar-border: 215 30% 12%;
+  --sidebar-ring: 217 91% 60%;
+}
+
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* ─── Sidebar theme presets ───────────────────────────────── */
+
+/* Dark Navy (default — already set in :root) */
+:root[data-sidebar-theme="dark-navy"] {
+  --sidebar: 222 47% 10%;
+  --sidebar-foreground: 215 28% 80%;
+  --sidebar-accent: 222 47% 16%;
+  --sidebar-accent-foreground: 215 28% 95%;
+  --sidebar-border: 222 47% 16%;
+}
+
+/* Midnight — near-black with zinc tones */
+:root[data-sidebar-theme="midnight"] {
+  --sidebar: 240 6% 6%;
+  --sidebar-foreground: 240 5% 90%;
+  --sidebar-accent: 240 5% 12%;
+  --sidebar-accent-foreground: 240 5% 96%;
+  --sidebar-border: 240 5% 14%;
+}
+
+/* Forest — deep hunter green */
+:root[data-sidebar-theme="forest"] {
+  --sidebar: 150 45% 8%;
+  --sidebar-foreground: 142 40% 82%;
+  --sidebar-accent: 150 40% 14%;
+  --sidebar-accent-foreground: 142 40% 95%;
+  --sidebar-border: 150 38% 14%;
+}
+
+/* Ocean — deep navy-teal */
+:root[data-sidebar-theme="ocean"] {
+  --sidebar: 200 60% 8%;
+  --sidebar-foreground: 196 60% 84%;
+  --sidebar-accent: 200 55% 14%;
+  --sidebar-accent-foreground: 196 60% 96%;
+  --sidebar-border: 200 52% 14%;
+}
+
+/* Plum — deep purple */
+:root[data-sidebar-theme="plum"] {
+  --sidebar: 270 50% 10%;
+  --sidebar-foreground: 270 40% 88%;
+  --sidebar-accent: 270 45% 17%;
+  --sidebar-accent-foreground: 270 40% 97%;
+  --sidebar-border: 270 44% 17%;
+}
+
+/* Rose — dark rose/burgundy */
+:root[data-sidebar-theme="rose-dark"] {
+  --sidebar: 345 50% 9%;
+  --sidebar-foreground: 345 50% 86%;
+  --sidebar-accent: 345 45% 15%;
+  --sidebar-accent-foreground: 345 50% 97%;
+  --sidebar-border: 345 42% 15%;
+}
+
+/* Slate Mid — medium blue-grey */
+:root[data-sidebar-theme="slate-mid"] {
+  --sidebar: 213 22% 17%;
+  --sidebar-foreground: 215 22% 82%;
+  --sidebar-accent: 213 20% 25%;
+  --sidebar-accent-foreground: 215 22% 96%;
+  --sidebar-border: 213 20% 24%;
+}
+
+/* Light — pure white sidebar */
+:root[data-sidebar-theme="light"] {
+  --sidebar: 0 0% 100%;
+  --sidebar-foreground: 222 47% 12%;
+  --sidebar-accent: 210 20% 94%;
+  --sidebar-accent-foreground: 222 47% 12%;
+  --sidebar-border: 214 22% 88%;
+}
+
+/* Soft — cool off-white sidebar */
+:root[data-sidebar-theme="soft"] {
+  --sidebar: 210 25% 95%;
+  --sidebar-foreground: 222 40% 14%;
+  --sidebar-accent: 210 22% 88%;
+  --sidebar-accent-foreground: 222 40% 10%;
+  --sidebar-border: 214 22% 84%;
+}
+
+/* ─── Accent colour overrides ─────────────────────────────── */
+:root[data-accent="blue"] {
+  --primary: 221 83% 53%; --ring: 221 83% 53%;
+  --sidebar-primary: 217 91% 60%; --sidebar-ring: 217 91% 60%;
+}
+:root[data-accent="violet"] {
+  --primary: 263 70% 52%; --ring: 263 70% 52%;
+  --sidebar-primary: 258 90% 66%; --sidebar-ring: 258 90% 66%;
+}
+:root[data-accent="emerald"] {
+  --primary: 160 84% 35%; --ring: 160 84% 35%;
+  --sidebar-primary: 158 64% 45%; --sidebar-ring: 158 64% 45%;
+}
+:root[data-accent="rose"] {
+  --primary: 347 77% 50%; --ring: 347 77% 50%;
+  --sidebar-primary: 347 77% 62%; --sidebar-ring: 347 77% 62%;
+}
+:root[data-accent="orange"] {
+  --primary: 25 95% 53%; --ring: 25 95% 53%;
+  --sidebar-primary: 25 95% 60%; --sidebar-ring: 25 95% 60%;
+}
+:root[data-accent="amber"] {
+  --primary: 38 92% 48%; --ring: 38 92% 48%;
+  --sidebar-primary: 38 92% 56%; --sidebar-ring: 38 92% 56%;
+}
+:root[data-accent="slate"] {
+  --primary: 215 16% 47%; --ring: 215 16% 47%;
+  --sidebar-primary: 215 20% 72%; --sidebar-ring: 215 20% 72%;
+}
+
+/* ─── Background patterns (applied to .app-content area) ──── */
+.app-content {
+  transition: background-image 0.3s ease;
+}
+:root[data-pattern="dots"] .app-content {
+  background-image: radial-gradient(circle, hsl(var(--border)) 1.5px, transparent 1.5px);
+  background-size: 28px 28px;
+}
+:root[data-pattern="grid"] .app-content {
+  background-image:
+    linear-gradient(hsl(var(--border) / 0.6) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--border) / 0.6) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+:root[data-pattern="diagonal"] .app-content {
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent 0,
+    transparent 18px,
+    hsl(var(--border) / 0.55) 18px,
+    hsl(var(--border) / 0.55) 19px
+  );
+}
+:root[data-pattern="cross"] .app-content {
+  background-image:
+    linear-gradient(hsl(var(--border) / 0.5) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--border) / 0.5) 1px, transparent 1px),
+    linear-gradient(hsl(var(--border) / 0.25) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--border) / 0.25) 1px, transparent 1px);
+  background-size: 64px 64px, 64px 64px, 16px 16px, 16px 16px;
+}

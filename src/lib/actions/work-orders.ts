@@ -1,0 +1,229 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase/server";
+import { getActiveBizId } from "@/lib/active-business";
+import { sendEmail } from "@/lib/email";
+import { workOrderSubmittedEmailHtml } from "@/lib/emails/work-order-submitted";
+import type { WorkOrder, WorkOrderPhoto, WorkOrderStatus, WorkOrderWithCustomer } from "@/types/database";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const tbl = (sb: Awaited<ReturnType<typeof createClient>>, name: string) => (sb as any).from(name);
+
+export async function getWorkOrders(filters?: { status?: WorkOrderStatus; customer_id?: string }): Promise<WorkOrderWithCustomer[]> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const businessId = await getActiveBizId(supabase, user.id);
+
+  let query = tbl(supabase, "work_orders")
+    .select("*, customers(id, name, email, company)")
+    .eq("business_id", businessId)
+    .order("created_at", { ascending: false });
+
+  if (filters?.status) query = query.eq("status", filters.status);
+  if (filters?.customer_id) query = query.eq("customer_id", filters.customer_id);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data as WorkOrderWithCustomer[];
+}
+
+export async function getWorkOrder(id: string): Promise<WorkOrderWithCustomer> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const businessId = await getActiveBizId(supabase, user.id);
+
+  const { data, error } = await tbl(supabase, "work_orders")
+    .select("*, customers(id, name, email, company)")
+    .eq("id", id)
+    .eq("business_id", businessId)
+    .single();
+  if (error) throw error;
+  return data as WorkOrderWithCustomer;
+}
+
+export async function createWorkOrder(payload: {
+  title: string;
+  description?: string;
+  customer_id?: string | null;
+  property_address?: string;
+  assigned_to?: string | null;
+  assigned_to_email?: string | null;
+  scheduled_date?: string | null;
+}): Promise<WorkOrder> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const businessId = await getActiveBizId(supabase, user.id);
+
+  const { data: biz } = await tbl(supabase, "businesses")
+    .select("work_order_prefix, work_order_next_number")
+    .eq("id", businessId)
+    .single();
+
+  const number = `${biz?.work_order_prefix ?? "WO"}-${String(biz?.work_order_next_number ?? 1).padStart(4, "0")}`;
+  await tbl(supabase, "businesses")
+    .update({ work_order_next_number: (biz?.work_order_next_number ?? 1) + 1 })
+    .eq("id", businessId);
+
+  const status = payload.assigned_to ? "assigned" : "draft";
+
+  const { data, error } = await tbl(supabase, "work_orders").insert({
+    business_id: businessId,
+    user_id: user.id,
+    number,
+    title: payload.title,
+    description: payload.description ?? null,
+    customer_id: payload.customer_id ?? null,
+    property_address: payload.property_address ?? null,
+    assigned_to: payload.assigned_to ?? null,
+    assigned_to_email: payload.assigned_to_email ?? null,
+    scheduled_date: payload.scheduled_date ?? null,
+    status,
+    photos: [],
+  }).select().single();
+
+  if (error) throw error;
+  revalidatePath("/work-orders");
+  return data as WorkOrder;
+}
+
+export async function updateWorkOrder(id: string, payload: Partial<Pick<WorkOrder,
+  'title' | 'description' | 'customer_id' | 'property_address' | 'assigned_to' |
+  'assigned_to_email' | 'scheduled_date' | 'scope_of_work' | 'worker_notes'
+>>): Promise<void> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const businessId = await getActiveBizId(supabase, user.id);
+
+  const { error } = await tbl(supabase, "work_orders")
+    .update(payload)
+    .eq("id", id)
+    .eq("business_id", businessId);
+  if (error) throw error;
+  revalidatePath(`/work-orders/${id}`);
+  revalidatePath("/work-orders");
+}
+
+export async function updateWorkOrderStatus(id: string, status: WorkOrderStatus): Promise<void> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const businessId = await getActiveBizId(supabase, user.id);
+
+  const { error } = await tbl(supabase, "work_orders")
+    .update({ status })
+    .eq("id", id)
+    .eq("business_id", businessId);
+  if (error) throw error;
+  revalidatePath(`/work-orders/${id}`);
+  revalidatePath("/work-orders");
+}
+
+export async function updateWorkOrderPhotos(id: string, photos: WorkOrderPhoto[]): Promise<void> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const businessId = await getActiveBizId(supabase, user.id);
+
+  const { error } = await tbl(supabase, "work_orders")
+    .update({ photos })
+    .eq("id", id)
+    .eq("business_id", businessId);
+  if (error) throw error;
+  revalidatePath(`/work-orders/${id}`);
+}
+
+export async function submitWorkOrder(id: string, workerNotes: string): Promise<void> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const businessId = await getActiveBizId(supabase, user.id);
+
+  const { error } = await tbl(supabase, "work_orders")
+    .update({ status: "submitted", worker_notes: workerNotes })
+    .eq("id", id)
+    .eq("business_id", businessId);
+  if (error) throw error;
+
+  // Notify business owner — best-effort
+  try {
+    const [woRow, bizRow] = await Promise.all([
+      tbl(supabase, "work_orders").select("title, property_address").eq("id", id).single().then((r: { data: { title: string; property_address: string | null } }) => r.data),
+      tbl(supabase, "businesses").select("name, email, user_id").eq("id", businessId).single().then((r: { data: { name: string; email: string | null; user_id: string } }) => r.data),
+    ]);
+
+    if (bizRow?.email) {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+      await sendEmail({
+        to: bizRow.email,
+        subject: `Work order submitted: ${woRow?.title ?? id}`,
+        html: workOrderSubmittedEmailHtml({
+          businessName: bizRow.name,
+          workerName: user.user_metadata?.full_name ?? user.email ?? "A worker",
+          workerEmail: user.email ?? "",
+          title: woRow?.title ?? id,
+          propertyAddress: woRow?.property_address,
+          workerNotes: workerNotes || null,
+          viewUrl: `${appUrl}/work-orders/${id}`,
+        }),
+      });
+    }
+  } catch {
+    // Email failure is non-fatal
+  }
+
+  revalidatePath(`/work-orders/${id}`);
+  revalidatePath("/work-orders");
+}
+
+export async function getTodayWorkOrders(): Promise<WorkOrderWithCustomer[]> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const businessId = await getActiveBizId(supabase, user.id);
+  const today = new Date().toISOString().split("T")[0];
+
+  // Scheduled today (any non-cancelled status) OR active right now (in_progress / submitted)
+  const { data, error } = await tbl(supabase, "work_orders")
+    .select("*, customers(id, name, email, company)")
+    .eq("business_id", businessId)
+    .or(`scheduled_date.eq.${today},status.eq.in_progress,status.eq.submitted`)
+    .neq("status", "cancelled")
+    .neq("status", "completed")
+    .order("scheduled_date", { ascending: true, nullsFirst: false });
+
+  if (error) throw error;
+  return data as WorkOrderWithCustomer[];
+}
+
+export async function deleteWorkOrder(id: string): Promise<void> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const businessId = await getActiveBizId(supabase, user.id);
+
+  // Clean up storage
+  try {
+    const { data: files } = await supabase.storage.from("work-order-photos").list(`${user.id}/${id}`);
+    if (files?.length) {
+      await supabase.storage.from("work-order-photos").remove(files.map((f) => `${user.id}/${id}/${f.name}`));
+    }
+  } catch { /* storage cleanup is best-effort */ }
+
+  const { error } = await tbl(supabase, "work_orders").delete().eq("id", id).eq("business_id", businessId);
+  if (error) throw error;
+  revalidatePath("/work-orders");
+}
