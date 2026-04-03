@@ -243,6 +243,45 @@ export interface WorkOrderPhoto {
   storagePath: string;
   order: number;
   uploadedBy: string;
+  phase?: 'before' | 'progress' | 'after';
+  caption?: string;
+}
+
+export interface WorkOrderUpdatePhoto {
+  id: string;
+  url: string;
+  storagePath: string;
+  phase: 'before' | 'progress' | 'after';
+  caption: string;
+  order: number;
+}
+
+export interface WorkOrderUpdate {
+  id: string;
+  work_order_id: string;
+  business_id: string;
+  author_user_id: string | null;
+  author_email: string;
+  author_name: string;
+  content: string;
+  photos: WorkOrderUpdatePhoto[];
+  created_at: string;
+}
+
+export interface MemberProfile {
+  id: string;
+  business_id: string;
+  user_id: string | null;
+  email: string;
+  name: string;
+  phone: string | null;
+  avatar_url: string | null;
+  role_title: string | null;
+  skills: string[];
+  bio: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface WorkOrder {
@@ -257,6 +296,7 @@ export interface WorkOrder {
   status: WorkOrderStatus;
   assigned_to: string | null;
   assigned_to_email: string | null;
+  assigned_to_profile_id: string | null;
   scope_of_work: string | null;
   scheduled_date: string | null;
   photos: WorkOrderPhoto[];
@@ -267,6 +307,11 @@ export interface WorkOrder {
 
 export type WorkOrderWithCustomer = WorkOrder & {
   customers: Pick<Customer, 'id' | 'name' | 'email' | 'company'> | null;
+};
+
+export type WorkOrderWithDetails = WorkOrder & {
+  customers: Pick<Customer, 'id' | 'name' | 'email' | 'company'> | null;
+  assigned_profile: Pick<MemberProfile, 'id' | 'name' | 'email' | 'avatar_url' | 'role_title'> | null;
 };
 
 // ----------------------------------------------------------------

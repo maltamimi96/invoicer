@@ -24,7 +24,8 @@ import {
 } from "@/lib/actions/work-orders";
 import { createClient } from "@/lib/supabase/client";
 import { canEdit, canManageTeam, type Role } from "@/lib/permissions";
-import type { WorkOrderWithCustomer, WorkOrderStatus, WorkOrderPhoto, Customer } from "@/types/database";
+import type { WorkOrderWithCustomer, WorkOrderStatus, WorkOrderPhoto, WorkOrderUpdate, MemberProfile, Customer } from "@/types/database";
+import { WorkOrderUpdatesTimeline } from "./work-order-updates-timeline";
 
 // ── Status pipeline ──────────────────────────────────────────────────────────
 
@@ -57,10 +58,13 @@ interface WorkOrderDetailClientProps {
   userRole: Role;
   currentUserId: string;
   currentUserEmail: string;
+  updates?: WorkOrderUpdate[];
+  assignedProfile?: Pick<MemberProfile, 'id' | 'name' | 'email' | 'avatar_url' | 'role_title'> | null;
 }
 
 export function WorkOrderDetailClient({
   workOrder: initial, customers, userRole, currentUserId, currentUserEmail,
+  updates = [], assignedProfile = null,
 }: WorkOrderDetailClientProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -328,6 +332,26 @@ export function WorkOrderDetailClient({
             </Card>
           )}
 
+          {/* Progress updates timeline */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                Progress Updates {updates.length > 0 && <span className="ml-1 text-muted-foreground/60">({updates.length})</span>}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <WorkOrderUpdatesTimeline
+                workOrderId={wo.id}
+                workOrderTitle={wo.title}
+                propertyAddress={wo.property_address}
+                initialUpdates={updates}
+                userRole={userRole}
+                currentUserEmail={currentUserEmail}
+                canAddUpdate={isEditor && (isOwnerOrAdmin || isAssignedWorker || !wo.assigned_to_email)}
+              />
+            </CardContent>
+          </Card>
+
           {/* Photos */}
           <Card>
             <CardHeader className="pb-3">
@@ -525,8 +549,14 @@ export function WorkOrderDetailClient({
               {wo.property_address && (
                 <DetailRow icon={<MapPin className="w-3.5 h-3.5" />} label="Address" value={wo.property_address} />
               )}
-              {wo.assigned_to_email && (
-                <DetailRow icon={<User className="w-3.5 h-3.5" />} label="Assigned to" value={wo.assigned_to_email} />
+              {(assignedProfile || wo.assigned_to_email) && (
+                <DetailRow
+                  icon={<User className="w-3.5 h-3.5" />}
+                  label="Assigned to"
+                  value={assignedProfile
+                    ? `${assignedProfile.name}${assignedProfile.role_title ? ` · ${assignedProfile.role_title}` : ""}`
+                    : (wo.assigned_to ?? wo.assigned_to_email ?? "")}
+                />
               )}
               {wo.scheduled_date && (
                 <DetailRow icon={<Calendar className="w-3.5 h-3.5" />} label="Scheduled" value={wo.scheduled_date} />

@@ -321,6 +321,71 @@ ${text}`,
       return NextResponse.json({ result: items });
     }
 
+    if (body.type === "organize_photos") {
+      const { photos, jobTitle, jobAddress } = body as {
+        photos: Array<{ id: string; url: string }>;
+        jobTitle: string;
+        jobAddress?: string;
+      };
+
+      if (!photos?.length) return NextResponse.json({ error: "No photos provided" }, { status: 400 });
+
+      // Cap at 20 to stay within context limits
+      const batch = photos.slice(0, 20);
+      const n = batch.length;
+
+      const imageContent = batch.map((p) => ({
+        type: "image" as const,
+        source: { type: "url" as const, url: p.url },
+      }));
+
+      const promptText = `Job: ${jobTitle}${jobAddress ? `\nLocation: ${jobAddress}` : ""}
+
+Below are ${n} site photos from a trades job. For each photo:
+1. Classify phase: "before" (site condition before work), "progress" (work underway), or "after" (completed work).
+2. Write a brief caption under 12 words describing what is shown. Plain text only.
+3. Set isDuplicate: true if this is a near-duplicate of another photo in the set (same angle/area/defect). Mark at most one of each duplicate pair as true — keep the better one.
+
+Return ONLY a JSON array with exactly ${n} objects in the same order as the photos provided:
+[{"id":"...","phase":"before"|"progress"|"after","caption":"...","isDuplicate":false}]
+
+Rules:
+- If unsure of phase, default to "progress".
+- isDuplicate should be used sparingly — only obvious duplicates.
+- Return ONLY the JSON array, nothing else.`;
+
+      const response = await client.messages.create({
+        model: "claude-opus-4-6",
+        max_tokens: 2048,
+        system: "You are a construction site documentation assistant. Return ONLY valid JSON — no commentary, no code fences.",
+        messages: [{
+          role: "user",
+          content: [...imageContent, { type: "text" as const, text: promptText }],
+        }],
+      });
+
+      const raw = response.content[0].type === "text" ? response.content[0].text : "[]";
+      const cleaned = raw.replace(/^```json\n?/, "").replace(/^```\n?/, "").replace(/\n?```$/, "").trim();
+      const match = cleaned.match(/\[[\s\S]*\]/);
+      if (!match) return NextResponse.json({ result: [] });
+
+      let result = JSON.parse(match[0]) as Array<{ id: string; phase: string; caption: string; isDuplicate: boolean }>;
+
+      // Backfill if AI returns fewer entries than expected
+      while (result.length < n) {
+        result.push({ id: batch[result.length].id, phase: "progress", caption: "", isDuplicate: false });
+      }
+
+      // Enforce valid phase values
+      const validPhases = new Set(["before", "progress", "after"]);
+      result = result.map((item) => ({
+        ...item,
+        phase: validPhases.has(item.phase) ? item.phase : "progress",
+      }));
+
+      return NextResponse.json({ result });
+    }
+
     return NextResponse.json({ error: "Invalid type" }, { status: 400 });
   } catch (error) {
     console.error("[AI route error]", error);
