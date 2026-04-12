@@ -299,11 +299,32 @@ export interface WorkOrder {
   assigned_to_profile_id: string | null;
   scope_of_work: string | null;
   scheduled_date: string | null;
+  start_time: string | null;
+  end_time: string | null;
   photos: WorkOrderPhoto[];
   worker_notes: string | null;
   created_at: string;
   updated_at: string;
 }
+
+export interface WorkOrderAssignment {
+  id: string;
+  work_order_id: string;
+  business_id: string;
+  member_profile_id: string;
+  assigned_by: string | null;
+  reminder_sent_at: string | null;
+  created_at: string;
+}
+
+export type ScheduledJob = WorkOrder & {
+  customers: Pick<Customer, 'id' | 'name' | 'email' | 'phone'> | null;
+  work_order_assignments: Array<{
+    id: string;
+    member_profile_id: string;
+    member_profiles: Pick<MemberProfile, 'id' | 'name' | 'email' | 'phone' | 'avatar_url' | 'role_title'> | null;
+  }>;
+};
 
 export type WorkOrderWithCustomer = WorkOrder & {
   customers: Pick<Customer, 'id' | 'name' | 'email' | 'company'> | null;

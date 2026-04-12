@@ -317,6 +317,35 @@ const TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "get_schedule",
+    description: "Get scheduled jobs for a date or date range. Use today's date for daily overview.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        start_date: { type: "string", description: "YYYY-MM-DD" },
+        end_date:   { type: "string", description: "YYYY-MM-DD, defaults to start_date" },
+      },
+      required: ["start_date"],
+    },
+  },
+  {
+    name: "assign_job_workers",
+    description: "Assign one or more workers to a scheduled job (work order). Replaces existing assignments.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        work_order_id:      { type: "string" },
+        member_profile_ids: { type: "array", items: { type: "string" }, description: "Array of member profile IDs to assign" },
+      },
+      required: ["work_order_id", "member_profile_ids"],
+    },
+  },
+  {
+    name: "list_team_profiles",
+    description: "List active team member profiles (workers) with their IDs, names and roles",
+    input_schema: { type: "object" as const, properties: {} },
+  },
+  {
     name: "list_leads",
     description: "List leads from the pipeline, optionally filtered by status",
     input_schema: {
@@ -745,6 +774,64 @@ async function executeTool(name: string, input: Record<string, any>, ctx: BizCon
       return { reports: data ?? [], count: (data ?? []).length };
     }
 
+    // ── Schedule ──────────────────────────────────────────────────────────────
+    case "get_schedule": {
+      const end = input.end_date ?? input.start_date;
+      const { data } = await tbl("work_orders")
+        .select(`id, number, title, status, scheduled_date, start_time, end_time, property_address,
+          customers(name, phone),
+          work_order_assignments(member_profiles(name))`)
+        .eq("business_id", ctx.businessId)
+        .gte("scheduled_date", input.start_date)
+        .lte("scheduled_date", end)
+        .not("status", "eq", "cancelled")
+        .order("scheduled_date", { ascending: true })
+        .order("start_time", { ascending: true, nullsFirst: false });
+      return { jobs: data ?? [], count: (data ?? []).length };
+    }
+
+    case "assign_job_workers": {
+      // Delete existing assignments
+      await tbl("work_order_assignments")
+        .delete()
+        .eq("work_order_id", input.work_order_id)
+        .eq("business_id", ctx.businessId);
+      // Insert new
+      if (input.member_profile_ids?.length > 0) {
+        await tbl("work_order_assignments").insert(
+          input.member_profile_ids.map((pid: string) => ({
+            work_order_id: input.work_order_id,
+            business_id: ctx.businessId,
+            member_profile_id: pid,
+            assigned_by: ctx.userId,
+          }))
+        );
+        // Update legacy single-assign fields
+        const { data: first } = await tbl("member_profiles")
+          .select("name, email, user_id")
+          .eq("id", input.member_profile_ids[0])
+          .single();
+        if (first) {
+          await tbl("work_orders").update({
+            assigned_to: first.user_id ?? null,
+            assigned_to_email: first.email ?? null,
+            assigned_to_profile_id: input.member_profile_ids[0],
+            status: "assigned",
+          }).eq("id", input.work_order_id).eq("business_id", ctx.businessId);
+        }
+      }
+      return { message: `${input.member_profile_ids.length} worker(s) assigned to job` };
+    }
+
+    case "list_team_profiles": {
+      const { data } = await tbl("member_profiles")
+        .select("id, name, email, phone, role_title, is_active")
+        .eq("business_id", ctx.businessId)
+        .eq("is_active", true)
+        .order("name");
+      return { profiles: data ?? [], count: (data ?? []).length };
+    }
+
     // ── Leads ─────────────────────────────────────────────────────────────────
     case "list_leads": {
       let q = tbl("leads")
@@ -847,7 +934,7 @@ export async function POST(req: NextRequest) {
 You are being called by: ${caller}.
 Today's date: ${today}
 
-You have full access to the business system — leads, customers, quotes, invoices, work orders, and inspection reports.
+You have full access to the business system — schedule, leads, customers, quotes, invoices, work orders, and inspection reports.
 
 RULES:
 1. Always search for an existing customer before creating one.

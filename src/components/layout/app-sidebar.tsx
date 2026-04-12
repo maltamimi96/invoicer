@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, FileText, FileCheck, Users,
-  Package, Settings, ChevronRight, FileStack, X, ClipboardList, Wrench, Users2, UserPlus
+  Package, Settings, ChevronRight, FileStack, X, ClipboardList, Wrench, Users2, UserPlus, CalendarDays
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Business } from "@/types/database";
@@ -20,6 +20,7 @@ const navItems = [
   { label: "Quotes",    href: "/quotes",    icon: FileCheck },
   { label: "Customers", href: "/customers", icon: Users },
   { label: "Products",  href: "/products",  icon: Package },
+  { label: "Schedule",    href: "/schedule",    icon: CalendarDays },
   { label: "Leads",       href: "/leads",       icon: UserPlus },
   { label: "Reports",     href: "/reports",     icon: ClipboardList },
   { label: "Work Orders", href: "/work-orders", icon: Wrench },
