@@ -56,6 +56,12 @@ function checkApiKey(req: NextRequest): boolean {
   return mismatch === 0;
 }
 
+// ── Tenant scope ─────────────────────────────────────────────────────────────
+// The agent is scoped to Crown Roofers only. Using env vars with fallback to
+// the known IDs. This is not a secret — security comes from INTERNAL_API_KEY.
+const AGENT_BUSINESS_ID = process.env.AGENT_BUSINESS_ID ?? "ff3a47f3-54b0-45e3-b7a9-69ddc9fa787e";
+const AGENT_USER_ID     = process.env.AGENT_USER_ID     ?? "85e6a4dd-10b4-4ed9-a31c-b258ed784f2e";
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function buildLineItems(
@@ -308,6 +314,47 @@ const TOOLS: Anthropic.Tool[] = [
         customer_id: { type: "string" },
         limit: { type: "number" },
       },
+    },
+  },
+  {
+    name: "list_leads",
+    description: "List leads from the pipeline, optionally filtered by status",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        status: { type: "string", enum: ["new", "contacted", "quoted", "won", "lost"] },
+        limit: { type: "number" },
+      },
+    },
+  },
+  {
+    name: "update_lead_status",
+    description: "Move a lead to a different pipeline stage",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        lead_id: { type: "string" },
+        status: { type: "string", enum: ["new", "contacted", "quoted", "won", "lost"] },
+      },
+      required: ["lead_id", "status"],
+    },
+  },
+  {
+    name: "update_lead",
+    description: "Update a lead's details (notes, service, suburb, etc.)",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        lead_id: { type: "string" },
+        notes: { type: "string" },
+        service: { type: "string" },
+        suburb: { type: "string" },
+        phone: { type: "string" },
+        email: { type: "string" },
+        timing: { type: "string" },
+        property_type: { type: "string" },
+      },
+      required: ["lead_id"],
     },
   },
 ];
@@ -698,6 +745,37 @@ async function executeTool(name: string, input: Record<string, any>, ctx: BizCon
       return { reports: data ?? [], count: (data ?? []).length };
     }
 
+    // ── Leads ─────────────────────────────────────────────────────────────────
+    case "list_leads": {
+      let q = tbl("leads")
+        .select("id, name, phone, email, suburb, service, status, source, created_at")
+        .eq("business_id", ctx.businessId)
+        .order("created_at", { ascending: false })
+        .limit(input.limit ?? 15);
+      if (input.status) q = q.eq("status", input.status);
+      const { data } = await q;
+      return { leads: data ?? [], count: (data ?? []).length };
+    }
+
+    case "update_lead_status": {
+      const { error } = await tbl("leads")
+        .update({ status: input.status })
+        .eq("id", input.lead_id)
+        .eq("business_id", ctx.businessId);
+      if (error) throw new Error(`Failed to update lead: ${error.message}`);
+      return { message: `Lead moved to "${input.status}"` };
+    }
+
+    case "update_lead": {
+      const { lead_id, ...updates } = input;
+      const { error } = await tbl("leads")
+        .update(updates)
+        .eq("id", lead_id)
+        .eq("business_id", ctx.businessId);
+      if (error) throw new Error(`Failed to update lead: ${error.message}`);
+      return { message: "Lead updated" };
+    }
+
     default:
       throw new Error(`Unknown tool: ${name}`);
   }
@@ -741,14 +819,13 @@ export async function POST(req: NextRequest) {
 
   const caller = typeof body.caller === "string" ? body.caller : "external";
 
-  // 4. Load business context via admin client
+  // 4. Load business context — scoped to Crown Roofers only
   const sb = createAdminClient();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: business, error: bizError } = await (sb as any)
     .from("businesses")
     .select("id, name, user_id")
-    .order("created_at", { ascending: true })
-    .limit(1)
+    .eq("id", AGENT_BUSINESS_ID)
     .single();
 
   if (bizError || !business) {
@@ -757,8 +834,8 @@ export async function POST(req: NextRequest) {
   }
 
   const ctx: BizContext = {
-    businessId: business.id,
-    userId: business.user_id,
+    businessId: AGENT_BUSINESS_ID,
+    userId: AGENT_USER_ID,
     businessName: business.name,
   };
 
@@ -770,7 +847,7 @@ export async function POST(req: NextRequest) {
 You are being called by: ${caller}.
 Today's date: ${today}
 
-You have full access to the business system — customers, quotes, invoices, work orders, and inspection reports.
+You have full access to the business system — leads, customers, quotes, invoices, work orders, and inspection reports.
 
 RULES:
 1. Always search for an existing customer before creating one.
