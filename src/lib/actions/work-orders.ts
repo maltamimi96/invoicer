@@ -55,6 +55,9 @@ export async function createWorkOrder(payload: {
   assigned_to_email?: string | null;
   assigned_to_profile_id?: string | null;
   scheduled_date?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
+  member_profile_ids?: string[];
 }): Promise<WorkOrder> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -72,7 +75,8 @@ export async function createWorkOrder(payload: {
     .update({ work_order_next_number: (biz?.work_order_next_number ?? 1) + 1 })
     .eq("id", businessId);
 
-  const status = payload.assigned_to ? "assigned" : "draft";
+  const hasWorkers = (payload.member_profile_ids?.length ?? 0) > 0 || !!payload.assigned_to;
+  const status = hasWorkers ? "assigned" : "draft";
 
   const { data, error } = await tbl(supabase, "work_orders").insert({
     business_id: businessId,
@@ -86,32 +90,70 @@ export async function createWorkOrder(payload: {
     assigned_to_email: payload.assigned_to_email ?? null,
     assigned_to_profile_id: payload.assigned_to_profile_id ?? null,
     scheduled_date: payload.scheduled_date ?? null,
+    start_time: payload.start_time ?? null,
+    end_time: payload.end_time ?? null,
     status,
     photos: [],
   }).select().single();
 
   if (error) throw error;
+
+  // Insert multi-worker assignments
+  if (payload.member_profile_ids?.length) {
+    await tbl(supabase, "work_order_assignments").insert(
+      payload.member_profile_ids.map((pid) => ({
+        work_order_id: data.id,
+        business_id: businessId,
+        member_profile_id: pid,
+        assigned_by: user.id,
+      }))
+    );
+  }
+
   revalidatePath("/work-orders");
+  revalidatePath("/schedule");
   return data as WorkOrder;
 }
 
 export async function updateWorkOrder(id: string, payload: Partial<Pick<WorkOrder,
   'title' | 'description' | 'customer_id' | 'property_address' | 'assigned_to' |
-  'assigned_to_email' | 'assigned_to_profile_id' | 'scheduled_date' | 'scope_of_work' | 'worker_notes'
->>): Promise<void> {
+  'assigned_to_email' | 'assigned_to_profile_id' | 'scheduled_date' | 'start_time' | 'end_time' |
+  'scope_of_work' | 'worker_notes'
+>> & { member_profile_ids?: string[] }): Promise<void> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
 
   const businessId = await getActiveBizId(supabase, user.id);
 
-  const { error } = await tbl(supabase, "work_orders")
-    .update(payload)
-    .eq("id", id)
-    .eq("business_id", businessId);
-  if (error) throw error;
+  const { member_profile_ids, ...fields } = payload;
+
+  if (Object.keys(fields).length > 0) {
+    const { error } = await tbl(supabase, "work_orders")
+      .update(fields)
+      .eq("id", id)
+      .eq("business_id", businessId);
+    if (error) throw error;
+  }
+
+  // Sync multi-worker assignments if provided
+  if (member_profile_ids !== undefined) {
+    await tbl(supabase, "work_order_assignments").delete().eq("work_order_id", id);
+    if (member_profile_ids.length > 0) {
+      await tbl(supabase, "work_order_assignments").insert(
+        member_profile_ids.map((pid) => ({
+          work_order_id: id,
+          business_id: businessId,
+          member_profile_id: pid,
+          assigned_by: user.id,
+        }))
+      );
+    }
+  }
+
   revalidatePath(`/work-orders/${id}`);
   revalidatePath("/work-orders");
+  revalidatePath("/schedule");
 }
 
 export async function updateWorkOrderStatus(id: string, status: WorkOrderStatus): Promise<void> {

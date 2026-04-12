@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, ImagePlus, X, Sparkles, Loader2, CheckCircle2,
-  Circle, Trash2, Save, ChevronRight, User, MapPin, Calendar, Hash,
+  Circle, Trash2, Save, ChevronRight, User, MapPin, Calendar, Hash, Clock, Users, CalendarDays,
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -60,12 +60,30 @@ interface WorkOrderDetailClientProps {
   currentUserId: string;
   currentUserEmail: string;
   updates?: WorkOrderUpdate[];
-  assignedProfile?: Pick<MemberProfile, 'id' | 'name' | 'email' | 'avatar_url' | 'role_title'> | null;
+  assignedWorkers?: Pick<MemberProfile, 'id' | 'name' | 'email' | 'avatar_url' | 'role_title'>[];
+}
+
+const AVATAR_COLORS = [
+  "bg-blue-500","bg-violet-500","bg-pink-500","bg-orange-500",
+  "bg-teal-500","bg-cyan-500","bg-rose-500","bg-amber-500",
+];
+function avatarColor(id: string) {
+  let hash = 0;
+  for (const c of id) hash = (hash * 31 + c.charCodeAt(0)) & 0xffffffff;
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+function initials(name: string) {
+  return name.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase();
+}
+function formatTime(t: string) {
+  const [h, m] = t.split(":");
+  const hour = parseInt(h, 10);
+  return `${hour % 12 || 12}:${m} ${hour < 12 ? "AM" : "PM"}`;
 }
 
 export function WorkOrderDetailClient({
   workOrder: initial, customers, userRole, currentUserId, currentUserEmail,
-  updates = [], assignedProfile = null,
+  updates = [], assignedWorkers = [],
 }: WorkOrderDetailClientProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -79,7 +97,8 @@ export function WorkOrderDetailClient({
 
   const isOwnerOrAdmin = canManageTeam(userRole);
   const isEditor = canEdit(userRole);
-  const isAssignedWorker = wo.assigned_to_email === currentUserEmail;
+  const isAssignedWorker = assignedWorkers.some((w) => w.email === currentUserEmail) ||
+    wo.assigned_to_email === currentUserEmail;
   const canUploadPhotos = isEditor && (isOwnerOrAdmin || isAssignedWorker || !wo.assigned_to);
   const canSubmit = isEditor && (isAssignedWorker || isOwnerOrAdmin) &&
     ["assigned", "in_progress"].includes(wo.status);
@@ -557,17 +576,56 @@ export function WorkOrderDetailClient({
                   </div>
                 </div>
               )}
-              {(assignedProfile || wo.assigned_to_email) && (
-                <DetailRow
-                  icon={<User className="w-3.5 h-3.5" />}
-                  label="Assigned to"
-                  value={assignedProfile
-                    ? `${assignedProfile.name}${assignedProfile.role_title ? ` · ${assignedProfile.role_title}` : ""}`
-                    : (wo.assigned_to ?? wo.assigned_to_email ?? "")}
-                />
+              {assignedWorkers.length > 0 && (
+                <div className="flex items-start gap-2.5">
+                  <span className="text-muted-foreground mt-0.5 flex-shrink-0"><Users className="w-3.5 h-3.5" /></span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+                      {assignedWorkers.length === 1 ? "Assigned Worker" : `Workers (${assignedWorkers.length})`}
+                    </p>
+                    <div className="space-y-1.5">
+                      {assignedWorkers.map((w) => (
+                        <div key={w.id} className="flex items-center gap-2">
+                          <div className={`h-6 w-6 rounded-full ${avatarColor(w.id)} flex items-center justify-center text-white text-[9px] font-bold shrink-0`}>
+                            {initials(w.name)}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium leading-none">{w.name}</p>
+                            {w.role_title && <p className="text-[10px] text-muted-foreground mt-0.5">{w.role_title}</p>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {assignedWorkers.length === 0 && wo.assigned_to_email && (
+                <DetailRow icon={<User className="w-3.5 h-3.5" />} label="Assigned to" value={wo.assigned_to ?? wo.assigned_to_email} />
               )}
               {wo.scheduled_date && (
-                <DetailRow icon={<Calendar className="w-3.5 h-3.5" />} label="Scheduled" value={wo.scheduled_date} />
+                <div className="flex items-start gap-2.5">
+                  <span className="text-muted-foreground mt-0.5 flex-shrink-0"><Calendar className="w-3.5 h-3.5" /></span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Scheduled</p>
+                    <p className="text-sm">{wo.scheduled_date}</p>
+                    {(wo.start_time || wo.end_time) && (
+                      <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                        <Clock className="w-3 h-3" />
+                        {wo.start_time ? formatTime(wo.start_time) : ""}
+                        {wo.start_time && wo.end_time ? " – " : ""}
+                        {wo.end_time ? formatTime(wo.end_time) : ""}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+              {wo.scheduled_date && (
+                <Link href={`/schedule?date=${wo.scheduled_date}`}>
+                  <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs">
+                    <CalendarDays className="w-3.5 h-3.5" />
+                    View in Schedule
+                  </Button>
+                </Link>
               )}
               <DetailRow
                 icon={<Calendar className="w-3.5 h-3.5" />}

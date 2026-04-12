@@ -28,15 +28,29 @@ export default async function WorkOrderDetailPage({ params }: { params: Promise<
   try {
     const workOrder = await getWorkOrder(id);
 
-    const [customersRaw, updates, assignedProfileRaw] = await Promise.all([
+    const [customersRaw, updates, assignmentsRaw] = await Promise.all([
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase as any).from("customers").select("id, name, company, email").eq("business_id", businessId).eq("archived", false).order("name").then((r: { data: unknown[] | null }) => r.data ?? []),
       getWorkOrderUpdates(id).catch(() => []),
-      workOrder.assigned_to_profile_id
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ? (supabase as any).from("member_profiles").select("id, name, email, avatar_url, role_title").eq("id", workOrder.assigned_to_profile_id).single().then((r: { data: unknown }) => r.data)
-        : Promise.resolve(null),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any).from("work_order_assignments")
+        .select("member_profile_id, member_profiles(id, name, email, avatar_url, role_title)")
+        .eq("work_order_id", id)
+        .then((r: { data: unknown[] | null }) => r.data ?? []),
     ]);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const assignedWorkers = (assignmentsRaw as any[]).map((a) => a.member_profiles).filter(Boolean) as Pick<MemberProfile, 'id' | 'name' | 'email' | 'avatar_url' | 'role_title'>[];
+
+    // Fallback: if no assignments found but legacy assigned_to_profile_id is set, fetch that profile
+    let legacyProfile: Pick<MemberProfile, 'id' | 'name' | 'email' | 'avatar_url' | 'role_title'> | null = null;
+    if (assignedWorkers.length === 0 && workOrder.assigned_to_profile_id) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (supabase as any).from("member_profiles").select("id, name, email, avatar_url, role_title").eq("id", workOrder.assigned_to_profile_id).single();
+      legacyProfile = data;
+    }
+
+    const allWorkers = assignedWorkers.length > 0 ? assignedWorkers : (legacyProfile ? [legacyProfile] : []);
 
     return (
       <WorkOrderDetailClient
@@ -46,7 +60,7 @@ export default async function WorkOrderDetailPage({ params }: { params: Promise<
         currentUserId={user.id}
         currentUserEmail={user.email ?? ""}
         updates={updates}
-        assignedProfile={assignedProfileRaw as Pick<MemberProfile, 'id' | 'name' | 'email' | 'avatar_url' | 'role_title'> | null}
+        assignedWorkers={allWorkers}
       />
     );
   } catch {

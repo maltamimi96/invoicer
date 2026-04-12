@@ -46,11 +46,12 @@ interface Props {
 }
 
 export function JobModal({ mode, job, defaultDate, profiles, customers, onClose, onSaved }: Props) {
+  const NO_CUSTOMER = "__none__";
   const [title,           setTitle]           = useState(job?.title ?? "");
   const [date,            setDate]            = useState(job?.scheduled_date ?? defaultDate ?? new Date().toISOString().split("T")[0]);
   const [startTime,       setStartTime]       = useState(job?.start_time?.slice(0, 5) ?? "");
   const [endTime,         setEndTime]         = useState(job?.end_time?.slice(0, 5) ?? "");
-  const [customerId,      setCustomerId]      = useState<string>(job?.customer_id ?? "");
+  const [customerId,      setCustomerId]      = useState<string>(job?.customer_id ?? NO_CUSTOMER);
   const [address,         setAddress]         = useState(job?.property_address ?? "");
   const [description,     setDescription]     = useState(job?.description ?? "");
   const [scopeOfWork,     setScopeOfWork]     = useState(job?.scope_of_work ?? "");
@@ -65,7 +66,7 @@ export function JobModal({ mode, job, defaultDate, profiles, customers, onClose,
   // Auto-fill address when customer selected
   const handleCustomerChange = (id: string) => {
     setCustomerId(id);
-    if (!address) {
+    if (!address && id !== NO_CUSTOMER) {
       const cust = customers.find((c) => c.id === id);
       if (cust?.address) setAddress([cust.address, cust.city].filter(Boolean).join(", "));
     }
@@ -87,7 +88,7 @@ export function JobModal({ mode, job, defaultDate, profiles, customers, onClose,
         scheduled_date: date,
         start_time: startTime || null,
         end_time: endTime || null,
-        customer_id: customerId || null,
+        customer_id: customerId === NO_CUSTOMER ? null : (customerId || null),
         property_address: address || null,
         description: description || null,
         scope_of_work: scopeOfWork || null,
@@ -173,7 +174,7 @@ export function JobModal({ mode, job, defaultDate, profiles, customers, onClose,
                   <SelectValue placeholder="Select customer (optional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No customer</SelectItem>
+                  <SelectItem value={NO_CUSTOMER}>No customer</SelectItem>
                   {customers.filter((c) => !c.archived).map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.name}{c.company ? ` — ${c.company}` : ""}
