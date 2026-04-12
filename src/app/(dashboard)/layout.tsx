@@ -11,26 +11,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   if (!user) redirect("/auth/login");
 
-  // Activate any pending memberships for this user's email (no-op if none)
+  // Fetch owned businesses and memberships in parallel
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase as any).rpc("activate_pending_memberships");
+  const sb = supabase as any;
+  const [{ data: ownedRaw }, { data: membershipsRaw }] = await Promise.all([
+    sb.from("businesses").select("*").eq("user_id", user.id).order("created_at", { ascending: true }),
+    sb.from("business_members").select("business_id, role, businesses(*)").eq("user_id", user.id).eq("status", "active"),
+  ]);
 
-  // Businesses the user owns
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: ownedRaw } = await (supabase as any)
-    .from("businesses")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: true });
   const ownedBusinesses = (ownedRaw ?? []) as Business[];
-
-  // Businesses the user is an active member of (not owner)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: membershipsRaw } = await (supabase as any)
-    .from("business_members")
-    .select("business_id, role, businesses(*)")
-    .eq("user_id", user.id)
-    .eq("status", "active");
   const memberships = (membershipsRaw ?? []) as { business_id: string; role: string; businesses: Business }[];
 
   // Combine, keeping owned first, deduplicating
@@ -41,7 +30,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
     }
   }
 
-  // Workers with no owned business and no memberships yet → onboarding
   if (allBusinesses.length === 0) redirect("/onboarding");
 
   // Pick active business from cookie, fallback to first
@@ -49,7 +37,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const activeBizId = cookieStore.get("active_business_id")?.value;
   const business = (activeBizId ? allBusinesses.find((b) => b.id === activeBizId) : undefined) ?? allBusinesses[0];
 
-  // Determine caller's role for the active business
+  // Determine role
   const isOwnerOfBiz = ownedBusinesses.some((b) => b.id === business.id);
   let userRole: Role = "owner";
   if (!isOwnerOfBiz) {

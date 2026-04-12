@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import type { Customer } from "@/types/database";
@@ -15,12 +15,17 @@ export async function getCustomers(includeArchived = false): Promise<Customer[]>
 
   const businessId = await getActiveBizId(supabase, user.id);
 
-  let query = tbl(supabase, "customers").select("*").eq("business_id", businessId).order("name");
-  if (!includeArchived) query = query.eq("archived", false);
-
-  const { data, error } = await query;
-  if (error) throw error;
-  return data as Customer[];
+  return unstable_cache(
+    async () => {
+      let query = tbl(supabase, "customers").select("*").eq("business_id", businessId).order("name");
+      if (!includeArchived) query = query.eq("archived", false);
+      const { data, error } = await query;
+      if (error) throw error;
+      return data as Customer[];
+    },
+    [`customers-${businessId}-${includeArchived}`],
+    { tags: [`customers-${businessId}`], revalidate: 30 }
+  )();
 }
 
 export async function getCustomer(id: string): Promise<Customer> {
@@ -51,6 +56,7 @@ export async function createCustomer(payload: Omit<Customer, "id" | "created_at"
     .select()
     .single();
   if (error) throw error;
+  revalidateTag(`customers-${businessId}`, {});
   revalidatePath("/customers");
   return data as Customer;
 }
@@ -69,6 +75,7 @@ export async function updateCustomer(id: string, payload: Partial<Customer>): Pr
     .select()
     .single();
   if (error) throw error;
+  revalidateTag(`customers-${businessId}`, {});
   revalidatePath("/customers");
   revalidatePath(`/customers/${id}`);
   return data as Customer;
@@ -86,6 +93,7 @@ export async function deleteCustomer(id: string): Promise<void> {
     .eq("id", id)
     .eq("business_id", businessId);
   if (error) throw error;
+  revalidateTag(`customers-${businessId}`, {});
   revalidatePath("/customers");
 }
 
@@ -114,6 +122,7 @@ export async function bulkImportCustomers(
     imported++;
   }
 
+  revalidateTag(`customers-${businessId}`, {});
   revalidatePath("/customers");
   return { imported, errors };
 }
