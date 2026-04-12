@@ -315,6 +315,37 @@ export type WorkOrderWithDetails = WorkOrder & {
 };
 
 // ----------------------------------------------------------------
+// LEADS
+// ----------------------------------------------------------------
+
+export type LeadStatus = "new" | "contacted" | "quoted" | "won" | "lost";
+export type LeadSource = "landing-page" | "website" | "referral" | "telegram" | "email" | "phone" | "manual";
+
+export interface Lead {
+  id: string;
+  business_id: string;
+  user_id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  suburb: string | null;
+  address: string | null;
+  service: string | null;
+  property_type: string | null;
+  timing: string | null;
+  notes: string | null;
+  status: LeadStatus;
+  source: LeadSource;
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+  customer_id: string | null;
+  quote_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// ----------------------------------------------------------------
 // CUSTOMER HUB
 // ----------------------------------------------------------------
 
@@ -405,6 +436,11 @@ export interface Database {
         Row: Report;
         Insert: Omit<Report, "id" | "created_at" | "updated_at">;
         Update: Partial<Omit<Report, "id" | "created_at" | "updated_at">>;
+      };
+      leads: {
+        Row: Lead;
+        Insert: Omit<Lead, "id" | "created_at" | "updated_at">;
+        Update: Partial<Omit<Lead, "id" | "created_at" | "updated_at">>;
       };
     };
   };
