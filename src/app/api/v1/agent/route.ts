@@ -628,10 +628,11 @@ async function executeTool(name: string, input: Record<string, any>, ctx: BizCon
       const pdfBuffer = Buffer.concat(chunks);
 
       const { sendEmail } = await import("@/lib/email");
+      const { invoiceEmailHtml } = await import("@/lib/emails/invoice");
       await sendEmail({
         to: invoice.customers.email,
         subject: `Invoice ${invoice.number} from ${business.name}`,
-        html: `<p>Please find your invoice ${invoice.number} attached.</p>`,
+        html: invoiceEmailHtml({ invoice, customer: invoice.customers, business, lineItems: invoice.line_items ?? [] }),
         attachments: [{ filename: `${invoice.number}.pdf`, content: pdfBuffer }],
       });
 
