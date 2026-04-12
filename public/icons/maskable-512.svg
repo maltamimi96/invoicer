@@ -1,4 +1,39 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <rect width="512" height="512" fill="#2563eb"/>
-  <text x="256" y="348" font-family="system-ui, -apple-system, sans-serif" font-size="280" font-weight="700" fill="white" text-anchor="middle">I</text>
+  <!-- Maskable: full bleed background, safe zone is center 80% -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+    <linearGradient id="doc" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#e0eaff"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Full bleed background -->
+  <rect width="512" height="512" fill="url(#bg)"/>
+
+  <!-- Document — shifted into safe zone (inset ~10%) -->
+  <rect x="148" y="110" width="210" height="268" rx="14" fill="url(#doc)"/>
+
+  <!-- Folded corner -->
+  <path d="M314 110 L358 154 L314 154 Z" fill="#bfdbfe"/>
+
+  <!-- Lines -->
+  <rect x="172" y="188" width="52" height="9" rx="4.5" fill="#93c5fd"/>
+  <rect x="172" y="206" width="140" height="9" rx="4.5" fill="#1e40af" opacity="0.15"/>
+  <rect x="172" y="228" width="166" height="1.5" rx="1" fill="#bfdbfe"/>
+  <rect x="172" y="242" width="90" height="8" rx="4" fill="#1e40af" opacity="0.12"/>
+  <rect x="292" y="242" width="46" height="8" rx="4" fill="#1e40af" opacity="0.2"/>
+  <rect x="172" y="258" width="70" height="8" rx="4" fill="#1e40af" opacity="0.12"/>
+  <rect x="292" y="258" width="46" height="8" rx="4" fill="#1e40af" opacity="0.2"/>
+  <rect x="172" y="274" width="110" height="8" rx="4" fill="#1e40af" opacity="0.12"/>
+  <rect x="292" y="274" width="46" height="8" rx="4" fill="#1e40af" opacity="0.2"/>
+  <rect x="172" y="296" width="166" height="1.5" rx="1" fill="#bfdbfe"/>
+  <rect x="248" y="308" width="56" height="12" rx="6" fill="#2563eb" opacity="0.3"/>
+
+  <!-- Green check badge -->
+  <circle cx="358" cy="358" r="52" fill="#22c55e"/>
+  <polyline points="336,358 350,374 382,340" fill="none" stroke="white" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

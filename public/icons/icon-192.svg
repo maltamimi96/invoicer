@@ -1,4 +1,38 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
-  <rect width="192" height="192" rx="40" fill="#2563eb"/>
-  <text x="96" y="130" font-family="system-ui, -apple-system, sans-serif" font-size="110" font-weight="700" fill="white" text-anchor="middle">I</text>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+    <linearGradient id="doc" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#e0eaff"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="192" height="192" rx="42" fill="url(#bg)"/>
+
+  <!-- Document -->
+  <rect x="48" y="36" width="90" height="112" rx="6" fill="url(#doc)"/>
+
+  <!-- Folded corner -->
+  <path d="M114 36 L138 60 L114 60 Z" fill="#bfdbfe"/>
+
+  <!-- Lines -->
+  <rect x="58" y="68" width="22" height="4" rx="2" fill="#93c5fd"/>
+  <rect x="58" y="76" width="60" height="4" rx="2" fill="#1e40af" opacity="0.15"/>
+  <rect x="58" y="86" width="70" height="1" rx="0.5" fill="#bfdbfe"/>
+  <rect x="58" y="92" width="38" height="4" rx="2" fill="#1e40af" opacity="0.12"/>
+  <rect x="106" y="92" width="20" height="4" rx="2" fill="#1e40af" opacity="0.2"/>
+  <rect x="58" y="101" width="30" height="4" rx="2" fill="#1e40af" opacity="0.12"/>
+  <rect x="106" y="101" width="20" height="4" rx="2" fill="#1e40af" opacity="0.2"/>
+  <rect x="58" y="110" width="44" height="4" rx="2" fill="#1e40af" opacity="0.12"/>
+  <rect x="106" y="110" width="20" height="4" rx="2" fill="#1e40af" opacity="0.2"/>
+  <rect x="58" y="120" width="70" height="1" rx="0.5" fill="#bfdbfe"/>
+  <rect x="96" y="125" width="26" height="6" rx="3" fill="#2563eb" opacity="0.3"/>
+
+  <!-- Green check badge -->
+  <circle cx="138" cy="138" r="22" fill="#22c55e"/>
+  <polyline points="128,138 135,145 149,130" fill="none" stroke="white" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

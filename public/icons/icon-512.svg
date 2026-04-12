@@ -1,4 +1,62 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <rect width="512" height="512" rx="100" fill="#2563eb"/>
-  <text x="256" y="348" font-family="system-ui, -apple-system, sans-serif" font-size="300" font-weight="700" fill="white" text-anchor="middle">I</text>
+  <!-- Background -->
+  <rect width="512" height="512" rx="112" fill="#2563eb"/>
+
+  <!-- Subtle gradient overlay -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+    <linearGradient id="doc" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#e0eaff" stop-opacity="1"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+
+  <!-- Document body -->
+  <rect x="128" y="96" width="240" height="300" rx="16" fill="url(#doc)"/>
+
+  <!-- Folded corner -->
+  <path d="M304 96 L368 160 L304 160 Z" fill="#bfdbfe"/>
+  <path d="M304 96 L368 160 L304 160 Z" fill="#93c5fd" opacity="0.5"/>
+
+  <!-- Corner fold -->
+  <rect x="304" y="96" width="64" height="64" rx="0" fill="none"/>
+  <path d="M304 96 L368 96 L368 160" fill="none" stroke="#bfdbfe" stroke-width="2"/>
+
+  <!-- Line items on document -->
+  <!-- Label line short -->
+  <rect x="156" y="182" width="60" height="10" rx="5" fill="#93c5fd"/>
+  <!-- Value line long -->
+  <rect x="156" y="202" width="160" height="10" rx="5" fill="#1e40af" opacity="0.15"/>
+
+  <!-- Divider -->
+  <rect x="156" y="228" width="184" height="1.5" rx="1" fill="#bfdbfe"/>
+
+  <!-- Row 1 -->
+  <rect x="156" y="244" width="100" height="9" rx="4.5" fill="#1e40af" opacity="0.12"/>
+  <rect x="286" y="244" width="54" height="9" rx="4.5" fill="#1e40af" opacity="0.2"/>
+
+  <!-- Row 2 -->
+  <rect x="156" y="264" width="80" height="9" rx="4.5" fill="#1e40af" opacity="0.12"/>
+  <rect x="286" y="264" width="54" height="9" rx="4.5" fill="#1e40af" opacity="0.2"/>
+
+  <!-- Row 3 -->
+  <rect x="156" y="284" width="120" height="9" rx="4.5" fill="#1e40af" opacity="0.12"/>
+  <rect x="286" y="284" width="54" height="9" rx="4.5" fill="#1e40af" opacity="0.2"/>
+
+  <!-- Divider -->
+  <rect x="156" y="308" width="184" height="1.5" rx="1" fill="#bfdbfe"/>
+
+  <!-- Total row -->
+  <rect x="156" y="322" width="50" height="11" rx="5.5" fill="#2563eb" opacity="0.2"/>
+  <rect x="272" y="320" width="68" height="14" rx="7" fill="#2563eb" opacity="0.35"/>
+
+  <!-- Checkmark badge -->
+  <circle cx="370" cy="370" r="58" fill="#2563eb"/>
+  <circle cx="370" cy="370" r="58" fill="url(#bg)"/>
+  <circle cx="370" cy="370" r="54" fill="#22c55e"/>
+  <polyline points="348,370 363,385 394,354" fill="none" stroke="white" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
