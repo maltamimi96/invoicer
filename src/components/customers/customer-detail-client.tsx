@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import {
   ArrowLeft, Plus, Edit, Mail, Phone, Building2, MapPin, FileText,
   FileCheck, Wrench, ClipboardList, StickyNote, User, Users, Home,
-  Trash2, Star, Save, X, ChevronDown, ChevronUp, ImageIcon,
+  Trash2, Star, Save, X, ChevronDown, ChevronUp, ImageIcon, MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -482,6 +482,13 @@ export function CustomerDetailClient({
                   <FileText className="w-3.5 h-3.5" />New invoice
                 </Button>
               </Link>
+              {customer.phone && (
+                <Link href={`/messages?phone=${encodeURIComponent(customer.phone)}&name=${encodeURIComponent(customer.name)}&customer=${customer.id}`} className="block">
+                  <Button variant="outline" size="sm" className="w-full justify-start gap-2">
+                    <MessageSquare className="w-3.5 h-3.5" />Send message
+                  </Button>
+                </Link>
+              )}
             </div>
           </div>
 
