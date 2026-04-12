@@ -14,16 +14,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ClientSelect } from "@/components/customers/client-select";
 import { createWorkOrder } from "@/lib/actions/work-orders";
-import type { Customer, BusinessMember } from "@/types/database";
+import type { Customer, MemberProfile } from "@/types/database";
 
 interface WorkOrderNewClientProps {
   customers: Customer[];
-  members: BusinessMember[];
-  ownerEmail: string;
+  profiles: Pick<MemberProfile, 'id' | 'name' | 'email' | 'avatar_url' | 'role_title'>[];
   defaultCustomerId?: string;
 }
 
-export function WorkOrderNewClient({ customers, members, ownerEmail, defaultCustomerId }: WorkOrderNewClientProps) {
+export function WorkOrderNewClient({ customers, profiles, defaultCustomerId }: WorkOrderNewClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -31,27 +30,22 @@ export function WorkOrderNewClient({ customers, members, ownerEmail, defaultCust
   const [description, setDescription] = useState("");
   const [customerId, setCustomerId] = useState(defaultCustomerId ?? "");
   const [propertyAddress, setPropertyAddress] = useState("");
-  const [assignedTo, setAssignedTo] = useState("");
+  const [assignedProfileId, setAssignedProfileId] = useState("");
   const [scheduledDate, setScheduledDate] = useState("");
-
-  // All people who can be assigned: active members + owner
-  const assignableOptions = [
-    { email: ownerEmail, label: `${ownerEmail} (you)` },
-    ...members.filter((m) => m.status === "active").map((m) => ({ email: m.email, label: `${m.email} · ${m.role}` })),
-  ];
 
   const handleSubmit = () => {
     if (!title.trim()) { toast.error("Title is required"); return; }
     startTransition(async () => {
       try {
-        const selected = assignableOptions.find((o) => o.email === assignedTo);
+        const selectedProfile = profiles.find((p) => p.id === assignedProfileId);
         const wo = await createWorkOrder({
           title: title.trim(),
           description: description.trim() || undefined,
           customer_id: customerId && customerId !== "none" ? customerId : null,
           property_address: propertyAddress.trim() || undefined,
-          assigned_to: selected ? assignedTo : null,
-          assigned_to_email: selected ? selected.email : null,
+          assigned_to: selectedProfile ? selectedProfile.name : null,
+          assigned_to_email: selectedProfile ? selectedProfile.email : null,
+          assigned_to_profile_id: selectedProfile ? selectedProfile.id : null,
           scheduled_date: scheduledDate || null,
         });
         toast.success(`${wo.number} created`);
@@ -110,12 +104,16 @@ export function WorkOrderNewClient({ customers, members, ownerEmail, defaultCust
             </div>
             <div className="space-y-1.5">
               <Label>Assign To</Label>
-              <Select value={assignedTo} onValueChange={setAssignedTo}>
-                <SelectTrigger><SelectValue placeholder="Unassigned" /></SelectTrigger>
+              <Select value={assignedProfileId} onValueChange={setAssignedProfileId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Unassigned" />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="unassigned">Unassigned</SelectItem>
-                  {assignableOptions.map((o) => (
-                    <SelectItem key={o.email} value={o.email}>{o.label}</SelectItem>
+                  {profiles.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}{p.role_title ? ` · ${p.role_title}` : ""}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>

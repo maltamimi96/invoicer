@@ -1,11 +1,10 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
-import { canEdit } from "@/lib/permissions";
-import { type Role } from "@/lib/permissions";
-import { getMembers } from "@/lib/actions/members";
+import { canEdit, type Role } from "@/lib/permissions";
+import { getAssignableProfiles } from "@/lib/actions/member-profiles";
 import { WorkOrderNewClient } from "@/components/work-orders/work-order-new-client";
-import type { Customer } from "@/types/database";
+import type { Customer, MemberProfile } from "@/types/database";
 
 export default async function NewWorkOrderPage({ searchParams }: { searchParams: Promise<{ customer?: string }> }) {
   const { customer: defaultCustomerId } = await searchParams;
@@ -13,7 +12,6 @@ export default async function NewWorkOrderPage({ searchParams }: { searchParams:
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/auth/login");
 
-  // Determine role
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const businessId = await getActiveBizId(supabase as any, user.id);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -29,7 +27,7 @@ export default async function NewWorkOrderPage({ searchParams }: { searchParams:
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: customersRaw } = await (supabase as any).from("customers").select("id, name, company, email").eq("business_id", businessId).eq("archived", false).order("name");
   const customers = (customersRaw ?? []) as Customer[];
-  const members = await getMembers();
+  const profiles = await getAssignableProfiles().catch(() => []) as Pick<MemberProfile, 'id' | 'name' | 'email' | 'avatar_url' | 'role_title'>[];
 
-  return <WorkOrderNewClient customers={customers} members={members} ownerEmail={user.email ?? ""} defaultCustomerId={defaultCustomerId} />;
+  return <WorkOrderNewClient customers={customers} profiles={profiles} defaultCustomerId={defaultCustomerId} />;
 }

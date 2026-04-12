@@ -25,6 +25,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { canEdit, canManageTeam, type Role } from "@/lib/permissions";
 import type { WorkOrderWithCustomer, WorkOrderStatus, WorkOrderPhoto, WorkOrderUpdate, MemberProfile, Customer } from "@/types/database";
+import { AddressLink } from "@/components/ui/address-link";
 import { WorkOrderUpdatesTimeline } from "./work-order-updates-timeline";
 
 // ── Status pipeline ──────────────────────────────────────────────────────────
@@ -241,8 +242,9 @@ export function WorkOrderDetailClient({
               <Badge className={STATUS_STYLES[wo.status]}>{wo.status.replace("_", " ")}</Badge>
             </div>
             {wo.property_address && (
-              <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5" />{wo.property_address}
+              <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-1.5 flex-wrap">
+                <MapPin className="w-3.5 h-3.5 shrink-0" />
+                <AddressLink address={wo.property_address} />
               </p>
             )}
           </div>
@@ -547,7 +549,13 @@ export function WorkOrderDetailClient({
                 <DetailRow icon={<User className="w-3.5 h-3.5" />} label="Client" value={`${wo.customers.name}${wo.customers.company ? ` · ${wo.customers.company}` : ""}`} />
               )}
               {wo.property_address && (
-                <DetailRow icon={<MapPin className="w-3.5 h-3.5" />} label="Address" value={wo.property_address} />
+                <div className="flex items-start gap-2.5">
+                  <span className="text-muted-foreground mt-0.5 flex-shrink-0"><MapPin className="w-3.5 h-3.5" /></span>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Address</p>
+                    <AddressLink address={wo.property_address} className="text-sm" />
+                  </div>
+                </div>
               )}
               {(assignedProfile || wo.assigned_to_email) && (
                 <DetailRow

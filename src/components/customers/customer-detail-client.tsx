@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { formatCurrency, formatDate, getStatusColor } from "@/lib/utils";
+import { AddressLink, MapPinLink } from "@/components/ui/address-link";
 import { CustomerForm } from "./customer-form";
 import {
   createCustomerProperty, updateCustomerProperty, deleteCustomerProperty,
@@ -268,8 +269,9 @@ function WorkOrderCard({ wo, currency }: { wo: WorkOrderWithCustomer; currency: 
               <Badge variant="secondary" className={`text-xs ${getStatusColor(wo.status)}`}>{wo.status.replace("_", " ")}</Badge>
             </div>
             {wo.property_address && (
-              <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-                <MapPin className="w-3 h-3" />{wo.property_address}
+              <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5 flex-wrap">
+                <MapPinLink address={wo.property_address} />
+                {wo.property_address}
               </p>
             )}
             {wo.scheduled_date && (
@@ -443,7 +445,7 @@ export function CustomerDetailClient({
                 )}
                 {(customer.address || customer.city) && (
                   <div className="flex items-start gap-2 text-sm">
-                    <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                    <MapPinLink address={[customer.address, customer.city, customer.postcode, customer.country].filter(Boolean).join(", ")} />
                     <span className="text-muted-foreground">
                       {[customer.address, customer.city, customer.postcode, customer.country].filter(Boolean).join(", ")}
                     </span>
@@ -525,9 +527,10 @@ export function CustomerDetailClient({
                       <div className="flex items-start justify-between gap-3">
                         <div className="space-y-1 min-w-0">
                           {prop.label && <p className="text-xs font-medium text-primary uppercase tracking-wide">{prop.label}</p>}
-                          <p className="font-medium text-sm">{prop.address}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {[prop.city, prop.postcode, prop.country].filter(Boolean).join(", ")}
+                          <p className="font-medium text-sm">
+                            <AddressLink
+                              address={[prop.address, prop.city, prop.postcode, prop.country].filter(Boolean).join(", ")}
+                            />
                           </p>
                           {prop.notes && <p className="text-xs text-muted-foreground mt-1 italic">{prop.notes}</p>}
                         </div>

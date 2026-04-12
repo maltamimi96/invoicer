@@ -53,6 +53,7 @@ export async function createWorkOrder(payload: {
   property_address?: string;
   assigned_to?: string | null;
   assigned_to_email?: string | null;
+  assigned_to_profile_id?: string | null;
   scheduled_date?: string | null;
 }): Promise<WorkOrder> {
   const supabase = await createClient();
@@ -83,6 +84,7 @@ export async function createWorkOrder(payload: {
     property_address: payload.property_address ?? null,
     assigned_to: payload.assigned_to ?? null,
     assigned_to_email: payload.assigned_to_email ?? null,
+    assigned_to_profile_id: payload.assigned_to_profile_id ?? null,
     scheduled_date: payload.scheduled_date ?? null,
     status,
     photos: [],
@@ -95,7 +97,7 @@ export async function createWorkOrder(payload: {
 
 export async function updateWorkOrder(id: string, payload: Partial<Pick<WorkOrder,
   'title' | 'description' | 'customer_id' | 'property_address' | 'assigned_to' |
-  'assigned_to_email' | 'scheduled_date' | 'scope_of_work' | 'worker_notes'
+  'assigned_to_email' | 'assigned_to_profile_id' | 'scheduled_date' | 'scope_of_work' | 'worker_notes'
 >>): Promise<void> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
