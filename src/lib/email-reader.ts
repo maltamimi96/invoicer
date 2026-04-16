@@ -1,9 +1,16 @@
 /**
  * IMAP email reader — fetches unseen emails and marks them as seen.
- * Uses imapflow for modern Promise-based IMAP access.
+ * Accepts per-business config (SaaS-ready) instead of env vars.
  */
 
 import { ImapFlow } from "imapflow";
+
+export interface ImapConfig {
+  host: string;
+  port: number;
+  user: string;
+  pass: string;
+}
 
 export interface RawEmail {
   uid: number;
@@ -32,30 +39,42 @@ function stripHtml(html: string): string {
     .trim();
 }
 
-function getImapConfig() {
-  return {
-    host: process.env.IMAP_HOST || "imap.hostinger.com",
-    port: Number(process.env.IMAP_PORT) || 993,
+/**
+ * Test an IMAP connection — returns true on success, error message on failure.
+ */
+export async function testImapConnection(config: ImapConfig): Promise<{ ok: true } | { ok: false; error: string }> {
+  const client = new ImapFlow({
+    host: config.host,
+    port: config.port,
     secure: true,
-    auth: {
-      user: process.env.IMAP_USER!,
-      pass: process.env.IMAP_PASS!,
-    },
+    auth: { user: config.user, pass: config.pass },
     logger: false as const,
-  };
+  });
+
+  try {
+    await client.connect();
+    await client.logout();
+    return { ok: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    try { await client.logout(); } catch { /* already disconnected */ }
+    return { ok: false, error: msg };
+  }
 }
 
 /**
  * Fetch unseen emails from INBOX, mark them as seen, return parsed data.
  * Processes at most `maxEmails` per run to stay within serverless time limits.
  */
-export async function fetchUnseenEmails(maxEmails = 15): Promise<RawEmail[]> {
-  const config = getImapConfig();
-  if (!config.auth.user || !config.auth.pass) {
-    throw new Error("IMAP credentials not configured");
-  }
+export async function fetchUnseenEmails(config: ImapConfig, maxEmails = 15): Promise<RawEmail[]> {
+  const client = new ImapFlow({
+    host: config.host,
+    port: config.port,
+    secure: true,
+    auth: { user: config.user, pass: config.pass },
+    logger: false as const,
+  });
 
-  const client = new ImapFlow(config);
   const emails: RawEmail[] = [];
 
   try {
@@ -63,12 +82,10 @@ export async function fetchUnseenEmails(maxEmails = 15): Promise<RawEmail[]> {
     const lock = await client.getMailboxLock("INBOX");
 
     try {
-      // Search for unseen messages
       const searchResult = await client.search({ seen: false }, { uid: true });
       const uids = Array.isArray(searchResult) ? searchResult : [];
       if (!uids.length) return [];
 
-      // Limit to most recent N
       const toProcess = uids.slice(-maxEmails);
 
       for (const uid of toProcess) {
@@ -78,10 +95,12 @@ export async function fetchUnseenEmails(maxEmails = 15): Promise<RawEmail[]> {
             source: true,
           }, { uid: true });
 
-          // imapflow can return false on failure
           if (!fetchResult) continue;
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const msg = fetchResult as any as { envelope?: { from?: { name?: string; address?: string }[]; subject?: string; date?: string }; source?: Buffer };
+          const msg = fetchResult as any as {
+            envelope?: { from?: { name?: string; address?: string }[]; subject?: string; date?: string };
+            source?: Buffer;
+          };
           if (!msg.envelope) continue;
 
           const from = msg.envelope.from?.[0]
@@ -91,11 +110,9 @@ export async function fetchUnseenEmails(maxEmails = 15): Promise<RawEmail[]> {
           const subject = msg.envelope.subject || "(no subject)";
           const date = msg.envelope.date ? new Date(msg.envelope.date) : new Date();
 
-          // Parse body text from source
           let text = "";
           if (msg.source) {
             const raw = msg.source.toString();
-            // Try to get plain text part
             const textMatch = raw.match(/Content-Type:\s*text\/plain[\s\S]*?\r\n\r\n([\s\S]*?)(?:\r\n--|\r\n\.\r\n|$)/i);
             const htmlMatch = raw.match(/Content-Type:\s*text\/html[\s\S]*?\r\n\r\n([\s\S]*?)(?:\r\n--|\r\n\.\r\n|$)/i);
 
@@ -104,7 +121,6 @@ export async function fetchUnseenEmails(maxEmails = 15): Promise<RawEmail[]> {
             } else if (htmlMatch) {
               text = stripHtml(htmlMatch[1]);
             } else {
-              // Fallback: everything after headers
               const bodyStart = raw.indexOf("\r\n\r\n");
               if (bodyStart > -1) {
                 const body = raw.slice(bodyStart + 4);
@@ -112,7 +128,6 @@ export async function fetchUnseenEmails(maxEmails = 15): Promise<RawEmail[]> {
               }
             }
 
-            // Decode quoted-printable if needed
             if (text.includes("=\r\n") || text.includes("=3D")) {
               text = text
                 .replace(/=\r\n/g, "")
@@ -122,14 +137,12 @@ export async function fetchUnseenEmails(maxEmails = 15): Promise<RawEmail[]> {
             }
           }
 
-          // Truncate very long emails
           if (text.length > 3000) {
             text = text.slice(0, 3000) + "\n...(truncated)";
           }
 
           emails.push({ uid, from, subject, text, date });
 
-          // Mark as seen
           await client.messageFlagsAdd(String(uid), ["\\Seen"], { uid: true });
         } catch (e) {
           console.error(`Failed to process email uid=${uid}:`, e);

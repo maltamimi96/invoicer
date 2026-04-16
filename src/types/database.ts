@@ -406,6 +406,34 @@ export interface CustomerNote {
 }
 
 // ----------------------------------------------------------------
+// EMAIL CONFIG
+// ----------------------------------------------------------------
+
+export type EmailProvider = 'gmail' | 'outlook' | 'yahoo' | 'hostinger' | 'custom';
+
+export const EMAIL_PROVIDERS: { value: EmailProvider; label: string; host: string; port: number; help: string }[] = [
+  { value: 'gmail',     label: 'Gmail / Google Workspace', host: 'imap.gmail.com',           port: 993, help: 'Use an App Password: Google Account > Security > 2-Step Verification > App Passwords' },
+  { value: 'outlook',   label: 'Outlook / Microsoft 365',  host: 'outlook.office365.com',    port: 993, help: 'Use your password, or an App Password if 2FA is enabled' },
+  { value: 'yahoo',     label: 'Yahoo Mail',               host: 'imap.mail.yahoo.com',      port: 993, help: 'Generate an App Password in Yahoo Account Security settings' },
+  { value: 'hostinger', label: 'Hostinger',                host: 'imap.hostinger.com',        port: 993, help: 'Use your Hostinger email password' },
+  { value: 'custom',    label: 'Custom IMAP',              host: '',                          port: 993, help: 'Enter your IMAP server details manually' },
+];
+
+export interface BusinessEmailConfig {
+  id: string;
+  business_id: string;
+  enabled: boolean;
+  provider: EmailProvider;
+  imap_host: string;
+  imap_port: number;
+  imap_user: string;
+  imap_pass: string;
+  last_checked: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// ----------------------------------------------------------------
 // API KEYS
 // ----------------------------------------------------------------
 
@@ -500,6 +528,11 @@ export interface Database {
         Row: BusinessApiKey;
         Insert: Omit<BusinessApiKey, "id" | "created_at">;
         Update: Partial<Omit<BusinessApiKey, "id" | "created_at">>;
+      };
+      business_email_config: {
+        Row: BusinessEmailConfig;
+        Insert: Omit<BusinessEmailConfig, "id" | "created_at" | "updated_at">;
+        Update: Partial<Omit<BusinessEmailConfig, "id" | "created_at" | "updated_at">>;
       };
     };
   };

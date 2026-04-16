@@ -1,25 +1,22 @@
 /**
  * GET /api/cron/email-leads
  *
- * Reads unseen emails via IMAP, uses Claude AI to classify each as a lead or not,
- * and inserts genuine leads into the leads table.
+ * Loops through all businesses with email scanning enabled,
+ * reads unseen emails via IMAP, classifies each with Claude AI,
+ * and inserts genuine leads.
  *
- * Triggered by GitHub Actions on a schedule:
- *   - Every 15 min during the day (7am–9pm AEST)
- *   - Every ~5 hours overnight
- *
+ * Triggered by GitHub Actions on a schedule or manually.
  * Auth: CRON_SECRET bearer token.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { fetchUnseenEmails, type RawEmail } from "@/lib/email-reader";
+import { fetchUnseenEmails, type RawEmail, type ImapConfig } from "@/lib/email-reader";
+import type { BusinessEmailConfig } from "@/types/database";
 
 export const maxDuration = 60;
 
-const BUSINESS_ID = process.env.AGENT_BUSINESS_ID ?? "ff3a47f3-54b0-45e3-b7a9-69ddc9fa787e";
-const OWNER_USER_ID = process.env.AGENT_USER_ID ?? "85e6a4dd-10b4-4ed9-a31c-b258ed784f2e";
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
@@ -35,6 +32,15 @@ interface LeadExtraction {
   reason: string;
 }
 
+interface BusinessResult {
+  businessId: string;
+  businessName: string;
+  processed: number;
+  leads: number;
+  skipped: number;
+  error?: string;
+}
+
 async function sendTelegram(text: string) {
   if (!BOT_TOKEN || !CHAT_ID) return;
   try {
@@ -48,15 +54,16 @@ async function sendTelegram(text: string) {
 
 async function classifyEmail(
   anthropic: Anthropic,
-  email: RawEmail
+  email: RawEmail,
+  businessName: string
 ): Promise<LeadExtraction> {
-  const prompt = `You are an email classifier for a roofing business (Crown Roofers, Sydney).
+  const prompt = `You are an email classifier for "${businessName}", a business that receives customer enquiries via email.
 
 Analyze this email and determine if it's a genuine customer lead/enquiry.
 
-A LEAD is: someone asking for a quote, booking a job, enquiring about roofing services, reporting a roof issue, etc.
+A LEAD is: someone asking for a quote, booking a job, enquiring about services, reporting an issue, requesting information about pricing or availability.
 
-NOT a lead: spam, newsletters, marketing, automated notifications, invoices from suppliers, replies to existing conversations, internal emails, social media alerts, Google/Facebook notifications, payment receipts, delivery notifications.
+NOT a lead: spam, newsletters, marketing, automated notifications, invoices from suppliers, replies to existing conversations, internal emails, social media alerts, Google/Facebook notifications, payment receipts, delivery notifications, password resets, subscription confirmations.
 
 Email:
 From: ${email.from}
@@ -90,7 +97,6 @@ Respond with ONLY a JSON object (no markdown, no explanation):
       return { is_lead: false, name: null, phone: null, email: null, suburb: null, service: null, property_type: null, notes: null, reason: "No AI response" };
     }
 
-    // Parse JSON from response (handle potential markdown wrapping)
     let jsonStr = text.text.trim();
     if (jsonStr.startsWith("```")) {
       jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
@@ -102,6 +108,94 @@ Respond with ONLY a JSON object (no markdown, no explanation):
   }
 }
 
+async function processBusinessEmails(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  sb: any,
+  anthropic: Anthropic,
+  config: BusinessEmailConfig & { business_name: string; business_user_id: string }
+): Promise<BusinessResult> {
+  const result: BusinessResult = {
+    businessId: config.business_id,
+    businessName: config.business_name,
+    processed: 0,
+    leads: 0,
+    skipped: 0,
+  };
+
+  try {
+    const imapConfig: ImapConfig = {
+      host: config.imap_host,
+      port: config.imap_port,
+      user: config.imap_user,
+      pass: config.imap_pass,
+    };
+
+    const emails = await fetchUnseenEmails(imapConfig, 15);
+    result.processed = emails.length;
+
+    if (emails.length === 0) return result;
+
+    for (const email of emails) {
+      const extraction = await classifyEmail(anthropic, email, config.business_name);
+
+      if (!extraction.is_lead) {
+        result.skipped++;
+        continue;
+      }
+
+      const senderEmail = extraction.email || email.from.match(/<(.+?)>/)?.[1] || null;
+
+      const { error } = await sb
+        .from("leads")
+        .insert({
+          name: extraction.name || email.from.replace(/<.*>/, "").trim() || "Unknown",
+          phone: extraction.phone || null,
+          email: senderEmail,
+          suburb: extraction.suburb || null,
+          service: extraction.service || null,
+          property_type: extraction.property_type || null,
+          notes: extraction.notes
+            ? `[Email: ${email.subject}]\n${extraction.notes}`
+            : `[Email: ${email.subject}]`,
+          status: "new",
+          source: "email",
+          business_id: config.business_id,
+          user_id: config.business_user_id,
+        });
+
+      if (error) {
+        console.error(`Failed to create lead for ${config.business_name}:`, error);
+        continue;
+      }
+
+      result.leads++;
+
+      await sendTelegram(
+        `📧 <b>NEW LEAD — Email</b> (${config.business_name})\n\n` +
+        `👤 <b>${extraction.name || "Unknown"}</b>\n` +
+        (extraction.phone ? `📞 ${extraction.phone}\n` : "") +
+        (senderEmail ? `📧 ${senderEmail}\n` : "") +
+        (extraction.suburb ? `📍 ${extraction.suburb}\n` : "") +
+        (extraction.service ? `🔧 ${extraction.service}\n` : "") +
+        `\n📝 ${email.subject}`
+      );
+    }
+
+    // Update last_checked
+    await sb
+      .from("business_email_config")
+      .update({ last_checked: new Date().toISOString() })
+      .eq("business_id", config.business_id);
+
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    result.error = msg;
+    console.error(`[email-leads] Error for ${config.business_name}:`, msg);
+  }
+
+  return result;
+}
+
 export async function GET(req: NextRequest) {
   // Auth
   const auth = req.headers.get("authorization");
@@ -109,84 +203,46 @@ export async function GET(req: NextRequest) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
-  // Check IMAP config
-  if (!process.env.IMAP_USER || !process.env.IMAP_PASS) {
-    return NextResponse.json({ error: "IMAP not configured" }, { status: 503 });
-  }
-
   try {
-    // 1. Fetch unseen emails
-    const emails = await fetchUnseenEmails(15);
-    if (emails.length === 0) {
-      return NextResponse.json({ processed: 0, leads: 0, skipped: 0, message: "No new emails" });
-    }
-
-    // 2. Classify each with AI
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
     const sb = createAdminClient();
-    let leadsCreated = 0;
-    let skipped = 0;
 
-    for (const email of emails) {
-      const result = await classifyEmail(anthropic, email);
+    // Fetch all enabled email configs with business info
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: configs, error: configError } = await (sb as any)
+      .from("business_email_config")
+      .select("*, businesses(name, user_id)")
+      .eq("enabled", true);
 
-      if (!result.is_lead) {
-        skipped++;
-        continue;
-      }
-
-      // Extract sender email from the "from" field if not extracted by AI
-      const senderEmail = result.email || email.from.match(/<(.+?)>/)?.[1] || null;
-
-      // 3. Insert lead
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (sb as any)
-        .from("leads")
-        .insert({
-          name: result.name || email.from.replace(/<.*>/, "").trim() || "Unknown",
-          phone: result.phone || null,
-          email: senderEmail,
-          suburb: result.suburb || null,
-          service: result.service || null,
-          property_type: result.property_type || null,
-          notes: result.notes
-            ? `[From email: ${email.subject}]\n${result.notes}`
-            : `[From email: ${email.subject}]`,
-          status: "new",
-          source: "email" as const,
-          business_id: BUSINESS_ID,
-          user_id: OWNER_USER_ID,
-        })
-        .select("id, name, status")
-        .single();
-
-      if (error) {
-        console.error("Failed to create lead from email:", error);
-        continue;
-      }
-
-      leadsCreated++;
-
-      // 4. Telegram notification
-      await sendTelegram(
-        `📧 <b>NEW LEAD — Email</b>\n\n` +
-        `👤 <b>${result.name || "Unknown"}</b>\n` +
-        (result.phone ? `📞 ${result.phone}\n` : "") +
-        (senderEmail ? `📧 ${senderEmail}\n` : "") +
-        (result.suburb ? `📍 ${result.suburb}\n` : "") +
-        (result.service ? `🔧 ${result.service}\n` : "") +
-        `\n📝 ${email.subject}`
-      );
+    if (configError) {
+      console.error("Failed to fetch email configs:", configError);
+      return NextResponse.json({ error: "Failed to load configs" }, { status: 500 });
     }
 
-    const summary = { processed: emails.length, leads: leadsCreated, skipped };
-    console.log("[email-leads]", summary);
-    return NextResponse.json(summary);
+    if (!configs?.length) {
+      return NextResponse.json({ message: "No businesses with email scanning enabled", results: [] });
+    }
+
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+    const results: BusinessResult[] = [];
+
+    for (const config of configs) {
+      const enriched = {
+        ...config,
+        business_name: config.businesses?.name || "Unknown",
+        business_user_id: config.businesses?.user_id || "",
+      };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await processBusinessEmails(sb as any, anthropic, enriched);
+      results.push(result);
+    }
+
+    const totalLeads = results.reduce((s, r) => s + r.leads, 0);
+    const totalProcessed = results.reduce((s, r) => s + r.processed, 0);
+    console.log(`[email-leads] Scanned ${configs.length} business(es): ${totalProcessed} emails, ${totalLeads} leads`);
+
+    return NextResponse.json({ businesses: configs.length, results });
   } catch (e) {
     console.error("email-leads cron error:", e);
-    return NextResponse.json(
-      { error: "Failed to process emails" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to process emails" }, { status: 500 });
   }
 }
