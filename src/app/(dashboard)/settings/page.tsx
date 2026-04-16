@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getBusiness } from "@/lib/actions/business";
 import { getMembers } from "@/lib/actions/members";
+import { listApiKeys } from "@/lib/actions/api-keys";
 import { getActiveBizId } from "@/lib/active-business";
 import { canManageSettings, type Role } from "@/lib/permissions";
 import { SettingsClient } from "@/components/settings/settings-client";
@@ -31,15 +32,17 @@ export default async function SettingsPage() {
 
   if (!canManageSettings(userRole)) redirect("/dashboard");
 
-  const [business, members] = await Promise.all([
+  const [business, members, apiKeys] = await Promise.all([
     getBusiness(),
     getMembers(),
+    listApiKeys(),
   ]);
 
   return (
     <SettingsClient
       business={business}
       members={members}
+      apiKeys={apiKeys}
       ownerEmail={user.email ?? ""}
       userRole={userRole}
     />

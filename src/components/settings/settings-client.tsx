@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Loader2, Upload, X, Building2, CreditCard, FileText, Palette, Check, Users } from "lucide-react";
+import { Loader2, Upload, X, Building2, CreditCard, FileText, Palette, Check, Users, Key } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +20,8 @@ import { Controller } from "react-hook-form";
 import { updateBusiness, uploadLogo } from "@/lib/actions/business";
 import { useAppearance, ACCENT_PRESETS, PATTERN_PRESETS, SIDEBAR_THEMES } from "@/components/layout/appearance-provider";
 import { TeamSettings } from "@/components/settings/team-settings";
-import type { Business, BusinessMember } from "@/types/database";
+import { ApiKeysSettings } from "@/components/settings/api-keys-settings";
+import type { Business, BusinessMember, BusinessApiKey } from "@/types/database";
 import type { Role } from "@/lib/permissions";
 
 const CURRENCIES = [
@@ -101,11 +102,12 @@ type InvoiceData = z.infer<typeof invoiceSchema>;
 interface SettingsClientProps {
   business: Business;
   members: BusinessMember[];
+  apiKeys: Omit<BusinessApiKey, "key_hash">[];
   ownerEmail: string;
   userRole: Role;
 }
 
-export function SettingsClient({ business: initial, members, ownerEmail, userRole }: SettingsClientProps) {
+export function SettingsClient({ business: initial, members, apiKeys, ownerEmail, userRole }: SettingsClientProps) {
   const [business, setBusiness] = useState(initial);
   const [logoPreview, setLogoPreview] = useState<string | null>(initial.logo_url);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -227,12 +229,13 @@ export function SettingsClient({ business: initial, members, ownerEmail, userRol
       </motion.div>
 
       <Tabs defaultValue="business">
-        <TabsList className="grid grid-cols-5 w-full sm:w-auto sm:inline-flex">
+        <TabsList className="grid grid-cols-6 w-full sm:w-auto sm:inline-flex">
           <TabsTrigger value="business"   className="gap-1.5"><Building2 className="w-3.5 h-3.5" />Business</TabsTrigger>
           <TabsTrigger value="payment"    className="gap-1.5"><CreditCard className="w-3.5 h-3.5" />Payment</TabsTrigger>
           <TabsTrigger value="documents"  className="gap-1.5"><FileText className="w-3.5 h-3.5" />Documents</TabsTrigger>
           <TabsTrigger value="appearance" className="gap-1.5"><Palette className="w-3.5 h-3.5" />Appearance</TabsTrigger>
           <TabsTrigger value="team"       className="gap-1.5"><Users className="w-3.5 h-3.5" />Team</TabsTrigger>
+          <TabsTrigger value="api"        className="gap-1.5"><Key className="w-3.5 h-3.5" />API</TabsTrigger>
         </TabsList>
 
         {/* ── Business tab ── */}
@@ -522,6 +525,11 @@ export function SettingsClient({ business: initial, members, ownerEmail, userRol
             ownerEmail={ownerEmail}
             userRole={userRole}
           />
+        </TabsContent>
+
+        {/* ── API tab ── */}
+        <TabsContent value="api" className="mt-6">
+          <ApiKeysSettings apiKeys={apiKeys} />
         </TabsContent>
       </Tabs>
     </div>

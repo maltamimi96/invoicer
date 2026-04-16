@@ -405,6 +405,39 @@ export interface CustomerNote {
   created_at: string;
 }
 
+// ----------------------------------------------------------------
+// API KEYS
+// ----------------------------------------------------------------
+
+export type ApiScope =
+  | 'leads:read'
+  | 'leads:write'
+  | 'customers:read'
+  | 'customers:write'
+  | 'agent:access';
+
+export const ALL_API_SCOPES: { value: ApiScope; label: string; group: string }[] = [
+  { value: 'leads:read',      label: 'Read leads',      group: 'Leads' },
+  { value: 'leads:write',     label: 'Create leads',    group: 'Leads' },
+  { value: 'customers:read',  label: 'Read customers',  group: 'Customers' },
+  { value: 'customers:write', label: 'Create customers', group: 'Customers' },
+  { value: 'agent:access',    label: 'AI Agent access',  group: 'Agent' },
+];
+
+export interface BusinessApiKey {
+  id: string;
+  business_id: string;
+  user_id: string;
+  label: string;
+  key_prefix: string;
+  key_hash: string;
+  scopes: ApiScope[];
+  created_at: string;
+  last_used_at: string | null;
+  expires_at: string | null;
+  revoked_at: string | null;
+}
+
 export type MemberRole = 'admin' | 'editor' | 'viewer';
 export type MemberStatus = 'pending' | 'active';
 
@@ -462,6 +495,11 @@ export interface Database {
         Row: Lead;
         Insert: Omit<Lead, "id" | "created_at" | "updated_at">;
         Update: Partial<Omit<Lead, "id" | "created_at" | "updated_at">>;
+      };
+      business_api_keys: {
+        Row: BusinessApiKey;
+        Insert: Omit<BusinessApiKey, "id" | "created_at">;
+        Update: Partial<Omit<BusinessApiKey, "id" | "created_at">>;
       };
     };
   };

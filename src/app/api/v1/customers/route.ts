@@ -1,9 +1,9 @@
 /**
- * POST /api/v1/leads  — Create a lead from an external source (landing page, etc.)
- * GET  /api/v1/leads  — List leads (with optional ?status= filter)
+ * POST /api/v1/customers  — Create a customer from an external source
+ * GET  /api/v1/customers  — List customers
  *
  * Auth: Per-business API key (Authorization: Bearer inv_xxx)
- * Scopes: leads:write (POST), leads:read (GET)
+ * Scopes: customers:write (POST), customers:read (GET)
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -17,70 +17,71 @@ function err(msg: string, status: number) {
 export async function POST(req: NextRequest) {
   const ctx = await authenticateApiKey(req);
   if (!ctx) return err("Unauthorized", 401);
-  if (!requireScope(ctx.scopes, "leads:write")) return err("Forbidden: missing leads:write scope", 403);
+  if (!requireScope(ctx.scopes, "customers:write")) return err("Forbidden: missing customers:write scope", 403);
 
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return err("Invalid JSON", 400); }
 
-  const { name, phone, email, suburb, service, property_type, timing,
-    notes, source, utm_source, utm_medium, utm_campaign } = body as Record<string, string>;
+  const { name, email, phone, company, address, city, postcode, country, tax_number, notes } =
+    body as Record<string, string>;
 
   if (!name) return err("name is required", 400);
 
   const sb = createAdminClient();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (sb as any)
-    .from("leads")
+    .from("customers")
     .insert({
       name,
-      phone: phone || null,
       email: email || null,
-      suburb: suburb || null,
-      service: service || null,
-      property_type: property_type || null,
-      timing: timing || null,
+      phone: phone || null,
+      company: company || null,
+      address: address || null,
+      city: city || null,
+      postcode: postcode || null,
+      country: country || null,
+      tax_number: tax_number || null,
       notes: notes || null,
-      status: "new",
-      source: source || "landing-page",
-      utm_source: utm_source || null,
-      utm_medium: utm_medium || null,
-      utm_campaign: utm_campaign || null,
+      archived: false,
       business_id: ctx.businessId,
       user_id: ctx.userId,
     })
-    .select("id, name, status")
+    .select("id, name, email, company")
     .single();
 
   if (error) {
-    console.error("Lead create error:", error);
-    return err("Failed to create lead", 500);
+    console.error("Customer create error:", error);
+    return err("Failed to create customer", 500);
   }
 
-  return NextResponse.json({ ok: true, lead: data }, { status: 201 });
+  return NextResponse.json({ ok: true, customer: data }, { status: 201 });
 }
 
 export async function GET(req: NextRequest) {
   const ctx = await authenticateApiKey(req);
   if (!ctx) return err("Unauthorized", 401);
-  if (!requireScope(ctx.scopes, "leads:read")) return err("Forbidden: missing leads:read scope", 403);
+  if (!requireScope(ctx.scopes, "customers:read")) return err("Forbidden: missing customers:read scope", 403);
 
   const { searchParams } = new URL(req.url);
-  const status = searchParams.get("status");
+  const search = searchParams.get("search");
   const limit = parseInt(searchParams.get("limit") || "50");
 
   const sb = createAdminClient();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query = (sb as any)
-    .from("leads")
-    .select("*")
+    .from("customers")
+    .select("id, name, email, phone, company, address, city, postcode, country")
     .eq("business_id", ctx.businessId)
-    .order("created_at", { ascending: false })
+    .eq("archived", false)
+    .order("name")
     .limit(limit);
 
-  if (status) query = query.eq("status", status);
+  if (search) {
+    query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,company.ilike.%${search}%`);
+  }
 
   const { data, error } = await query;
-  if (error) return err("Failed to fetch leads", 500);
+  if (error) return err("Failed to fetch customers", 500);
 
-  return NextResponse.json({ leads: data, count: data?.length ?? 0 });
+  return NextResponse.json({ customers: data, count: data?.length ?? 0 });
 }

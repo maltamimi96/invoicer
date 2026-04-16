@@ -1,11 +1,12 @@
 /**
  * POST /api/v1/agent
  *
- * Internal API endpoint — allows external applications (Telegram bot, etc.)
+ * API endpoint — allows external applications (Telegram bot, etc.)
  * to interact with the Invoicer using natural language.
  *
  * Security:
- *   - API key required: X-API-Key header must match INTERNAL_API_KEY env var
+ *   - Per-business API key required (Authorization: Bearer inv_xxx)
+ *   - Scope required: agent:access
  *   - Rate limiting: 30 requests per 5 minutes per IP
  *   - Request validation: message required, max 2000 chars
  *   - Service role Supabase client (no user session needed)
@@ -15,6 +16,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { authenticateApiKey, requireScope } from "@/lib/api-auth";
 import { v4 as uuidv4 } from "uuid";
 import type { LineItem } from "@/types/database";
 
@@ -40,27 +42,6 @@ function checkRateLimit(ip: string): { allowed: boolean; remaining: number } {
   entry.count++;
   return { allowed: true, remaining: RATE_LIMIT - entry.count };
 }
-
-// ── Auth ─────────────────────────────────────────────────────────────────────
-
-function checkApiKey(req: NextRequest): boolean {
-  const key = req.headers.get("x-api-key");
-  const expected = process.env.INTERNAL_API_KEY;
-  if (!expected || !key) return false;
-  // Constant-time comparison to prevent timing attacks
-  if (key.length !== expected.length) return false;
-  let mismatch = 0;
-  for (let i = 0; i < key.length; i++) {
-    mismatch |= key.charCodeAt(i) ^ expected.charCodeAt(i);
-  }
-  return mismatch === 0;
-}
-
-// ── Tenant scope ─────────────────────────────────────────────────────────────
-// The agent is scoped to Crown Roofers only. Using env vars with fallback to
-// the known IDs. This is not a secret — security comes from INTERNAL_API_KEY.
-const AGENT_BUSINESS_ID = process.env.AGENT_BUSINESS_ID ?? "ff3a47f3-54b0-45e3-b7a9-69ddc9fa787e";
-const AGENT_USER_ID     = process.env.AGENT_USER_ID     ?? "85e6a4dd-10b4-4ed9-a31c-b258ed784f2e";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -873,10 +854,10 @@ async function executeTool(name: string, input: Record<string, any>, ctx: BizCon
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
-  // 1. API key check
-  if (!checkApiKey(req)) {
-    return err("Unauthorized", 401);
-  }
+  // 1. Per-business API key check
+  const apiCtx = await authenticateApiKey(req);
+  if (!apiCtx) return err("Unauthorized", 401);
+  if (!requireScope(apiCtx.scopes, "agent:access")) return err("Forbidden: missing agent:access scope", 403);
 
   // 2. Rate limiting
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
@@ -906,13 +887,13 @@ export async function POST(req: NextRequest) {
 
   const caller = typeof body.caller === "string" ? body.caller : "external";
 
-  // 4. Load business context — scoped to Crown Roofers only
+  // 4. Load business context from API key
   const sb = createAdminClient();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: business, error: bizError } = await (sb as any)
     .from("businesses")
     .select("id, name, user_id")
-    .eq("id", AGENT_BUSINESS_ID)
+    .eq("id", apiCtx.businessId)
     .single();
 
   if (bizError || !business) {
@@ -921,8 +902,8 @@ export async function POST(req: NextRequest) {
   }
 
   const ctx: BizContext = {
-    businessId: AGENT_BUSINESS_ID,
-    userId: AGENT_USER_ID,
+    businessId: apiCtx.businessId,
+    userId: apiCtx.userId,
     businessName: business.name,
   };
 
@@ -930,7 +911,7 @@ export async function POST(req: NextRequest) {
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
   const today = new Date().toISOString().split("T")[0];
 
-  const systemPrompt = `You are the AI assistant for ${ctx.businessName}, a roofing business in Sydney.
+  const systemPrompt = `You are the AI assistant for ${ctx.businessName}.
 You are being called by: ${caller}.
 Today's date: ${today}
 
