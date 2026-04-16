@@ -1,0 +1,31 @@
+name: Email Leads Scanner
+
+on:
+  schedule:
+    # Daytime (7am–9pm AEST = 21:00–11:00 UTC) — every 15 minutes
+    - cron: '*/15 21-23,0-11 * * *'
+    # Overnight (9pm–7am AEST = 11:00–21:00 UTC) — every ~5 hours
+    - cron: '0 11,16,21 * * *'
+  workflow_dispatch: {}  # manual trigger from GitHub UI
+
+jobs:
+  scan-emails:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Trigger email leads scan
+        run: |
+          response=$(curl -sf -w "\n%{http_code}" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.INVOICER_URL }}/api/cron/email-leads")
+
+          http_code=$(echo "$response" | tail -1)
+          body=$(echo "$response" | head -n -1)
+
+          echo "Status: $http_code"
+          echo "Response: $body"
+
+          if [ "$http_code" != "200" ]; then
+            echo "::warning::Email scan returned $http_code"
+            exit 1
+          fi
