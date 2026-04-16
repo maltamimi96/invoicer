@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
+import { dispatchWebhook } from "@/lib/webhooks";
 import type { Lead, LeadStatus } from "@/types/database";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -76,6 +77,7 @@ export async function createLead(payload: {
 
   if (error) throw error;
   revalidatePath("/leads");
+  dispatchWebhook(businessId, "lead.created", data);
   return data as Lead;
 }
 
@@ -93,6 +95,7 @@ export async function updateLeadStatus(id: string, status: LeadStatus): Promise<
 
   if (error) throw error;
   revalidatePath("/leads");
+  dispatchWebhook(businessId, "lead.updated", { id, status });
 }
 
 export async function updateLead(id: string, updates: Partial<Lead>): Promise<void> {

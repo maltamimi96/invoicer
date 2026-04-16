@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
+import { dispatchWebhook } from "@/lib/webhooks";
 import { sendEmail } from "@/lib/email";
 import { workOrderSubmittedEmailHtml } from "@/lib/emails/work-order-submitted";
 import type { WorkOrder, WorkOrderPhoto, WorkOrderStatus, WorkOrderWithCustomer } from "@/types/database";
@@ -112,6 +113,7 @@ export async function createWorkOrder(payload: {
 
   revalidatePath("/work-orders");
   revalidatePath("/schedule");
+  dispatchWebhook(businessId, "work_order.created", data);
   return data as WorkOrder;
 }
 
@@ -170,6 +172,9 @@ export async function updateWorkOrderStatus(id: string, status: WorkOrderStatus)
   if (error) throw error;
   revalidatePath(`/work-orders/${id}`);
   revalidatePath("/work-orders");
+  if (status === "completed") {
+    dispatchWebhook(businessId, "work_order.completed", { id, status });
+  }
 }
 
 export async function updateWorkOrderPhotos(id: string, photos: WorkOrderPhoto[]): Promise<void> {

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
+import { dispatchWebhook } from "@/lib/webhooks";
 import { sendEmail } from "@/lib/email";
 import { quoteEmailHtml } from "@/lib/emails/quote";
 import type { Customer, Quote, QuoteWithCustomer, Invoice, LineItem } from "@/types/database";
@@ -70,6 +71,7 @@ export async function createQuote(payload: Omit<Quote, "id" | "created_at" | "up
   if (error) throw error;
   revalidatePath("/quotes");
   revalidatePath("/dashboard");
+  dispatchWebhook(businessId, "quote.created", data);
   return data as Quote;
 }
 
@@ -194,9 +196,11 @@ export async function sendQuoteEmail(id: string): Promise<void> {
 
   // Mark as sent if still draft
   if (quoteData.status === "draft") {
+    const businessId = await getActiveBizId(supabase, user.id);
     await tbl(supabase, "quotes")
       .update({ status: "sent" })
       .eq("id", id);
     revalidatePath(`/quotes/${id}`);
+    dispatchWebhook(businessId, "quote.sent", { id, number: quoteData.number, customer_email: customer.email });
   }
 }

@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { authenticateApiKey, requireScope } from "@/lib/api-auth";
+import { dispatchWebhook } from "@/lib/webhooks";
 
 function err(msg: string, status: number) {
   return NextResponse.json({ error: msg }, { status });
@@ -54,6 +55,7 @@ export async function POST(req: NextRequest) {
     return err("Failed to create customer", 500);
   }
 
+  dispatchWebhook(ctx.businessId, "customer.created", data);
   return NextResponse.json({ ok: true, customer: data }, { status: 201 });
 }
 

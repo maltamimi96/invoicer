@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
+import { dispatchWebhook } from "@/lib/webhooks";
 import { sendEmail } from "@/lib/email";
 import { invoiceEmailHtml } from "@/lib/emails/invoice";
 import type { Customer, Invoice, InvoiceWithCustomer, LineItem, Payment } from "@/types/database";
@@ -70,6 +71,7 @@ export async function createInvoice(payload: Omit<Invoice, "id" | "created_at" |
   if (error) throw error;
   revalidatePath("/invoices");
   revalidatePath("/dashboard");
+  dispatchWebhook(businessId, "invoice.created", data);
   return data as Invoice;
 }
 
@@ -134,6 +136,10 @@ export async function addPayment(invoiceId: string, payment: { amount: number; d
   revalidatePath(`/invoices/${invoiceId}`);
   revalidatePath("/invoices");
   revalidatePath("/dashboard");
+  dispatchWebhook(businessId, "payment.received", { invoice_id: invoiceId, amount: payment.amount, new_status: newStatus });
+  if (newStatus === "paid") {
+    dispatchWebhook(businessId, "invoice.paid", { id: invoiceId, total: invoice.total });
+  }
 }
 
 export async function getPayments(invoiceId: string): Promise<Payment[]> {
@@ -234,9 +240,11 @@ export async function sendInvoiceEmail(id: string): Promise<void> {
 
   // Mark as sent if still draft
   if (invoiceData.status === "draft") {
+    const businessId = await getActiveBizId(supabase, user.id);
     await tbl(supabase, "invoices")
       .update({ status: "sent" })
       .eq("id", id);
     revalidatePath(`/invoices/${id}`);
+    dispatchWebhook(businessId, "invoice.sent", { id, number: invoiceData.number, customer_email: customer.email });
   }
 }

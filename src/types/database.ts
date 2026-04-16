@@ -434,6 +434,69 @@ export interface BusinessEmailConfig {
 }
 
 // ----------------------------------------------------------------
+// WEBHOOKS
+// ----------------------------------------------------------------
+
+export type WebhookEvent =
+  | 'lead.created'
+  | 'lead.updated'
+  | 'customer.created'
+  | 'customer.updated'
+  | 'invoice.created'
+  | 'invoice.sent'
+  | 'invoice.paid'
+  | 'invoice.overdue'
+  | 'quote.created'
+  | 'quote.sent'
+  | 'quote.accepted'
+  | 'quote.rejected'
+  | 'payment.received'
+  | 'work_order.created'
+  | 'work_order.completed';
+
+export const ALL_WEBHOOK_EVENTS: { value: WebhookEvent; label: string; group: string }[] = [
+  { value: 'lead.created',          label: 'Lead created',          group: 'Leads' },
+  { value: 'lead.updated',          label: 'Lead updated',          group: 'Leads' },
+  { value: 'customer.created',      label: 'Customer created',      group: 'Customers' },
+  { value: 'customer.updated',      label: 'Customer updated',      group: 'Customers' },
+  { value: 'invoice.created',       label: 'Invoice created',       group: 'Invoices' },
+  { value: 'invoice.sent',          label: 'Invoice sent',          group: 'Invoices' },
+  { value: 'invoice.paid',          label: 'Invoice paid',          group: 'Invoices' },
+  { value: 'invoice.overdue',       label: 'Invoice overdue',       group: 'Invoices' },
+  { value: 'quote.created',         label: 'Quote created',         group: 'Quotes' },
+  { value: 'quote.sent',            label: 'Quote sent',            group: 'Quotes' },
+  { value: 'quote.accepted',        label: 'Quote accepted',        group: 'Quotes' },
+  { value: 'quote.rejected',        label: 'Quote rejected',        group: 'Quotes' },
+  { value: 'payment.received',      label: 'Payment received',      group: 'Payments' },
+  { value: 'work_order.created',    label: 'Work order created',    group: 'Work Orders' },
+  { value: 'work_order.completed',  label: 'Work order completed',  group: 'Work Orders' },
+];
+
+export interface BusinessWebhook {
+  id: string;
+  business_id: string;
+  url: string;
+  label: string;
+  events: WebhookEvent[];
+  secret: string | null;
+  enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WebhookDelivery {
+  id: string;
+  webhook_id: string;
+  event: string;
+  status_code: number | null;
+  success: boolean;
+  payload: unknown;
+  response_body: string | null;
+  error: string | null;
+  created_at: string;
+}
+
+// ----------------------------------------------------------------
 // API KEYS
 // ----------------------------------------------------------------
 
@@ -533,6 +596,16 @@ export interface Database {
         Row: BusinessEmailConfig;
         Insert: Omit<BusinessEmailConfig, "id" | "created_at" | "updated_at">;
         Update: Partial<Omit<BusinessEmailConfig, "id" | "created_at" | "updated_at">>;
+      };
+      business_webhooks: {
+        Row: BusinessWebhook;
+        Insert: Omit<BusinessWebhook, "id" | "created_at" | "updated_at">;
+        Update: Partial<Omit<BusinessWebhook, "id" | "created_at" | "updated_at">>;
+      };
+      webhook_deliveries: {
+        Row: WebhookDelivery;
+        Insert: Omit<WebhookDelivery, "id" | "created_at">;
+        Update: Partial<Omit<WebhookDelivery, "id" | "created_at">>;
       };
     };
   };

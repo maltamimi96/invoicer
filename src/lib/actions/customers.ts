@@ -3,6 +3,7 @@
 import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
+import { dispatchWebhook } from "@/lib/webhooks";
 import type { Customer } from "@/types/database";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -58,6 +59,7 @@ export async function createCustomer(payload: Omit<Customer, "id" | "created_at"
   if (error) throw error;
   revalidateTag(`customers-${businessId}`, {});
   revalidatePath("/customers");
+  dispatchWebhook(businessId, "customer.created", data);
   return data as Customer;
 }
 
@@ -78,6 +80,7 @@ export async function updateCustomer(id: string, payload: Partial<Customer>): Pr
   revalidateTag(`customers-${businessId}`, {});
   revalidatePath("/customers");
   revalidatePath(`/customers/${id}`);
+  dispatchWebhook(businessId, "customer.updated", data);
   return data as Customer;
 }
 
