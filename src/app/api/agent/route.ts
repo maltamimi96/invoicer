@@ -11,7 +11,7 @@ import { createReport } from "@/lib/actions/reports";
 import { createSite } from "@/lib/actions/sites";
 import { createContact } from "@/lib/actions/contacts";
 import { createBillingProfile, updateBillingProfile, archiveBillingProfile, setSiteBilling } from "@/lib/actions/billing-profiles";
-import { enableWorkOrderShareLink, disableWorkOrderShareLink } from "@/lib/actions/work-orders";
+import { enableWorkOrderShareLink, disableWorkOrderShareLink, invoiceUnbilledForWorkOrder } from "@/lib/actions/work-orders";
 import { updateWorkOrder } from "@/lib/actions/work-orders";
 import { addJobMaterial, getJobMaterials, deleteJobMaterial } from "@/lib/actions/job-materials";
 import { startTimeEntry, stopTimeEntry, logTimeEntry, getJobTimeEntries } from "@/lib/actions/job-time";
@@ -514,6 +514,20 @@ const TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "invoice_unbilled_work",
+    description: "Create a draft invoice from all unbilled time entries and billable materials on a work order. Time is rolled into a single Labor line item at the given hourly_rate. Travel time is excluded unless include_travel=true. Returns the new invoice id, number, and subtotal.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        work_order_id: { type: "string" },
+        hourly_rate: { type: "number", description: "Labor rate per hour. Defaults to 0 if omitted." },
+        include_travel: { type: "boolean", description: "Include travel-type time entries. Defaults to false." },
+        due_in_days: { type: "number", description: "Invoice due date offset in days. Defaults to 14." },
+      },
+      required: ["work_order_id"],
+    },
+  },
+  {
     name: "link_invoice_to_work_order",
     description: "Link an existing invoice to a work order. Pass work_order_id=null to unlink.",
     input_schema: {
@@ -793,6 +807,7 @@ const TOOL_LABELS: Record<string, string> = {
   enable_work_order_share_link: "Generating share link",
   disable_work_order_share_link: "Revoking share link",
   link_invoice_to_work_order: "Linking invoice",
+  invoice_unbilled_work: "Invoicing unbilled work",
   create_quote: "Creating quote",
   list_quotes: "Fetching quotes",
   send_quote_email: "Sending quote email",
@@ -1212,6 +1227,15 @@ async function executeTool(
     case "disable_work_order_share_link": {
       await disableWorkOrderShareLink(input.work_order_id);
       return { message: "Share link revoked" };
+    }
+
+    case "invoice_unbilled_work": {
+      const res = await invoiceUnbilledForWorkOrder(input.work_order_id, {
+        hourly_rate: input.hourly_rate,
+        include_travel: input.include_travel,
+        due_in_days: input.due_in_days,
+      });
+      return { ...res, message: `Draft invoice ${res.invoice_number} created — $${res.subtotal.toFixed(2)}` };
     }
 
     case "update_work_order_status": {

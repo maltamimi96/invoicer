@@ -584,6 +584,8 @@ export interface JobTimeEntry {
   ended_at: string | null;
   duration_seconds: number | null;
   notes: string | null;
+  invoice_id: string | null;
+  invoiced_at: string | null;
   created_at: string;
 }
 
@@ -600,6 +602,8 @@ export interface JobMaterial {
   added_by: string | null;
   added_at: string;
   billable: boolean;
+  invoice_id: string | null;
+  invoiced_at: string | null;
 }
 
 export interface JobSignature {

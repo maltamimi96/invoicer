@@ -39,7 +39,7 @@ import { startTimeEntry, stopTimeEntry, deleteTimeEntry } from "@/lib/actions/jo
 import { addJobMaterial, deleteJobMaterial } from "@/lib/actions/job-materials";
 import { addJobDocument, deleteJobDocument } from "@/lib/actions/job-documents";
 import { addJobSignature, deleteJobSignature } from "@/lib/actions/job-signatures";
-import { enableWorkOrderShareLink, disableWorkOrderShareLink } from "@/lib/actions/work-orders";
+import { enableWorkOrderShareLink, disableWorkOrderShareLink, invoiceUnbilledForWorkOrder } from "@/lib/actions/work-orders";
 import { addJobNote } from "@/lib/actions/job-timeline";
 import { createClient } from "@/lib/supabase/client";
 import type {
@@ -257,7 +257,7 @@ export function JobPortfolioClient(props: JobPortfolioProps) {
             onAdd={(s) => setSignatures((prev) => [...prev, s])}
             onDelete={(id) => setSignatures((prev) => prev.filter((s) => s.id !== id))}
           />
-          <FinancialsSection workOrder={workOrder} financials={financials} />
+          <FinancialsSection workOrder={workOrder} financials={financials} timeEntries={timeEntries} materials={materials} editable={editable} />
         </div>
       </div>
     </div>
@@ -1214,13 +1214,82 @@ function SignatureCapture({
 
 // ── Financials ───────────────────────────────────────────────────────────────
 
-function FinancialsSection({ workOrder, financials }: { workOrder: WorkOrderWithCustomer; financials: { quotes: RelatedQuote[]; invoices: RelatedInvoice[] } }) {
+function FinancialsSection({ workOrder, financials, timeEntries, materials, editable }: {
+  workOrder: WorkOrderWithCustomer;
+  financials: { quotes: RelatedQuote[]; invoices: RelatedInvoice[] };
+  timeEntries: JobTimeEntry[];
+  materials: JobMaterial[];
+  editable: boolean;
+}) {
+  const router = useRouter();
   const newQuoteHref = workOrder.customer_id ? `/quotes/new?customer=${workOrder.customer_id}&work_order=${workOrder.id}` : `/quotes/new?work_order=${workOrder.id}`;
   const newInvoiceHref = workOrder.customer_id ? `/invoices/new?customer=${workOrder.customer_id}&work_order=${workOrder.id}` : `/invoices/new?work_order=${workOrder.id}`;
+
+  const unbilledTime = timeEntries.filter((e) => !e.invoice_id);
+  const unbilledMaterials = materials.filter((m) => !m.invoice_id && m.billable);
+  const unbilledHours = unbilledTime.reduce((s, e) => s + ((e.duration_seconds ?? 0) / 3600), 0);
+  const hasUnbilled = unbilledTime.length > 0 || unbilledMaterials.length > 0;
+
+  const [showForm, setShowForm] = useState(false);
+  const [hourlyRate, setHourlyRate] = useState("");
+  const [includeTravel, setIncludeTravel] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  async function onInvoice() {
+    setBusy(true);
+    try {
+      const rate = parseFloat(hourlyRate) || 0;
+      const res = await invoiceUnbilledForWorkOrder(workOrder.id, { hourly_rate: rate, include_travel: includeTravel });
+      toast.success(`Invoice ${res.invoice_number} created — $${res.subtotal.toFixed(2)}`);
+      setShowForm(false);
+      router.push(`/invoices/${res.invoice_id}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to create invoice");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <Section id="financials" title="Financials" icon={Receipt}>
       <div className="space-y-4">
+        {editable && hasUnbilled && (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm">
+                <div className="font-medium">Unbilled work ready to invoice</div>
+                <div className="text-xs text-muted-foreground">
+                  {unbilledHours > 0 && `${unbilledHours.toFixed(2)} hr`}
+                  {unbilledHours > 0 && unbilledMaterials.length > 0 && " · "}
+                  {unbilledMaterials.length > 0 && `${unbilledMaterials.length} material${unbilledMaterials.length === 1 ? "" : "s"}`}
+                </div>
+              </div>
+              {!showForm && (
+                <Button size="sm" onClick={() => setShowForm(true)}>
+                  <Receipt className="w-3.5 h-3.5 mr-1" /> Invoice unbilled
+                </Button>
+              )}
+            </div>
+            {showForm && (
+              <div className="mt-3 space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs">Hourly rate</Label>
+                    <Input type="number" step="0.01" min="0" value={hourlyRate} onChange={(e) => setHourlyRate(e.target.value)} placeholder="0.00" />
+                  </div>
+                  <label className="flex items-end gap-2 text-sm pb-2">
+                    <input type="checkbox" checked={includeTravel} onChange={(e) => setIncludeTravel(e.target.checked)} />
+                    Bill travel time
+                  </label>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={onInvoice} disabled={busy}>{busy ? "Creating…" : "Create draft invoice"}</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setShowForm(false)} disabled={busy}>Cancel</Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         <div>
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-semibold">Quotes</h3>
