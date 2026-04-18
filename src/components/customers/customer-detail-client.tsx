@@ -542,6 +542,9 @@ export function CustomerDetailClient({
                           {prop.notes && <p className="text-xs text-muted-foreground mt-1 italic">{prop.notes}</p>}
                         </div>
                         <div className="flex gap-1 shrink-0">
+                          <Link href={`/sites/${prop.id}`}>
+                            <Button size="sm" variant="outline" className="h-7 px-2 text-xs">Open</Button>
+                          </Link>
                           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setPropertyModal({ open: true, item: prop })}>
                             <Edit className="w-3.5 h-3.5" />
                           </Button>

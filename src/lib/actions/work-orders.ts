@@ -59,6 +59,13 @@ export async function createWorkOrder(payload: {
   start_time?: string | null;
   end_time?: string | null;
   member_profile_ids?: string[];
+  // Property-mgmt model
+  site_id?: string | null;
+  booker_contact_id?: string | null;
+  onsite_contact_id?: string | null;
+  billing_profile_id?: string | null;
+  cc_contact_ids?: string[];
+  reported_issue?: string | null;
 }): Promise<WorkOrder> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -93,6 +100,12 @@ export async function createWorkOrder(payload: {
     scheduled_date: payload.scheduled_date ?? null,
     start_time: payload.start_time ?? null,
     end_time: payload.end_time ?? null,
+    site_id: payload.site_id ?? null,
+    booker_contact_id: payload.booker_contact_id ?? null,
+    onsite_contact_id: payload.onsite_contact_id ?? null,
+    billing_profile_id: payload.billing_profile_id ?? null,
+    cc_contact_ids: payload.cc_contact_ids ?? [],
+    reported_issue: payload.reported_issue ?? null,
     status,
     photos: [],
   }).select().single();
@@ -114,6 +127,22 @@ export async function createWorkOrder(payload: {
   revalidatePath("/work-orders");
   revalidatePath("/schedule");
   dispatchWebhook(businessId, "work_order.created", data);
+
+  // Timeline event
+  try {
+    await tbl(supabase, "job_timeline_events").insert({
+      business_id: businessId,
+      work_order_id: data.id,
+      type: "created",
+      actor_type: "user",
+      actor_id: user.id,
+      actor_label: user.email ?? null,
+      payload: { status: data.status, title: data.title, number: data.number },
+    });
+  } catch (e) {
+    console.error("[work_orders.create] timeline event failed", e);
+  }
+
   return data as WorkOrder;
 }
 

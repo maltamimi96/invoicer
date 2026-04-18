@@ -4,11 +4,12 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Bot, Send, Loader2, CheckCircle2, AlertCircle, ChevronRight,
-  Minimize2, Trash2, Sparkles,
+  Minimize2, Trash2, Sparkles, Mic,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { motion, AnimatePresence } from "framer-motion";
+import { useVoiceCapture } from "./use-voice-capture";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -142,10 +143,10 @@ function MessageBubble({
 // ── Empty state ───────────────────────────────────────────────────────────────
 
 const SUGGESTIONS = [
-  "Create a new customer and make a quote",
-  "Make a work order for a roof inspection",
-  "Show me recent quotes",
-  "Create an invoice for an existing client",
+  "Send Mike to the Smith St job tomorrow at 2pm",
+  "Create a work order for a roof inspection at 102 Main St",
+  "Add a new customer John Doe and create a $1500 invoice",
+  "Show me work orders scheduled this week",
 ];
 
 function EmptyState({ onSuggestion }: { onSuggestion: (text: string) => void }) {
@@ -157,7 +158,7 @@ function EmptyState({ onSuggestion }: { onSuggestion: (text: string) => void }) 
       <div>
         <p className="font-semibold text-sm">What can I help with?</p>
         <p className="text-xs text-muted-foreground mt-1">
-          I can create customers, work orders, quotes and invoices, and email them — just ask.
+          Type or hold the mic to talk. I can run accounts, sites, contacts, work orders, quotes, invoices and team scheduling.
         </p>
       </div>
       <div className="w-full space-y-1.5">
@@ -362,6 +363,11 @@ export function AgentPanel() {
     return crypto.randomUUID();
   }
 
+  // Voice capture — transcribed text is auto-sent
+  const voice = useVoiceCapture(useCallback((text: string) => {
+    sendMessage(text);
+  }, [sendMessage]));
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -439,17 +445,47 @@ export function AgentPanel() {
 
             {/* Input */}
             <div className="flex-shrink-0 border-t px-3 py-3 bg-background">
+              {voice.recording && (
+                <div className="mb-2 flex items-center justify-center gap-2 text-xs text-red-600 dark:text-red-400">
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-red-600" />
+                  </span>
+                  Listening… release to send
+                </div>
+              )}
+              {voice.transcribing && !voice.recording && (
+                <div className="mb-2 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="w-3 h-3 animate-spin" /> Transcribing…
+                </div>
+              )}
+              {voice.error && (
+                <div className="mb-2 text-xs text-destructive text-center">{voice.error}</div>
+              )}
               <div className="flex items-end gap-2">
                 <Textarea
                   ref={textareaRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Ask me to create a customer, quote, invoice…"
+                  placeholder="Type or hold the mic to talk…"
                   className="resize-none text-sm min-h-[40px] max-h-[120px] flex-1 py-2.5"
                   rows={1}
-                  disabled={loading}
+                  disabled={loading || voice.recording}
                 />
+                <Button
+                  size="icon"
+                  variant={voice.recording ? "destructive" : "outline"}
+                  className="h-10 w-10 flex-shrink-0 select-none touch-none"
+                  disabled={loading || voice.transcribing}
+                  onPointerDown={(e) => { e.preventDefault(); voice.start(); }}
+                  onPointerUp={() => voice.stop()}
+                  onPointerLeave={() => { if (voice.recording) voice.stop(); }}
+                  onPointerCancel={() => voice.cancel()}
+                  title="Hold to talk"
+                >
+                  <Mic className={`w-4 h-4 ${voice.recording ? "animate-pulse" : ""}`} />
+                </Button>
                 <Button
                   size="icon"
                   className="h-10 w-10 flex-shrink-0 bg-gradient-to-br from-purple-600 to-violet-700 hover:from-purple-500 hover:to-violet-600"
@@ -464,7 +500,7 @@ export function AgentPanel() {
                 </Button>
               </div>
               <p className="text-[10px] text-muted-foreground mt-1.5 text-center">
-                Enter to send · Shift+Enter for new line
+                Enter to send · Shift+Enter for new line · Hold mic to talk
               </p>
             </div>
           </motion.div>

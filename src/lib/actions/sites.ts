@@ -39,6 +39,36 @@ export async function getSite(id: string): Promise<Site | null> {
   return data as Site | null;
 }
 
+/**
+ * Site contacts as full Contact rows (joined). Used by the site detail page.
+ */
+export async function getSiteContactsFull(siteId: string) {
+  const { supabase } = await ctx();
+  const { data, error } = await tbl(supabase, "site_contacts")
+    .select("role, is_primary, contacts(*)")
+    .eq("site_id", siteId);
+  if (error) throw error;
+  return (data ?? []) as Array<{ role: string; is_primary: boolean; contacts: import("@/types/database").Contact }>;
+}
+
+/**
+ * Recent work orders at a site, with selected fields.
+ */
+export async function getSiteJobs(siteId: string, limit = 50) {
+  const { supabase, businessId } = await ctx();
+  const { data, error } = await tbl(supabase, "work_orders")
+    .select("id, number, title, status, scheduled_date, completed_at, created_at")
+    .eq("site_id", siteId)
+    .eq("business_id", businessId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return data as Array<{
+    id: string; number: string; title: string; status: string;
+    scheduled_date: string | null; completed_at: string | null; created_at: string;
+  }>;
+}
+
 export type SitePayload = {
   label?: string | null;
   address?: string | null;

@@ -8,6 +8,11 @@ import { createQuote, updateQuote, sendQuoteEmail, convertQuoteToInvoice } from 
 import { createInvoice, updateInvoice, sendInvoiceEmail, addPayment } from "@/lib/actions/invoices";
 import { getProducts, createProduct } from "@/lib/actions/products";
 import { createReport } from "@/lib/actions/reports";
+import { createSite } from "@/lib/actions/sites";
+import { createContact } from "@/lib/actions/contacts";
+import { createBillingProfile, setSiteBilling } from "@/lib/actions/billing-profiles";
+import { updateWorkOrder } from "@/lib/actions/work-orders";
+import { parseWhen } from "@/lib/ai/resolvers";
 import { v4 as uuidv4 } from "uuid";
 import type { LineItem } from "@/types/database";
 
@@ -105,20 +110,186 @@ const TOOLS: Anthropic.Tool[] = [
     },
   },
 
+  // ── Sites / Contacts / Billing Profiles ───────────────────────────────────
+  {
+    name: "search_sites",
+    description: "Search sites (properties) for an account. Use after picking an account to find a specific property.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        query: { type: "string", description: "Address, label, city, or postcode" },
+        account_id: { type: "string", description: "Optional account to limit search to" },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "create_site",
+    description: "Create a new site (property) under an account",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        account_id: { type: "string" },
+        label: { type: "string", description: "Optional friendly label e.g. 'Unit 4A'" },
+        address: { type: "string" },
+        city: { type: "string" },
+        postcode: { type: "string" },
+        country: { type: "string" },
+        access_notes: { type: "string" },
+        gate_code: { type: "string" },
+        parking_notes: { type: "string" },
+      },
+      required: ["account_id"],
+    },
+  },
+  {
+    name: "search_contacts",
+    description: "Search contacts (people) under an account — property managers, tenants, supers, owners",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        query: { type: "string" },
+        account_id: { type: "string" },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "create_contact",
+    description: "Add a new contact (person) under an account",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        account_id: { type: "string" },
+        name: { type: "string" },
+        email: { type: "string" },
+        phone: { type: "string" },
+        role: { type: "string", enum: ["primary", "property_manager", "tenant", "super", "owner", "billing", "other"] },
+        notes: { type: "string" },
+      },
+      required: ["account_id", "name"],
+    },
+  },
+  {
+    name: "search_billing_profiles",
+    description: "List or search billing profiles for an account (who pays the invoices)",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        query: { type: "string", description: "Optional name/email filter; pass empty string to list all" },
+        account_id: { type: "string" },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "create_billing_profile",
+    description: "Create a billing profile under an account",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        account_id: { type: "string" },
+        name: { type: "string" },
+        email: { type: "string" },
+        phone: { type: "string" },
+        address: { type: "string" },
+        city: { type: "string" },
+        postcode: { type: "string" },
+        country: { type: "string" },
+        tax_number: { type: "string" },
+        payment_terms: { type: "string" },
+        is_default: { type: "boolean" },
+      },
+      required: ["account_id", "name"],
+    },
+  },
+  {
+    name: "set_site_billing",
+    description: "Set which billing profile is used for a given site (overrides account default)",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        site_id: { type: "string" },
+        billing_profile_id: { type: "string" },
+      },
+      required: ["site_id", "billing_profile_id"],
+    },
+  },
+
+  // ── Workers ────────────────────────────────────────────────────────────────
+  {
+    name: "search_workers",
+    description: "Search team members (workers) by name or email — call before assigning someone to a work order",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        query: { type: "string", description: "Name or email; empty string lists all" },
+      },
+      required: ["query"],
+    },
+  },
+
+  // ── Date/time parser ───────────────────────────────────────────────────────
+  {
+    name: "parse_when",
+    description: "Parse a natural-language date/time phrase (e.g. 'tomorrow at 2pm', 'next monday 9am', 'in 3 days') into structured date and time fields. Use this when a user gives a fuzzy time and you need YYYY-MM-DD + HH:MM.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        text: { type: "string", description: "Natural language phrase" },
+      },
+      required: ["text"],
+    },
+  },
+
   // ── Work Orders ────────────────────────────────────────────────────────────
   {
     name: "create_work_order",
-    description: "Create a new work order for a job",
+    description: "Create a new work order for a job. Prefer passing site_id (call search_sites first), and assign workers via member_profile_ids (call search_workers). Booker = who reported it; on-site = who lets the tech in. Reported issue = the customer's complaint in their words.",
     input_schema: {
       type: "object" as const,
       properties: {
         title: { type: "string" },
-        description: { type: "string" },
+        description: { type: "string", description: "Instructions for the worker" },
+        reported_issue: { type: "string", description: "What the customer reported, verbatim if possible" },
         customer_id: { type: "string" },
+        site_id: { type: "string" },
+        booker_contact_id: { type: "string" },
+        onsite_contact_id: { type: "string" },
+        billing_profile_id: { type: "string" },
         property_address: { type: "string" },
-        scheduled_date: { type: "string", description: "YYYY-MM-DD" },
+        scheduled_date: { type: "string", description: "YYYY-MM-DD — use parse_when if user gave fuzzy date" },
+        start_time: { type: "string", description: "HH:MM 24h" },
+        end_time: { type: "string", description: "HH:MM 24h" },
+        member_profile_ids: { type: "array", items: { type: "string" }, description: "Worker IDs to assign" },
       },
       required: ["title"],
+    },
+  },
+  {
+    name: "schedule_work_order",
+    description: "Set or change a work order's scheduled date and/or time. Useful when user says things like 'move the Smith job to Friday at 10am'.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        work_order_id: { type: "string" },
+        scheduled_date: { type: "string", description: "YYYY-MM-DD" },
+        start_time: { type: "string", description: "HH:MM 24h" },
+        end_time: { type: "string", description: "HH:MM 24h" },
+      },
+      required: ["work_order_id"],
+    },
+  },
+  {
+    name: "assign_workers_to_work_order",
+    description: "Assign one or more workers to an existing work order (replaces current assignments)",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        work_order_id: { type: "string" },
+        member_profile_ids: { type: "array", items: { type: "string" } },
+      },
+      required: ["work_order_id", "member_profile_ids"],
     },
   },
   {
@@ -349,9 +520,20 @@ const TOOL_LABELS: Record<string, string> = {
   get_customer_details: "Loading customer details",
   search_products: "Searching product catalog",
   create_product: "Adding product to catalog",
+  search_sites: "Searching sites",
+  create_site: "Creating site",
+  search_contacts: "Searching contacts",
+  create_contact: "Adding contact",
+  search_billing_profiles: "Fetching billing profiles",
+  create_billing_profile: "Creating billing profile",
+  set_site_billing: "Setting site bill-to",
+  search_workers: "Searching workers",
+  parse_when: "Parsing date",
   create_work_order: "Creating work order",
   update_work_order_status: "Updating work order status",
   list_work_orders: "Fetching work orders",
+  schedule_work_order: "Scheduling work order",
+  assign_workers_to_work_order: "Assigning workers",
   create_quote: "Creating quote",
   list_quotes: "Fetching quotes",
   send_quote_email: "Sending quote email",
@@ -491,16 +673,146 @@ async function executeTool(
       return { id: p.id, name: p.name, unit_price: p.unit_price, message: `Product "${p.name}" added to catalog` };
     }
 
+    // ── Sites / Contacts / Billing Profiles ──────────────────────────────────
+    case "search_sites": {
+      const sb = await getRawSupabase();
+      let q = sb.from("sites")
+        .select("id, account_id, label, address, city, postcode")
+        .eq("business_id", ctx.businessId)
+        .eq("archived", false)
+        .limit(8);
+      if (input.account_id) q = q.eq("account_id", input.account_id);
+      if (input.query) q = q.or(`label.ilike.%${input.query}%,address.ilike.%${input.query}%,city.ilike.%${input.query}%,postcode.ilike.%${input.query}%`);
+      const { data } = await q;
+      return { sites: data ?? [], count: (data ?? []).length };
+    }
+
+    case "create_site": {
+      const s = await createSite(input.account_id, {
+        label: input.label ?? null,
+        address: input.address ?? null,
+        city: input.city ?? null,
+        postcode: input.postcode ?? null,
+        country: input.country ?? null,
+        access_notes: input.access_notes ?? null,
+        gate_code: input.gate_code ?? null,
+        parking_notes: input.parking_notes ?? null,
+      });
+      return { id: s.id, label: s.label, address: s.address, message: `Site "${s.label ?? s.address ?? "new"}" created` };
+    }
+
+    case "search_contacts": {
+      const sb = await getRawSupabase();
+      let q = sb.from("contacts")
+        .select("id, account_id, name, email, phone, role")
+        .eq("business_id", ctx.businessId)
+        .eq("archived", false)
+        .limit(8);
+      if (input.account_id) q = q.eq("account_id", input.account_id);
+      if (input.query) q = q.or(`name.ilike.%${input.query}%,email.ilike.%${input.query}%,phone.ilike.%${input.query}%`);
+      const { data } = await q;
+      return { contacts: data ?? [], count: (data ?? []).length };
+    }
+
+    case "create_contact": {
+      const c = await createContact(input.account_id, {
+        name: input.name,
+        email: input.email ?? null,
+        phone: input.phone ?? null,
+        role: input.role ?? "other",
+        notes: input.notes ?? null,
+      });
+      return { id: c.id, name: c.name, role: c.role, message: `Contact "${c.name}" added` };
+    }
+
+    case "search_billing_profiles": {
+      const sb = await getRawSupabase();
+      let q = sb.from("billing_profiles")
+        .select("id, account_id, name, email, is_default")
+        .eq("business_id", ctx.businessId)
+        .eq("archived", false)
+        .limit(8);
+      if (input.account_id) q = q.eq("account_id", input.account_id);
+      if (input.query) q = q.or(`name.ilike.%${input.query}%,email.ilike.%${input.query}%`);
+      const { data } = await q;
+      return { billing_profiles: data ?? [], count: (data ?? []).length };
+    }
+
+    case "create_billing_profile": {
+      const bp = await createBillingProfile(input.account_id, {
+        name: input.name,
+        email: input.email ?? null,
+        phone: input.phone ?? null,
+        address: input.address ?? null,
+        city: input.city ?? null,
+        postcode: input.postcode ?? null,
+        country: input.country ?? null,
+        tax_number: input.tax_number ?? null,
+        payment_terms: input.payment_terms ?? null,
+        is_default: input.is_default ?? false,
+      });
+      return { id: bp.id, name: bp.name, message: `Billing profile "${bp.name}" created` };
+    }
+
+    case "set_site_billing": {
+      await setSiteBilling(input.site_id, input.billing_profile_id);
+      return { message: "Site bill-to updated" };
+    }
+
+    // ── Workers ──────────────────────────────────────────────────────────────
+    case "search_workers": {
+      const sb = await getRawSupabase();
+      let q = sb.from("member_profiles")
+        .select("id, name, email, role_title")
+        .eq("business_id", ctx.businessId)
+        .eq("is_active", true)
+        .order("name")
+        .limit(10);
+      if (input.query) q = q.or(`name.ilike.%${input.query}%,email.ilike.%${input.query}%`);
+      const { data } = await q;
+      return { workers: data ?? [], count: (data ?? []).length };
+    }
+
+    // ── Date parsing ─────────────────────────────────────────────────────────
+    case "parse_when": {
+      const parsed = await parseWhen(input.text);
+      return parsed;
+    }
+
     // ── Work Orders ───────────────────────────────────────────────────────────
     case "create_work_order": {
       const wo = await createWorkOrder({
         title: input.title,
         description: input.description ?? undefined,
+        reported_issue: input.reported_issue ?? null,
         customer_id: input.customer_id ?? null,
+        site_id: input.site_id ?? null,
+        booker_contact_id: input.booker_contact_id ?? null,
+        onsite_contact_id: input.onsite_contact_id ?? null,
+        billing_profile_id: input.billing_profile_id ?? null,
         property_address: input.property_address ?? undefined,
         scheduled_date: input.scheduled_date ?? null,
+        start_time: input.start_time ?? null,
+        end_time: input.end_time ?? null,
+        member_profile_ids: input.member_profile_ids ?? [],
       });
       return { id: wo.id, number: wo.number, title: wo.title, message: `Work order ${wo.number} created` };
+    }
+
+    case "schedule_work_order": {
+      await updateWorkOrder(input.work_order_id, {
+        scheduled_date: input.scheduled_date ?? undefined,
+        start_time: input.start_time ?? undefined,
+        end_time: input.end_time ?? undefined,
+      });
+      return { message: "Work order scheduled" };
+    }
+
+    case "assign_workers_to_work_order": {
+      await updateWorkOrder(input.work_order_id, {
+        member_profile_ids: input.member_profile_ids,
+      });
+      return { message: `${input.member_profile_ids.length} worker(s) assigned` };
     }
 
     case "update_work_order_status": {
@@ -675,21 +987,39 @@ async function executeTool(
 function buildSystemPrompt(businessName: string): string {
   return `You are a powerful AI assistant built into ${businessName}'s business management app. You have full access to every feature of the system.
 
-CAPABILITIES — you can use all of these:
-- Customers: search, create, update, view full history
-- Product catalog: search products (with stored prices), add new products
-- Work orders: create, list, update status
+DOMAIN MODEL:
+- Account = a customer (company or person). One account can have many Sites and many Contacts.
+- Site = a physical property (address, gate code, parking notes).
+- Contact = a person under an account (property manager, tenant, super, owner, billing).
+- Billing profile = who pays. Can be set per account or per site.
+- Work order = a job at a site, optionally assigned to one or more workers.
+- Worker = a team member (member_profile) who does the on-site work.
+
+CAPABILITIES — you can do all of these:
+- Accounts/customers: search, create, update, view full history
+- Sites (properties): search, create
+- Contacts (people on an account): search, create
+- Billing profiles: search, create, set per-site override
+- Workers: search team members
+- Product catalog: search (with stored prices), add new products
+- Work orders: create with site/contacts/billing/workers, schedule, reassign, list, update status
 - Quotes: create (using catalog prices), send by email, update status, convert to invoice, list
 - Invoices: create, send by email, record payments, list
 - Inspection reports: create draft reports, list reports
+- Date parsing: turn "tomorrow at 2pm" / "next monday" into structured dates via parse_when
 
 WORKFLOW RULES:
-1. Always search for an existing customer before creating one.
-2. For quotes/invoices: always search the product catalog first. If matching products exist, use their stored prices. If not, ask the user for prices, or make a reasonable estimate and tell the user what you assumed.
-3. After creating any record, state its number (e.g. QT-0004, WO-0012).
-4. After a multi-step task, give a short summary of everything created.
-5. Use navigate_to after creating important records so the user can open them.
-6. Never say you "don't have access" to a feature — you have access to everything listed above.
+1. ALWAYS resolve names → IDs by searching first. e.g. user says "send Mike to the Smith St job tomorrow":
+   → search_workers("Mike") → search_work_orders or search_sites("Smith St") → parse_when("tomorrow") → schedule_work_order + assign_workers_to_work_order.
+2. Always search customers before creating to avoid duplicates.
+3. For quotes/invoices: search the product catalog first; use stored prices when matches exist.
+4. When creating a work order, prefer site_id over a free-text property_address — search_sites under the account first.
+5. If a fuzzy date is given, call parse_when before passing scheduled_date.
+6. If a search returns multiple candidates and the user's intent is ambiguous, ASK which one.
+7. After creating any record, state its number (e.g. QT-0004, WO-0012).
+8. Use navigate_to after creating important records so the user can open them.
+9. Voice prompts are transcribed and may have slight errors — interpret intent generously.
+10. Never say you "don't have access" — you can do everything listed above.
 
 Today's date: ${new Date().toISOString().split("T")[0]}`;
 }
