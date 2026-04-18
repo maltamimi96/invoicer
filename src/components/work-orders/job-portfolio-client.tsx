@@ -20,6 +20,7 @@ import {
   ArrowLeft, Camera, Clock, Package, FileText, PenLine, Receipt, History,
   Play, Square, Plus, Trash2, ExternalLink, MapPin, User, Calendar,
   CheckCircle2, Loader2, Image as ImageIcon, Upload, Eye, EyeOff, X, RotateCcw,
+  Share2, FileDown, Copy, Link2Off,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ import { startTimeEntry, stopTimeEntry, deleteTimeEntry } from "@/lib/actions/jo
 import { addJobMaterial, deleteJobMaterial } from "@/lib/actions/job-materials";
 import { addJobDocument, deleteJobDocument } from "@/lib/actions/job-documents";
 import { addJobSignature, deleteJobSignature } from "@/lib/actions/job-signatures";
+import { enableWorkOrderShareLink, disableWorkOrderShareLink } from "@/lib/actions/work-orders";
 import { addJobNote } from "@/lib/actions/job-timeline";
 import { createClient } from "@/lib/supabase/client";
 import type {
@@ -264,6 +266,65 @@ export function JobPortfolioClient(props: JobPortfolioProps) {
   );
 }
 
+// ── Share control ────────────────────────────────────────────────────────────
+
+function ShareControl({ workOrderId, initialToken }: { workOrderId: string; initialToken: string | null }) {
+  const [token, setToken] = useState<string | null>(initialToken);
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const shareUrl = token && typeof window !== "undefined" ? `${window.location.origin}/jobs/${token}` : "";
+
+  const enable = async () => {
+    setBusy(true);
+    try { const { token: t } = await enableWorkOrderShareLink(workOrderId); setToken(t); setOpen(true); toast.success("Share link enabled"); }
+    catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
+    finally { setBusy(false); }
+  };
+
+  const disable = async () => {
+    if (!confirm("Revoke the share link? Anyone with the link will lose access.")) return;
+    setBusy(true);
+    try { await disableWorkOrderShareLink(workOrderId); setToken(null); setOpen(false); toast.success("Share link revoked"); }
+    catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
+    finally { setBusy(false); }
+  };
+
+  const copy = async () => {
+    if (!shareUrl) return;
+    try { await navigator.clipboard.writeText(shareUrl); toast.success("Link copied"); }
+    catch { toast.error("Copy failed"); }
+  };
+
+  if (!token) {
+    return (
+      <Button size="sm" variant="outline" className="gap-1.5" onClick={enable} disabled={busy}>
+        <Share2 className="w-3.5 h-3.5" />Share
+      </Button>
+    );
+  }
+
+  return (
+    <div className="relative">
+      <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setOpen((v) => !v)}>
+        <Share2 className="w-3.5 h-3.5" />Shared
+      </Button>
+      {open && (
+        <div className="absolute right-0 top-full mt-2 z-20 w-80 rounded-md border bg-background shadow-lg p-3 space-y-2">
+          <p className="text-xs font-semibold">Customer share link</p>
+          <div className="flex gap-1">
+            <Input readOnly value={shareUrl} className="text-xs h-8" onClick={(e) => (e.target as HTMLInputElement).select()} />
+            <Button size="icon" variant="outline" className="h-8 w-8 shrink-0" onClick={copy}><Copy className="w-3.5 h-3.5" /></Button>
+          </div>
+          <p className="text-[11px] text-muted-foreground">Only customer-visible items (timeline, photos, documents marked visible) are shown.</p>
+          <Button size="sm" variant="ghost" className="w-full text-destructive hover:text-destructive gap-1.5" onClick={disable} disabled={busy}>
+            <Link2Off className="w-3.5 h-3.5" />Revoke link
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Header ───────────────────────────────────────────────────────────────────
 
 function PortfolioHeader({
@@ -302,22 +363,28 @@ function PortfolioHeader({
           </div>
           <h1 className="text-2xl font-bold truncate">{workOrder.title}</h1>
         </div>
-        {editable && (
-          <div className="flex items-center gap-2">
-            <Select value={status} onValueChange={(v) => setStatus(v as WorkOrderStatus)} disabled={isPending}>
-              <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {STATUS_ORDER.map((s) => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
-                <SelectItem value="cancelled">Cancelled</SelectItem>
-              </SelectContent>
-            </Select>
-            {deletable && (
-              <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive hover:text-destructive" onClick={onDelete}>
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            )}
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          <a href={`/api/pdf/work-order/${workOrder.id}`} target="_blank" rel="noopener noreferrer">
+            <Button variant="outline" size="sm" className="gap-1.5"><FileDown className="w-3.5 h-3.5" />PDF</Button>
+          </a>
+          {editable && (
+            <>
+              <ShareControl workOrderId={workOrder.id} initialToken={workOrder.share_token} />
+              <Select value={status} onValueChange={(v) => setStatus(v as WorkOrderStatus)} disabled={isPending}>
+                <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {STATUS_ORDER.map((s) => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+              {deletable && (
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive hover:text-destructive" onClick={onDelete}>
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* Status pipeline */}

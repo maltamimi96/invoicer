@@ -317,6 +317,8 @@ export interface WorkOrder {
   reported_issue: string | null;
   started_at: string | null;
   completed_at: string | null;
+  share_token: string | null;
+  share_enabled_at: string | null;
   created_at: string;
   updated_at: string;
 }

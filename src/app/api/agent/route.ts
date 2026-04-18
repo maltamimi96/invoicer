@@ -11,6 +11,7 @@ import { createReport } from "@/lib/actions/reports";
 import { createSite } from "@/lib/actions/sites";
 import { createContact } from "@/lib/actions/contacts";
 import { createBillingProfile, updateBillingProfile, archiveBillingProfile, setSiteBilling } from "@/lib/actions/billing-profiles";
+import { enableWorkOrderShareLink, disableWorkOrderShareLink } from "@/lib/actions/work-orders";
 import { updateWorkOrder } from "@/lib/actions/work-orders";
 import { addJobMaterial, getJobMaterials, deleteJobMaterial } from "@/lib/actions/job-materials";
 import { startTimeEntry, stopTimeEntry, logTimeEntry, getJobTimeEntries } from "@/lib/actions/job-time";
@@ -495,6 +496,24 @@ const TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "enable_work_order_share_link",
+    description: "Generate (or return existing) a customer-facing share link for the job portfolio. Only customer-visible items are shown.",
+    input_schema: {
+      type: "object" as const,
+      properties: { work_order_id: { type: "string" } },
+      required: ["work_order_id"],
+    },
+  },
+  {
+    name: "disable_work_order_share_link",
+    description: "Revoke the customer-facing share link for a work order",
+    input_schema: {
+      type: "object" as const,
+      properties: { work_order_id: { type: "string" } },
+      required: ["work_order_id"],
+    },
+  },
+  {
     name: "link_invoice_to_work_order",
     description: "Link an existing invoice to a work order. Pass work_order_id=null to unlink.",
     input_schema: {
@@ -771,6 +790,8 @@ const TOOL_LABELS: Record<string, string> = {
   get_job_timeline: "Loading job timeline",
   get_work_order_financials: "Loading linked quotes/invoices",
   link_quote_to_work_order: "Linking quote",
+  enable_work_order_share_link: "Generating share link",
+  disable_work_order_share_link: "Revoking share link",
   link_invoice_to_work_order: "Linking invoice",
   create_quote: "Creating quote",
   list_quotes: "Fetching quotes",
@@ -1179,6 +1200,18 @@ async function executeTool(
     case "link_invoice_to_work_order": {
       await linkFinancialToWorkOrder("invoice", input.invoice_id, input.work_order_id ?? null);
       return { message: input.work_order_id ? "Invoice linked" : "Invoice unlinked" };
+    }
+
+    case "enable_work_order_share_link": {
+      const { token } = await enableWorkOrderShareLink(input.work_order_id);
+      const base = process.env.NEXT_PUBLIC_APP_URL ?? "";
+      const url = base ? `${base}/jobs/${token}` : `/jobs/${token}`;
+      return { token, url, message: `Share link enabled: ${url}` };
+    }
+
+    case "disable_work_order_share_link": {
+      await disableWorkOrderShareLink(input.work_order_id);
+      return { message: "Share link revoked" };
     }
 
     case "update_work_order_status": {

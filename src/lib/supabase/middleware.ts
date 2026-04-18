@@ -33,9 +33,11 @@ export async function updateSession(request: NextRequest) {
   const isPublicRoute =
     pathname.startsWith("/invoice/") ||
     pathname.startsWith("/quote/") ||
+    pathname.startsWith("/jobs/") ||
     pathname === "/api/auth/signup" ||
     pathname.startsWith("/api/v1/") ||
-    pathname.startsWith("/api/cron/");
+    pathname.startsWith("/api/cron/") ||
+    (pathname.startsWith("/api/pdf/") && new URL(request.url).searchParams.get("token") !== null);
 
   if (!user && !isAuthRoute && !isPublicRoute) {
     const url = request.nextUrl.clone();

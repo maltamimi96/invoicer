@@ -397,3 +397,39 @@ export async function deleteWorkOrder(id: string): Promise<void> {
   if (error) throw error;
   revalidatePath("/work-orders");
 }
+
+// ── Share link (customer-facing portfolio) ───────────────────────────────────
+
+export async function enableWorkOrderShareLink(id: string): Promise<{ token: string }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+  const businessId = await getActiveBizId(supabase, user.id);
+
+  const { data: existing } = await tbl(supabase, "work_orders")
+    .select("share_token").eq("id", id).eq("business_id", businessId).single();
+  if (existing?.share_token) return { token: existing.share_token };
+
+  const token = `${crypto.randomUUID().replace(/-/g, "")}${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`;
+  const { error } = await tbl(supabase, "work_orders")
+    .update({ share_token: token, share_enabled_at: new Date().toISOString() })
+    .eq("id", id).eq("business_id", businessId);
+  if (error) throw error;
+
+  await logJobEvent({ workOrderId: id, type: "note_added", payload: { message: "Customer share link enabled" }, visibleToCustomer: false });
+  revalidatePath(`/work-orders/${id}`);
+  return { token };
+}
+
+export async function disableWorkOrderShareLink(id: string): Promise<void> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+  const businessId = await getActiveBizId(supabase, user.id);
+  const { error } = await tbl(supabase, "work_orders")
+    .update({ share_token: null, share_enabled_at: null })
+    .eq("id", id).eq("business_id", businessId);
+  if (error) throw error;
+  await logJobEvent({ workOrderId: id, type: "note_added", payload: { message: "Customer share link revoked" }, visibleToCustomer: false });
+  revalidatePath(`/work-orders/${id}`);
+}
