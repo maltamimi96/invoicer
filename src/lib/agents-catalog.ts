@@ -25,6 +25,7 @@ export interface AgentDefinition {
 }
 
 export const AGENT_CATALOG: AgentDefinition[] = [
+  // ── Productivity ────────────────────────────────────────────────────────────
   {
     id: "ai-chat",
     name: "AI Assistant",
@@ -37,6 +38,18 @@ export const AGENT_CATALOG: AgentDefinition[] = [
     badge: "new",
   },
   {
+    id: "daily-digest",
+    name: "Daily Business Digest",
+    description: "Receive a morning email summary of revenue, leads, overdue invoices, and today's jobs.",
+    longDescription:
+      "Every morning, get a clean email digest with your key business metrics: payments collected today, monthly revenue, overdue invoices, pending quotes, new leads, and the day's scheduled jobs.",
+    icon: "newspaper",
+    category: "productivity",
+    configType: "none",
+  },
+
+  // ── Leads ───────────────────────────────────────────────────────────────────
+  {
     id: "email-lead-scanner",
     name: "Email Lead Scanner",
     description: "Automatically scan your inbox and extract new leads with AI.",
@@ -48,24 +61,69 @@ export const AGENT_CATALOG: AgentDefinition[] = [
     configPath: "/settings?tab=email",
   },
   {
-    id: "api-agent",
-    name: "External API Agent",
-    description: "Expose your business AI via API for Telegram, SMS, and third-party apps.",
+    id: "lead-auto-response",
+    name: "Lead Auto-Response",
+    description: "Instantly reply to new leads with a personalised acknowledgement email.",
     longDescription:
-      "Create scoped API keys and connect external services — Telegram bots, SMS autoresponders, website widgets — directly to your business AI. Supports natural language queries and all core actions.",
-    icon: "plug-zap",
-    category: "integrations",
-    configType: "api-key",
-    configPath: "/settings?tab=api-keys",
+      "When a new lead is created, automatically send them a warm acknowledgement email so they know you received their enquiry — reducing no-shows and building trust from the first contact.",
+    icon: "mail-check",
+    category: "leads",
+    configType: "inline",
+    badge: "coming-soon",
   },
+  {
+    id: "customer-reengagement",
+    name: "Customer Re-engagement",
+    description: "Automatically reach out to customers who haven't booked in a while.",
+    longDescription:
+      "Identify dormant customers and send a personalised re-engagement email to bring them back. Configure how long since their last invoice before the agent triggers.",
+    icon: "user-round-check",
+    category: "leads",
+    configType: "inline",
+    badge: "coming-soon",
+  },
+
+  // ── Billing ─────────────────────────────────────────────────────────────────
   {
     id: "invoice-reminders",
     name: "Invoice Reminder Agent",
-    description: "Automatically send payment reminders for overdue invoices.",
+    description: "Automatically email customers when their invoice becomes overdue.",
     longDescription:
-      "Set reminder schedules and let the agent email your customers before and after invoice due dates. Reduces chasing and improves cash flow.",
+      "Every day, the agent finds overdue invoices and sends polite payment reminders to customers. Each invoice is reminded at most once every 3 days to avoid spamming.",
     icon: "bell-ring",
     category: "billing",
+    configType: "none",
+  },
+  {
+    id: "quote-followup",
+    name: "Quote Follow-up Agent",
+    description: "Chase up sent quotes that are about to expire or just expired.",
+    longDescription:
+      "Automatically follows up with customers on quotes that are expiring within 3 days or recently expired. Keeps your pipeline moving without manual chasing.",
+    icon: "file-clock",
+    category: "billing",
+    configType: "none",
+  },
+
+  // ── Communication ───────────────────────────────────────────────────────────
+  {
+    id: "workorder-complete-notifier",
+    name: "Job Completion Notifier",
+    description: "Email customers automatically when a work order is marked complete.",
+    longDescription:
+      "As soon as a work order is completed, the agent sends the customer a professional completion summary — great for closing the loop and prompting reviews.",
+    icon: "check-circle",
+    category: "communication",
+    configType: "none",
+  },
+  {
+    id: "review-request",
+    name: "Review Request Agent",
+    description: "Ask customers for a review a few days after a job is completed.",
+    longDescription:
+      "Automatically send a review request email to customers 3–5 days after their work order is marked complete. Helps build your online reputation on autopilot.",
+    icon: "star",
+    category: "communication",
     configType: "inline",
     badge: "coming-soon",
   },
@@ -79,6 +137,19 @@ export const AGENT_CATALOG: AgentDefinition[] = [
     category: "communication",
     configType: "inline",
     badge: "coming-soon",
+  },
+
+  // ── Integrations ────────────────────────────────────────────────────────────
+  {
+    id: "api-agent",
+    name: "External API Agent",
+    description: "Expose your business AI via API for Telegram, SMS, and third-party apps.",
+    longDescription:
+      "Create scoped API keys and connect external services — Telegram bots, SMS autoresponders, website widgets — directly to your business AI. Supports natural language queries and all core actions.",
+    icon: "plug-zap",
+    category: "integrations",
+    configType: "api-key",
+    configPath: "/settings?tab=api-keys",
   },
 ];
 

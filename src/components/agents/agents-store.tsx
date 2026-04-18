@@ -6,8 +6,8 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import {
   Bot, MailSearch, PlugZap, BellRing, Send,
-  Settings, Trash2, Power, PowerOff, Plus, Check,
-  Zap,
+  Settings, Trash2, Plus,
+  Zap, Newspaper, MailCheck, UserRoundCheck, FileClock, CheckCircle, Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +45,12 @@ const ICON_MAP: Record<string, React.ElementType> = {
   "plug-zap": PlugZap,
   "bell-ring": BellRing,
   send: Send,
+  newspaper: Newspaper,
+  "mail-check": MailCheck,
+  "user-round-check": UserRoundCheck,
+  "file-clock": FileClock,
+  "check-circle": CheckCircle,
+  star: Star,
 };
 
 function AgentIcon({ name, className }: { name: string; className?: string }) {
