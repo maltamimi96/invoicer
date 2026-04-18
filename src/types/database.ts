@@ -298,6 +298,35 @@ export interface WorkOrder {
   completed_at: string | null;
   share_token: string | null;
   share_enabled_at: string | null;
+  recurring_job_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type RecurringJobCadence = "weekly" | "fortnightly" | "monthly" | "quarterly";
+
+export interface RecurringJob {
+  id: string;
+  business_id: string;
+  user_id: string;
+  name: string;
+  title: string;
+  description: string | null;
+  customer_id: string | null;
+  site_id: string | null;
+  property_address: string | null;
+  reported_issue: string | null;
+  member_profile_ids: string[];
+  cadence: RecurringJobCadence;
+  preferred_weekday: number | null;
+  preferred_day_of_month: number | null;
+  preferred_start_time: string | null;
+  preferred_duration_minutes: number | null;
+  generate_days_ahead: number;
+  next_occurrence_at: string;
+  last_generated_at: string | null;
+  active: boolean;
+  ends_on: string | null;
   created_at: string;
   updated_at: string;
 }

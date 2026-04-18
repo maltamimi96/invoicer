@@ -20,6 +20,7 @@ import { getJobPhotos, updateJobPhoto } from "@/lib/actions/job-photos";
 import { addJobNote, getJobTimeline } from "@/lib/actions/job-timeline";
 import { getWorkOrderFinancials, linkFinancialToWorkOrder } from "@/lib/actions/work-orders";
 import { getLeads, createLead, updateLeadStatus, convertLeadToCustomer, convertLeadToQuote, convertLeadToWorkOrder } from "@/lib/actions/leads";
+import { getRecurringJobs, createRecurringJob, setRecurringJobActive, deleteRecurringJob } from "@/lib/actions/recurring-jobs";
 import { parseWhen } from "@/lib/ai/resolvers";
 import { v4 as uuidv4 } from "uuid";
 import type { LineItem } from "@/types/database";
@@ -655,6 +656,53 @@ const TOOLS: Anthropic.Tool[] = [
     },
   },
 
+  // ── Recurring jobs ─────────────────────────────────────────────────────────
+  {
+    name: "list_recurring_jobs",
+    description: "List recurring job schedules — the templates that auto-generate work orders on a cadence (weekly/fortnightly/monthly/quarterly).",
+    input_schema: { type: "object" as const, properties: {} },
+  },
+  {
+    name: "create_recurring_job",
+    description: "Set up an automatic recurring schedule (e.g., monthly clean for a property). Cron generates each work order ahead of time.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        name: { type: "string", description: "Internal label, e.g. 'Smith Property — Monthly Clean'" },
+        title: { type: "string", description: "Title for each generated work order" },
+        description: { type: "string" },
+        customer_id: { type: "string" },
+        site_id: { type: "string" },
+        property_address: { type: "string" },
+        member_profile_ids: { type: "array", items: { type: "string" }, description: "Workers auto-assigned to each occurrence" },
+        cadence: { type: "string", enum: ["weekly", "fortnightly", "monthly", "quarterly"] },
+        preferred_weekday: { type: "number", description: "0=Sun..6=Sat (weekly/fortnightly only)" },
+        preferred_day_of_month: { type: "number", description: "1..28 (monthly/quarterly only)" },
+        preferred_start_time: { type: "string", description: "HH:MM 24h" },
+        preferred_duration_minutes: { type: "number" },
+        next_occurrence_at: { type: "string", description: "YYYY-MM-DD — first scheduled date" },
+        ends_on: { type: "string", description: "YYYY-MM-DD — optional contract end" },
+        generate_days_ahead: { type: "number", description: "How far ahead to materialize WOs. Default 14." },
+      },
+      required: ["name", "title", "cadence", "next_occurrence_at"],
+    },
+  },
+  {
+    name: "pause_recurring_job",
+    description: "Pause a recurring schedule (no more auto-generated work orders until resumed)",
+    input_schema: { type: "object" as const, properties: { recurring_job_id: { type: "string" } }, required: ["recurring_job_id"] },
+  },
+  {
+    name: "resume_recurring_job",
+    description: "Resume a paused recurring schedule",
+    input_schema: { type: "object" as const, properties: { recurring_job_id: { type: "string" } }, required: ["recurring_job_id"] },
+  },
+  {
+    name: "delete_recurring_job",
+    description: "Permanently delete a recurring schedule. Already-generated work orders are kept.",
+    input_schema: { type: "object" as const, properties: { recurring_job_id: { type: "string" } }, required: ["recurring_job_id"] },
+  },
+
   // ── Quotes ─────────────────────────────────────────────────────────────────
   {
     name: "create_quote",
@@ -893,6 +941,11 @@ const TOOL_LABELS: Record<string, string> = {
   convert_lead_to_customer: "Converting lead to customer",
   convert_lead_to_quote: "Converting lead to quote",
   convert_lead_to_work_order: "Converting lead to work order",
+  list_recurring_jobs: "Loading recurring schedules",
+  create_recurring_job: "Setting up recurring schedule",
+  pause_recurring_job: "Pausing recurring schedule",
+  resume_recurring_job: "Resuming recurring schedule",
+  delete_recurring_job: "Deleting recurring schedule",
   create_quote: "Creating quote",
   list_quotes: "Fetching quotes",
   send_quote_email: "Sending quote email",
@@ -1387,6 +1440,48 @@ async function executeTool(
         member_profile_ids: input.member_profile_ids,
       });
       return { ...res, message: `Work order ${res.work_order_number} created from lead` };
+    }
+
+    // ── Recurring jobs ────────────────────────────────────────────────────────
+    case "list_recurring_jobs": {
+      const items = await getRecurringJobs();
+      return { recurring_jobs: items, count: items.length };
+    }
+
+    case "create_recurring_job": {
+      const r = await createRecurringJob({
+        name: input.name,
+        title: input.title,
+        description: input.description ?? null,
+        customer_id: input.customer_id ?? null,
+        site_id: input.site_id ?? null,
+        property_address: input.property_address ?? null,
+        member_profile_ids: input.member_profile_ids ?? [],
+        cadence: input.cadence,
+        preferred_weekday: input.preferred_weekday ?? null,
+        preferred_day_of_month: input.preferred_day_of_month ?? null,
+        preferred_start_time: input.preferred_start_time ?? null,
+        preferred_duration_minutes: input.preferred_duration_minutes ?? null,
+        next_occurrence_at: input.next_occurrence_at,
+        ends_on: input.ends_on ?? null,
+        generate_days_ahead: input.generate_days_ahead ?? 14,
+      });
+      return { recurring_job_id: r.id, message: `Recurring schedule "${r.name}" created — first occurrence ${r.next_occurrence_at}` };
+    }
+
+    case "pause_recurring_job": {
+      await setRecurringJobActive(input.recurring_job_id, false);
+      return { message: "Recurring schedule paused" };
+    }
+
+    case "resume_recurring_job": {
+      await setRecurringJobActive(input.recurring_job_id, true);
+      return { message: "Recurring schedule resumed" };
+    }
+
+    case "delete_recurring_job": {
+      await deleteRecurringJob(input.recurring_job_id);
+      return { message: "Recurring schedule deleted" };
     }
 
     // ── Quotes ────────────────────────────────────────────────────────────────
