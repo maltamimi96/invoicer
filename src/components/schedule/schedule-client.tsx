@@ -2,12 +2,12 @@
 
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, Plus, Calendar, Clock, MapPin, Users } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Clock, MapPin, LayoutGrid, Columns3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { getScheduledJobs } from "@/lib/actions/schedule";
 import { JobModal } from "./job-modal";
+import { DispatchBoard } from "./dispatch-board";
 import type { ScheduledJob, MemberProfile, Customer } from "@/types/database";
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -89,6 +89,7 @@ export function ScheduleClient({ initialJobs, initialStart, initialEnd, profiles
   const [jobs, setJobs]           = useState(initialJobs);
   const [loading, setLoading]     = useState(false);
   const [selectedDay, setSelectedDay] = useState<string | null>(null); // mobile day picker
+  const [view, setView] = useState<"week" | "dispatch">("week");
   const [modalState, setModalState] = useState<
     { open: false } |
     { open: true; mode: "create"; defaultDate?: string } |
@@ -136,6 +137,14 @@ export function ScheduleClient({ initialJobs, initialStart, initialEnd, profiles
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center rounded-lg border overflow-hidden">
+            <Button variant={view === "week" ? "secondary" : "ghost"} size="sm" className="rounded-none h-8 px-2.5" onClick={() => setView("week")} title="Week view">
+              <LayoutGrid className="h-3.5 w-3.5 mr-1" /> Week
+            </Button>
+            <Button variant={view === "dispatch" ? "secondary" : "ghost"} size="sm" className="rounded-none h-8 px-2.5 border-l" onClick={() => setView("dispatch")} title="Dispatch board">
+              <Columns3 className="h-3.5 w-3.5 mr-1" /> Dispatch
+            </Button>
+          </div>
+          <div className="flex items-center rounded-lg border overflow-hidden">
             <Button variant="ghost" size="icon" className="rounded-none h-8 w-8" onClick={() => goWeek(-1)}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -152,6 +161,16 @@ export function ScheduleClient({ initialJobs, initialStart, initialEnd, profiles
         </div>
       </div>
 
+      {view === "dispatch" ? (
+        <DispatchBoard
+          jobs={jobs}
+          weekStart={weekStart}
+          profiles={profiles}
+          onJobClick={(job) => setModalState({ open: true, mode: "edit", job })}
+          onChanged={() => loadWeek(weekStart)}
+        />
+      ) : (
+      <>
       {/* Mobile day tabs */}
       <div className="flex gap-1 overflow-x-auto pb-1 sm:hidden">
         {days.map((d) => {
@@ -239,6 +258,8 @@ export function ScheduleClient({ initialJobs, initialStart, initialEnd, profiles
           </div>
         ))}
       </div>
+      </>
+      )}
 
       {/* Job Modal */}
       {modalState.open && (
