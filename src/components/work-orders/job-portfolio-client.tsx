@@ -47,7 +47,6 @@ import type {
   JobTimelineEvent, JobPhoto, JobPhotoPhase, JobTimeEntry, JobMaterial,
   JobDocument, JobSignature,
 } from "@/types/database";
-import type { WorkOrderUpdate } from "@/types/database";
 import type { RelatedQuote, RelatedInvoice } from "@/lib/actions/work-orders";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -75,7 +74,6 @@ interface JobPortfolioProps {
   userRole: Role;
   currentUserId: string;
   currentUserEmail: string;
-  updates: WorkOrderUpdate[];
   assignedWorkers: Pick<MemberProfile, 'id' | 'name' | 'email' | 'avatar_url' | 'role_title'>[];
   timeline: JobTimelineEvent[];
   jobPhotos: JobPhoto[];

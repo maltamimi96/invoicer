@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { type Role } from "@/lib/permissions";
 import { getWorkOrder, getWorkOrderFinancials } from "@/lib/actions/work-orders";
-import { getWorkOrderUpdates } from "@/lib/actions/work-order-updates";
 import { getJobTimeline } from "@/lib/actions/job-timeline";
 import { getJobPhotos } from "@/lib/actions/job-photos";
 import { getJobTimeEntries } from "@/lib/actions/job-time";
@@ -36,7 +35,6 @@ export default async function WorkOrderDetailPage({ params }: { params: Promise<
 
     const [
       customersRaw,
-      updates,
       assignmentsRaw,
       timeline,
       jobPhotos,
@@ -48,7 +46,6 @@ export default async function WorkOrderDetailPage({ params }: { params: Promise<
     ] = await Promise.all([
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase as any).from("customers").select("id, name, company, email").eq("business_id", businessId).eq("archived", false).order("name").then((r: { data: unknown[] | null }) => r.data ?? []),
-      getWorkOrderUpdates(id).catch(() => []),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase as any).from("work_order_assignments")
         .select("member_profile_id, member_profiles(id, name, email, avatar_url, role_title)")
@@ -95,7 +92,6 @@ export default async function WorkOrderDetailPage({ params }: { params: Promise<
         userRole={userRole}
         currentUserId={user.id}
         currentUserEmail={user.email ?? ""}
-        updates={updates}
         assignedWorkers={allWorkers}
         timeline={timeline}
         jobPhotos={jobPhotos}

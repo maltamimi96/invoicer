@@ -252,27 +252,6 @@ export interface WorkOrderPhoto {
   caption?: string;
 }
 
-export interface WorkOrderUpdatePhoto {
-  id: string;
-  url: string;
-  storagePath: string;
-  phase: 'before' | 'progress' | 'after';
-  caption: string;
-  order: number;
-}
-
-export interface WorkOrderUpdate {
-  id: string;
-  work_order_id: string;
-  business_id: string;
-  author_user_id: string | null;
-  author_email: string;
-  author_name: string;
-  content: string;
-  photos: WorkOrderUpdatePhoto[];
-  created_at: string;
-}
-
 export interface MemberProfile {
   id: string;
   business_id: string;
