@@ -25,7 +25,8 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { updateLeadStatus, deleteLead, createLead, updateLead } from "@/lib/actions/leads";
+import { useRouter } from "next/navigation";
+import { updateLeadStatus, deleteLead, createLead, updateLead, convertLeadToCustomer, convertLeadToQuote, convertLeadToWorkOrder } from "@/lib/actions/leads";
 import type { Lead, LeadStatus, LeadSource } from "@/types/database";
 
 const COLUMNS: { status: LeadStatus; label: string; color: string; dot: string }[] = [
@@ -76,7 +77,9 @@ const EMPTY_FORM: NewLeadForm = {
 };
 
 export function LeadsClient({ leads: initial }: { leads: Lead[] }) {
+  const router = useRouter();
   const [leads, setLeads] = useState(initial);
+  const [converting, setConverting] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
@@ -136,6 +139,32 @@ export function LeadsClient({ leads: initial }: { leads: Lead[] }) {
       toast.success("Lead added");
     } catch { toast.error("Failed to add lead"); }
     setSaving(false);
+  };
+
+  const handleConvert = async (id: string, target: "customer" | "quote" | "work_order") => {
+    setConverting(id);
+    try {
+      if (target === "customer") {
+        const { customer_id } = await convertLeadToCustomer(id);
+        setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, customer_id, status: l.status === "new" ? "contacted" : l.status } : l)));
+        toast.success("Customer created");
+        router.push(`/customers/${customer_id}`);
+      } else if (target === "quote") {
+        const { quote_id, customer_id } = await convertLeadToQuote(id);
+        setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, customer_id, quote_id, status: "quoted" } : l)));
+        toast.success("Draft quote created");
+        router.push(`/quotes/${quote_id}`);
+      } else {
+        const { work_order_id, customer_id } = await convertLeadToWorkOrder(id);
+        setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, customer_id, status: "won" } : l)));
+        toast.success("Work order created");
+        router.push(`/work-orders/${work_order_id}`);
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Conversion failed");
+    } finally {
+      setConverting(null);
+    }
   };
 
   const handleEditSave = async () => {
@@ -233,9 +262,11 @@ export function LeadsClient({ leads: initial }: { leads: Lead[] }) {
                   <LeadCard
                     key={lead.id}
                     lead={lead}
+                    converting={converting === lead.id}
                     onMove={handleMove}
                     onDelete={() => setDeleteId(lead.id)}
                     onEdit={() => { setEditLead(lead); setEditForm({ name: lead.name, phone: lead.phone, email: lead.email, suburb: lead.suburb, service: lead.service, property_type: lead.property_type, timing: lead.timing, notes: lead.notes }); }}
+                    onConvert={(target) => handleConvert(lead.id, target)}
                   />
                 ))}
                 {colLeads.length === 0 && (
@@ -373,14 +404,18 @@ export function LeadsClient({ leads: initial }: { leads: Lead[] }) {
 
 function LeadCard({
   lead,
+  converting,
   onMove,
   onDelete,
   onEdit,
+  onConvert,
 }: {
   lead: Lead;
+  converting: boolean;
   onMove: (id: string, status: LeadStatus) => void;
   onDelete: () => void;
   onEdit: () => void;
+  onConvert: (target: "customer" | "quote" | "work_order") => void;
 }) {
   const NEXT_STATUS: Partial<Record<LeadStatus, LeadStatus>> = {
     new: "contacted",
@@ -409,6 +444,17 @@ function LeadCard({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={onEdit}>Edit</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => onConvert("customer")} disabled={converting || !!lead.customer_id}>
+              Convert to customer{lead.customer_id ? " ✓" : ""}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onConvert("quote")} disabled={converting}>
+              Convert to quote
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onConvert("work_order")} disabled={converting}>
+              Convert to work order
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             {COLUMNS.filter((c) => c.status !== lead.status).map((c) => (
               <DropdownMenuItem key={c.status} onClick={() => onMove(lead.id, c.status)}>
                 Move to {c.label}

@@ -19,6 +19,7 @@ import { addJobDocument, getJobDocuments } from "@/lib/actions/job-documents";
 import { getJobPhotos, updateJobPhoto } from "@/lib/actions/job-photos";
 import { addJobNote, getJobTimeline } from "@/lib/actions/job-timeline";
 import { getWorkOrderFinancials, linkFinancialToWorkOrder } from "@/lib/actions/work-orders";
+import { getLeads, createLead, updateLeadStatus, convertLeadToCustomer, convertLeadToQuote, convertLeadToWorkOrder } from "@/lib/actions/leads";
 import { parseWhen } from "@/lib/ai/resolvers";
 import { v4 as uuidv4 } from "uuid";
 import type { LineItem } from "@/types/database";
@@ -576,6 +577,84 @@ const TOOLS: Anthropic.Tool[] = [
     },
   },
 
+  // ── Leads ──────────────────────────────────────────────────────────────────
+  {
+    name: "list_leads",
+    description: "List leads, optionally filtered by status",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        status: { type: "string", enum: ["new", "contacted", "quoted", "won", "lost"] },
+      },
+    },
+  },
+  {
+    name: "create_lead",
+    description: "Capture a new sales lead from a phone call, walk-in, or referral. Source defaults to 'manual'.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        name: { type: "string" },
+        email: { type: "string" },
+        phone: { type: "string" },
+        suburb: { type: "string" },
+        service: { type: "string", description: "Service the lead is asking about" },
+        property_type: { type: "string" },
+        timing: { type: "string", description: "When they want the work done" },
+        notes: { type: "string" },
+        source: { type: "string", enum: ["landing-page", "website", "referral", "telegram", "email", "phone", "manual"] },
+      },
+      required: ["name"],
+    },
+  },
+  {
+    name: "update_lead_status",
+    description: "Move a lead between pipeline stages (new → contacted → quoted → won/lost)",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        lead_id: { type: "string" },
+        status: { type: "string", enum: ["new", "contacted", "quoted", "won", "lost"] },
+      },
+      required: ["lead_id", "status"],
+    },
+  },
+  {
+    name: "convert_lead_to_customer",
+    description: "Promote a lead into a customer record. Idempotent — if the lead already has a customer, returns it. Lead status moves to 'contacted'.",
+    input_schema: {
+      type: "object" as const,
+      properties: { lead_id: { type: "string" } },
+      required: ["lead_id"],
+    },
+  },
+  {
+    name: "convert_lead_to_quote",
+    description: "Create a draft quote from a lead (auto-creates the customer if needed). Lead status moves to 'quoted'. Returns quote_id so you can immediately add line items via update_quote.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        lead_id: { type: "string" },
+        expiry_days: { type: "number", description: "Days until quote expires. Default 30." },
+        notes: { type: "string" },
+      },
+      required: ["lead_id"],
+    },
+  },
+  {
+    name: "convert_lead_to_work_order",
+    description: "Create a draft work order from a lead (auto-creates the customer if needed). Lead status moves to 'won'. Use schedule_work_order afterwards if a date is known.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        lead_id: { type: "string" },
+        scheduled_date: { type: "string", description: "YYYY-MM-DD — use parse_when for fuzzy dates" },
+        member_profile_ids: { type: "array", items: { type: "string" }, description: "Workers to assign" },
+      },
+      required: ["lead_id"],
+    },
+  },
+
   // ── Quotes ─────────────────────────────────────────────────────────────────
   {
     name: "create_quote",
@@ -808,6 +887,12 @@ const TOOL_LABELS: Record<string, string> = {
   disable_work_order_share_link: "Revoking share link",
   link_invoice_to_work_order: "Linking invoice",
   invoice_unbilled_work: "Invoicing unbilled work",
+  list_leads: "Fetching leads",
+  create_lead: "Capturing lead",
+  update_lead_status: "Updating lead",
+  convert_lead_to_customer: "Converting lead to customer",
+  convert_lead_to_quote: "Converting lead to quote",
+  convert_lead_to_work_order: "Converting lead to work order",
   create_quote: "Creating quote",
   list_quotes: "Fetching quotes",
   send_quote_email: "Sending quote email",
@@ -1255,6 +1340,53 @@ async function executeTool(
       if (input.customer_id) q = q.eq("customer_id", input.customer_id);
       const { data } = await q;
       return { work_orders: data ?? [], count: (data ?? []).length };
+    }
+
+    // ── Leads ─────────────────────────────────────────────────────────────────
+    case "list_leads": {
+      const leads = await getLeads(input.status ? { status: input.status } : undefined);
+      return { leads, count: leads.length };
+    }
+
+    case "create_lead": {
+      const lead = await createLead({
+        name: input.name,
+        email: input.email ?? null,
+        phone: input.phone ?? null,
+        suburb: input.suburb ?? null,
+        service: input.service ?? null,
+        property_type: input.property_type ?? null,
+        timing: input.timing ?? null,
+        notes: input.notes ?? null,
+        source: input.source ?? "manual",
+      });
+      return { lead_id: lead.id, message: `Lead "${lead.name}" captured` };
+    }
+
+    case "update_lead_status": {
+      await updateLeadStatus(input.lead_id, input.status);
+      return { message: `Lead status updated to ${input.status}` };
+    }
+
+    case "convert_lead_to_customer": {
+      const res = await convertLeadToCustomer(input.lead_id);
+      return { ...res, message: "Lead converted to customer" };
+    }
+
+    case "convert_lead_to_quote": {
+      const res = await convertLeadToQuote(input.lead_id, {
+        expiry_days: input.expiry_days,
+        notes: input.notes,
+      });
+      return { ...res, message: `Draft quote ${res.quote_number} created from lead. Add line items via update_quote.` };
+    }
+
+    case "convert_lead_to_work_order": {
+      const res = await convertLeadToWorkOrder(input.lead_id, {
+        scheduled_date: input.scheduled_date ?? null,
+        member_profile_ids: input.member_profile_ids,
+      });
+      return { ...res, message: `Work order ${res.work_order_number} created from lead` };
     }
 
     // ── Quotes ────────────────────────────────────────────────────────────────
