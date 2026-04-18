@@ -6,6 +6,7 @@ import { getActiveBizId } from "@/lib/active-business";
 import { dispatchWebhook } from "@/lib/webhooks";
 import { sendEmail } from "@/lib/email";
 import { workOrderSubmittedEmailHtml } from "@/lib/emails/work-order-submitted";
+import { logJobEvent } from "./job-timeline";
 import type { WorkOrder, WorkOrderPhoto, WorkOrderStatus, WorkOrderWithCustomer } from "@/types/database";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -165,6 +166,21 @@ export async function updateWorkOrder(id: string, payload: Partial<Pick<WorkOrde
       .eq("id", id)
       .eq("business_id", businessId);
     if (error) throw error;
+
+    if ("scheduled_date" in fields || "start_time" in fields || "end_time" in fields) {
+      await logJobEvent({
+        workOrderId: id,
+        type: "rescheduled",
+        payload: {
+          scheduled_date: fields.scheduled_date ?? null,
+          start_time: fields.start_time ?? null,
+          end_time: fields.end_time ?? null,
+        },
+      });
+    }
+    if ("scope_of_work" in fields || "description" in fields) {
+      await logJobEvent({ workOrderId: id, type: "scope_change", payload: {} });
+    }
   }
 
   // Sync multi-worker assignments if provided
@@ -179,6 +195,13 @@ export async function updateWorkOrder(id: string, payload: Partial<Pick<WorkOrde
           assigned_by: user.id,
         }))
       );
+      await logJobEvent({
+        workOrderId: id,
+        type: "assigned",
+        payload: { worker_count: member_profile_ids.length, member_profile_ids },
+      });
+    } else {
+      await logJobEvent({ workOrderId: id, type: "unassigned", payload: {} });
     }
   }
 
@@ -194,11 +217,27 @@ export async function updateWorkOrderStatus(id: string, status: WorkOrderStatus)
 
   const businessId = await getActiveBizId(supabase, user.id);
 
+  // Read previous status so we can record transition + completion timestamp
+  const { data: prev } = await tbl(supabase, "work_orders")
+    .select("status").eq("id", id).eq("business_id", businessId).single();
+  const fromStatus = prev?.status as WorkOrderStatus | undefined;
+
+  const updateFields: Record<string, unknown> = { status };
+  if (status === "in_progress" && fromStatus !== "in_progress") updateFields.started_at = new Date().toISOString();
+  if (status === "completed") updateFields.completed_at = new Date().toISOString();
+
   const { error } = await tbl(supabase, "work_orders")
-    .update({ status })
+    .update(updateFields)
     .eq("id", id)
     .eq("business_id", businessId);
   if (error) throw error;
+
+  await logJobEvent({
+    workOrderId: id,
+    type: "status_change",
+    payload: { from: fromStatus ?? null, to: status },
+  });
+
   revalidatePath(`/work-orders/${id}`);
   revalidatePath("/work-orders");
   if (status === "completed") {
@@ -263,6 +302,59 @@ export async function submitWorkOrder(id: string, workerNotes: string): Promise<
 
   revalidatePath(`/work-orders/${id}`);
   revalidatePath("/work-orders");
+}
+
+export interface RelatedQuote {
+  id: string; number: string; status: string; total: number; issue_date: string;
+}
+export interface RelatedInvoice {
+  id: string; number: string; status: string; total: number; amount_paid: number; due_date: string;
+}
+
+/** Fetch quotes & invoices linked to a work order via work_order_id. */
+export async function getWorkOrderFinancials(workOrderId: string): Promise<{ quotes: RelatedQuote[]; invoices: RelatedInvoice[] }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+  const businessId = await getActiveBizId(supabase, user.id);
+
+  const [qRes, iRes] = await Promise.all([
+    tbl(supabase, "quotes")
+      .select("id, number, status, total, issue_date")
+      .eq("business_id", businessId)
+      .eq("work_order_id", workOrderId)
+      .order("created_at", { ascending: false }),
+    tbl(supabase, "invoices")
+      .select("id, number, status, total, amount_paid, due_date")
+      .eq("business_id", businessId)
+      .eq("work_order_id", workOrderId)
+      .order("created_at", { ascending: false }),
+  ]);
+
+  return {
+    quotes: (qRes.data ?? []) as RelatedQuote[],
+    invoices: (iRes.data ?? []) as RelatedInvoice[],
+  };
+}
+
+/** Link an existing quote or invoice to a work order. */
+export async function linkFinancialToWorkOrder(
+  kind: "quote" | "invoice",
+  id: string,
+  workOrderId: string | null,
+): Promise<void> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+  const businessId = await getActiveBizId(supabase, user.id);
+
+  const table = kind === "quote" ? "quotes" : "invoices";
+  const { error } = await tbl(supabase, table)
+    .update({ work_order_id: workOrderId })
+    .eq("id", id)
+    .eq("business_id", businessId);
+  if (error) throw error;
+  if (workOrderId) revalidatePath(`/work-orders/${workOrderId}`);
 }
 
 export async function getTodayWorkOrders(): Promise<WorkOrderWithCustomer[]> {

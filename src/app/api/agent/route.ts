@@ -12,6 +12,12 @@ import { createSite } from "@/lib/actions/sites";
 import { createContact } from "@/lib/actions/contacts";
 import { createBillingProfile, setSiteBilling } from "@/lib/actions/billing-profiles";
 import { updateWorkOrder } from "@/lib/actions/work-orders";
+import { addJobMaterial, getJobMaterials, deleteJobMaterial } from "@/lib/actions/job-materials";
+import { startTimeEntry, stopTimeEntry, logTimeEntry, getJobTimeEntries } from "@/lib/actions/job-time";
+import { addJobDocument, getJobDocuments } from "@/lib/actions/job-documents";
+import { getJobPhotos, updateJobPhoto } from "@/lib/actions/job-photos";
+import { addJobNote, getJobTimeline } from "@/lib/actions/job-timeline";
+import { getWorkOrderFinancials, linkFinancialToWorkOrder } from "@/lib/actions/work-orders";
 import { parseWhen } from "@/lib/ai/resolvers";
 import { v4 as uuidv4 } from "uuid";
 import type { LineItem } from "@/types/database";
@@ -292,6 +298,187 @@ const TOOLS: Anthropic.Tool[] = [
       required: ["work_order_id", "member_profile_ids"],
     },
   },
+
+  // ── Job Portfolio: Photos / Time / Materials / Documents / Notes ───────────
+  {
+    name: "list_job_photos",
+    description: "List photos for a work order, grouped by phase (before/during/after/reference)",
+    input_schema: {
+      type: "object" as const,
+      properties: { work_order_id: { type: "string" } },
+      required: ["work_order_id"],
+    },
+  },
+  {
+    name: "tag_job_photo_phase",
+    description: "Re-tag a photo's phase (before, during, after, or reference) or update its caption",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        photo_id: { type: "string" },
+        phase: { type: "string", enum: ["before", "during", "after", "reference"] },
+        caption: { type: "string" },
+      },
+      required: ["photo_id"],
+    },
+  },
+  {
+    name: "list_job_time_entries",
+    description: "List time entries (work / travel / break) for a work order",
+    input_schema: {
+      type: "object" as const,
+      properties: { work_order_id: { type: "string" } },
+      required: ["work_order_id"],
+    },
+  },
+  {
+    name: "start_job_timer",
+    description: "Start a clock for a worker on a job. Use type 'work' (default), 'travel', or 'break'.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        work_order_id: { type: "string" },
+        type: { type: "string", enum: ["work", "travel", "break"] },
+        member_profile_id: { type: "string" },
+        notes: { type: "string" },
+      },
+      required: ["work_order_id"],
+    },
+  },
+  {
+    name: "stop_job_timer",
+    description: "Stop a running time entry. Computes duration automatically.",
+    input_schema: {
+      type: "object" as const,
+      properties: { entry_id: { type: "string" }, notes: { type: "string" } },
+      required: ["entry_id"],
+    },
+  },
+  {
+    name: "log_time_block",
+    description: "Manually log a completed time block after the fact (e.g. 'I worked 2 hours yesterday on this job')",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        work_order_id: { type: "string" },
+        started_at: { type: "string", description: "ISO timestamp" },
+        ended_at: { type: "string", description: "ISO timestamp" },
+        type: { type: "string", enum: ["work", "travel", "break"] },
+        member_profile_id: { type: "string" },
+        notes: { type: "string" },
+      },
+      required: ["work_order_id", "started_at", "ended_at"],
+    },
+  },
+  {
+    name: "list_job_materials",
+    description: "List materials used on a work order",
+    input_schema: {
+      type: "object" as const,
+      properties: { work_order_id: { type: "string" } },
+      required: ["work_order_id"],
+    },
+  },
+  {
+    name: "add_job_material",
+    description: "Add a material/part used on a work order. If linking to a catalog product, pass product_id (search the product catalog first).",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        work_order_id: { type: "string" },
+        name: { type: "string" },
+        qty: { type: "number" },
+        unit: { type: "string" },
+        unit_cost: { type: "number" },
+        unit_price: { type: "number" },
+        product_id: { type: "string" },
+        billable: { type: "boolean" },
+      },
+      required: ["work_order_id", "name", "qty"],
+    },
+  },
+  {
+    name: "delete_job_material",
+    description: "Remove a material entry from a work order",
+    input_schema: {
+      type: "object" as const,
+      properties: { material_id: { type: "string" } },
+      required: ["material_id"],
+    },
+  },
+  {
+    name: "list_job_documents",
+    description: "List documents (permits, warranties, certificates, etc.) attached to a work order",
+    input_schema: {
+      type: "object" as const,
+      properties: { work_order_id: { type: "string" } },
+      required: ["work_order_id"],
+    },
+  },
+  {
+    name: "add_job_document",
+    description: "Attach a document URL to a work order (file upload happens client-side first; pass the resulting URL here)",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        work_order_id: { type: "string" },
+        name: { type: "string" },
+        url: { type: "string" },
+        category: { type: "string", enum: ["permit", "warranty", "certificate", "insurance", "manual", "contract", "other"] },
+        customer_visible: { type: "boolean" },
+      },
+      required: ["work_order_id", "name", "url"],
+    },
+  },
+  {
+    name: "add_job_note",
+    description: "Add a note to the job timeline. Use this when the user dictates a status update they want logged on the job.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        work_order_id: { type: "string" },
+        content: { type: "string" },
+        visible_to_customer: { type: "boolean" },
+      },
+      required: ["work_order_id", "content"],
+    },
+  },
+  {
+    name: "get_work_order_financials",
+    description: "List quotes and invoices linked to a work order",
+    input_schema: {
+      type: "object" as const,
+      properties: { work_order_id: { type: "string" } },
+      required: ["work_order_id"],
+    },
+  },
+  {
+    name: "link_quote_to_work_order",
+    description: "Link an existing quote to a work order. Pass work_order_id=null to unlink.",
+    input_schema: {
+      type: "object" as const,
+      properties: { quote_id: { type: "string" }, work_order_id: { type: "string" } },
+      required: ["quote_id"],
+    },
+  },
+  {
+    name: "link_invoice_to_work_order",
+    description: "Link an existing invoice to a work order. Pass work_order_id=null to unlink.",
+    input_schema: {
+      type: "object" as const,
+      properties: { invoice_id: { type: "string" }, work_order_id: { type: "string" } },
+      required: ["invoice_id"],
+    },
+  },
+  {
+    name: "get_job_timeline",
+    description: "Get the full event timeline for a work order — every status change, photo, note, time entry, etc.",
+    input_schema: {
+      type: "object" as const,
+      properties: { work_order_id: { type: "string" } },
+      required: ["work_order_id"],
+    },
+  },
   {
     name: "update_work_order_status",
     description: "Update the status of a work order",
@@ -534,6 +721,22 @@ const TOOL_LABELS: Record<string, string> = {
   list_work_orders: "Fetching work orders",
   schedule_work_order: "Scheduling work order",
   assign_workers_to_work_order: "Assigning workers",
+  list_job_photos: "Loading photos",
+  tag_job_photo_phase: "Re-tagging photo",
+  list_job_time_entries: "Loading time entries",
+  start_job_timer: "Starting timer",
+  stop_job_timer: "Stopping timer",
+  log_time_block: "Logging time",
+  list_job_materials: "Loading materials",
+  add_job_material: "Adding material",
+  delete_job_material: "Removing material",
+  list_job_documents: "Loading documents",
+  add_job_document: "Attaching document",
+  add_job_note: "Adding note to job",
+  get_job_timeline: "Loading job timeline",
+  get_work_order_financials: "Loading linked quotes/invoices",
+  link_quote_to_work_order: "Linking quote",
+  link_invoice_to_work_order: "Linking invoice",
   create_quote: "Creating quote",
   list_quotes: "Fetching quotes",
   send_quote_email: "Sending quote email",
@@ -813,6 +1016,123 @@ async function executeTool(
         member_profile_ids: input.member_profile_ids,
       });
       return { message: `${input.member_profile_ids.length} worker(s) assigned` };
+    }
+
+    // ── Job Portfolio ────────────────────────────────────────────────────────
+    case "list_job_photos": {
+      const photos = await getJobPhotos(input.work_order_id);
+      return { photos, by_phase: {
+        before:    photos.filter((p) => p.phase === "before").length,
+        during:    photos.filter((p) => p.phase === "during").length,
+        after:     photos.filter((p) => p.phase === "after").length,
+        reference: photos.filter((p) => p.phase === "reference").length,
+      } };
+    }
+
+    case "tag_job_photo_phase": {
+      const patch: Record<string, unknown> = {};
+      if (input.phase) patch.phase = input.phase;
+      if (input.caption !== undefined) patch.caption = input.caption;
+      await updateJobPhoto(input.photo_id, patch as Parameters<typeof updateJobPhoto>[1]);
+      return { message: "Photo updated" };
+    }
+
+    case "list_job_time_entries": {
+      const entries = await getJobTimeEntries(input.work_order_id);
+      const totalSec = entries.reduce((s, e) => s + (e.duration_seconds ?? 0), 0);
+      return { entries, total_hours: +(totalSec / 3600).toFixed(2) };
+    }
+
+    case "start_job_timer": {
+      const e = await startTimeEntry({
+        work_order_id: input.work_order_id,
+        type: input.type,
+        member_profile_id: input.member_profile_id ?? null,
+        notes: input.notes ?? null,
+      });
+      return { entry_id: e.id, started_at: e.started_at, message: `${e.type} timer started` };
+    }
+
+    case "stop_job_timer": {
+      const e = await stopTimeEntry(input.entry_id, input.notes);
+      return { entry_id: e.id, duration_seconds: e.duration_seconds, message: `Timer stopped — ${Math.round((e.duration_seconds ?? 0) / 60)} min logged` };
+    }
+
+    case "log_time_block": {
+      const e = await logTimeEntry({
+        work_order_id: input.work_order_id,
+        started_at: input.started_at,
+        ended_at: input.ended_at,
+        type: input.type,
+        member_profile_id: input.member_profile_id ?? null,
+        notes: input.notes ?? null,
+      });
+      return { entry_id: e.id, duration_seconds: e.duration_seconds, message: `${Math.round((e.duration_seconds ?? 0) / 60)} min logged` };
+    }
+
+    case "list_job_materials": {
+      const materials = await getJobMaterials(input.work_order_id);
+      return { materials, count: materials.length };
+    }
+
+    case "add_job_material": {
+      const m = await addJobMaterial({
+        work_order_id: input.work_order_id,
+        name: input.name,
+        qty: input.qty,
+        unit: input.unit ?? null,
+        unit_cost: input.unit_cost ?? null,
+        unit_price: input.unit_price ?? null,
+        product_id: input.product_id ?? null,
+        billable: input.billable,
+      });
+      return { id: m.id, message: `Added ${m.qty} × ${m.name}` };
+    }
+
+    case "delete_job_material": {
+      await deleteJobMaterial(input.material_id);
+      return { message: "Material removed" };
+    }
+
+    case "list_job_documents": {
+      const docs = await getJobDocuments(input.work_order_id);
+      return { documents: docs, count: docs.length };
+    }
+
+    case "add_job_document": {
+      const d = await addJobDocument({
+        work_order_id: input.work_order_id,
+        name: input.name,
+        url: input.url,
+        category: input.category,
+        customer_visible: input.customer_visible,
+      });
+      return { id: d.id, message: `Document "${d.name}" attached` };
+    }
+
+    case "add_job_note": {
+      await addJobNote(input.work_order_id, input.content, input.visible_to_customer ?? false);
+      return { message: "Note added to job timeline" };
+    }
+
+    case "get_job_timeline": {
+      const events = await getJobTimeline(input.work_order_id);
+      return { events, count: events.length };
+    }
+
+    case "get_work_order_financials": {
+      const f = await getWorkOrderFinancials(input.work_order_id);
+      return f;
+    }
+
+    case "link_quote_to_work_order": {
+      await linkFinancialToWorkOrder("quote", input.quote_id, input.work_order_id ?? null);
+      return { message: input.work_order_id ? "Quote linked" : "Quote unlinked" };
+    }
+
+    case "link_invoice_to_work_order": {
+      await linkFinancialToWorkOrder("invoice", input.invoice_id, input.work_order_id ?? null);
+      return { message: input.work_order_id ? "Invoice linked" : "Invoice unlinked" };
     }
 
     case "update_work_order_status": {
