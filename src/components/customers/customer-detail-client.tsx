@@ -7,6 +7,7 @@ import {
   ArrowLeft, Plus, Edit, Mail, Phone, Building2, MapPin, FileText,
   FileCheck, Wrench, ClipboardList, StickyNote, User, Users, Home,
   Trash2, Star, Save, X, ChevronDown, ChevronUp, ImageIcon, MessageSquare,
+  CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -32,10 +33,14 @@ import {
   createCustomerContact, updateCustomerContact, deleteCustomerContact,
   createCustomerNote, deleteCustomerNote,
 } from "@/lib/actions/customer-hub";
+import {
+  createBillingProfile, updateBillingProfile, archiveBillingProfile,
+  type BillingProfilePayload,
+} from "@/lib/actions/billing-profiles";
 import type {
   Customer, InvoiceWithCustomer, QuoteWithCustomer,
   WorkOrderWithCustomer, ReportWithCustomer,
-  CustomerProperty, CustomerContact, CustomerNote,
+  CustomerProperty, CustomerContact, CustomerNote, BillingProfile,
 } from "@/types/database";
 
 interface Props {
@@ -47,6 +52,7 @@ interface Props {
   properties: CustomerProperty[];
   contacts: CustomerContact[];
   notes: CustomerNote[];
+  billingProfiles: BillingProfile[];
   currency?: string;
 }
 
@@ -304,6 +310,135 @@ function WorkOrderCard({ wo, currency }: { wo: WorkOrderWithCustomer; currency: 
   );
 }
 
+// ── Billing Profile Modal ──────────────────────────────────────────────────────
+
+interface BillingProfileModalProps {
+  customerId: string;
+  profile?: BillingProfile;
+  onSave: (p: BillingProfile) => void;
+  onClose: () => void;
+}
+
+function BillingProfileModal({ customerId, profile, onSave, onClose }: BillingProfileModalProps) {
+  const [form, setForm] = useState<BillingProfilePayload>({
+    name: profile?.name ?? "",
+    email: profile?.email ?? "",
+    phone: profile?.phone ?? "",
+    address: profile?.address ?? "",
+    city: profile?.city ?? "",
+    postcode: profile?.postcode ?? "",
+    country: profile?.country ?? "",
+    tax_number: profile?.tax_number ?? "",
+    payment_terms: profile?.payment_terms ?? "",
+    notes: profile?.notes ?? "",
+    is_default: profile?.is_default ?? false,
+  });
+  const [saving, start] = useTransition();
+  const f = (k: keyof BillingProfilePayload) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setForm((p) => ({ ...p, [k]: e.target.value }));
+
+  const handleSave = () => {
+    if (!form.name.trim()) {
+      toast.error("Name is required");
+      return;
+    }
+    start(async () => {
+      try {
+        const payload: BillingProfilePayload = {
+          ...form,
+          name: form.name.trim(),
+          email: form.email || null,
+          phone: form.phone || null,
+          address: form.address || null,
+          city: form.city || null,
+          postcode: form.postcode || null,
+          country: form.country || null,
+          tax_number: form.tax_number || null,
+          payment_terms: form.payment_terms || null,
+          notes: form.notes || null,
+        };
+        const saved = profile
+          ? await updateBillingProfile(profile.id, payload)
+          : await createBillingProfile(customerId, payload);
+        onSave(saved);
+        toast.success(profile ? "Billing profile updated" : "Billing profile added");
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : "Save failed");
+      }
+    });
+  };
+
+  return (
+    <Dialog open onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{profile ? "Edit billing profile" : "Add billing profile"}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label className="text-xs">Name *</Label>
+            <Input placeholder="e.g. Head Office, Strata Plan 1234" value={form.name} onChange={f("name")} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Email</Label>
+              <Input type="email" placeholder="accounts@..." value={form.email ?? ""} onChange={f("email")} />
+            </div>
+            <div>
+              <Label className="text-xs">Phone</Label>
+              <Input value={form.phone ?? ""} onChange={f("phone")} />
+            </div>
+          </div>
+          <div>
+            <Label className="text-xs">Address</Label>
+            <Input value={form.address ?? ""} onChange={f("address")} />
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <Label className="text-xs">City</Label>
+              <Input value={form.city ?? ""} onChange={f("city")} />
+            </div>
+            <div>
+              <Label className="text-xs">Postcode</Label>
+              <Input value={form.postcode ?? ""} onChange={f("postcode")} />
+            </div>
+            <div>
+              <Label className="text-xs">Country</Label>
+              <Input value={form.country ?? ""} onChange={f("country")} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Tax / ABN</Label>
+              <Input value={form.tax_number ?? ""} onChange={f("tax_number")} />
+            </div>
+            <div>
+              <Label className="text-xs">Payment terms</Label>
+              <Input placeholder="Net 30" value={form.payment_terms ?? ""} onChange={f("payment_terms")} />
+            </div>
+          </div>
+          <div>
+            <Label className="text-xs">Notes</Label>
+            <Textarea rows={2} value={form.notes ?? ""} onChange={f("notes")} />
+          </div>
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              checked={!!form.is_default}
+              onChange={(e) => setForm((p) => ({ ...p, is_default: e.target.checked }))}
+            />
+            Default billing profile for this customer
+          </label>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={onClose}>Cancel</Button>
+            <Button disabled={saving} onClick={handleSave}>{profile ? "Save" : "Add"}</Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────────
 
 export function CustomerDetailClient({
@@ -315,6 +450,7 @@ export function CustomerDetailClient({
   properties: initialProperties,
   contacts: initialContacts,
   notes: initialNotes,
+  billingProfiles: initialBillingProfiles,
   currency = "AUD",
 }: Props) {
   const [customer, setCustomer] = useState(initial);
@@ -322,11 +458,13 @@ export function CustomerDetailClient({
   const [properties, setProperties] = useState(initialProperties);
   const [contacts, setContacts] = useState(initialContacts);
   const [notes, setNotes] = useState(initialNotes);
+  const [billingProfiles, setBillingProfiles] = useState(initialBillingProfiles);
 
   // Modals
   const [propertyModal, setPropertyModal] = useState<{ open: boolean; item?: CustomerProperty }>({ open: false });
   const [contactModal, setContactModal] = useState<{ open: boolean; item?: CustomerContact }>({ open: false });
-  const [deleteTarget, setDeleteTarget] = useState<{ type: "property" | "contact" | "note"; id: string } | null>(null);
+  const [billingModal, setBillingModal] = useState<{ open: boolean; item?: BillingProfile }>({ open: false });
+  const [deleteTarget, setDeleteTarget] = useState<{ type: "property" | "contact" | "note" | "billing"; id: string } | null>(null);
 
   // New note
   const [noteText, setNoteText] = useState("");
@@ -359,6 +497,9 @@ export function CustomerDetailClient({
         } else if (deleteTarget.type === "contact") {
           await deleteCustomerContact(deleteTarget.id, customer.id);
           setContacts((p) => p.filter((x) => x.id !== deleteTarget.id));
+        } else if (deleteTarget.type === "billing") {
+          await archiveBillingProfile(deleteTarget.id);
+          setBillingProfiles((p) => p.filter((x) => x.id !== deleteTarget.id));
         } else {
           await deleteCustomerNote(deleteTarget.id, customer.id);
           setNotes((p) => p.filter((x) => x.id !== deleteTarget.id));
@@ -513,6 +654,9 @@ export function CustomerDetailClient({
                 </TabsTrigger>
                 <TabsTrigger value="reports" className="gap-1.5">
                   <ClipboardList className="w-3.5 h-3.5" />Reports ({reports.length})
+                </TabsTrigger>
+                <TabsTrigger value="billing" className="gap-1.5">
+                  <CreditCard className="w-3.5 h-3.5" />Billing ({billingProfiles.length})
                 </TabsTrigger>
                 <TabsTrigger value="notes" className="gap-1.5">
                   <StickyNote className="w-3.5 h-3.5" />Notes ({notes.length})
@@ -736,6 +880,59 @@ export function CustomerDetailClient({
               </TabsContent>
 
               {/* ── Notes ── */}
+              {/* ── Billing ── */}
+              <TabsContent value="billing" className="mt-3 space-y-3">
+                <div className="flex justify-end">
+                  <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setBillingModal({ open: true })}>
+                    <Plus className="w-3.5 h-3.5" />Add billing profile
+                  </Button>
+                </div>
+                {billingProfiles.length === 0 ? (
+                  <EmptyState icon={<CreditCard className="w-8 h-8" />} text="No billing profiles yet" />
+                ) : billingProfiles.map((bp) => (
+                  <Card key={bp.id}>
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-1 min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-medium text-sm">{bp.name}</p>
+                            {bp.is_default && (
+                              <Badge variant="secondary" className="gap-1 text-xs">
+                                <Star className="w-3 h-3" />Default
+                              </Badge>
+                            )}
+                            {bp.payment_terms && <Badge variant="outline" className="text-xs">{bp.payment_terms}</Badge>}
+                          </div>
+                          {(bp.email || bp.phone) && (
+                            <p className="text-xs text-muted-foreground">
+                              {[bp.email, bp.phone].filter(Boolean).join(" · ")}
+                            </p>
+                          )}
+                          {[bp.address, bp.city, bp.postcode, bp.country].some(Boolean) && (
+                            <p className="text-xs text-muted-foreground">
+                              {[bp.address, bp.city, bp.postcode, bp.country].filter(Boolean).join(", ")}
+                            </p>
+                          )}
+                          {bp.tax_number && <p className="text-xs text-muted-foreground">Tax/ABN: {bp.tax_number}</p>}
+                          {bp.notes && <p className="text-xs text-muted-foreground italic mt-1">{bp.notes}</p>}
+                        </div>
+                        <div className="flex gap-1 shrink-0">
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setBillingModal({ open: true, item: bp })}>
+                            <Edit className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button
+                            size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                            onClick={() => setDeleteTarget({ type: "billing", id: bp.id })}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </TabsContent>
+
               <TabsContent value="notes" className="mt-3 space-y-3">
                 <div className="space-y-2">
                   <Textarea
@@ -806,6 +1003,23 @@ export function CustomerDetailClient({
             setContactModal({ open: false });
           }}
           onClose={() => setContactModal({ open: false })}
+        />
+      )}
+
+      {/* Billing profile modal */}
+      {billingModal.open && (
+        <BillingProfileModal
+          customerId={customer.id}
+          profile={billingModal.item}
+          onSave={(saved) => {
+            setBillingProfiles((p) => {
+              // If saved is default, demote others optimistically
+              const next = saved.is_default ? p.map((x) => ({ ...x, is_default: x.id === saved.id })) : p;
+              return billingModal.item ? next.map((x) => x.id === saved.id ? saved : x) : [...next, saved];
+            });
+            setBillingModal({ open: false });
+          }}
+          onClose={() => setBillingModal({ open: false })}
         />
       )}
 

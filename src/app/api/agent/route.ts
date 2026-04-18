@@ -10,7 +10,7 @@ import { getProducts, createProduct } from "@/lib/actions/products";
 import { createReport } from "@/lib/actions/reports";
 import { createSite } from "@/lib/actions/sites";
 import { createContact } from "@/lib/actions/contacts";
-import { createBillingProfile, setSiteBilling } from "@/lib/actions/billing-profiles";
+import { createBillingProfile, updateBillingProfile, archiveBillingProfile, setSiteBilling } from "@/lib/actions/billing-profiles";
 import { updateWorkOrder } from "@/lib/actions/work-orders";
 import { addJobMaterial, getJobMaterials, deleteJobMaterial } from "@/lib/actions/job-materials";
 import { startTimeEntry, stopTimeEntry, logTimeEntry, getJobTimeEntries } from "@/lib/actions/job-time";
@@ -207,6 +207,39 @@ const TOOLS: Anthropic.Tool[] = [
         is_default: { type: "boolean" },
       },
       required: ["account_id", "name"],
+    },
+  },
+  {
+    name: "update_billing_profile",
+    description: "Update fields on an existing billing profile (name, contact info, payment terms, default flag)",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        billing_profile_id: { type: "string" },
+        name: { type: "string" },
+        email: { type: "string" },
+        phone: { type: "string" },
+        address: { type: "string" },
+        city: { type: "string" },
+        postcode: { type: "string" },
+        country: { type: "string" },
+        tax_number: { type: "string" },
+        payment_terms: { type: "string" },
+        notes: { type: "string" },
+        is_default: { type: "boolean" },
+      },
+      required: ["billing_profile_id"],
+    },
+  },
+  {
+    name: "archive_billing_profile",
+    description: "Archive (soft-delete) a billing profile so it no longer appears in pickers",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        billing_profile_id: { type: "string" },
+      },
+      required: ["billing_profile_id"],
     },
   },
   {
@@ -713,6 +746,8 @@ const TOOL_LABELS: Record<string, string> = {
   create_contact: "Adding contact",
   search_billing_profiles: "Fetching billing profiles",
   create_billing_profile: "Creating billing profile",
+  update_billing_profile: "Updating billing profile",
+  archive_billing_profile: "Archiving billing profile",
   set_site_billing: "Setting site bill-to",
   search_workers: "Searching workers",
   parse_when: "Parsing date",
@@ -955,6 +990,17 @@ async function executeTool(
         is_default: input.is_default ?? false,
       });
       return { id: bp.id, name: bp.name, message: `Billing profile "${bp.name}" created` };
+    }
+
+    case "update_billing_profile": {
+      const { billing_profile_id, ...rest } = input;
+      const bp = await updateBillingProfile(billing_profile_id, rest);
+      return { id: bp.id, name: bp.name, message: `Billing profile "${bp.name}" updated` };
+    }
+
+    case "archive_billing_profile": {
+      await archiveBillingProfile(input.billing_profile_id);
+      return { message: "Billing profile archived" };
     }
 
     case "set_site_billing": {
