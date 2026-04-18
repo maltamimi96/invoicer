@@ -19,7 +19,7 @@ import { toast } from "sonner";
 import {
   ArrowLeft, Camera, Clock, Package, FileText, PenLine, Receipt, History,
   Play, Square, Plus, Trash2, ExternalLink, MapPin, User, Calendar,
-  CheckCircle2, Loader2, Image as ImageIcon, Upload, Eye, EyeOff,
+  CheckCircle2, Loader2, Image as ImageIcon, Upload, Eye, EyeOff, X, RotateCcw,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,7 @@ import { addJobPhoto, deleteJobPhoto, updateJobPhoto } from "@/lib/actions/job-p
 import { startTimeEntry, stopTimeEntry, deleteTimeEntry } from "@/lib/actions/job-time";
 import { addJobMaterial, deleteJobMaterial } from "@/lib/actions/job-materials";
 import { addJobDocument, deleteJobDocument } from "@/lib/actions/job-documents";
+import { addJobSignature, deleteJobSignature } from "@/lib/actions/job-signatures";
 import { addJobNote } from "@/lib/actions/job-timeline";
 import { createClient } from "@/lib/supabase/client";
 import type {
@@ -164,7 +165,7 @@ export function JobPortfolioClient(props: JobPortfolioProps) {
   const {
     workOrder, userRole, currentUserId, assignedWorkers, timeline,
     jobPhotos: initialPhotos, timeEntries: initialTime, materials: initialMaterials,
-    documents: initialDocs, signatures, financials, site, bookerContact,
+    documents: initialDocs, signatures: initialSignatures, financials, site, bookerContact,
   } = props;
 
   const router = useRouter();
@@ -176,6 +177,7 @@ export function JobPortfolioClient(props: JobPortfolioProps) {
   const [timeEntries, setTimeEntries] = useState<JobTimeEntry[]>(initialTime);
   const [materials, setMaterials] = useState<JobMaterial[]>(initialMaterials);
   const [documents, setDocuments] = useState<JobDocument[]>(initialDocs);
+  const [signatures, setSignatures] = useState<JobSignature[]>(initialSignatures);
   const [activeSection, setActiveSection] = useState("overview");
 
   // Sticky TOC scroll-spy
@@ -247,7 +249,14 @@ export function JobPortfolioClient(props: JobPortfolioProps) {
             onAdd={(d) => setDocuments((prev) => [d, ...prev])}
             onDelete={(id) => setDocuments((prev) => prev.filter((d) => d.id !== id))}
           />
-          <SignaturesSection signatures={signatures} />
+          <SignaturesSection
+            workOrderId={workOrder.id}
+            signatures={signatures}
+            editable={editable}
+            currentUserId={currentUserId}
+            onAdd={(s) => setSignatures((prev) => [...prev, s])}
+            onDelete={(id) => setSignatures((prev) => prev.filter((s) => s.id !== id))}
+          />
           <FinancialsSection workOrder={workOrder} financials={financials} />
         </div>
       </div>
@@ -908,27 +917,233 @@ function DocumentsSection({
   );
 }
 
-// ── Signatures (read-only stub) ──────────────────────────────────────────────
+// ── Signatures ───────────────────────────────────────────────────────────────
 
-function SignaturesSection({ signatures }: { signatures: JobSignature[] }) {
+const SIG_PURPOSES: { key: "quote" | "completion" | "change_order" | "safety" | "other"; label: string }[] = [
+  { key: "quote", label: "Quote acceptance" },
+  { key: "completion", label: "Job completion" },
+  { key: "change_order", label: "Change order" },
+  { key: "safety", label: "Safety / SWMS" },
+  { key: "other", label: "Other" },
+];
+
+function SignaturesSection({
+  workOrderId, signatures, editable, currentUserId, onAdd, onDelete,
+}: {
+  workOrderId: string;
+  signatures: JobSignature[];
+  editable: boolean;
+  currentUserId: string;
+  onAdd: (s: JobSignature) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [capturing, setCapturing] = useState(false);
+
   return (
-    <Section id="signatures" title="Signatures" icon={PenLine}>
-      {signatures.length === 0 ? (
-        <EmptyHint>No signatures captured. Customer-facing signature capture is coming in Phase 5.</EmptyHint>
+    <Section
+      id="signatures"
+      title="Signatures"
+      icon={PenLine}
+      action={editable && !capturing && (
+        <Button size="sm" onClick={() => setCapturing(true)}>
+          <PenLine className="w-3.5 h-3.5 mr-1.5" /> Capture signature
+        </Button>
+      )}
+    >
+      {capturing && (
+        <SignatureCapture
+          workOrderId={workOrderId}
+          currentUserId={currentUserId}
+          onCancel={() => setCapturing(false)}
+          onSaved={(s) => { onAdd(s); setCapturing(false); }}
+        />
+      )}
+
+      {signatures.length === 0 && !capturing ? (
+        <EmptyHint>No signatures captured yet.</EmptyHint>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-2 mt-3">
           {signatures.map((s) => (
             <div key={s.id} className="flex items-center justify-between py-2 border-b last:border-0">
-              <div>
-                <p className="text-sm font-medium">{s.signed_by_name}{s.signed_by_role ? ` (${s.signed_by_role})` : ""}</p>
-                <p className="text-xs text-muted-foreground">{s.purpose} · {fmtDateTime(s.signed_at)}</p>
+              <div className="flex items-center gap-3 min-w-0">
+                <a href={s.signature_url} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={s.signature_url} alt="signature" className="h-12 w-24 object-contain bg-white border rounded" />
+                </a>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium truncate">{s.signed_by_name}{s.signed_by_role ? ` (${s.signed_by_role})` : ""}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {SIG_PURPOSES.find((p) => p.key === s.purpose)?.label ?? s.purpose} · {fmtDateTime(s.signed_at)}
+                  </p>
+                </div>
               </div>
-              <a href={s.signature_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">View <ExternalLink className="w-3 h-3" /></a>
+              {editable && (
+                <button
+                  className="text-muted-foreground hover:text-destructive shrink-0"
+                  onClick={async () => {
+                    if (!confirm("Delete this signature?")) return;
+                    try { await deleteJobSignature(s.id); onDelete(s.id); } catch { toast.error("Delete failed"); }
+                  }}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           ))}
         </div>
       )}
     </Section>
+  );
+}
+
+function SignatureCapture({
+  workOrderId, currentUserId, onSaved, onCancel,
+}: {
+  workOrderId: string;
+  currentUserId: string;
+  onSaved: (s: JobSignature) => void;
+  onCancel: () => void;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const drawing = useRef(false);
+  const dirty = useRef(false);
+  const [name, setName] = useState("");
+  const [role, setRole] = useState("");
+  const [purpose, setPurpose] = useState<"quote" | "completion" | "change_order" | "safety" | "other">("completion");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ratio = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * ratio;
+    canvas.height = rect.height * ratio;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.scale(ratio, ratio);
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "#111827";
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, rect.width, rect.height);
+  }, []);
+
+  const point = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  };
+
+  const onDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    drawing.current = true;
+    const ctx = canvasRef.current?.getContext("2d");
+    if (!ctx) return;
+    const p = point(e);
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+  };
+
+  const onMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!drawing.current) return;
+    const ctx = canvasRef.current?.getContext("2d");
+    if (!ctx) return;
+    const p = point(e);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    dirty.current = true;
+  };
+
+  const onUp = () => { drawing.current = false; };
+
+  const clear = () => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+    const rect = canvas.getBoundingClientRect();
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, rect.width, rect.height);
+    dirty.current = false;
+  };
+
+  const save = async () => {
+    if (!name.trim()) { toast.error("Signed-by name is required"); return; }
+    if (!dirty.current) { toast.error("Please draw a signature"); return; }
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    setSaving(true);
+    try {
+      const blob: Blob = await new Promise((resolve, reject) => {
+        canvas.toBlob((b) => b ? resolve(b) : reject(new Error("Canvas export failed")), "image/png");
+      });
+      const supabase = createClient();
+      const path = `${currentUserId}/${workOrderId}/${crypto.randomUUID()}.png`;
+      const up = await supabase.storage.from("work-order-signatures").upload(path, blob, { contentType: "image/png" });
+      if (up.error) throw up.error;
+      const { data } = supabase.storage.from("work-order-signatures").getPublicUrl(path);
+      const saved = await addJobSignature({
+        work_order_id: workOrderId,
+        signed_by_name: name.trim(),
+        signed_by_role: role.trim() || null,
+        signature_url: data.publicUrl,
+        purpose,
+      });
+      toast.success("Signature captured");
+      onSaved(saved);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="rounded-lg border p-4 space-y-3 bg-muted/20">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div>
+          <Label className="text-xs">Signed by *</Label>
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" />
+        </div>
+        <div>
+          <Label className="text-xs">Role</Label>
+          <Input value={role} onChange={(e) => setRole(e.target.value)} placeholder="e.g. Property manager" />
+        </div>
+        <div>
+          <Label className="text-xs">Purpose</Label>
+          <Select value={purpose} onValueChange={(v) => setPurpose(v as typeof purpose)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {SIG_PURPOSES.map((p) => <SelectItem key={p.key} value={p.key}>{p.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="rounded border bg-white touch-none">
+        <canvas
+          ref={canvasRef}
+          className="block w-full h-40 cursor-crosshair"
+          onPointerDown={onDown}
+          onPointerMove={onMove}
+          onPointerUp={onUp}
+          onPointerLeave={onUp}
+          onPointerCancel={onUp}
+        />
+      </div>
+
+      <div className="flex items-center justify-between">
+        <Button size="sm" variant="ghost" onClick={clear}>
+          <RotateCcw className="w-3.5 h-3.5 mr-1.5" /> Clear
+        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={onCancel}><X className="w-3.5 h-3.5 mr-1.5" />Cancel</Button>
+          <Button size="sm" onClick={save} disabled={saving}>
+            {saving ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />}
+            Save signature
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }
 
