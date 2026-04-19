@@ -155,18 +155,23 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
           ) : (
             <div className="space-y-2">
               {qts.map((q: { id: string; number: string; status: string; issue_date: string; expiry_date: string; total: number }) => (
-                <Card key={q.id} className="p-4 flex items-center justify-between gap-4">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium">#{q.number}</span>
-                      <StatusBadge status={q.status} />
+                <Link key={q.id} href={`/portal/${token}/quote/${q.id}`}>
+                  <Card className="p-4 flex items-center justify-between gap-4 hover:shadow-md transition-shadow">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium">#{q.number}</span>
+                        <StatusBadge status={q.status} />
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Issued {formatDate(q.issue_date)} · Expires {formatDate(q.expiry_date)}
+                      </p>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Issued {formatDate(q.issue_date)} · Expires {formatDate(q.expiry_date)}
-                    </p>
-                  </div>
-                  <p className="font-semibold">{formatCurrency(q.total)}</p>
-                </Card>
+                    <div className="text-right">
+                      <p className="font-semibold">{formatCurrency(q.total)}</p>
+                      <p className="text-xs text-violet-500 mt-0.5">View →</p>
+                    </div>
+                  </Card>
+                </Link>
               ))}
             </div>
           )}

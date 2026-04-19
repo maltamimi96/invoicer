@@ -35,6 +35,7 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith("/quote/") ||
     pathname.startsWith("/jobs/") ||
     pathname.startsWith("/portal/") ||
+    pathname.startsWith("/api/portal/") ||
     pathname === "/api/auth/signup" ||
     pathname.startsWith("/api/v1/") ||
     pathname.startsWith("/api/cron/") ||
