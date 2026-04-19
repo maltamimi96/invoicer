@@ -6,8 +6,8 @@ import { getAssignableProfiles } from "@/lib/actions/member-profiles";
 import { WorkOrderNewClient } from "@/components/work-orders/work-order-new-client";
 import type { Customer, MemberProfile } from "@/types/database";
 
-export default async function NewWorkOrderPage({ searchParams }: { searchParams: Promise<{ customer?: string }> }) {
-  const { customer: defaultCustomerId } = await searchParams;
+export default async function NewWorkOrderPage({ searchParams }: { searchParams: Promise<{ customer?: string; site?: string }> }) {
+  const { customer: defaultCustomerId, site: defaultSiteId } = await searchParams;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/auth/login");
@@ -29,5 +29,30 @@ export default async function NewWorkOrderPage({ searchParams }: { searchParams:
   const customers = (customersRaw ?? []) as Customer[];
   const profiles = await getAssignableProfiles().catch(() => []) as Pick<MemberProfile, 'id' | 'name' | 'email' | 'avatar_url' | 'role_title'>[];
 
-  return <WorkOrderNewClient customers={customers} profiles={profiles} defaultCustomerId={defaultCustomerId} />;
+  // If a defaultSiteId was supplied, resolve its customer + address so the form can preselect.
+  let resolvedDefaultCustomerId = defaultCustomerId;
+  let defaultSiteAddress: string | undefined;
+  if (defaultSiteId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: s } = await (supabase as any)
+      .from("sites")
+      .select("account_id, address, city, postcode, country")
+      .eq("id", defaultSiteId)
+      .eq("business_id", businessId)
+      .maybeSingle();
+    if (s) {
+      resolvedDefaultCustomerId = s.account_id;
+      defaultSiteAddress = [s.address, s.city, s.postcode, s.country].filter(Boolean).join(", ");
+    }
+  }
+
+  return (
+    <WorkOrderNewClient
+      customers={customers}
+      profiles={profiles}
+      defaultCustomerId={resolvedDefaultCustomerId}
+      defaultSiteId={defaultSiteId}
+      defaultSiteAddress={defaultSiteAddress}
+    />
+  );
 }

@@ -12,7 +12,7 @@ export async function sendEmail({
   html,
   attachments,
 }: {
-  to: string;
+  to: string | string[];
   subject: string;
   html: string;
   attachments?: Array<{ filename: string; content: Buffer }>;

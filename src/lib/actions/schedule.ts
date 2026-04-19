@@ -151,6 +151,32 @@ export async function deleteScheduledJob(id: string): Promise<void> {
   revalidatePath("/work-orders");
 }
 
+export async function rescheduleJob(
+  workOrderId: string,
+  payload: { scheduled_date: string; start_time?: string | null; end_time?: string | null; assignee_profile_ids?: string[] }
+): Promise<void> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+  const businessId = await getActiveBizId(supabase, user.id);
+
+  const fields: Record<string, unknown> = { scheduled_date: payload.scheduled_date };
+  if (payload.start_time !== undefined) fields.start_time = payload.start_time;
+  if (payload.end_time !== undefined) fields.end_time = payload.end_time;
+
+  const { error } = await tbl(supabase, "work_orders")
+    .update(fields).eq("id", workOrderId).eq("business_id", businessId);
+  if (error) throw error;
+
+  if (payload.assignee_profile_ids !== undefined) {
+    await setJobAssignments(workOrderId, payload.assignee_profile_ids, businessId, user.id);
+  }
+
+  revalidatePath("/schedule");
+  revalidatePath("/work-orders");
+  revalidatePath(`/work-orders/${workOrderId}`);
+}
+
 async function setJobAssignments(
   workOrderId: string,
   profileIds: string[],

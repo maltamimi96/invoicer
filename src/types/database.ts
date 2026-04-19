@@ -71,6 +71,7 @@ export interface Business {
 export interface Customer {
   id: string;
   user_id: string;
+  business_id: string;
   name: string;
   email: string | null;
   phone: string | null;
@@ -81,10 +82,14 @@ export interface Customer {
   company: string | null;
   tax_number: string | null;
   notes: string | null;
+  account_type: 'individual' | 'property_mgmt' | 'commercial' | 'strata' | 'other';
   archived: boolean;
   created_at: string;
   updated_at: string;
 }
+
+// Semantic alias — `Customer` is the row backing an Account.
+export type Account = Customer;
 
 export interface Product {
   id: string;
@@ -247,27 +252,6 @@ export interface WorkOrderPhoto {
   caption?: string;
 }
 
-export interface WorkOrderUpdatePhoto {
-  id: string;
-  url: string;
-  storagePath: string;
-  phase: 'before' | 'progress' | 'after';
-  caption: string;
-  order: number;
-}
-
-export interface WorkOrderUpdate {
-  id: string;
-  work_order_id: string;
-  business_id: string;
-  author_user_id: string | null;
-  author_email: string;
-  author_name: string;
-  content: string;
-  photos: WorkOrderUpdatePhoto[];
-  created_at: string;
-}
-
 export interface MemberProfile {
   id: string;
   business_id: string;
@@ -303,6 +287,46 @@ export interface WorkOrder {
   end_time: string | null;
   photos: WorkOrderPhoto[];
   worker_notes: string | null;
+  // Property-mgmt model
+  site_id: string | null;
+  booker_contact_id: string | null;
+  onsite_contact_id: string | null;
+  billing_profile_id: string | null;
+  cc_contact_ids: string[];
+  reported_issue: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  share_token: string | null;
+  share_enabled_at: string | null;
+  recurring_job_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type RecurringJobCadence = "weekly" | "fortnightly" | "monthly" | "quarterly";
+
+export interface RecurringJob {
+  id: string;
+  business_id: string;
+  user_id: string;
+  name: string;
+  title: string;
+  description: string | null;
+  customer_id: string | null;
+  site_id: string | null;
+  property_address: string | null;
+  reported_issue: string | null;
+  member_profile_ids: string[];
+  cadence: RecurringJobCadence;
+  preferred_weekday: number | null;
+  preferred_day_of_month: number | null;
+  preferred_start_time: string | null;
+  preferred_duration_minutes: number | null;
+  generate_days_ahead: number;
+  next_occurrence_at: string;
+  last_generated_at: string | null;
+  active: boolean;
+  ends_on: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -402,6 +426,273 @@ export interface CustomerNote {
   business_id: string;
   customer_id: string;
   content: string;
+  created_at: string;
+}
+
+// ----------------------------------------------------------------
+// ACCOUNTS / SITES / CONTACTS / BILLING (property-mgmt model)
+// ----------------------------------------------------------------
+// Note: the `customers` table is the "Account" backing — no rename.
+
+export type AccountType = 'individual' | 'property_mgmt' | 'commercial' | 'strata' | 'other';
+export type ContactRole = 'owner' | 'pm' | 'tenant' | 'super' | 'primary' | 'accounts' | 'other';
+export type SiteContactRole = 'tenant' | 'super' | 'owner_onsite' | 'primary' | 'other';
+
+export interface Site {
+  id: string;
+  business_id: string;
+  account_id: string;
+  label: string | null;
+  address: string | null;
+  city: string | null;
+  postcode: string | null;
+  country: string | null;
+  lat: number | null;
+  lng: number | null;
+  access_notes: string | null;
+  gate_code: string | null;
+  parking_notes: string | null;
+  archived: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Contact {
+  id: string;
+  business_id: string;
+  account_id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  role: ContactRole;
+  notes: string | null;
+  archived: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SiteContact {
+  site_id: string;
+  contact_id: string;
+  role: SiteContactRole;
+  is_primary: boolean;
+  created_at: string;
+}
+
+export interface BillingProfile {
+  id: string;
+  business_id: string;
+  account_id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  city: string | null;
+  postcode: string | null;
+  country: string | null;
+  tax_number: string | null;
+  payment_terms: string | null;
+  notes: string | null;
+  is_default: boolean;
+  archived: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SiteBilling {
+  site_id: string;
+  billing_profile_id: string;
+  created_at: string;
+}
+
+// ----------------------------------------------------------------
+// SITE ASSETS (equipment register)
+// ----------------------------------------------------------------
+
+export interface SiteAsset {
+  id: string;
+  business_id: string;
+  site_id: string;
+  name: string;
+  type: string | null;
+  make: string | null;
+  model: string | null;
+  serial_number: string | null;
+  install_date: string | null;
+  warranty_expiry: string | null;
+  last_serviced: string | null;
+  notes: string | null;
+  photos: { url: string; caption?: string }[];
+  archived: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SiteAssetJob {
+  asset_id: string;
+  work_order_id: string;
+  action: 'inspected' | 'serviced' | 'repaired' | 'replaced' | 'installed' | 'removed';
+  notes: string | null;
+  created_at: string;
+}
+
+// ----------------------------------------------------------------
+// JOB PORTFOLIO TABLES
+// ----------------------------------------------------------------
+
+export type JobTimelineEventType =
+  | 'created'
+  | 'status_change'
+  | 'assigned'
+  | 'unassigned'
+  | 'scheduled'
+  | 'rescheduled'
+  | 'arrived'
+  | 'departed'
+  | 'photo_added'
+  | 'note_added'
+  | 'message_sent'
+  | 'message_received'
+  | 'quote_sent'
+  | 'quote_viewed'
+  | 'quote_accepted'
+  | 'quote_rejected'
+  | 'invoice_sent'
+  | 'invoice_viewed'
+  | 'invoice_paid'
+  | 'time_started'
+  | 'time_ended'
+  | 'material_added'
+  | 'signature_captured'
+  | 'form_completed'
+  | 'scope_change'
+  | 'document_uploaded'
+  | 'review_requested'
+  | 'review_received';
+
+export interface JobTimelineEvent {
+  id: string;
+  business_id: string;
+  work_order_id: string;
+  type: JobTimelineEventType;
+  actor_type: 'user' | 'system' | 'customer';
+  actor_id: string | null;
+  actor_label: string | null;
+  payload: Record<string, unknown>;
+  visible_to_customer: boolean;
+  occurred_at: string;
+  created_at: string;
+}
+
+export type JobPhotoPhase = 'before' | 'during' | 'after' | 'reference';
+
+export interface JobPhoto {
+  id: string;
+  business_id: string;
+  work_order_id: string;
+  url: string;
+  phase: JobPhotoPhase;
+  caption: string | null;
+  lat: number | null;
+  lng: number | null;
+  taken_by: string | null;
+  taken_at: string;
+  annotations: unknown[];
+  customer_visible: boolean;
+  created_at: string;
+}
+
+export interface JobTimeEntry {
+  id: string;
+  business_id: string;
+  work_order_id: string;
+  member_profile_id: string | null;
+  user_id: string | null;
+  type: 'work' | 'travel' | 'break';
+  started_at: string;
+  ended_at: string | null;
+  duration_seconds: number | null;
+  notes: string | null;
+  invoice_id: string | null;
+  invoiced_at: string | null;
+  created_at: string;
+}
+
+export interface JobMaterial {
+  id: string;
+  business_id: string;
+  work_order_id: string;
+  product_id: string | null;
+  name: string;
+  qty: number;
+  unit: string | null;
+  unit_cost: number;
+  unit_price: number;
+  added_by: string | null;
+  added_at: string;
+  billable: boolean;
+  invoice_id: string | null;
+  invoiced_at: string | null;
+}
+
+export interface JobSignature {
+  id: string;
+  business_id: string;
+  work_order_id: string;
+  signed_by_name: string;
+  signed_by_role: string | null;
+  signature_url: string;
+  purpose: 'quote' | 'completion' | 'change_order' | 'safety' | 'other';
+  signed_at: string;
+  ip: string | null;
+  user_agent: string | null;
+}
+
+export interface JobDocument {
+  id: string;
+  business_id: string;
+  work_order_id: string;
+  name: string;
+  url: string;
+  mime_type: string | null;
+  size_bytes: number | null;
+  category: 'permit' | 'warranty' | 'certificate' | 'insurance' | 'manual' | 'contract' | 'other';
+  uploaded_by: string | null;
+  uploaded_at: string;
+  customer_visible: boolean;
+}
+
+export interface JobFormTemplate {
+  id: string;
+  business_id: string;
+  name: string;
+  description: string | null;
+  schema: unknown[];
+  archived: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface JobForm {
+  id: string;
+  business_id: string;
+  work_order_id: string;
+  template_id: string | null;
+  name: string;
+  responses: Record<string, unknown>;
+  completed_by: string | null;
+  completed_at: string | null;
+  signature_url: string | null;
+  created_at: string;
+}
+
+export interface JobShareToken {
+  token: string;
+  business_id: string;
+  work_order_id: string;
+  expires_at: string | null;
+  revoked: boolean;
+  created_by: string | null;
   created_at: string;
 }
 

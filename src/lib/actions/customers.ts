@@ -45,7 +45,7 @@ export async function getCustomer(id: string): Promise<Customer> {
   return data as Customer;
 }
 
-export async function createCustomer(payload: Omit<Customer, "id" | "created_at" | "updated_at" | "user_id">): Promise<Customer> {
+export async function createCustomer(payload: Omit<Customer, "id" | "created_at" | "updated_at" | "user_id" | "business_id" | "account_type"> & { account_type?: Customer["account_type"] }): Promise<Customer> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");

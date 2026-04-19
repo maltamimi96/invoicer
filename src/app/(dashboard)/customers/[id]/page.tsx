@@ -6,12 +6,13 @@ import { getBusiness } from "@/lib/actions/business";
 import { getWorkOrders } from "@/lib/actions/work-orders";
 import { getReports } from "@/lib/actions/reports";
 import { getCustomerProperties, getCustomerContacts, getCustomerNotes } from "@/lib/actions/customer-hub";
+import { getBillingProfilesForAccount } from "@/lib/actions/billing-profiles";
 import { CustomerDetailClient } from "@/components/customers/customer-detail-client";
 
 export default async function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   try {
-    const [customer, invoices, quotes, business, workOrders, reports, properties, contacts, notes] = await Promise.all([
+    const [customer, invoices, quotes, business, workOrders, reports, properties, contacts, notes, billingProfiles] = await Promise.all([
       getCustomer(id),
       getInvoices({ customer_id: id }),
       getQuotes({ customer_id: id }),
@@ -21,6 +22,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
       getCustomerProperties(id).catch(() => []),
       getCustomerContacts(id).catch(() => []),
       getCustomerNotes(id).catch(() => []),
+      getBillingProfilesForAccount(id).catch(() => []),
     ]);
     return (
       <CustomerDetailClient
@@ -32,6 +34,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
         properties={properties}
         contacts={contacts}
         notes={notes}
+        billingProfiles={billingProfiles}
         currency={business.currency}
       />
     );
