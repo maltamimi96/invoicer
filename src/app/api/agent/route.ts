@@ -21,6 +21,7 @@ import { addJobNote, getJobTimeline } from "@/lib/actions/job-timeline";
 import { getWorkOrderFinancials, linkFinancialToWorkOrder } from "@/lib/actions/work-orders";
 import { getLeads, createLead, updateLeadStatus, convertLeadToCustomer, convertLeadToQuote, convertLeadToWorkOrder } from "@/lib/actions/leads";
 import { getRecurringJobs, createRecurringJob, setRecurringJobActive, deleteRecurringJob } from "@/lib/actions/recurring-jobs";
+import { createPortalLink } from "@/lib/actions/customer-portal";
 import { parseWhen } from "@/lib/ai/resolvers";
 import { v4 as uuidv4 } from "uuid";
 import type { LineItem } from "@/types/database";
@@ -703,6 +704,20 @@ const TOOLS: Anthropic.Tool[] = [
     input_schema: { type: "object" as const, properties: { recurring_job_id: { type: "string" } }, required: ["recurring_job_id"] },
   },
 
+  // ── Customer portal ────────────────────────────────────────────────────────
+  {
+    name: "create_customer_portal_link",
+    description: "Generate a private magic-link URL the customer can use to view their quotes, invoices, and jobs in a self-serve portal.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        customer_id: { type: "string" },
+        expires_in_days: { type: "number", description: "Optional expiry. Omit for no expiry." },
+      },
+      required: ["customer_id"],
+    },
+  },
+
   // ── Quotes ─────────────────────────────────────────────────────────────────
   {
     name: "create_quote",
@@ -946,6 +961,7 @@ const TOOL_LABELS: Record<string, string> = {
   pause_recurring_job: "Pausing recurring schedule",
   resume_recurring_job: "Resuming recurring schedule",
   delete_recurring_job: "Deleting recurring schedule",
+  create_customer_portal_link: "Generating customer portal link",
   create_quote: "Creating quote",
   list_quotes: "Fetching quotes",
   send_quote_email: "Sending quote email",
@@ -1482,6 +1498,14 @@ async function executeTool(
     case "delete_recurring_job": {
       await deleteRecurringJob(input.recurring_job_id);
       return { message: "Recurring schedule deleted" };
+    }
+
+    // ── Customer portal ───────────────────────────────────────────────────────
+    case "create_customer_portal_link": {
+      const result = await createPortalLink(input.customer_id, {
+        expires_in_days: input.expires_in_days ?? null,
+      });
+      return { ...result, message: `Portal link created. Send this URL to the customer: ${result.url}` };
     }
 
     // ── Quotes ────────────────────────────────────────────────────────────────

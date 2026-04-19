@@ -331,6 +331,17 @@ export interface RecurringJob {
   updated_at: string;
 }
 
+export interface CustomerPortalToken {
+  token: string;
+  business_id: string;
+  customer_id: string;
+  created_by: string | null;
+  created_at: string;
+  expires_at: string | null;
+  last_used_at: string | null;
+  revoked_at: string | null;
+}
+
 export interface WorkOrderAssignment {
   id: string;
   work_order_id: string;

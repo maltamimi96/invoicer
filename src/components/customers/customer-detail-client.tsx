@@ -28,6 +28,7 @@ import { toast } from "sonner";
 import { formatCurrency, formatDate, getStatusColor } from "@/lib/utils";
 import { AddressLink, MapPinLink } from "@/components/ui/address-link";
 import { CustomerForm } from "./customer-form";
+import { PortalLinkButton } from "@/components/customer-portal/portal-link-button";
 import {
   createCustomerProperty, updateCustomerProperty, deleteCustomerProperty,
   createCustomerContact, updateCustomerContact, deleteCustomerContact,
@@ -528,6 +529,7 @@ export function CustomerDetailClient({
           <Button variant="outline" size="sm" onClick={() => setEditing(!editing)}>
             <Edit className="w-3.5 h-3.5 mr-1.5" />{editing ? "Cancel" : "Edit"}
           </Button>
+          <PortalLinkButton customerId={customer.id} customerName={customer.name} />
           <Link href={`/invoices/new?customer=${customer.id}`}>
             <Button size="sm" className="gap-1.5"><Plus className="w-3.5 h-3.5" />New invoice</Button>
           </Link>
