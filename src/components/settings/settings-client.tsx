@@ -233,16 +233,18 @@ export function SettingsClient({ business: initial, members, apiKeys, emailConfi
       </motion.div>
 
       <Tabs defaultValue="business">
-        <TabsList className="grid grid-cols-4 sm:grid-cols-8 w-full sm:w-auto sm:inline-flex">
-          <TabsTrigger value="business"   className="gap-1.5"><Building2 className="w-3.5 h-3.5" />Business</TabsTrigger>
-          <TabsTrigger value="payment"    className="gap-1.5"><CreditCard className="w-3.5 h-3.5" />Payment</TabsTrigger>
-          <TabsTrigger value="documents"  className="gap-1.5"><FileText className="w-3.5 h-3.5" />Documents</TabsTrigger>
-          <TabsTrigger value="appearance" className="gap-1.5"><Palette className="w-3.5 h-3.5" />Appearance</TabsTrigger>
-          <TabsTrigger value="team"       className="gap-1.5"><Users className="w-3.5 h-3.5" />Team</TabsTrigger>
-          <TabsTrigger value="api"        className="gap-1.5"><Key className="w-3.5 h-3.5" />API</TabsTrigger>
-          <TabsTrigger value="email"      className="gap-1.5"><Mail className="w-3.5 h-3.5" />Email</TabsTrigger>
-          <TabsTrigger value="webhooks"   className="gap-1.5"><Webhook className="w-3.5 h-3.5" />Webhooks</TabsTrigger>
-        </TabsList>
+        <div className="-mx-4 sm:mx-0 overflow-x-auto sm:overflow-visible">
+          <TabsList className="px-4 sm:px-0 inline-flex sm:flex w-max sm:w-auto whitespace-nowrap">
+            <TabsTrigger value="business"   className="gap-1.5"><Building2 className="w-3.5 h-3.5" />Business</TabsTrigger>
+            <TabsTrigger value="payment"    className="gap-1.5"><CreditCard className="w-3.5 h-3.5" />Payment</TabsTrigger>
+            <TabsTrigger value="documents"  className="gap-1.5"><FileText className="w-3.5 h-3.5" />Documents</TabsTrigger>
+            <TabsTrigger value="appearance" className="gap-1.5"><Palette className="w-3.5 h-3.5" />Appearance</TabsTrigger>
+            <TabsTrigger value="team"       className="gap-1.5"><Users className="w-3.5 h-3.5" />Team</TabsTrigger>
+            <TabsTrigger value="api"        className="gap-1.5"><Key className="w-3.5 h-3.5" />API</TabsTrigger>
+            <TabsTrigger value="email"      className="gap-1.5"><Mail className="w-3.5 h-3.5" />Email</TabsTrigger>
+            <TabsTrigger value="webhooks"   className="gap-1.5"><Webhook className="w-3.5 h-3.5" />Webhooks</TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* ── Business tab ── */}
         <TabsContent value="business" className="space-y-4 mt-6">
@@ -287,18 +289,18 @@ export function SettingsClient({ business: initial, members, apiKeys, emailConfi
                     <p className="text-xs text-destructive">{businessForm.formState.errors.name.message}</p>
                   )}
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5"><Label>Email</Label><Input type="email" {...businessForm.register("email")} /></div>
                   <div className="space-y-1.5"><Label>Phone</Label><Input {...businessForm.register("phone")} /></div>
                 </div>
                 <div className="space-y-1.5"><Label>Website</Label><Input placeholder="https://..." {...businessForm.register("website")} /></div>
                 <div className="space-y-1.5"><Label>Address</Label><Input {...businessForm.register("address")} /></div>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="space-y-1.5"><Label>City</Label><Input {...businessForm.register("city")} /></div>
                   <div className="space-y-1.5"><Label>Postcode</Label><Input {...businessForm.register("postcode")} /></div>
                   <div className="space-y-1.5"><Label>Country</Label><Input {...businessForm.register("country")} /></div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5"><Label>VAT / Tax number</Label><Input {...businessForm.register("tax_number")} /></div>
                   <div className="space-y-1.5">
                     <Label>Currency</Label>
@@ -336,7 +338,7 @@ export function SettingsClient({ business: initial, members, apiKeys, emailConfi
               <form onSubmit={bankForm.handleSubmit(handleSaveBank)} className="space-y-4">
                 <div className="space-y-1.5"><Label>Bank name</Label><Input {...bankForm.register("bank_name")} /></div>
                 <div className="space-y-1.5"><Label>Account name</Label><Input {...bankForm.register("bank_account_name")} /></div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5"><Label>Account number</Label><Input {...bankForm.register("bank_account_number")} /></div>
                   <div className="space-y-1.5"><Label>Sort code</Label><Input {...bankForm.register("bank_sort_code")} /></div>
                 </div>
@@ -359,7 +361,7 @@ export function SettingsClient({ business: initial, members, apiKeys, emailConfi
             <CardHeader><CardTitle className="text-base">Invoice & Quote Numbering</CardTitle></CardHeader>
             <CardContent>
               <form onSubmit={invoiceForm.handleSubmit(handleSaveInvoice)} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Invoice prefix</Label>
                     <Input placeholder="INV" {...invoiceForm.register("invoice_prefix")} />
@@ -371,7 +373,7 @@ export function SettingsClient({ business: initial, members, apiKeys, emailConfi
                   </div>
                 </div>
                 <Separator />
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Quote prefix</Label>
                     <Input placeholder="QUO" {...invoiceForm.register("quote_prefix")} />

@@ -53,7 +53,7 @@ export function ProductForm({ product, onSubmit, onCancel }: ProductFormProps) {
         <Label>Description</Label>
         <Textarea placeholder="Brief description..." rows={2} {...register("description")} />
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <Label>Unit price (£)</Label>
           <Input type="number" step="0.01" placeholder="0.00" {...register("unit_price")} />

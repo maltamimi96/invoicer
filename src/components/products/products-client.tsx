@@ -83,11 +83,11 @@ export function ProductsClient({ products: initial, currency = "GBP" }: { produc
           <h1 className="text-2xl font-bold">Products & Services</h1>
           <p className="text-sm text-muted-foreground mt-0.5">{products.length} item{products.length !== 1 ? "s" : ""}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setShowImport(true)}>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Button size="sm" variant="outline" className="gap-1.5 flex-1 sm:flex-initial" onClick={() => setShowImport(true)}>
             <Upload className="w-3.5 h-3.5" />Import CSV
           </Button>
-          <Button size="sm" className="gap-1.5" onClick={() => setShowNew(true)}>
+          <Button size="sm" className="gap-1.5 flex-1 sm:flex-initial" onClick={() => setShowNew(true)}>
             <Plus className="w-3.5 h-3.5" />Add product
           </Button>
         </div>

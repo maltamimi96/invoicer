@@ -100,7 +100,7 @@ export function SiteDetailClient({
           {/* Left rail */}
           <div className="space-y-4">
             {/* Stats */}
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {[
                 { label: "Total jobs", value: jobs.length },
                 { label: "Open", value: jobs.filter((j) => !["completed", "cancelled"].includes(j.status)).length },

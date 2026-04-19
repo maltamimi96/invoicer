@@ -39,7 +39,8 @@ const GENERATING_MESSAGES = [
   "Finalising report...",
 ];
 
-export function ReportGenerator({ customers, business, defaultCustomerId }: ReportGeneratorProps) {
+export function ReportGenerator({ customers: initialCustomers, business, defaultCustomerId }: ReportGeneratorProps) {
+  const [customers, setCustomers] = useState(initialCustomers);
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -305,6 +306,7 @@ export function ReportGenerator({ customers, business, defaultCustomerId }: Repo
                       customers={customers}
                       value={customerId}
                       onValueChange={setCustomerId}
+                      onCustomerCreated={(c) => setCustomers((prev) => [...prev, c])}
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -344,7 +346,7 @@ export function ReportGenerator({ customers, business, defaultCustomerId }: Repo
                 </div>
 
                 {images.length > 0 && (
-                  <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                     {images.map((img, i) => (
                       <div key={i} className="relative group aspect-square">
                         {/* eslint-disable-next-line @next/next/no-img-element */}

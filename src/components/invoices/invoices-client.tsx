@@ -66,8 +66,8 @@ export function InvoicesClient({ invoices: initial, currency = "GBP" }: Invoices
           <h1 className="text-2xl font-bold">Invoices</h1>
           <p className="text-sm text-muted-foreground mt-0.5">{invoices.length} total · {formatCurrency(totals.outstanding, currency)} outstanding</p>
         </div>
-        <Link href="/invoices/new">
-          <Button size="sm" className="gap-1.5"><Plus className="w-3.5 h-3.5" />New invoice</Button>
+        <Link href="/invoices/new" className="w-full sm:w-auto">
+          <Button size="sm" className="gap-1.5 w-full sm:w-auto"><Plus className="w-3.5 h-3.5" />New invoice</Button>
         </Link>
       </motion.div>
 

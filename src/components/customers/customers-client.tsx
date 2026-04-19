@@ -63,12 +63,12 @@ export function CustomersClient({ customers: initial }: { customers: Customer[] 
           <h1 className="text-2xl font-bold">Customers</h1>
           <p className="text-sm text-muted-foreground mt-0.5">{customers.length} customer{customers.length !== 1 ? "s" : ""}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setShowImport(true)}>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Button size="sm" variant="outline" className="gap-1.5 flex-1 sm:flex-initial" onClick={() => setShowImport(true)}>
             <Upload className="w-3.5 h-3.5" /> Import CSV
           </Button>
-          <Link href="/customers/new">
-            <Button size="sm" className="gap-1.5"><Plus className="w-3.5 h-3.5" /> Add customer</Button>
+          <Link href="/customers/new" className="flex-1 sm:flex-initial">
+            <Button size="sm" className="gap-1.5 w-full sm:w-auto"><Plus className="w-3.5 h-3.5" /> Add customer</Button>
           </Link>
         </div>
       </motion.div>

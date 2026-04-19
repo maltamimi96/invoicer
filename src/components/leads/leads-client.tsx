@@ -310,7 +310,7 @@ export function LeadsClient({ leads: initial }: { leads: Lead[] }) {
           <DialogHeader>
             <DialogTitle>Add Lead</DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-4 py-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-2">
             <div className="col-span-2 space-y-1.5">
               <Label>Name *</Label>
               <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="John Smith" />
@@ -368,7 +368,7 @@ export function LeadsClient({ leads: initial }: { leads: Lead[] }) {
           <DialogHeader>
             <DialogTitle>Edit Lead</DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-4 py-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-2">
             <div className="col-span-2 space-y-1.5">
               <Label>Name *</Label>
               <Input value={editForm.name ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} />
@@ -462,8 +462,8 @@ function LeadCard({
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0">
-              <MoreHorizontal className="h-3.5 w-3.5" />
+            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+              <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -527,7 +527,7 @@ function LeadCard({
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 text-xs px-2 gap-1"
+            className="h-8 text-xs px-3 gap-1"
             onClick={() => onMove(lead.id, next)}
           >
             {next.charAt(0).toUpperCase() + next.slice(1)}

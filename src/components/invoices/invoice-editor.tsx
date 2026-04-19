@@ -139,21 +139,24 @@ export function InvoiceEditor({ customers, products, business, invoice, defaultC
   return (
     <div className="space-y-6">
       {/* Header */}
-      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-4">
-        <Link href="/invoices">
-          <Button variant="ghost" size="icon" className="h-8 w-8"><ArrowLeft className="w-4 h-4" /></Button>
-        </Link>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold">{invoice ? `Edit ${invoice.number}` : "New Invoice"}</h1>
+      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+        <div className="flex items-center gap-4">
+          <Link href="/invoices">
+            <Button variant="ghost" size="icon" className="h-8 w-8"><ArrowLeft className="w-4 h-4" /></Button>
+          </Link>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-2xl font-bold truncate">{invoice ? `Edit ${invoice.number}` : "New Invoice"}</h1>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setSmartFillOpen(true)}>
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap sm:ml-auto">
+          <Button variant="outline" size="sm" className="gap-1.5 flex-1 sm:flex-initial" onClick={() => setSmartFillOpen(true)}>
             <Sparkles className="w-3.5 h-3.5 text-purple-500" />Smart fill
           </Button>
           <PdfSettingsPanel settings={pdfSettings} business={business} mode="invoice" onSettingsChange={setPdfSettings} />
           <Button
             variant="outline"
             size="sm"
+            className="flex-1 sm:flex-initial"
             disabled={saving}
             onClick={handleSubmit((data) => onSubmit(data))}
           >
@@ -162,6 +165,7 @@ export function InvoiceEditor({ customers, products, business, invoice, defaultC
           </Button>
           <Button
             size="sm"
+            className="flex-1 sm:flex-initial"
             disabled={saving}
             onClick={() => { setSendAfterSave(true); handleSubmit((data) => onSubmit(data, "sent"))(); }}
           >
@@ -185,9 +189,10 @@ export function InvoiceEditor({ customers, products, business, invoice, defaultC
                     customers={localCustomers}
                     value={watch("customer_id") ?? ""}
                     onValueChange={(v) => setValue("customer_id", v === "none" ? "" : v)}
+                    onCustomerCreated={(c) => setLocalCustomers((prev) => [...prev, c])}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label>Issue date</Label>
                     <Input type="date" {...register("issue_date")} />

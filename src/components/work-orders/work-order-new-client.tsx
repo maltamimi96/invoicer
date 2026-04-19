@@ -43,10 +43,11 @@ interface WorkOrderNewClientProps {
 }
 
 export function WorkOrderNewClient({
-  customers, profiles, defaultCustomerId, defaultSiteId, defaultSiteAddress,
+  customers: initialCustomers, profiles, defaultCustomerId, defaultSiteId, defaultSiteAddress,
 }: WorkOrderNewClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [customers, setCustomers] = useState(initialCustomers);
 
   const [title,            setTitle]            = useState("");
   const [description,      setDescription]      = useState("");
@@ -208,7 +209,12 @@ export function WorkOrderNewClient({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label>Account</Label>
-              <ClientSelect customers={customers} value={customerId} onValueChange={setCustomerId} />
+              <ClientSelect
+                customers={customers}
+                value={customerId}
+                onValueChange={setCustomerId}
+                onCustomerCreated={(c) => setCustomers((prev) => [...prev, c])}
+              />
             </div>
 
             {accountSelected && sites.length > 0 && (
@@ -288,7 +294,7 @@ export function WorkOrderNewClient({
               <Label>Scheduled Date</Label>
               <Input type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} />
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div className="space-y-1.5">
                 <Label>Start Time</Label>
                 <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />

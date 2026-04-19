@@ -59,8 +59,8 @@ export function QuotesClient({ quotes: initial, currency = "GBP" }: { quotes: Qu
           <h1 className="text-2xl font-bold">Quotes</h1>
           <p className="text-sm text-muted-foreground mt-0.5">{quotes.length} total</p>
         </div>
-        <Link href="/quotes/new">
-          <Button size="sm" className="gap-1.5"><Plus className="w-3.5 h-3.5" />New quote</Button>
+        <Link href="/quotes/new" className="w-full sm:w-auto">
+          <Button size="sm" className="gap-1.5 w-full sm:w-auto"><Plus className="w-3.5 h-3.5" />New quote</Button>
         </Link>
       </motion.div>
 

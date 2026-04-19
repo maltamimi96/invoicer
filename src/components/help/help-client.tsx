@@ -482,7 +482,8 @@ export function HelpClient() {
           <h2 className="text-xl font-semibold">Background jobs running for you</h2>
         </div>
         <Card className="p-0 overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[480px]">
             <thead className="bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
               <tr>
                 <th className="text-left px-4 py-2.5 font-semibold">When</th>
@@ -500,6 +501,7 @@ export function HelpClient() {
               ))}
             </tbody>
           </table>
+        </div>
         </Card>
       </section>
 

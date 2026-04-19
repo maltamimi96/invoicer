@@ -143,7 +143,7 @@ export function QuoteDetailClient({ quote: initial, customers, products, busines
 
               <Separator />
 
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div>
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Quote for</p>
                   {customer ? (
