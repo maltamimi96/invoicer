@@ -45,7 +45,11 @@ export async function getCustomer(id: string): Promise<Customer> {
   return data as Customer;
 }
 
-export async function createCustomer(payload: Omit<Customer, "id" | "created_at" | "updated_at" | "user_id" | "business_id" | "account_type"> & { account_type?: Customer["account_type"] }): Promise<Customer> {
+type CreateCustomerInput =
+  Omit<Customer, "id" | "created_at" | "updated_at" | "user_id" | "business_id" | "account_type" | "website" | "secondary_phone" | "contact_role" | "preferred_contact">
+  & Partial<Pick<Customer, "account_type" | "website" | "secondary_phone" | "contact_role" | "preferred_contact">>;
+
+export async function createCustomer(payload: CreateCustomerInput): Promise<Customer> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");

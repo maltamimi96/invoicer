@@ -82,7 +82,14 @@ export interface Customer {
   company: string | null;
   tax_number: string | null;
   notes: string | null;
-  account_type: 'individual' | 'property_mgmt' | 'commercial' | 'strata' | 'other';
+  account_type:
+    | 'residential' | 'commercial' | 'developer' | 'agent' | 'builder'
+    | 'strata' | 'property_mgmt' | 'government' | 'non_profit' | 'other'
+    | 'individual';
+  website: string | null;
+  secondary_phone: string | null;
+  contact_role: string | null;
+  preferred_contact: 'email' | 'phone' | 'sms' | 'any' | null;
   archived: boolean;
   created_at: string;
   updated_at: string;
