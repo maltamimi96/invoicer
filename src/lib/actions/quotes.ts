@@ -6,6 +6,7 @@ import { getActiveBizId } from "@/lib/active-business";
 import { dispatchWebhook } from "@/lib/webhooks";
 import { sendEmail } from "@/lib/email";
 import { quoteEmailHtml } from "@/lib/emails/quote";
+import { randomBytes } from "node:crypto";
 import type { Customer, Quote, QuoteWithCustomer, Invoice, LineItem } from "@/types/database";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -188,15 +189,58 @@ export async function sendQuoteEmail(id: string): Promise<void> {
 
   const lineItems = (quoteData.line_items ?? []) as LineItem[];
 
+  // Generate PDF buffer
+  const { renderToStream } = await import("@react-pdf/renderer");
+  const { QuotePDFDocument } = await import("@/components/quotes/quote-pdf-document");
+  const React = await import("react");
+  const element = React.createElement(QuotePDFDocument, {
+    quote: quoteData,
+    customer,
+    business: businessData,
+    lineItems,
+  });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const stream = await renderToStream(element as any);
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream as AsyncIterable<Buffer>) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  const pdfBuffer = Buffer.concat(chunks);
+
+  // Issue (or reuse) a portal token so the customer can review & accept online
+  const businessId = await getActiveBizId(supabase, user.id);
+  let acceptUrl: string | null = null;
+  if (customer.id) {
+    const { data: existing } = await tbl(supabase, "customer_portal_tokens")
+      .select("token")
+      .eq("business_id", businessId)
+      .eq("customer_id", customer.id)
+      .is("revoked_at", null)
+      .or("expires_at.is.null,expires_at.gt." + new Date().toISOString())
+      .limit(1)
+      .maybeSingle();
+    let token: string | null = existing?.token ?? null;
+    if (!token) {
+      token = "cust_" + randomBytes(24).toString("hex");
+      const expires_at = new Date(Date.now() + 90 * 86_400_000).toISOString();
+      await tbl(supabase, "customer_portal_tokens").insert({
+        token, business_id: businessId, customer_id: customer.id,
+        created_by: user.id, expires_at,
+      });
+    }
+    const base = process.env.NEXT_PUBLIC_APP_URL || "";
+    if (base && token) acceptUrl = `${base}/portal/${token}/quote/${quoteData.id}`;
+  }
+
   await sendEmail({
     to: customer.email,
     subject: `Quote ${quoteData.number} from ${businessData.name}`,
-    html: quoteEmailHtml({ quote: quoteData, customer, business: businessData, lineItems }),
+    html: quoteEmailHtml({ quote: quoteData, customer, business: businessData, lineItems, acceptUrl }),
+    attachments: [{ filename: `${quoteData.number}.pdf`, content: pdfBuffer }],
   });
 
   // Mark as sent if still draft
   if (quoteData.status === "draft") {
-    const businessId = await getActiveBizId(supabase, user.id);
     await tbl(supabase, "quotes")
       .update({ status: "sent" })
       .eq("id", id);

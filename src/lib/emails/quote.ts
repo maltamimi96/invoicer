@@ -6,11 +6,13 @@ export function quoteEmailHtml({
   customer,
   business,
   lineItems,
+  acceptUrl,
 }: {
   quote: Quote;
   customer: Customer | null;
   business: Business;
   lineItems: LineItem[];
+  acceptUrl?: string | null;
 }): string {
   const fmt = (n: number) =>
     new Intl.NumberFormat("en-GB", { style: "currency", currency: business.currency }).format(n);
@@ -47,7 +49,24 @@ export function quoteEmailHtml({
     ${quote.notes ? `<p style="margin:24px 0 0;font-size:13px;color:#71717a;"><strong>Notes:</strong> ${quote.notes}</p>` : ""}
     ${quote.terms ? `<p style="margin:8px 0 0;font-size:13px;color:#71717a;"><strong>Terms:</strong> ${quote.terms}</p>` : ""}
 
-    <p style="margin:24px 0 0;font-size:13px;color:#71717a;">To accept this quote or ask any questions, contact us at ${business.email ?? business.phone ?? "—"}</p>
+    ${acceptUrl ? `
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:32px 0 0;">
+      <tr>
+        <td align="center">
+          <a href="${acceptUrl}" style="display:inline-block;background:#8b5cf6;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;padding:14px 32px;border-radius:8px;">
+            Review &amp; accept quote
+          </a>
+        </td>
+      </tr>
+      <tr>
+        <td align="center" style="padding-top:8px;font-size:12px;color:#a1a1aa;">
+          The PDF is also attached to this email.
+        </td>
+      </tr>
+    </table>
+    ` : ""}
+
+    <p style="margin:24px 0 0;font-size:13px;color:#71717a;">Questions? Contact us at ${business.email ?? business.phone ?? "—"}</p>
   `;
 
   return emailBase(`Quote ${quote.number} from ${business.name}`, body, "#8b5cf6");
