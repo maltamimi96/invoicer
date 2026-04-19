@@ -51,7 +51,8 @@ export async function GET(req: NextRequest) {
     const results = (raw as NominatimResult[]).map((r) => {
       const a = r.address || {};
       const street = [a.house_number, a.road].filter(Boolean).join(" ");
-      const city = a.city || a.town || a.village || a.suburb || a.neighbourhood || "";
+      // Prefer suburb (AU/UK convention) — falls back to town/village/city.
+      const city = a.suburb || a.neighbourhood || a.town || a.village || a.city || "";
       return {
         label: r.display_name,
         address: street || a.road || "",
