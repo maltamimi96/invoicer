@@ -87,6 +87,7 @@ export function LeadsClient({ leads: initial }: { leads: Lead[] }) {
   const [saving, setSaving] = useState(false);
   const [editLead, setEditLead] = useState<Lead | null>(null);
   const [editForm, setEditForm] = useState<Partial<Lead>>({});
+  const [dragOverCol, setDragOverCol] = useState<LeadStatus | null>(null);
 
   const filtered = search
     ? leads.filter((l) =>
@@ -245,8 +246,21 @@ export function LeadsClient({ leads: initial }: { leads: Lead[] }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 min-h-[400px]">
         {COLUMNS.map((col) => {
           const colLeads = byStatus(col.status);
+          const isOver = dragOverCol === col.status;
           return (
-            <div key={col.status} className="flex flex-col gap-2">
+            <div
+              key={col.status}
+              className="flex flex-col gap-2"
+              onDragOver={(e) => { e.preventDefault(); setDragOverCol(col.status); }}
+              onDragLeave={() => setDragOverCol((c) => c === col.status ? null : c)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOverCol(null);
+                const id = e.dataTransfer.getData("text/lead-id");
+                const fromStatus = e.dataTransfer.getData("text/lead-status") as LeadStatus;
+                if (id && fromStatus !== col.status) handleMove(id, col.status);
+              }}
+            >
               {/* Column header */}
               <div className={`rounded-lg px-3 py-2 flex items-center gap-2 ${col.color}`}>
                 <span className={`h-2 w-2 rounded-full ${col.dot}`} />
@@ -257,21 +271,31 @@ export function LeadsClient({ leads: initial }: { leads: Lead[] }) {
               </div>
 
               {/* Cards */}
-              <div className="flex flex-col gap-2">
+              <div className={`flex flex-col gap-2 rounded-lg p-1 transition-colors ${isOver ? "bg-primary/5 ring-2 ring-primary/30 ring-inset" : ""}`}>
                 {colLeads.map((lead) => (
-                  <LeadCard
+                  <div
                     key={lead.id}
-                    lead={lead}
-                    converting={converting === lead.id}
-                    onMove={handleMove}
-                    onDelete={() => setDeleteId(lead.id)}
-                    onEdit={() => { setEditLead(lead); setEditForm({ name: lead.name, phone: lead.phone, email: lead.email, suburb: lead.suburb, service: lead.service, property_type: lead.property_type, timing: lead.timing, notes: lead.notes }); }}
-                    onConvert={(target) => handleConvert(lead.id, target)}
-                  />
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData("text/lead-id", lead.id);
+                      e.dataTransfer.setData("text/lead-status", lead.status);
+                      e.dataTransfer.effectAllowed = "move";
+                    }}
+                    className="cursor-grab active:cursor-grabbing"
+                  >
+                    <LeadCard
+                      lead={lead}
+                      converting={converting === lead.id}
+                      onMove={handleMove}
+                      onDelete={() => setDeleteId(lead.id)}
+                      onEdit={() => { setEditLead(lead); setEditForm({ name: lead.name, phone: lead.phone, email: lead.email, suburb: lead.suburb, service: lead.service, property_type: lead.property_type, timing: lead.timing, notes: lead.notes }); }}
+                      onConvert={(target) => handleConvert(lead.id, target)}
+                    />
+                  </div>
                 ))}
                 {colLeads.length === 0 && (
-                  <div className="rounded-lg border border-dashed border-border/60 p-4 text-center text-xs text-muted-foreground">
-                    No leads
+                  <div className={`rounded-lg border border-dashed p-4 text-center text-xs ${isOver ? "border-primary/50 text-primary" : "border-border/60 text-muted-foreground"}`}>
+                    {isOver ? "Drop here" : "No leads"}
                   </div>
                 )}
               </div>
