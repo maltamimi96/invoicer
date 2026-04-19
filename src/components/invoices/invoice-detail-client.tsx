@@ -199,7 +199,7 @@ export function InvoiceDetailClient({ invoice: initial, customers, products, bus
               <Separator />
 
               {/* Bill to + dates */}
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div>
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Bill to</p>
                   {customer ? (
@@ -219,26 +219,28 @@ export function InvoiceDetailClient({ invoice: initial, customers, products, bus
               </div>
 
               {/* Line items table */}
-              <div>
-                <div className="grid grid-cols-[1fr_60px_80px_60px_80px] gap-2 pb-2 border-b text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  <span>Description</span>
-                  <span className="text-center">Qty</span>
-                  <span className="text-right">Price</span>
-                  <span className="text-center">Tax</span>
-                  <span className="text-right">Total</span>
-                </div>
-                {lineItems.map((item) => (
-                  <div key={item.id} className="grid grid-cols-[1fr_60px_80px_60px_80px] gap-2 py-3 border-b border-dashed">
-                    <div>
-                      <p className="font-medium text-sm">{item.name}</p>
-                      {item.description && <p className="text-xs text-muted-foreground">{item.description}</p>}
-                    </div>
-                    <span className="text-center text-sm">{item.quantity}</span>
-                    <span className="text-right text-sm">{formatCurrency(item.unit_price, business.currency)}</span>
-                    <span className="text-center text-sm">{item.tax_rate}%</span>
-                    <span className="text-right text-sm font-medium">{formatCurrency(item.total, business.currency)}</span>
+              <div className="-mx-6 sm:mx-0 overflow-x-auto">
+                <div className="min-w-[480px] px-6 sm:px-0">
+                  <div className="grid grid-cols-[1fr_60px_80px_60px_80px] gap-2 pb-2 border-b text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    <span>Description</span>
+                    <span className="text-center">Qty</span>
+                    <span className="text-right">Price</span>
+                    <span className="text-center">Tax</span>
+                    <span className="text-right">Total</span>
                   </div>
-                ))}
+                  {lineItems.map((item) => (
+                    <div key={item.id} className="grid grid-cols-[1fr_60px_80px_60px_80px] gap-2 py-3 border-b border-dashed">
+                      <div>
+                        <p className="font-medium text-sm">{item.name}</p>
+                        {item.description && <p className="text-xs text-muted-foreground">{item.description}</p>}
+                      </div>
+                      <span className="text-center text-sm">{item.quantity}</span>
+                      <span className="text-right text-sm">{formatCurrency(item.unit_price, business.currency)}</span>
+                      <span className="text-center text-sm">{item.tax_rate}%</span>
+                      <span className="text-right text-sm font-medium">{formatCurrency(item.total, business.currency)}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {/* Totals */}
@@ -275,7 +277,7 @@ export function InvoiceDetailClient({ invoice: initial, customers, products, bus
                   <Separator />
                   <div className="text-sm">
                     <p className="font-medium mb-1">Bank details</p>
-                    <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-muted-foreground">
+                    <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-muted-foreground">
                       {business.bank_name && <><span>Bank</span><span>{business.bank_name}</span></>}
                       {business.bank_account_name && <><span>Name</span><span>{business.bank_account_name}</span></>}
                       {business.bank_account_number && <><span>Account</span><span>{business.bank_account_number}</span></>}
