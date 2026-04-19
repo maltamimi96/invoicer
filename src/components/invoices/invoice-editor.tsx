@@ -185,6 +185,7 @@ export function InvoiceEditor({ customers, products, business, invoice, defaultC
                     customers={localCustomers}
                     value={watch("customer_id") ?? ""}
                     onValueChange={(v) => setValue("customer_id", v === "none" ? "" : v)}
+                    onCustomerCreated={(c) => setLocalCustomers((prev) => [...prev, c])}
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">

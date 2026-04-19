@@ -18,16 +18,17 @@ interface ClientSelectProps {
   onValueChange: (value: string) => void;
   placeholder?: string;
   allowNone?: boolean;
+  onCustomerCreated?: (customer: Customer) => void;
 }
 
 export function ClientSelect({
-  customers: initialCustomers,
+  customers,
   value,
   onValueChange,
   placeholder = "Select client...",
   allowNone = true,
+  onCustomerCreated,
 }: ClientSelectProps) {
-  const [customers, setCustomers] = useState(initialCustomers);
   const [modalOpen, setModalOpen] = useState(false);
 
   const handleValueChange = (v: string) => {
@@ -39,7 +40,7 @@ export function ClientSelect({
   };
 
   const handleCreated = (customer: Customer) => {
-    setCustomers((prev) => [...prev, customer]);
+    onCustomerCreated?.(customer);
     onValueChange(customer.id);
   };
 
