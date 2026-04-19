@@ -9,7 +9,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { advanceOccurrence } from "@/lib/actions/recurring-jobs";
+import { advanceOccurrence } from "@/lib/recurring/cadence";
 import type { RecurringJob } from "@/types/database";
 
 function todayISO(): string {
