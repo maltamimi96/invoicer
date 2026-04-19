@@ -136,7 +136,7 @@ export function JobModal({ mode, job, defaultDate, profiles, customers, onClose,
             </div>
 
             {/* Date + Times */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="space-y-1.5">
                 <Label className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> Date *</Label>
                 <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />

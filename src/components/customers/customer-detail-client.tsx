@@ -116,7 +116,7 @@ function PropertyModal({ customerId, property, onSave, onClose }: PropertyModalP
           <DialogTitle>{property ? "Edit property" : "Add property"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="col-span-2 space-y-1.5">
               <Label>Label</Label>
               <Input placeholder="e.g. Main Residence, Investment Property" value={form.label} onChange={f("label")} />
@@ -214,7 +214,7 @@ function ContactModal({ customerId, contact, onSave, onClose }: ContactModalProp
           <DialogTitle>{contact ? "Edit contact" : "Add contact"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="col-span-2 space-y-1.5">
               <Label>Name *</Label>
               <Input placeholder="Jane Smith" value={form.name} onChange={f("name")} autoFocus />
@@ -380,7 +380,7 @@ function BillingProfileModal({ customerId, profile, onSave, onClose }: BillingPr
             <Label className="text-xs">Name *</Label>
             <Input placeholder="e.g. Head Office, Strata Plan 1234" value={form.name} onChange={f("name")} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label className="text-xs">Email</Label>
               <Input type="email" placeholder="accounts@..." value={form.email ?? ""} onChange={f("email")} />
@@ -394,7 +394,7 @@ function BillingProfileModal({ customerId, profile, onSave, onClose }: BillingPr
             <Label className="text-xs">Address</Label>
             <Input value={form.address ?? ""} onChange={f("address")} />
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <Label className="text-xs">City</Label>
               <Input value={form.city ?? ""} onChange={f("city")} />
@@ -408,7 +408,7 @@ function BillingProfileModal({ customerId, profile, onSave, onClose }: BillingPr
               <Input value={form.country ?? ""} onChange={f("country")} />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label className="text-xs">Tax / ABN</Label>
               <Input value={form.tax_number ?? ""} onChange={f("tax_number")} />
@@ -517,21 +517,23 @@ export function CustomerDetailClient({
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       {/* Header */}
-      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-4">
-        <Link href="/customers">
-          <Button variant="ghost" size="icon" className="h-8 w-8"><ArrowLeft className="w-4 h-4" /></Button>
-        </Link>
-        <div className="flex-1 min-w-0">
-          <h1 className="text-2xl font-bold truncate">{customer.name}</h1>
-          {customer.company && <p className="text-sm text-muted-foreground">{customer.company}</p>}
+      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+        <div className="flex items-center gap-4 min-w-0">
+          <Link href="/customers">
+            <Button variant="ghost" size="icon" className="h-8 w-8"><ArrowLeft className="w-4 h-4" /></Button>
+          </Link>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-2xl font-bold truncate">{customer.name}</h1>
+            {customer.company && <p className="text-sm text-muted-foreground truncate">{customer.company}</p>}
+          </div>
         </div>
-        <div className="flex gap-2 shrink-0">
-          <Button variant="outline" size="sm" onClick={() => setEditing(!editing)}>
+        <div className="flex gap-2 flex-wrap sm:flex-nowrap sm:ml-auto sm:shrink-0">
+          <Button variant="outline" size="sm" className="flex-1 sm:flex-initial" onClick={() => setEditing(!editing)}>
             <Edit className="w-3.5 h-3.5 mr-1.5" />{editing ? "Cancel" : "Edit"}
           </Button>
           <PortalLinkButton customerId={customer.id} customerName={customer.name} />
-          <Link href={`/invoices/new?customer=${customer.id}`}>
-            <Button size="sm" className="gap-1.5"><Plus className="w-3.5 h-3.5" />New invoice</Button>
+          <Link href={`/invoices/new?customer=${customer.id}`} className="flex-1 sm:flex-initial">
+            <Button size="sm" className="gap-1.5 w-full sm:w-auto"><Plus className="w-3.5 h-3.5" />New invoice</Button>
           </Link>
         </div>
       </motion.div>
@@ -546,7 +548,7 @@ export function CustomerDetailClient({
           {/* Left sidebar */}
           <div className="space-y-4">
             {/* Stats */}
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {[
                 { label: "Total spent", value: formatCurrency(totalSpent, currency) },
                 { label: "Outstanding", value: formatCurrency(outstanding, currency) },
@@ -691,10 +693,10 @@ export function CustomerDetailClient({
                           <Link href={`/sites/${prop.id}`}>
                             <Button size="sm" variant="outline" className="h-7 px-2 text-xs">Open</Button>
                           </Link>
-                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setPropertyModal({ open: true, item: prop })}>
+                          <Button size="icon" variant="ghost" className="h-9 w-9 sm:h-7 sm:w-7" onClick={() => setPropertyModal({ open: true, item: prop })}>
                             <Edit className="w-3.5 h-3.5" />
                           </Button>
-                          <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeleteTarget({ type: "property", id: prop.id })}>
+                          <Button size="icon" variant="ghost" className="h-9 w-9 sm:h-7 sm:w-7 text-destructive hover:text-destructive" onClick={() => setDeleteTarget({ type: "property", id: prop.id })}>
                             <Trash2 className="w-3.5 h-3.5" />
                           </Button>
                         </div>
@@ -764,10 +766,10 @@ export function CustomerDetailClient({
                         </div>
                       </div>
                       <div className="flex gap-1 shrink-0">
-                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setContactModal({ open: true, item: c })}>
+                        <Button size="icon" variant="ghost" className="h-9 w-9 sm:h-7 sm:w-7" onClick={() => setContactModal({ open: true, item: c })}>
                           <Edit className="w-3.5 h-3.5" />
                         </Button>
-                        <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeleteTarget({ type: "contact", id: c.id })}>
+                        <Button size="icon" variant="ghost" className="h-9 w-9 sm:h-7 sm:w-7 text-destructive hover:text-destructive" onClick={() => setDeleteTarget({ type: "contact", id: c.id })}>
                           <Trash2 className="w-3.5 h-3.5" />
                         </Button>
                       </div>
@@ -919,11 +921,11 @@ export function CustomerDetailClient({
                           {bp.notes && <p className="text-xs text-muted-foreground italic mt-1">{bp.notes}</p>}
                         </div>
                         <div className="flex gap-1 shrink-0">
-                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setBillingModal({ open: true, item: bp })}>
+                          <Button size="icon" variant="ghost" className="h-9 w-9 sm:h-7 sm:w-7" onClick={() => setBillingModal({ open: true, item: bp })}>
                             <Edit className="w-3.5 h-3.5" />
                           </Button>
                           <Button
-                            size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                            size="icon" variant="ghost" className="h-9 w-9 sm:h-7 sm:w-7 text-muted-foreground hover:text-destructive"
                             onClick={() => setDeleteTarget({ type: "billing", id: bp.id })}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -962,7 +964,7 @@ export function CustomerDetailClient({
                             <p className="text-sm whitespace-pre-wrap">{n.content}</p>
                           </div>
                           <Button
-                            size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
+                            size="icon" variant="ghost" className="h-9 w-9 sm:h-7 sm:w-7 text-muted-foreground hover:text-destructive shrink-0"
                             onClick={() => setDeleteTarget({ type: "note", id: n.id })}
                           >
                             <X className="w-3.5 h-3.5" />

@@ -183,7 +183,7 @@ export function PdfSettingsPanel({ settings: initial, business, mode, onSettings
           {/* Template picker */}
           <div className="space-y-3">
             <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Layout</Label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {templates.map((t) => (
                 <button
                   key={t.id}
@@ -212,7 +212,7 @@ export function PdfSettingsPanel({ settings: initial, business, mode, onSettings
           {/* Accent colour */}
           <div className="space-y-3">
             <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Accent colour</Label>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {COLOR_PRESETS.map((c) => (
                 <button
                   key={c.value}
@@ -240,7 +240,7 @@ export function PdfSettingsPanel({ settings: initial, business, mode, onSettings
           {/* Logo size */}
           <div className="space-y-3">
             <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Logo size</Label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {([{ label: "Small", value: 48 }, { label: "Medium", value: 72 }, { label: "Large", value: 108 }] as const).map((opt) => (
                 <button
                   key={opt.value}
@@ -259,7 +259,7 @@ export function PdfSettingsPanel({ settings: initial, business, mode, onSettings
               <Separator />
               <div className="space-y-2">
                 <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Invoice title</Label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {["INVOICE", "TAX INVOICE"].map((v) => (
                     <button
                       key={v}
@@ -280,7 +280,7 @@ export function PdfSettingsPanel({ settings: initial, business, mode, onSettings
           {/* Tax label */}
           <div className="space-y-2">
             <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tax label</Label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {["GST", "VAT", "Tax"].map((v) => (
                 <button
                   key={v}

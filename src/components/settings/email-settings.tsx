@@ -157,7 +157,7 @@ export function EmailSettings({ config }: EmailSettingsProps) {
         </div>
 
         {/* Host & Port (editable for custom, readonly for presets) */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="col-span-2 space-y-1.5">
             <Label>IMAP Host</Label>
             <Input

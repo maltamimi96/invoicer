@@ -170,7 +170,7 @@ export default function OnboardingPage() {
                   <Input placeholder="Acme Ltd" {...form1.register("name")} />
                   {form1.formState.errors.name && <p className="text-xs text-destructive">{form1.formState.errors.name.message}</p>}
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Email</Label>
                     <Input type="email" placeholder="info@acme.com" {...form1.register("email")} />
@@ -184,7 +184,7 @@ export default function OnboardingPage() {
                   <Label>Address</Label>
                   <Input placeholder="123 High Street" {...form1.register("address")} />
                 </div>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="col-span-1 space-y-1.5">
                     <Label>City</Label>
                     <Input placeholder="London" {...form1.register("city")} />
@@ -222,7 +222,7 @@ export default function OnboardingPage() {
                   <Label>Account name</Label>
                   <Input placeholder="Acme Ltd" {...form2.register("bank_account_name")} />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Account number</Label>
                     <Input placeholder="12345678" {...form2.register("bank_account_number")} />

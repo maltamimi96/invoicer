@@ -144,6 +144,7 @@ export function ApiKeysSettings({ apiKeys: initialKeys }: ApiKeysSettingsProps) 
               <p className="text-xs mt-1">Create a key to start integrating external apps.</p>
             </div>
           ) : (
+            <div className="overflow-x-auto -mx-6 px-6">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -191,6 +192,7 @@ export function ApiKeysSettings({ apiKeys: initialKeys }: ApiKeysSettingsProps) 
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
 
           <Separator className="my-4" />

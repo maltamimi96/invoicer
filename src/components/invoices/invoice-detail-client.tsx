@@ -326,7 +326,7 @@ export function InvoiceDetailClient({ invoice: initial, customers, products, bus
               <Label>Amount</Label>
               <Input type="number" step="0.01" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Date</Label>
                 <Input type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} />

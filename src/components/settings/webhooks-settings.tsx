@@ -131,6 +131,7 @@ export function WebhooksSettings({ webhooks: initialWebhooks }: WebhooksSettings
               <p className="text-xs mt-1">Add a webhook to start sending events to external apps.</p>
             </div>
           ) : (
+            <div className="overflow-x-auto -mx-6 px-6">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -187,6 +188,7 @@ export function WebhooksSettings({ webhooks: initialWebhooks }: WebhooksSettings
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
 
           <Separator className="my-4" />

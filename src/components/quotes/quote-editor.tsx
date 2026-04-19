@@ -130,18 +130,20 @@ export function QuoteEditor({ customers, products, business, quote, defaultCusto
 
   return (
     <div className="space-y-6">
-      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-4">
-        <Link href="/quotes"><Button variant="ghost" size="icon" className="h-8 w-8"><ArrowLeft className="w-4 h-4" /></Button></Link>
-        <div className="flex-1"><h1 className="text-2xl font-bold">{quote ? `Edit ${quote.number}` : "New Quote"}</h1></div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setSmartFillOpen(true)}>
+      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+        <div className="flex items-center gap-4">
+          <Link href="/quotes"><Button variant="ghost" size="icon" className="h-8 w-8"><ArrowLeft className="w-4 h-4" /></Button></Link>
+          <div className="flex-1 min-w-0"><h1 className="text-2xl font-bold truncate">{quote ? `Edit ${quote.number}` : "New Quote"}</h1></div>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap sm:ml-auto">
+          <Button variant="outline" size="sm" className="gap-1.5 flex-1 sm:flex-initial" onClick={() => setSmartFillOpen(true)}>
             <Sparkles className="w-3.5 h-3.5 text-purple-500" />Smart fill
           </Button>
           <PdfSettingsPanel settings={pdfSettings} business={business} mode="quote" onSettingsChange={setPdfSettings} />
-          <Button variant="outline" size="sm" disabled={saving} onClick={handleSubmit((d) => onSubmit(d, "draft"))}>
+          <Button variant="outline" size="sm" className="flex-1 sm:flex-initial" disabled={saving} onClick={handleSubmit((d) => onSubmit(d, "draft"))}>
             {saving ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-1.5" />}Save draft
           </Button>
-          <Button size="sm" disabled={saving} onClick={handleSubmit((d) => onSubmit(d, "sent"))}>
+          <Button size="sm" className="flex-1 sm:flex-initial" disabled={saving} onClick={handleSubmit((d) => onSubmit(d, "sent"))}>
             {saving ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Send className="w-3.5 h-3.5 mr-1.5" />}Save & send
           </Button>
         </div>
@@ -162,7 +164,7 @@ export function QuoteEditor({ customers, products, business, quote, defaultCusto
                     onCustomerCreated={(c) => setLocalCustomers((prev) => [...prev, c])}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5"><Label>Issue date</Label><Input type="date" {...register("issue_date")} /></div>
                   <div className="space-y-1.5"><Label>Expiry date</Label><Input type="date" {...register("expiry_date")} /></div>
                 </div>

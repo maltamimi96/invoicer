@@ -168,13 +168,13 @@ export function RecurringJobsClient({ initialSchedules, customers, profiles }: P
                     <p className="text-xs text-muted-foreground mt-0.5">{s.title}</p>
                   </div>
                   <div className="flex gap-1 shrink-0">
-                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => toggleActive(s)} title={s.active ? "Pause" : "Resume"}>
+                    <Button size="icon" variant="ghost" className="h-9 w-9 sm:h-7 sm:w-7" onClick={() => toggleActive(s)} title={s.active ? "Pause" : "Resume"}>
                       {s.active ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
                     </Button>
-                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(s)} title="Edit">
+                    <Button size="icon" variant="ghost" className="h-9 w-9 sm:h-7 sm:w-7" onClick={() => openEdit(s)} title="Edit">
                       <Edit2 className="h-3.5 w-3.5" />
                     </Button>
-                    <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => setDeleteId(s.id)} title="Delete">
+                    <Button size="icon" variant="ghost" className="h-9 w-9 sm:h-7 sm:w-7 text-destructive" onClick={() => setDeleteId(s.id)} title="Delete">
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
@@ -221,7 +221,7 @@ export function RecurringJobsClient({ initialSchedules, customers, profiles }: P
               <Textarea value={form.description ?? ""} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs">Customer</Label>
                 <Select value={form.customer_id ?? "none"} onValueChange={(v) => setForm({ ...form, customer_id: v === "none" ? null : v })}>
@@ -261,7 +261,7 @@ export function RecurringJobsClient({ initialSchedules, customers, profiles }: P
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs">Cadence *</Label>
                 <Select value={form.cadence} onValueChange={(v) => setForm({ ...form, cadence: v as RecurringJobCadence })}>
@@ -300,7 +300,7 @@ export function RecurringJobsClient({ initialSchedules, customers, profiles }: P
               </div>
             )}
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <Label className="text-xs">Start time</Label>
                 <Input type="time" value={form.preferred_start_time ?? ""} onChange={(e) => setForm({ ...form, preferred_start_time: e.target.value || null })} />
