@@ -5,8 +5,11 @@ import { motion } from "framer-motion";
 import {
   LayoutDashboard, FileText, FileCheck, Users, Package, CalendarDays, Repeat,
   UserPlus, ClipboardList, Wrench, MessageSquare, Users2, Bot, Settings, Mic,
-  ArrowRight, Sparkles, Zap, Clock, CheckCircle2, Workflow,
+  ArrowRight, Sparkles, Zap, Clock, CheckCircle2, Workflow, ChevronDown,
+  Mail, Brain, Send, PenLine, DollarSign, Bell, Database, Cpu, MousePointer2,
+  Move, RefreshCw, GitBranch, Hammer,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -163,6 +166,80 @@ const flows = [
   },
 ];
 
+// ── Flowcharts ──────────────────────────────────────────────────────────────
+type Actor = "user" | "system" | "ai" | "cron" | "customer";
+type FlowNode = { icon: LucideIcon; label: string; detail?: string; actor: Actor };
+
+const actorStyle: Record<Actor, { ring: string; bg: string; text: string; chip: string; label: string }> = {
+  user:     { ring: "ring-blue-500/40",    bg: "bg-blue-500/10",    text: "text-blue-500",    chip: "bg-blue-500/15 text-blue-400",       label: "You" },
+  system:   { ring: "ring-emerald-500/40", bg: "bg-emerald-500/10", text: "text-emerald-500", chip: "bg-emerald-500/15 text-emerald-400", label: "App" },
+  ai:       { ring: "ring-violet-500/40",  bg: "bg-violet-500/10",  text: "text-violet-500",  chip: "bg-violet-500/15 text-violet-400",   label: "AI" },
+  cron:     { ring: "ring-sky-500/40",     bg: "bg-sky-500/10",     text: "text-sky-500",     chip: "bg-sky-500/15 text-sky-400",         label: "Cron" },
+  customer: { ring: "ring-amber-500/40",   bg: "bg-amber-500/10",   text: "text-amber-500",   chip: "bg-amber-500/15 text-amber-400",     label: "Customer" },
+};
+
+const flowcharts: { title: string; desc: string; nodes: FlowNode[] }[] = [
+  {
+    title: "Lead → Paid Invoice (full pipeline)",
+    desc: "The complete service business loop, top to bottom.",
+    nodes: [
+      { actor: "customer", icon: Mail,        label: "Customer emails enquiry",    detail: "Lands in your IMAP inbox" },
+      { actor: "cron",     icon: RefreshCw,   label: "Email scanner cron",          detail: "Polls inbox + extracts new messages" },
+      { actor: "ai",       icon: Brain,       label: "AI classifier",               detail: "Tags as lead → extracts name, address, job" },
+      { actor: "system",   icon: UserPlus,    label: "Lead created",                detail: "Appears in /leads" },
+      { actor: "user",     icon: MousePointer2,label: "Convert lead → Quote",       detail: "Customer auto-created if new" },
+      { actor: "system",   icon: FileCheck,   label: "Quote drafted",               detail: "PDF generated, share link minted" },
+      { actor: "user",     icon: Send,        label: "Send quote to customer",      detail: "Email + share link" },
+      { actor: "customer", icon: CheckCircle2,label: "Customer accepts" },
+      { actor: "user",     icon: Workflow,    label: "Convert quote → Work Order",  detail: "Or do it via voice" },
+      { actor: "user",     icon: CalendarDays,label: "Assign workers + schedule",   detail: "Dispatch board drag-drop" },
+      { actor: "user",     icon: Hammer,      label: "Workers log time + materials",detail: "On-site, via mobile" },
+      { actor: "customer", icon: PenLine,     label: "Customer signs on completion",detail: "Via share link signature pad" },
+      { actor: "user",     icon: DollarSign,  label: "Invoice unbilled work",       detail: "Green CTA → mints invoice" },
+      { actor: "cron",     icon: Bell,        label: "Reminder cron 09:00",         detail: "Chases unpaid invoices automatically" },
+      { actor: "customer", icon: CheckCircle2,label: "Payment received → marked paid" },
+    ],
+  },
+  {
+    title: "Recurring job cycle",
+    desc: "Set once, runs forever. Cron mints work orders ahead of time.",
+    nodes: [
+      { actor: "user",   icon: Repeat,      label: "Create recurring schedule", detail: "Cadence + workers + duration" },
+      { actor: "cron",   icon: Clock,       label: "Cron 19:30 UTC daily" },
+      { actor: "system", icon: GitBranch,   label: "Check next_occurrence_at",  detail: "Within generate_days_ahead window?" },
+      { actor: "system", icon: Wrench,      label: "Mint Work Order",           detail: "Linked back to recurring_job_id" },
+      { actor: "system", icon: RefreshCw,   label: "Advance next_occurrence_at",detail: "+7d / +14d / +1mo / +3mo" },
+      { actor: "user",   icon: CalendarDays,label: "WO appears on Schedule" },
+      { actor: "user",   icon: DollarSign,  label: "Complete + invoice as normal" },
+      { actor: "system", icon: RefreshCw,   label: "Loop repeats next cycle" },
+    ],
+  },
+  {
+    title: "Voice / AI command",
+    desc: "Every action in the UI is also a tool the agent can call.",
+    nodes: [
+      { actor: "user",   icon: Mic,        label: "Tap mic / type command",     detail: "\"Invoice WO-22 at $95/hr\"" },
+      { actor: "ai",     icon: Cpu,        label: "Agent (Claude) parses",       detail: "Picks the right tool from registry" },
+      { actor: "ai",     icon: Bot,        label: "Calls server action",         detail: "Same code the UI uses" },
+      { actor: "system", icon: Database,   label: "DB updated + revalidatePath" },
+      { actor: "ai",     icon: Send,       label: "Result returned to user",     detail: "With link to the new record" },
+      { actor: "user",   icon: CheckCircle2,label: "UI auto-refreshes" },
+    ],
+  },
+  {
+    title: "Dispatch drag-drop reschedule",
+    desc: "Two interactions, one server action.",
+    nodes: [
+      { actor: "user",   icon: LayoutDashboard,label: "Open Schedule → Dispatch view" },
+      { actor: "user",   icon: Move,           label: "Drag job card to new cell",   detail: "Different worker / day" },
+      { actor: "system", icon: Cpu,            label: "handleDrop fires",            detail: "Computes new date + assignees" },
+      { actor: "system", icon: Database,       label: "rescheduleJob server action", detail: "Updates date + setJobAssignments" },
+      { actor: "system", icon: RefreshCw,      label: "revalidatePath /schedule",     detail: "Grid re-renders" },
+      { actor: "user",   icon: CheckCircle2,   label: "Card now in new cell" },
+    ],
+  },
+];
+
 const aiExamples = [
   "Create an invoice for John Smith, $450 for gutter cleaning",
   "Reschedule work order 44 to Friday with Sam",
@@ -249,6 +326,71 @@ export function HelpClient() {
           </div>
         </Card>
       </motion.section>
+
+      {/* Flowcharts */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Workflow className="w-5 h-5 text-fuchsia-500" />
+          <h2 className="text-xl font-semibold">Process flow charts</h2>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="text-muted-foreground">Lanes:</span>
+          {(Object.keys(actorStyle) as Actor[]).map((a) => (
+            <span key={a} className={`px-2 py-1 rounded-md font-medium ${actorStyle[a].chip}`}>
+              {actorStyle[a].label}
+            </span>
+          ))}
+        </div>
+        <div className="grid lg:grid-cols-2 gap-5">
+          {flowcharts.map((fc, fi) => (
+            <motion.div
+              key={fc.title}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.04 * fi }}
+            >
+              <Card className="p-5 h-full">
+                <div className="mb-4">
+                  <h3 className="font-semibold">{fc.title}</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">{fc.desc}</p>
+                </div>
+                <div className="flex flex-col items-stretch">
+                  {fc.nodes.map((n, i) => {
+                    const s = actorStyle[n.actor];
+                    return (
+                      <div key={i} className="flex flex-col items-center">
+                        <div className={`w-full flex items-start gap-3 rounded-xl border ${s.ring} ring-1 ${s.bg} p-3`}>
+                          <div className={`w-8 h-8 rounded-lg bg-background/60 flex items-center justify-center flex-shrink-0 ${s.text}`}>
+                            <n.icon className="w-4 h-4" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-medium">{n.label}</span>
+                              <span className={`text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded ${s.chip}`}>
+                                {s.label}
+                              </span>
+                            </div>
+                            {n.detail && (
+                              <p className="text-xs text-muted-foreground mt-0.5">{n.detail}</p>
+                            )}
+                          </div>
+                        </div>
+                        {i < fc.nodes.length - 1 && (
+                          <div className="flex flex-col items-center py-1">
+                            <div className="w-px h-3 bg-border" />
+                            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground/50 -my-1" />
+                            <div className="w-px h-3 bg-border" />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+      </section>
 
       {/* End-to-end flows */}
       <section className="space-y-4">
