@@ -6,11 +6,13 @@ export function invoiceEmailHtml({
   customer,
   business,
   lineItems,
+  portalUrl,
 }: {
   invoice: Invoice;
   customer: Customer | null;
   business: Business;
   lineItems: LineItem[];
+  portalUrl?: string | null;
 }): string {
   const fmt = (n: number) =>
     new Intl.NumberFormat("en-GB", { style: "currency", currency: business.currency }).format(n);
@@ -46,6 +48,13 @@ export function invoiceEmailHtml({
         <td style="font-size:18px;font-weight:700;color:#3b82f6;text-align:right;padding-top:16px;border-top:1px solid #e4e4e7;">${fmt(invoice.total - invoice.amount_paid)}</td>
       </tr>
     </table>
+
+    ${portalUrl ? `
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+      <tr><td align="center">
+        <a href="${portalUrl}" style="display:inline-block;background:#3b82f6;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 24px;border-radius:6px;">View invoice online</a>
+      </td></tr>
+    </table>` : ""}
 
     ${lineItemsTable(lineItems, business.currency, invoice.subtotal, invoice.discount_amount, invoice.tax_total, invoice.total)}
 

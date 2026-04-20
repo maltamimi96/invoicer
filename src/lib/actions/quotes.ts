@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { dispatchWebhook } from "@/lib/webhooks";
 import { sendEmail } from "@/lib/email";
+import { appUrl } from "@/lib/app-url";
 import { quoteEmailHtml } from "@/lib/emails/quote";
 import { randomBytes } from "node:crypto";
 import type { Customer, Quote, QuoteWithCustomer, Invoice, LineItem } from "@/types/database";
@@ -232,7 +233,7 @@ export async function sendQuoteEmail(id: string, opts?: { recipients?: string[];
         created_by: user.id, expires_at,
       });
     }
-    const base = process.env.NEXT_PUBLIC_APP_URL || "";
+    const base = appUrl();
     if (base && token) acceptUrl = `${base}/portal/${token}/quote/${quoteData.id}`;
   }
 
@@ -282,7 +283,7 @@ export async function sendQuoteSms(id: string, opts: { to: string; body?: string
         expires_at: new Date(Date.now() + 90 * 86_400_000).toISOString(),
       });
     }
-    const base = process.env.NEXT_PUBLIC_APP_URL || "";
+    const base = appUrl();
     if (base && token) acceptUrl = `${base}/portal/${token}/quote/${quoteData.id}`;
   }
 

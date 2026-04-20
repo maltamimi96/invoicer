@@ -6,6 +6,8 @@ import { getActiveBizId } from "@/lib/active-business";
 import { dispatchWebhook } from "@/lib/webhooks";
 import { sendEmail } from "@/lib/email";
 import { invoiceEmailHtml } from "@/lib/emails/invoice";
+import { appUrl } from "@/lib/app-url";
+import { randomBytes } from "node:crypto";
 import type { Customer, Invoice, InvoiceWithCustomer, LineItem, Payment } from "@/types/database";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -233,16 +235,40 @@ export async function sendInvoiceEmail(id: string, opts?: { recipients?: string[
   }
   const pdfBuffer = Buffer.concat(chunks);
 
+  // Mint/reuse a portal token so the customer can pay/view online
+  const businessId = await getActiveBizId(supabase, user.id);
+  let portalUrl: string | null = null;
+  if (customer?.id) {
+    const { data: existing } = await tbl(supabase, "customer_portal_tokens")
+      .select("token")
+      .eq("business_id", businessId)
+      .eq("customer_id", customer.id)
+      .is("revoked_at", null)
+      .or("expires_at.is.null,expires_at.gt." + new Date().toISOString())
+      .limit(1)
+      .maybeSingle();
+    let token: string | null = existing?.token ?? null;
+    if (!token) {
+      token = "cust_" + randomBytes(24).toString("hex");
+      await tbl(supabase, "customer_portal_tokens").insert({
+        token, business_id: businessId, customer_id: customer.id,
+        created_by: user.id,
+        expires_at: new Date(Date.now() + 90 * 86_400_000).toISOString(),
+      });
+    }
+    const base = appUrl();
+    if (base && token) portalUrl = `${base}/portal/${token}/invoice/${invoiceData.id}`;
+  }
+
   await sendEmail({
     to: recipients,
     subject: opts?.subject ?? `Invoice ${invoiceData.number} from ${businessData.name}`,
-    html: invoiceEmailHtml({ invoice: invoiceData, customer, business: businessData, lineItems }),
+    html: invoiceEmailHtml({ invoice: invoiceData, customer, business: businessData, lineItems, portalUrl }),
     attachments: [{ filename: `${invoiceData.number}.pdf`, content: pdfBuffer }],
   });
 
   // Mark as sent if still draft
   if (invoiceData.status === "draft") {
-    const businessId = await getActiveBizId(supabase, user.id);
     await tbl(supabase, "invoices")
       .update({ status: "sent" })
       .eq("id", id);
