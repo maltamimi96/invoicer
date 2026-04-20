@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users2, Plus, Pencil, Trash2, Loader2, X, Check, Phone, Mail, Briefcase, ChevronDown, ChevronUp } from "lucide-react";
+import { Users2, Plus, Pencil, Trash2, Loader2, X, Check, Phone, Mail, Briefcase, ChevronDown, ChevronUp } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

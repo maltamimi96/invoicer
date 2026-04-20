@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, Plus, Clock, MapPin, LayoutGrid, Columns3 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Clock, MapPin, LayoutGrid, Columns3 } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { getScheduledJobs } from "@/lib/actions/schedule";

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useTransition } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageSquare, Plus, Send, Phone, User, Search, Loader2, ChevronLeft } from "lucide-react";
+import { MessageSquare, Plus, Send, Phone, User, Search, Loader2, ChevronLeft } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

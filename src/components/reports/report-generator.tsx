@@ -3,7 +3,7 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, ArrowRight, ImagePlus, X, Sparkles, Loader2, CheckCircle } from "lucide-react";
+import { ArrowLeft, ArrowRight, ImagePlus, X, Sparkles, Loader2, CheckCircle } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

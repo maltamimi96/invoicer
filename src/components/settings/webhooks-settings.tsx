@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Webhook, Plus, Trash2, CheckCircle, XCircle, ExternalLink } from "lucide-react";
+import { Webhook, Plus, Trash2, CheckCircle, XCircle, ExternalLink } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

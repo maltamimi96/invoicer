@@ -13,6 +13,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { PWARegister } from "@/components/pwa-register";
+import { IconProvider } from "@/components/ui/icon-provider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -51,9 +52,11 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
-          <Toaster richColors position="top-right" />
-          <PWARegister />
+          <IconProvider>
+            {children}
+            <Toaster richColors position="top-right" />
+            <PWARegister />
+          </IconProvider>
         </ThemeProvider>
       </body>
     </html>

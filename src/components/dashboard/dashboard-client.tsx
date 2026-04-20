@@ -4,7 +4,7 @@ import { motion, type Variants } from "framer-motion";
 import {
   TrendingUp, Clock, AlertTriangle, CheckCircle, Plus, FileText,
   Wrench, MapPin, User, ChevronRight, FileCheck, UserPlus,
-} from "lucide-react";
+} from "@/components/ui/icons";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

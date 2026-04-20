@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { ArrowLeft, FileCheck } from "lucide-react";
+import { ArrowLeft, FileCheck } from "@/components/ui/icons";
 import { AcceptQuoteButton } from "@/components/customer-portal/accept-quote-button";
 import type { LineItem } from "@/types/database";
 

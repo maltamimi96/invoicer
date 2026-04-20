@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Sparkles, Loader2, CheckCircle, UserPlus, User } from "lucide-react";
+import { Sparkles, Loader2, CheckCircle, UserPlus, User } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
 import { Button } from "@/components/ui/button";

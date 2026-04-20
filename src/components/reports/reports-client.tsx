@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { FileText, Plus, Trash2, Download, Eye, ClipboardList } from "lucide-react";
+import { FileText, Plus, Trash2, Download, Eye, ClipboardList } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";

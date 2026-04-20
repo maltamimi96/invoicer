@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Check, Loader2 } from "lucide-react";
+import { Check, Loader2 } from "@/components/ui/icons";
 
 export function AcceptQuoteButton({ token, quoteId }: { token: string; quoteId: string }) {
   const router = useRouter();

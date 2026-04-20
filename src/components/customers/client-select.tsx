@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { UserPlus } from "lucide-react";
+import { UserPlus } from "@/components/ui/icons";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { QuickAddClientModal } from "./quick-add-client-modal";
 import type { Customer } from "@/types/database";

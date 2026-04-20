@@ -8,7 +8,7 @@ import {
   Bot, MailSearch, PlugZap, BellRing, Send,
   Settings, Trash2, Plus,
   Zap, Newspaper, MailCheck, UserRoundCheck, FileClock, CheckCircle, Star,
-} from "lucide-react";
+} from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";

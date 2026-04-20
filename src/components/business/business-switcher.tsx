@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronsUpDown, Check, Plus, Building2 } from "lucide-react";
+import { ChevronsUpDown, Check, Plus, Building2 } from "@/components/ui/icons";
 import {
   DropdownMenu,
   DropdownMenuContent,

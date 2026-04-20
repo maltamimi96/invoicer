@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Plus, Search, FileCheck, MoreHorizontal, Trash2, Eye, ArrowRight } from "lucide-react";
+import { Plus, Search, FileCheck, MoreHorizontal, Trash2, Eye, ArrowRight } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Moon, Sun, LogOut, Settings, User, Menu } from "lucide-react";
+import { Moon, Sun, LogOut, Settings, User, Menu } from "@/components/ui/icons";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";

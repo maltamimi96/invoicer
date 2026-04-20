@@ -21,7 +21,7 @@ import {
   Play, Square, Plus, Trash2, ExternalLink, MapPin, User, Calendar,
   CheckCircle2, Loader2, Image as ImageIcon, Upload, Eye, EyeOff, X, RotateCcw,
   Share2, FileDown, Copy, Link2Off,
-} from "lucide-react";
+} from "@/components/ui/icons";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
