@@ -22,6 +22,7 @@ import { SmartFillModal } from "./smart-fill-modal";
 import type { SmartFillData } from "./smart-fill-modal";
 import { formatCurrency } from "@/lib/utils";
 import { ClientSelect } from "@/components/customers/client-select";
+import { AddressSelect } from "@/components/addresses/address-select";
 import { PdfSettingsPanel } from "@/components/pdf/pdf-settings-panel";
 import type { Business, Customer, Invoice, LineItem, Product } from "@/types/database";
 import { DEFAULT_PDF_SETTINGS } from "@/types/database";
@@ -62,6 +63,8 @@ export function InvoiceEditor({ customers, products, business, invoice, defaultC
   const [pdfSettings, setPdfSettings] = useState({ ...DEFAULT_PDF_SETTINGS, ...(business.pdf_settings ?? {}) });
   const [smartFillOpen, setSmartFillOpen] = useState(false);
   const [localCustomers, setLocalCustomers] = useState(customers);
+  const [siteId, setSiteId] = useState<string | null>(invoice?.site_id ?? null);
+  const [propertyAddress, setPropertyAddress] = useState<string>(invoice?.property_address ?? "");
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -118,6 +121,8 @@ export function InvoiceEditor({ customers, products, business, invoice, defaultC
         due_date: data.due_date,
         notes: data.notes ?? null,
         terms: data.terms ?? null,
+        site_id: siteId,
+        property_address: propertyAddress || null,
       };
 
       if (invoice) {
@@ -203,6 +208,11 @@ export function InvoiceEditor({ customers, products, business, invoice, defaultC
                   </div>
                 </div>
               </div>
+              <AddressSelect
+                customer={localCustomers.find((c) => c.id === watch("customer_id")) ?? null}
+                value={{ site_id: siteId, property_address: propertyAddress }}
+                onChange={(v) => { setSiteId(v.site_id); setPropertyAddress(v.property_address); }}
+              />
             </CardContent>
           </Card>
 

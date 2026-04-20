@@ -351,6 +351,12 @@ export function QuotePDFDocument({ quote, customer, business, lineItems, pdfSett
               ) : (
                 <Text style={styles.quoteToDetail}>—</Text>
               )}
+              {quote.property_address && (
+                <>
+                  <Text style={[styles.quoteToLabel, { marginTop: 8 }]}>SERVICE ADDRESS:</Text>
+                  <Text style={styles.quoteToDetail}>{quote.property_address}</Text>
+                </>
+              )}
             </View>
 
             <View style={styles.infoRight}>

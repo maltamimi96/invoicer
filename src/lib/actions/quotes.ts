@@ -155,6 +155,8 @@ export async function convertQuoteToInvoice(quoteId: string): Promise<Invoice> {
       amount_paid: 0,
       notes: quote.notes,
       terms: quote.terms,
+      site_id: quote.site_id ?? null,
+      property_address: quote.property_address ?? null,
     })
     .select()
     .single();

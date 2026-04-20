@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ClientSelect } from "@/components/customers/client-select";
+import { AddressSelect } from "@/components/addresses/address-select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { createQuote, updateQuote } from "@/lib/actions/quotes";
@@ -62,6 +63,8 @@ export function QuoteEditor({ customers, products, business, quote, defaultCusto
   const [pdfSettings, setPdfSettings] = useState({ ...DEFAULT_PDF_SETTINGS, ...(business.pdf_settings ?? {}) });
   const [smartFillOpen, setSmartFillOpen] = useState(false);
   const [localCustomers, setLocalCustomers] = useState(customers);
+  const [siteId, setSiteId] = useState<string | null>(quote?.site_id ?? null);
+  const [propertyAddress, setPropertyAddress] = useState<string>(quote?.property_address ?? "");
 
   const { register, handleSubmit, watch, setValue } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -112,6 +115,8 @@ export function QuoteEditor({ customers, products, business, quote, defaultCusto
         issue_date: data.issue_date, expiry_date: data.expiry_date,
         notes: data.notes ?? null, terms: data.terms ?? null,
         invoice_id: quote?.invoice_id ?? null,
+        site_id: siteId,
+        property_address: propertyAddress || null,
       };
 
       if (quote) {
@@ -169,6 +174,11 @@ export function QuoteEditor({ customers, products, business, quote, defaultCusto
                   <div className="space-y-1.5"><Label>Expiry date</Label><Input type="date" {...register("expiry_date")} /></div>
                 </div>
               </div>
+              <AddressSelect
+                customer={localCustomers.find((c) => c.id === watch("customer_id")) ?? null}
+                value={{ site_id: siteId, property_address: propertyAddress }}
+                onChange={(v) => { setSiteId(v.site_id); setPropertyAddress(v.property_address); }}
+              />
             </CardContent>
           </Card>
 

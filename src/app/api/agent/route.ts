@@ -1531,6 +1531,8 @@ async function executeTool(
         notes: input.notes ?? null,
         terms: input.terms ?? null,
         invoice_id: null,
+        site_id: input.site_id ?? null,
+        property_address: input.property_address ?? null,
       });
       return { id: quote.id, number: quote.number, total, message: `Quote ${quote.number} created — $${total.toFixed(2)} total` };
     }
@@ -1587,6 +1589,8 @@ async function executeTool(
         amount_paid: 0,
         notes: input.notes ?? null,
         terms: input.terms ?? null,
+        site_id: input.site_id ?? null,
+        property_address: input.property_address ?? null,
       });
       return { id: invoice.id, number: invoice.number, total, message: `Invoice ${invoice.number} created — $${total.toFixed(2)} total` };
     }

@@ -129,6 +129,8 @@ export interface Invoice {
   amount_paid: number;
   notes: string | null;
   terms: string | null;
+  site_id: string | null;
+  property_address: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -151,6 +153,8 @@ export interface Quote {
   notes: string | null;
   terms: string | null;
   invoice_id: string | null;
+  site_id: string | null;
+  property_address: string | null;
   created_at: string;
   updated_at: string;
 }
