@@ -2,13 +2,7 @@
 
 import { useState } from "react";
 import { UserPlus } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { QuickAddClientModal } from "./quick-add-client-modal";
 import type { Customer } from "@/types/database";
 
@@ -31,13 +25,12 @@ export function ClientSelect({
 }: ClientSelectProps) {
   const [modalOpen, setModalOpen] = useState(false);
 
-  const handleValueChange = (v: string) => {
-    if (v === "__new__") {
-      setModalOpen(true);
-      return;
-    }
-    onValueChange(v);
-  };
+  const items = customers.map((c) => ({
+    value: c.id,
+    label: c.name,
+    sublabel: c.company || c.email || undefined,
+    keywords: [c.email, c.phone, c.company, c.address, c.city].filter(Boolean).join(" "),
+  }));
 
   const handleCreated = (customer: Customer) => {
     onCustomerCreated?.(customer);
@@ -46,25 +39,25 @@ export function ClientSelect({
 
   return (
     <>
-      <Select value={value} onValueChange={handleValueChange}>
-        <SelectTrigger>
-          <SelectValue placeholder={placeholder} />
-        </SelectTrigger>
-        <SelectContent>
-          {allowNone && <SelectItem value="none">No client</SelectItem>}
-          {customers.map((c) => (
-            <SelectItem key={c.id} value={c.id}>
-              {c.name}{c.company ? ` · ${c.company}` : ""}
-            </SelectItem>
-          ))}
-          <SelectItem value="__new__" className="text-primary font-medium border-t mt-1 pt-1">
+      <SearchableSelect
+        items={items}
+        value={value}
+        onValueChange={onValueChange}
+        placeholder={placeholder}
+        searchPlaceholder="Search clients by name, email, phone..."
+        emptyText="No clients found."
+        allowNone={allowNone}
+        noneLabel="No client"
+        footer={{
+          label: (
             <span className="flex items-center gap-1.5">
               <UserPlus className="w-3.5 h-3.5" />
               Add new client...
             </span>
-          </SelectItem>
-        </SelectContent>
-      </Select>
+          ),
+          onSelect: () => setModalOpen(true),
+        }}
+      />
 
       <QuickAddClientModal
         open={modalOpen}

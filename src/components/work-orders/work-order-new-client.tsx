@@ -11,10 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
 import { ClientSelect } from "@/components/customers/client-select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { createWorkOrder } from "@/lib/actions/work-orders";
 import { getSitesForAccount, getSite } from "@/lib/actions/sites";
 import { getContactsForAccount } from "@/lib/actions/contacts";
@@ -220,17 +218,19 @@ export function WorkOrderNewClient({
             {accountSelected && sites.length > 0 && (
               <div className="space-y-1.5">
                 <Label>Site</Label>
-                <Select value={siteId || "none"} onValueChange={(v) => setSiteId(v === "none" ? "" : v)}>
-                  <SelectTrigger><SelectValue placeholder="Select site" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">— No site —</SelectItem>
-                    {sites.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.label ?? s.address ?? "Untitled site"}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  items={sites.map((s) => ({
+                    value: s.id,
+                    label: s.label ?? s.address ?? "Untitled site",
+                    sublabel: s.label && s.address ? s.address : undefined,
+                    keywords: [s.address, s.city, s.postcode].filter(Boolean).join(" "),
+                  }))}
+                  value={siteId}
+                  onValueChange={setSiteId}
+                  placeholder="Select site"
+                  searchPlaceholder="Search sites..."
+                  allowNone noneLabel="— No site —"
+                />
               </div>
             )}
 
@@ -243,32 +243,36 @@ export function WorkOrderNewClient({
               <>
                 <div className="space-y-1.5">
                   <Label>Booker (who requested the job)</Label>
-                  <Select value={bookerContactId || "none"} onValueChange={(v) => setBookerContactId(v === "none" ? "" : v)}>
-                    <SelectTrigger><SelectValue placeholder="Select contact" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">— None —</SelectItem>
-                      {contacts.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name}{c.role ? ` (${c.role})` : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    items={contacts.map((c) => ({
+                      value: c.id,
+                      label: c.name,
+                      sublabel: c.role || undefined,
+                      keywords: [c.email, c.phone, c.role].filter(Boolean).join(" "),
+                    }))}
+                    value={bookerContactId}
+                    onValueChange={setBookerContactId}
+                    placeholder="Select contact"
+                    searchPlaceholder="Search contacts..."
+                    allowNone noneLabel="— None —"
+                  />
                 </div>
 
                 <div className="space-y-1.5">
                   <Label>On-site contact</Label>
-                  <Select value={onsiteContactId || "none"} onValueChange={(v) => setOnsiteContactId(v === "none" ? "" : v)}>
-                    <SelectTrigger><SelectValue placeholder="Select contact" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">— None —</SelectItem>
-                      {contacts.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name}{c.role ? ` (${c.role})` : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    items={contacts.map((c) => ({
+                      value: c.id,
+                      label: c.name,
+                      sublabel: c.role || undefined,
+                      keywords: [c.email, c.phone, c.role].filter(Boolean).join(" "),
+                    }))}
+                    value={onsiteContactId}
+                    onValueChange={setOnsiteContactId}
+                    placeholder="Select contact"
+                    searchPlaceholder="Search contacts..."
+                    allowNone noneLabel="— None —"
+                  />
                 </div>
               </>
             )}
@@ -276,17 +280,18 @@ export function WorkOrderNewClient({
             {accountSelected && billingProfiles.length > 0 && (
               <div className="space-y-1.5 sm:col-span-2">
                 <Label>Bill to</Label>
-                <Select value={billingProfileId || "none"} onValueChange={(v) => setBillingProfileId(v === "none" ? "" : v)}>
-                  <SelectTrigger><SelectValue placeholder="Select billing profile" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">— None —</SelectItem>
-                    {billingProfiles.map((b) => (
-                      <SelectItem key={b.id} value={b.id}>
-                        {b.name}{b.is_default ? " (default)" : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  items={billingProfiles.map((b) => ({
+                    value: b.id,
+                    label: b.name + (b.is_default ? " (default)" : ""),
+                    keywords: b.name,
+                  }))}
+                  value={billingProfileId}
+                  onValueChange={setBillingProfileId}
+                  placeholder="Select billing profile"
+                  searchPlaceholder="Search billing profiles..."
+                  allowNone noneLabel="— None —"
+                />
               </div>
             )}
 

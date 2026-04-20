@@ -18,9 +18,7 @@ import { Separator } from "@/components/ui/separator";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { toast } from "sonner";
 import { AddressLink, MapPinLink } from "@/components/ui/address-link";
 import { formatDate, getStatusColor } from "@/lib/utils";
@@ -157,9 +155,16 @@ export function SiteDetailClient({
                 <h3 className="text-sm font-semibold flex items-center gap-1.5">
                   <CreditCard className="w-3.5 h-3.5" />Bill to
                 </h3>
-                <Select
+                <SearchableSelect
+                  items={billingProfiles.map((bp) => ({
+                    value: bp.id,
+                    label: bp.name + (bp.is_default ? " (default)" : ""),
+                    sublabel: bp.email || undefined,
+                    keywords: [bp.name, bp.email].filter(Boolean).join(" "),
+                  }))}
                   value={billingId ?? ""}
                   onValueChange={(v) => {
+                    if (!v) return;
                     startTransition(async () => {
                       try {
                         await setSiteBilling(site.id, v);
@@ -170,18 +175,9 @@ export function SiteDetailClient({
                       }
                     });
                   }}
-                >
-                  <SelectTrigger className="text-xs">
-                    <SelectValue placeholder="Select billing profile" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {billingProfiles.map((bp) => (
-                      <SelectItem key={bp.id} value={bp.id} className="text-xs">
-                        {bp.name}{bp.is_default ? " (default)" : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="Select billing profile"
+                  searchPlaceholder="Search billing profiles..."
+                />
                 {billingId && (
                   <div className="text-xs text-muted-foreground">
                     {billingProfiles.find((b) => b.id === billingId)?.email ?? ""}

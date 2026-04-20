@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import {
@@ -224,13 +225,19 @@ export function RecurringJobsClient({ initialSchedules, customers, profiles }: P
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs">Customer</Label>
-                <Select value={form.customer_id ?? "none"} onValueChange={(v) => setForm({ ...form, customer_id: v === "none" ? null : v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">— None —</SelectItem>
-                    {customers.map((c) => (<SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  items={customers.map((c) => ({
+                    value: c.id,
+                    label: c.name,
+                    sublabel: c.company || c.email || undefined,
+                    keywords: [c.email, c.phone, c.company].filter(Boolean).join(" "),
+                  }))}
+                  value={form.customer_id ?? ""}
+                  onValueChange={(v) => setForm({ ...form, customer_id: v || null })}
+                  placeholder="Select customer"
+                  searchPlaceholder="Search customers..."
+                  allowNone noneLabel="— None —"
+                />
               </div>
               <div>
                 <Label className="text-xs">Property address</Label>
