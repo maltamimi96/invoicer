@@ -17,7 +17,8 @@ import { ClientSelect } from "@/components/customers/client-select";
 import { AddressSelect } from "@/components/addresses/address-select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { createQuote, updateQuote } from "@/lib/actions/quotes";
+import { createQuote, updateQuote, sendQuoteEmail, sendQuoteSms } from "@/lib/actions/quotes";
+import { SendDocumentModal } from "@/components/send/send-document-modal";
 import { LineItemsEditor } from "@/components/invoices/line-items-editor";
 import { SmartFillModal } from "@/components/invoices/smart-fill-modal";
 import type { SmartFillData } from "@/components/invoices/smart-fill-modal";
@@ -65,6 +66,8 @@ export function QuoteEditor({ customers, products, business, quote, defaultCusto
   const [localCustomers, setLocalCustomers] = useState(customers);
   const [siteId, setSiteId] = useState<string | null>(quote?.site_id ?? null);
   const [propertyAddress, setPropertyAddress] = useState<string>(quote?.property_address ?? "");
+  const [sendOpen, setSendOpen] = useState(false);
+  const [savedQuote, setSavedQuote] = useState<Quote | null>(quote ?? null);
 
   const { register, handleSubmit, watch, setValue } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -102,7 +105,7 @@ export function QuoteEditor({ customers, products, business, quote, defaultCusto
   }, 0);
   const total = subtotal - discountAmount + taxTotal;
 
-  const onSubmit = async (data: FormData, status: Quote["status"] = "draft") => {
+  const onSubmit = async (data: FormData, status: Quote["status"] = "draft"): Promise<Quote | null> => {
     setSaving(true);
     try {
       const payload = {
@@ -120,18 +123,37 @@ export function QuoteEditor({ customers, products, business, quote, defaultCusto
       };
 
       if (quote) {
-        await updateQuote(quote.id, payload);
-        toast.success("Quote saved");
-        router.push(`/quotes/${quote.id}`);
+        const updated = await updateQuote(quote.id, payload);
+        return updated;
       } else {
-        const newQuote = await createQuote(payload);
-        toast.success(status === "sent" ? "Quote created & sent!" : "Quote created");
-        router.push(`/quotes/${newQuote.id}`);
+        const created = await createQuote(payload);
+        return created;
       }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
+      return null;
     } finally { setSaving(false); }
   };
+
+  const handleSaveDraft = handleSubmit(async (d) => {
+    const saved = await onSubmit(d, "draft");
+    if (saved) {
+      toast.success("Quote saved");
+      router.push(`/quotes/${saved.id}`);
+    }
+  });
+
+  const handleSaveAndSend = handleSubmit(async (d) => {
+    if (!d.customer_id) { toast.error("Select a customer before sending"); return; }
+    if (lineItems.length === 0) { toast.error("Add at least one line item"); return; }
+    const saved = await onSubmit(d, quote?.status ?? "draft");
+    if (saved) {
+      setSavedQuote(saved);
+      setSendOpen(true);
+    }
+  });
+
+  const selectedCustomer = localCustomers.find((c) => c.id === watch("customer_id")) ?? null;
 
   return (
     <div className="space-y-6">
@@ -145,10 +167,10 @@ export function QuoteEditor({ customers, products, business, quote, defaultCusto
             <Sparkles className="w-3.5 h-3.5 text-purple-500" />Smart fill
           </Button>
           <PdfSettingsPanel settings={pdfSettings} business={business} mode="quote" onSettingsChange={setPdfSettings} />
-          <Button variant="outline" size="sm" className="flex-1 sm:flex-initial" disabled={saving} onClick={handleSubmit((d) => onSubmit(d, "draft"))}>
+          <Button variant="outline" size="sm" className="flex-1 sm:flex-initial" disabled={saving} onClick={handleSaveDraft}>
             {saving ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-1.5" />}Save draft
           </Button>
-          <Button size="sm" className="flex-1 sm:flex-initial" disabled={saving} onClick={handleSubmit((d) => onSubmit(d, "sent"))}>
+          <Button size="sm" className="flex-1 sm:flex-initial" disabled={saving} onClick={handleSaveAndSend}>
             {saving ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Send className="w-3.5 h-3.5 mr-1.5" />}Save & send
           </Button>
         </div>
@@ -266,6 +288,29 @@ export function QuoteEditor({ customers, products, business, quote, defaultCusto
           </Card>
         </div>
       </form>
+
+      {savedQuote && (
+        <SendDocumentModal
+          open={sendOpen}
+          onOpenChange={setSendOpen}
+          docType="Quote"
+          docNumber={savedQuote.number}
+          defaultEmails={selectedCustomer?.email ? [selectedCustomer.email] : []}
+          defaultPhone={selectedCustomer?.phone ?? ""}
+          defaultSubject={`Quote ${savedQuote.number} from ${business.name}`}
+          defaultSmsBody={`Hi${selectedCustomer?.name ? " " + selectedCustomer.name.split(" ")[0] : ""}, your quote ${savedQuote.number} from ${business.name} is ready.`}
+          onSend={async (r) => {
+            if (r.channel === "email") {
+              await sendQuoteEmail(savedQuote.id, { recipients: r.recipients, subject: r.subject });
+              toast.success(`Quote sent to ${(r.recipients ?? []).join(", ")}`);
+            } else {
+              await sendQuoteSms(savedQuote.id, { to: r.to!, body: r.body });
+              toast.success(`Quote SMS sent to ${r.to}`);
+            }
+            router.push(`/quotes/${savedQuote.id}`);
+          }}
+        />
+      )}
 
       <SmartFillModal
         open={smartFillOpen}

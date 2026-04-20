@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Loader2, ArrowLeft, Save, Send, Download, Sparkles } from "lucide-react";
+import { Loader2, ArrowLeft, Save, Send, Sparkles } from "lucide-react";
 import { AiAssistButton } from "@/components/ai/ai-assist-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +16,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { createInvoice, updateInvoice } from "@/lib/actions/invoices";
+import { createInvoice, updateInvoice, sendInvoiceEmail, sendInvoiceSms } from "@/lib/actions/invoices";
+import { SendDocumentModal } from "@/components/send/send-document-modal";
 import { LineItemsEditor } from "./line-items-editor";
 import { SmartFillModal } from "./smart-fill-modal";
 import type { SmartFillData } from "./smart-fill-modal";
@@ -59,14 +60,15 @@ export function InvoiceEditor({ customers, products, business, invoice, defaultC
   const router = useRouter();
   const [lineItems, setLineItems] = useState<LineItem[]>((invoice?.line_items as LineItem[]) ?? []);
   const [saving, setSaving] = useState(false);
-  const [sendAfterSave, setSendAfterSave] = useState(false);
   const [pdfSettings, setPdfSettings] = useState({ ...DEFAULT_PDF_SETTINGS, ...(business.pdf_settings ?? {}) });
   const [smartFillOpen, setSmartFillOpen] = useState(false);
   const [localCustomers, setLocalCustomers] = useState(customers);
   const [siteId, setSiteId] = useState<string | null>(invoice?.site_id ?? null);
   const [propertyAddress, setPropertyAddress] = useState<string>(invoice?.property_address ?? "");
+  const [sendOpen, setSendOpen] = useState(false);
+  const [savedInvoice, setSavedInvoice] = useState<Invoice | null>(invoice ?? null);
 
-  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, watch, setValue } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       customer_id: invoice?.customer_id ?? defaultCustomerId ?? "",
@@ -102,7 +104,7 @@ export function InvoiceEditor({ customers, products, business, invoice, defaultC
   }, 0);
   const total = subtotal - discountAmount + taxTotal;
 
-  const onSubmit = async (data: FormData, sendStatus?: "sent") => {
+  const onSubmit = async (data: FormData): Promise<Invoice | null> => {
     setSaving(true);
     try {
       const payload = {
@@ -116,7 +118,7 @@ export function InvoiceEditor({ customers, products, business, invoice, defaultC
         tax_total: taxTotal,
         total,
         amount_paid: invoice?.amount_paid ?? 0,
-        status: (sendStatus ?? invoice?.status ?? "draft") as Invoice["status"],
+        status: (invoice?.status ?? "draft") as Invoice["status"],
         issue_date: data.issue_date,
         due_date: data.due_date,
         notes: data.notes ?? null,
@@ -126,20 +128,38 @@ export function InvoiceEditor({ customers, products, business, invoice, defaultC
       };
 
       if (invoice) {
-        await updateInvoice(invoice.id, payload);
-        toast.success(sendStatus === "sent" ? "Invoice sent!" : "Invoice saved");
-        router.push(`/invoices/${invoice.id}`);
+        const updated = await updateInvoice(invoice.id, payload);
+        return updated;
       } else {
-        const newInvoice = await createInvoice(payload);
-        toast.success(sendStatus === "sent" ? "Invoice created & sent!" : "Invoice created");
-        router.push(`/invoices/${newInvoice.id}`);
+        return await createInvoice(payload);
       }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
+      return null;
     } finally {
       setSaving(false);
     }
   };
+
+  const handleSaveDraft = handleSubmit(async (d) => {
+    const saved = await onSubmit(d);
+    if (saved) {
+      toast.success("Invoice saved");
+      router.push(`/invoices/${saved.id}`);
+    }
+  });
+
+  const handleSaveAndSend = handleSubmit(async (d) => {
+    if (!d.customer_id) { toast.error("Select a customer before sending"); return; }
+    if (lineItems.length === 0) { toast.error("Add at least one line item"); return; }
+    const saved = await onSubmit(d);
+    if (saved) {
+      setSavedInvoice(saved);
+      setSendOpen(true);
+    }
+  });
+
+  const selectedCustomer = localCustomers.find((c) => c.id === watch("customer_id")) ?? null;
 
   return (
     <div className="space-y-6">
@@ -163,18 +183,18 @@ export function InvoiceEditor({ customers, products, business, invoice, defaultC
             size="sm"
             className="flex-1 sm:flex-initial"
             disabled={saving}
-            onClick={handleSubmit((data) => onSubmit(data))}
+            onClick={handleSaveDraft}
           >
-            {saving && !sendAfterSave ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-1.5" />}
+            {saving ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-1.5" />}
             Save draft
           </Button>
           <Button
             size="sm"
             className="flex-1 sm:flex-initial"
             disabled={saving}
-            onClick={() => { setSendAfterSave(true); handleSubmit((data) => onSubmit(data, "sent"))(); }}
+            onClick={handleSaveAndSend}
           >
-            {saving && sendAfterSave ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Send className="w-3.5 h-3.5 mr-1.5" />}
+            {saving ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Send className="w-3.5 h-3.5 mr-1.5" />}
             Save & send
           </Button>
         </div>
@@ -325,6 +345,29 @@ export function InvoiceEditor({ customers, products, business, invoice, defaultC
           )}
         </div>
       </form>
+
+      {savedInvoice && (
+        <SendDocumentModal
+          open={sendOpen}
+          onOpenChange={setSendOpen}
+          docType="Invoice"
+          docNumber={savedInvoice.number}
+          defaultEmails={selectedCustomer?.email ? [selectedCustomer.email] : []}
+          defaultPhone={selectedCustomer?.phone ?? ""}
+          defaultSubject={`Invoice ${savedInvoice.number} from ${business.name}`}
+          defaultSmsBody={`Hi${selectedCustomer?.name ? " " + selectedCustomer.name.split(" ")[0] : ""}, your invoice ${savedInvoice.number} from ${business.name} is ready.`}
+          onSend={async (r) => {
+            if (r.channel === "email") {
+              await sendInvoiceEmail(savedInvoice.id, { recipients: r.recipients, subject: r.subject });
+              toast.success(`Invoice sent to ${(r.recipients ?? []).join(", ")}`);
+            } else {
+              await sendInvoiceSms(savedInvoice.id, { to: r.to!, body: r.body });
+              toast.success(`Invoice SMS sent to ${r.to}`);
+            }
+            router.push(`/invoices/${savedInvoice.id}`);
+          }}
+        />
+      )}
 
       <SmartFillModal
         open={smartFillOpen}
