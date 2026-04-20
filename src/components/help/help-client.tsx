@@ -292,7 +292,7 @@ export function HelpClient() {
             <Sparkles className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Help & feature guide</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Help & feature guide</h1>
             <p className="text-sm text-muted-foreground">Everything Invoicer can do, and how to drive it — by click or by voice.</p>
           </div>
         </div>
