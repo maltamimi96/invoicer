@@ -38,6 +38,11 @@ export function quoteEmailHtml({
         <td style="font-size:13px;color:#71717a;padding-top:8px;">Valid until</td>
         <td style="font-size:14px;color:#ef4444;text-align:right;padding-top:8px;">${expiryDate}</td>
       </tr>
+      ${quote.property_address ? `
+      <tr>
+        <td style="font-size:13px;color:#71717a;padding-top:8px;">Service address</td>
+        <td style="font-size:13px;color:#18181b;text-align:right;padding-top:8px;">${quote.property_address}</td>
+      </tr>` : ""}
       <tr>
         <td style="font-size:15px;font-weight:700;color:#18181b;padding-top:16px;border-top:1px solid #e4e4e7;">Quote total</td>
         <td style="font-size:18px;font-weight:700;color:#8b5cf6;text-align:right;padding-top:16px;border-top:1px solid #e4e4e7;">${fmt(quote.total)}</td>

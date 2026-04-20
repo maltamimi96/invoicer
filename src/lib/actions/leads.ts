@@ -172,6 +172,8 @@ export async function convertLeadToQuote(
     notes: options.notes ?? lead.notes ?? null,
     terms: null,
     invoice_id: null,
+    site_id: null,
+    property_address: null,
   });
 
   await updateLead(leadId, {

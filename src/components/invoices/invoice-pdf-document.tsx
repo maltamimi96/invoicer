@@ -187,6 +187,12 @@ export function InvoicePDFDocument({ invoice, customer, business, lineItems, pdf
                 {customer.tax_number && <Text style={styles.billToDetail}>ABN: {customer.tax_number}</Text>}
               </>
             ) : <Text style={styles.billToDetail}>—</Text>}
+            {invoice.property_address && (
+              <>
+                <Text style={[styles.billToLabel, { marginTop: 10 }]}>Service Address</Text>
+                <Text style={styles.billToDetail}>{invoice.property_address}</Text>
+              </>
+            )}
           </View>
           <View style={{ width: 150 }}>
             <View style={styles.dateRow}><Text style={styles.dateLabel}>Issue date</Text><Text style={styles.dateValue}>{fmtDate(invoice.issue_date)}</Text></View>

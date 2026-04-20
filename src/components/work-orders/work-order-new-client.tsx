@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { ClientSelect } from "@/components/customers/client-select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { AddressSelect } from "@/components/addresses/address-select";
 import { createWorkOrder } from "@/lib/actions/work-orders";
 import { getSitesForAccount, getSite } from "@/lib/actions/sites";
 import { getContactsForAccount } from "@/lib/actions/contacts";
@@ -215,28 +216,14 @@ export function WorkOrderNewClient({
               />
             </div>
 
-            {accountSelected && sites.length > 0 && (
-              <div className="space-y-1.5">
-                <Label>Site</Label>
-                <SearchableSelect
-                  items={sites.map((s) => ({
-                    value: s.id,
-                    label: s.label ?? s.address ?? "Untitled site",
-                    sublabel: s.label && s.address ? s.address : undefined,
-                    keywords: [s.address, s.city, s.postcode].filter(Boolean).join(" "),
-                  }))}
-                  value={siteId}
-                  onValueChange={setSiteId}
-                  placeholder="Select site"
-                  searchPlaceholder="Search sites..."
-                  allowNone noneLabel="— No site —"
-                />
-              </div>
-            )}
-
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label>Property Address</Label>
-              <Input placeholder="102 Smith St, Sydney NSW" value={propertyAddress} onChange={(e) => setPropertyAddress(e.target.value)} />
+            <div className="sm:col-span-2">
+              <AddressSelect
+                customer={customers.find((c) => c.id === customerId) ?? null}
+                sites={sites}
+                value={{ site_id: siteId || null, property_address: propertyAddress }}
+                onChange={(v) => { setSiteId(v.site_id ?? ""); setPropertyAddress(v.property_address); }}
+                label="Property address"
+              />
             </div>
 
             {accountSelected && contacts.length > 0 && (
