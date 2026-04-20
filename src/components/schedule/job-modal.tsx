@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { createScheduledJob, updateScheduledJob, deleteScheduledJob } from "@/lib/actions/schedule";
 import type { ScheduledJob, MemberProfile, Customer, WorkOrderStatus } from "@/types/database";
@@ -169,19 +170,19 @@ export function JobModal({ mode, job, defaultDate, profiles, customers, onClose,
             {/* Customer */}
             <div className="space-y-1.5">
               <Label className="flex items-center gap-1"><User className="h-3.5 w-3.5" /> Customer</Label>
-              <Select value={customerId} onValueChange={handleCustomerChange}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select customer (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NO_CUSTOMER}>No customer</SelectItem>
-                  {customers.filter((c) => !c.archived).map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}{c.company ? ` — ${c.company}` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                items={customers.filter((c) => !c.archived).map((c) => ({
+                  value: c.id,
+                  label: c.name,
+                  sublabel: c.company || c.email || undefined,
+                  keywords: [c.email, c.phone, c.company, c.address].filter(Boolean).join(" "),
+                }))}
+                value={customerId === NO_CUSTOMER ? "" : customerId}
+                onValueChange={(v) => handleCustomerChange(v || NO_CUSTOMER)}
+                placeholder="Select customer (optional)"
+                searchPlaceholder="Search customers..."
+                allowNone noneLabel="No customer"
+              />
             </div>
 
             {/* Address */}
