@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Lucide → Phosphor compat layer.
  * Re-exports every Lucide icon name in use, mapped to the closest Phosphor icon.
