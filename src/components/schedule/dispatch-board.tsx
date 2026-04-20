@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Clock, MapPin, UserCircle2 } from "lucide-react";
+import { Clock, MapPin, UserCircle2 } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { rescheduleJob } from "@/lib/actions/schedule";
 import type { ScheduledJob, MemberProfile } from "@/types/database";

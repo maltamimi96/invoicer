@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Sparkles, Loader2, X, ImagePlus } from "lucide-react";
+import { Sparkles, Loader2, X, ImagePlus } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 

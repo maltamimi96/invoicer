@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Mail, Loader2, CheckCircle, XCircle, Info } from "lucide-react";
+import { Mail, Loader2, CheckCircle, XCircle, Info } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

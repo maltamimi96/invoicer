@@ -1,6 +1,6 @@
 "use client";
 
-import { MapPin, Navigation } from "lucide-react";
+import { MapPin, Navigation } from "@/components/ui/icons";
 
 interface AddressLinkProps {
   address: string;

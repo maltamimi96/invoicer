@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeft, Download, FileText, Pencil, Check, X, Trash2, CheckCircle, RotateCcw, Mail } from "lucide-react";
+import { ArrowLeft, Download, FileText, Pencil, Check, X, Trash2, CheckCircle, RotateCcw, Mail } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Sparkles, Loader2, Plus, Trash2, ClipboardPaste, TableProperties } from "lucide-react";
+import { Sparkles, Loader2, Plus, Trash2, ClipboardPaste, TableProperties } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
 import { Button } from "@/components/ui/button";

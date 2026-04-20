@@ -8,8 +8,8 @@ import {
   ArrowRight, Sparkles, Zap, Clock, CheckCircle2, Workflow, ChevronDown,
   Mail, Brain, Send, PenLine, DollarSign, Bell, Database, Cpu, MousePointer2,
   Move, RefreshCw, GitBranch, Hammer,
-} from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+} from "@/components/ui/icons";
+import type { LucideIcon } from "@/components/ui/icons";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 

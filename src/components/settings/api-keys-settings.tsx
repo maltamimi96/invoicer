@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { Key, Plus, Copy, Trash2, Shield, Check, Eye, EyeOff } from "lucide-react";
+import { Key, Plus, Copy, Trash2, Shield, Check, Eye, EyeOff } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

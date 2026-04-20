@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Bot, Send, Loader2, CheckCircle2, AlertCircle, ChevronRight,
   Minimize2, Trash2, Sparkles, Mic,
-} from "lucide-react";
+} from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { motion, AnimatePresence } from "framer-motion";

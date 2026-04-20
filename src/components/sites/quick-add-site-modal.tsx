@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Loader2, MapPin } from "lucide-react";
+import { Loader2, MapPin } from "@/components/ui/icons";
 import { createSite } from "@/lib/actions/sites";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

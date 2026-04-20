@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Search, Package, Edit, Trash2, Archive, Upload } from "lucide-react";
+import { Plus, Search, Package, Edit, Trash2, Archive, Upload } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

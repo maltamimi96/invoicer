@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Repeat, Pause, Play, Trash2, Edit2, MapPin, User as UserIcon, Calendar } from "lucide-react";
+import { Plus, Repeat, Pause, Play, Trash2, Edit2, MapPin, User as UserIcon, Calendar } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

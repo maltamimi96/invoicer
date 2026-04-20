@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Link2, Copy, Check, Loader2 } from "lucide-react";
+import { Link2, Copy, Check, Loader2 } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { createPortalLink } from "@/lib/actions/customer-portal";
 

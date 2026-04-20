@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Upload, Download, AlertCircle, CheckCircle2, Loader2, X, FileText } from "lucide-react";
+import { Upload, Download, AlertCircle, CheckCircle2, Loader2, X, FileText } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";

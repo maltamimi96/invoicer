@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, MapPin, FileDown, CheckCircle2, Clock, Camera } from "lucide-react";
+import { Calendar, MapPin, FileDown, CheckCircle2, Clock, Camera } from "@/components/ui/icons";
 
 export const dynamic = "force-dynamic";
 

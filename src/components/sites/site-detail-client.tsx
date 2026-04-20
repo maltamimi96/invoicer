@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import {
   ArrowLeft, Plus, Edit, MapPin, Wrench, Boxes, Users, CreditCard,
   Calendar, KeyRound, Car, FileText, Trash2, Check, X,
-} from "lucide-react";
+} from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";

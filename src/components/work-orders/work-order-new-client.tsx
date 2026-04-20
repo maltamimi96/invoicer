@@ -3,7 +3,7 @@
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeft, Loader2, Check, ChevronDown } from "lucide-react";
+import { ArrowLeft, Loader2, Check, ChevronDown } from "@/components/ui/icons";
 import { toast } from "sonner";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";

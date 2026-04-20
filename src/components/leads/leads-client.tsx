@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import {
   Plus, Phone, Mail, MapPin, Clock, MoreHorizontal,
   Trash2, User, TrendingUp, ChevronRight, Search, Filter,
-} from "lucide-react";
+} from "@/components/ui/icons";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
