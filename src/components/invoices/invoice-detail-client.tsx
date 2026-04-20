@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeft, Edit, Send, Copy, Trash2, CheckCircle, DollarSign, MoreHorizontal, Loader2 } from "lucide-react";
+import { ArrowLeft, Edit, Send, Copy, Trash2, CheckCircle, DollarSign, MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +16,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { updateInvoice, deleteInvoice, duplicateInvoice, addPayment, sendInvoiceEmail } from "@/lib/actions/invoices";
+import { updateInvoice, deleteInvoice, duplicateInvoice, addPayment, sendInvoiceEmail, sendInvoiceSms } from "@/lib/actions/invoices";
+import { SendDocumentModal } from "@/components/send/send-document-modal";
 import { InvoiceEditor } from "./invoice-editor";
 import { InvoicePDFDownload } from "./invoice-pdf";
 
@@ -41,20 +42,7 @@ export function InvoiceDetailClient({ invoice: initial, customers, products, bus
   const [paymentMethod, setPaymentMethod] = useState("bank_transfer");
   const [paymentRef, setPaymentRef] = useState("");
   const [saving, setSaving] = useState(false);
-  const [sending, setSending] = useState(false);
-
-  const handleSendEmail = async () => {
-    setSending(true);
-    try {
-      await sendInvoiceEmail(invoice.id);
-      setInvoice((prev) => ({ ...prev, status: prev.status === "draft" ? "sent" : prev.status }));
-      toast.success(`Invoice sent to ${customer?.email}`);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to send email");
-    } finally {
-      setSending(false);
-    }
-  };
+  const [sendOpen, setSendOpen] = useState(false);
 
   const lineItems = (invoice.line_items ?? []) as LineItem[];
   const customer = customers.find((c) => c.id === invoice.customer_id);
@@ -138,11 +126,10 @@ export function InvoiceDetailClient({ invoice: initial, customers, products, bus
               size="sm"
               variant="outline"
               className="gap-1.5"
-              onClick={customer?.email ? handleSendEmail : () => toast.error("Add an email address to this customer first")}
-              disabled={sending}
+              onClick={() => setSendOpen(true)}
             >
-              {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-              Send email
+              <Send className="w-3.5 h-3.5" />
+              Send
             </Button>
           )}
           <InvoicePDFDownload invoiceId={invoice.id} invoiceNumber={invoice.number} />
@@ -358,6 +345,27 @@ export function InvoiceDetailClient({ invoice: initial, customers, products, bus
       </Dialog>
 
       {/* Delete dialog */}
+      <SendDocumentModal
+        open={sendOpen}
+        onOpenChange={setSendOpen}
+        docType="Invoice"
+        docNumber={invoice.number}
+        defaultEmails={customer?.email ? [customer.email] : []}
+        defaultPhone={customer?.phone ?? null}
+        defaultSubject={`Invoice ${invoice.number} from ${business.name}`}
+        defaultSmsBody={`Hi${customer?.name ? " " + customer.name.split(" ")[0] : ""}, invoice ${invoice.number} from ${business.name} is ready. Amount due: ${(invoice.total - invoice.amount_paid).toFixed(2)}.`}
+        onSend={async (r) => {
+          if (r.channel === "email") {
+            await sendInvoiceEmail(invoice.id, { recipients: r.recipients, subject: r.subject });
+            toast.success(`Invoice sent to ${(r.recipients ?? []).join(", ")}`);
+          } else {
+            await sendInvoiceSms(invoice.id, { to: r.to!, body: r.body });
+            toast.success(`Invoice SMS sent to ${r.to}`);
+          }
+          setInvoice((prev) => ({ ...prev, status: prev.status === "draft" ? "sent" : prev.status }));
+        }}
+      />
+
       <AlertDialog open={showDelete} onOpenChange={setShowDelete}>
         <AlertDialogContent>
           <AlertDialogHeader>

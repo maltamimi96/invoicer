@@ -194,7 +194,7 @@ export async function getDashboardStats() {
   return { totalRevenue, outstanding, overdue, paidThisMonth, recentInvoices, monthlyData };
 }
 
-export async function sendInvoiceEmail(id: string): Promise<void> {
+export async function sendInvoiceEmail(id: string, opts?: { recipients?: string[]; subject?: string }): Promise<void> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
@@ -209,7 +209,9 @@ export async function sendInvoiceEmail(id: string): Promise<void> {
   ]);
 
   const customer = invoiceData.customers;
-  if (!customer?.email) throw new Error("Customer has no email address");
+  const recipients = (opts?.recipients ?? (customer?.email ? [customer.email] : []))
+    .map((e) => e.trim()).filter(Boolean);
+  if (recipients.length === 0) throw new Error("No email recipients provided");
 
   const lineItems = (invoiceData.line_items ?? []) as LineItem[];
 
@@ -232,8 +234,8 @@ export async function sendInvoiceEmail(id: string): Promise<void> {
   const pdfBuffer = Buffer.concat(chunks);
 
   await sendEmail({
-    to: customer.email,
-    subject: `Invoice ${invoiceData.number} from ${businessData.name}`,
+    to: recipients,
+    subject: opts?.subject ?? `Invoice ${invoiceData.number} from ${businessData.name}`,
     html: invoiceEmailHtml({ invoice: invoiceData, customer, business: businessData, lineItems }),
     attachments: [{ filename: `${invoiceData.number}.pdf`, content: pdfBuffer }],
   });
@@ -245,6 +247,29 @@ export async function sendInvoiceEmail(id: string): Promise<void> {
       .update({ status: "sent" })
       .eq("id", id);
     revalidatePath(`/invoices/${id}`);
-    dispatchWebhook(businessId, "invoice.sent", { id, number: invoiceData.number, customer_email: customer.email });
+    dispatchWebhook(businessId, "invoice.sent", { id, number: invoiceData.number, customer_email: recipients.join(", ") });
+  }
+}
+
+export async function sendInvoiceSms(id: string, opts: { to: string; body?: string }): Promise<void> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const businessId = await getActiveBizId(supabase, user.id);
+  const invoiceData = await getInvoice(id);
+  const customer = invoiceData.customers;
+
+  const { data: business } = await tbl(supabase, "businesses").select("name").eq("id", businessId).single();
+  const due = invoiceData.total - (invoiceData.amount_paid ?? 0);
+  const body = opts.body ?? `Hi${customer?.name ? " " + customer.name.split(" ")[0] : ""}, invoice ${invoiceData.number} from ${business.name} is ready. Amount due: ${due.toFixed(2)}.`;
+
+  const { sendSms } = await import("./sms");
+  await sendSms({ to: opts.to, body, customerName: customer?.name ?? "Customer", customerId: customer?.id ?? null });
+
+  if (invoiceData.status === "draft") {
+    await tbl(supabase, "invoices").update({ status: "sent" }).eq("id", id);
+    revalidatePath(`/invoices/${id}`);
+    dispatchWebhook(businessId, "invoice.sent", { id, number: invoiceData.number, channel: "sms", to: opts.to });
   }
 }

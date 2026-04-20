@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeft, Edit, Trash2, ArrowRight, MoreHorizontal, Send, Loader2 } from "lucide-react";
+import { ArrowLeft, Edit, Trash2, ArrowRight, MoreHorizontal, Send } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { deleteQuote, updateQuote, convertQuoteToInvoice, sendQuoteEmail } from "@/lib/actions/quotes";
+import { deleteQuote, updateQuote, convertQuoteToInvoice, sendQuoteEmail, sendQuoteSms } from "@/lib/actions/quotes";
+import { SendDocumentModal } from "@/components/send/send-document-modal";
 import { QuoteEditor } from "./quote-editor";
 import { QuotePDFDownload } from "./quote-pdf";
 import { formatCurrency, formatDate, getStatusColor } from "@/lib/utils";
@@ -31,20 +32,7 @@ export function QuoteDetailClient({ quote: initial, customers, products, busines
   const [editing, setEditing] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [converting, setConverting] = useState(false);
-  const [sending, setSending] = useState(false);
-
-  const handleSendEmail = async () => {
-    setSending(true);
-    try {
-      await sendQuoteEmail(quote.id);
-      setQuote((prev) => ({ ...prev, status: prev.status === "draft" ? "sent" : prev.status }));
-      toast.success(`Quote sent to ${customer?.email}`);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to send email");
-    } finally {
-      setSending(false);
-    }
-  };
+  const [sendOpen, setSendOpen] = useState(false);
 
   const lineItems = (quote.line_items ?? []) as LineItem[];
   const customer = customers.find((c) => c.id === quote.customer_id);
@@ -99,11 +87,10 @@ export function QuoteDetailClient({ quote: initial, customers, products, busines
               size="sm"
               variant="outline"
               className="gap-1.5"
-              onClick={customer?.email ? handleSendEmail : () => toast.error("Add an email address to this customer first")}
-              disabled={sending}
+              onClick={() => setSendOpen(true)}
             >
-              {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-              Send email
+              <Send className="w-3.5 h-3.5" />
+              Send
             </Button>
           )}
           <QuotePDFDownload quoteId={quote.id} quoteNumber={quote.number} />
@@ -220,6 +207,27 @@ export function QuoteDetailClient({ quote: initial, customers, products, busines
           </Card>
         </div>
       </div>
+
+      <SendDocumentModal
+        open={sendOpen}
+        onOpenChange={setSendOpen}
+        docType="Quote"
+        docNumber={quote.number}
+        defaultEmails={customer?.email ? [customer.email] : []}
+        defaultPhone={customer?.phone ?? null}
+        defaultSubject={`Quote ${quote.number} from ${business.name}`}
+        defaultSmsBody={`Hi${customer?.name ? " " + customer.name.split(" ")[0] : ""}, your quote ${quote.number} from ${business.name} is ready.`}
+        onSend={async (r) => {
+          if (r.channel === "email") {
+            await sendQuoteEmail(quote.id, { recipients: r.recipients, subject: r.subject });
+            toast.success(`Quote sent to ${(r.recipients ?? []).join(", ")}`);
+          } else {
+            await sendQuoteSms(quote.id, { to: r.to!, body: r.body });
+            toast.success(`Quote SMS sent to ${r.to}`);
+          }
+          setQuote((prev) => ({ ...prev, status: prev.status === "draft" ? "sent" : prev.status }));
+        }}
+      />
 
       <AlertDialog open={showDelete} onOpenChange={setShowDelete}>
         <AlertDialogContent>

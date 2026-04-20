@@ -172,7 +172,7 @@ export async function convertQuoteToInvoice(quoteId: string): Promise<Invoice> {
   return invoice as Invoice;
 }
 
-export async function sendQuoteEmail(id: string): Promise<void> {
+export async function sendQuoteEmail(id: string, opts?: { recipients?: string[]; subject?: string }): Promise<void> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
@@ -187,7 +187,9 @@ export async function sendQuoteEmail(id: string): Promise<void> {
   ]);
 
   const customer = quoteData.customers;
-  if (!customer?.email) throw new Error("Customer has no email address");
+  const recipients = (opts?.recipients ?? (customer?.email ? [customer.email] : []))
+    .map((e) => e.trim()).filter(Boolean);
+  if (recipients.length === 0) throw new Error("No email recipients provided");
 
   const lineItems = (quoteData.line_items ?? []) as LineItem[];
 
@@ -212,7 +214,7 @@ export async function sendQuoteEmail(id: string): Promise<void> {
   // Issue (or reuse) a portal token so the customer can review & accept online
   const businessId = await getActiveBizId(supabase, user.id);
   let acceptUrl: string | null = null;
-  if (customer.id) {
+  if (customer?.id) {
     const { data: existing } = await tbl(supabase, "customer_portal_tokens")
       .select("token")
       .eq("business_id", businessId)
@@ -235,8 +237,8 @@ export async function sendQuoteEmail(id: string): Promise<void> {
   }
 
   await sendEmail({
-    to: customer.email,
-    subject: `Quote ${quoteData.number} from ${businessData.name}`,
+    to: recipients,
+    subject: opts?.subject ?? `Quote ${quoteData.number} from ${businessData.name}`,
     html: quoteEmailHtml({ quote: quoteData, customer, business: businessData, lineItems, acceptUrl }),
     attachments: [{ filename: `${quoteData.number}.pdf`, content: pdfBuffer }],
   });
@@ -247,6 +249,52 @@ export async function sendQuoteEmail(id: string): Promise<void> {
       .update({ status: "sent" })
       .eq("id", id);
     revalidatePath(`/quotes/${id}`);
-    dispatchWebhook(businessId, "quote.sent", { id, number: quoteData.number, customer_email: customer.email });
+    dispatchWebhook(businessId, "quote.sent", { id, number: quoteData.number, customer_email: recipients.join(", ") });
+  }
+}
+
+export async function sendQuoteSms(id: string, opts: { to: string; body?: string }): Promise<void> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const businessId = await getActiveBizId(supabase, user.id);
+  const quoteData = await getQuote(id);
+  const customer = quoteData.customers;
+
+  // Issue/reuse portal token + build accept URL
+  let acceptUrl: string | null = null;
+  if (customer?.id) {
+    const { data: existing } = await tbl(supabase, "customer_portal_tokens")
+      .select("token")
+      .eq("business_id", businessId)
+      .eq("customer_id", customer.id)
+      .is("revoked_at", null)
+      .or("expires_at.is.null,expires_at.gt." + new Date().toISOString())
+      .limit(1)
+      .maybeSingle();
+    let token: string | null = existing?.token ?? null;
+    if (!token) {
+      token = "cust_" + randomBytes(24).toString("hex");
+      await tbl(supabase, "customer_portal_tokens").insert({
+        token, business_id: businessId, customer_id: customer.id,
+        created_by: user.id,
+        expires_at: new Date(Date.now() + 90 * 86_400_000).toISOString(),
+      });
+    }
+    const base = process.env.NEXT_PUBLIC_APP_URL || "";
+    if (base && token) acceptUrl = `${base}/portal/${token}/quote/${quoteData.id}`;
+  }
+
+  const { data: business } = await tbl(supabase, "businesses").select("name").eq("id", businessId).single();
+  const body = opts.body ?? `Hi${customer?.name ? " " + customer.name.split(" ")[0] : ""}, your quote ${quoteData.number} from ${business.name} is ready.${acceptUrl ? " Review & accept: " + acceptUrl : ""}`;
+
+  const { sendSms } = await import("./sms");
+  await sendSms({ to: opts.to, body, customerName: customer?.name ?? "Customer", customerId: customer?.id ?? null });
+
+  if (quoteData.status === "draft") {
+    await tbl(supabase, "quotes").update({ status: "sent" }).eq("id", id);
+    revalidatePath(`/quotes/${id}`);
+    dispatchWebhook(businessId, "quote.sent", { id, number: quoteData.number, channel: "sms", to: opts.to });
   }
 }
