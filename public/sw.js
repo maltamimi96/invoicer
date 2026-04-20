@@ -1,4 +1,4 @@
-const CACHE = "invoicer-v1";
+const CACHE = "invoicer-v2";
 
 // App shell — pages that should always load fast
 const APP_SHELL = ["/dashboard", "/leads", "/customers", "/invoices", "/quotes", "/work-orders"];
