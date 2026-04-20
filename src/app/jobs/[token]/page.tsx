@@ -85,7 +85,7 @@ export default async function PublicJobPage({ params }: { params: Promise<{ toke
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-xs text-muted-foreground font-mono">{workOrder.number}</p>
-                <h1 className="text-xl font-bold truncate">{workOrder.title}</h1>
+                <h1 className="text-2xl font-bold tracking-tight truncate">{workOrder.title}</h1>
               </div>
               <Badge variant="secondary" className="capitalize shrink-0">{String(workOrder.status).replace(/_/g, " ")}</Badge>
             </div>

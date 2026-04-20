@@ -109,7 +109,7 @@ export function ReportDetailClient({ report: initialReport, business }: ReportDe
         <Link href="/reports"><Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0"><ArrowLeft className="w-4 h-4" /></Button></Link>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-xl font-bold truncate">{report.title}</h1>
+            <h1 className="text-2xl font-bold tracking-tight truncate">{report.title}</h1>
             <Badge className={report.status === "complete" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}>
               {report.status}
             </Badge>
