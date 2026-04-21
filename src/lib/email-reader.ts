@@ -1,5 +1,5 @@
 /**
- * IMAP email reader — fetches unseen emails and marks them as seen.
+ * IMAP email reader.
  * Accepts per-business config (SaaS-ready) instead of env vars.
  */
 
@@ -14,6 +14,7 @@ export interface ImapConfig {
 
 export interface RawEmail {
   uid: number;
+  messageId: string | null;
   from: string;
   subject: string;
   text: string;
@@ -62,11 +63,47 @@ export async function testImapConnection(config: ImapConfig): Promise<{ ok: true
   }
 }
 
+function parseEmailSource(raw: string): string {
+  const textMatch = raw.match(/Content-Type:\s*text\/plain[\s\S]*?\r\n\r\n([\s\S]*?)(?:\r\n--|\r\n\.\r\n|$)/i);
+  const htmlMatch = raw.match(/Content-Type:\s*text\/html[\s\S]*?\r\n\r\n([\s\S]*?)(?:\r\n--|\r\n\.\r\n|$)/i);
+
+  let text = "";
+  if (textMatch) {
+    text = textMatch[1].trim();
+  } else if (htmlMatch) {
+    text = stripHtml(htmlMatch[1]);
+  } else {
+    const bodyStart = raw.indexOf("\r\n\r\n");
+    if (bodyStart > -1) {
+      const body = raw.slice(bodyStart + 4);
+      text = body.includes("<") ? stripHtml(body) : body;
+    }
+  }
+
+  if (text.includes("=\r\n") || text.includes("=3D")) {
+    text = text
+      .replace(/=\r\n/g, "")
+      .replace(/=([0-9A-Fa-f]{2})/g, (_, hex) =>
+        String.fromCharCode(parseInt(hex, 16))
+      );
+  }
+
+  if (text.length > 3000) {
+    text = text.slice(0, 3000) + "\n...(truncated)";
+  }
+
+  return text;
+}
+
 /**
- * Fetch unseen emails from INBOX, mark them as seen, return parsed data.
- * Processes at most `maxEmails` per run to stay within serverless time limits.
+ * Fetch every email delivered since `since`, without modifying \Seen flags.
+ * Dedupe is the caller's responsibility — each email exposes its RFC-822 Message-ID.
  */
-export async function fetchUnseenEmails(config: ImapConfig, maxEmails = 15): Promise<RawEmail[]> {
+export async function fetchEmailsSince(
+  config: ImapConfig,
+  since: Date,
+  maxEmails = 200,
+): Promise<RawEmail[]> {
   const client = new ImapFlow({
     host: config.host,
     port: config.port,
@@ -82,11 +119,12 @@ export async function fetchUnseenEmails(config: ImapConfig, maxEmails = 15): Pro
     const lock = await client.getMailboxLock("INBOX");
 
     try {
-      const searchResult = await client.search({ seen: false }, { uid: true });
+      const searchResult = await client.search({ since }, { uid: true });
       const uids = Array.isArray(searchResult) ? searchResult : [];
       if (!uids.length) return [];
 
-      const toProcess = uids.slice(-maxEmails);
+      // Newest first, capped.
+      const toProcess = uids.slice(-maxEmails).reverse();
 
       for (const uid of toProcess) {
         try {
@@ -98,7 +136,12 @@ export async function fetchUnseenEmails(config: ImapConfig, maxEmails = 15): Pro
           if (!fetchResult) continue;
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const msg = fetchResult as any as {
-            envelope?: { from?: { name?: string; address?: string }[]; subject?: string; date?: string };
+            envelope?: {
+              from?: { name?: string; address?: string }[];
+              subject?: string;
+              date?: string;
+              messageId?: string;
+            };
             source?: Buffer;
           };
           if (!msg.envelope) continue;
@@ -109,41 +152,11 @@ export async function fetchUnseenEmails(config: ImapConfig, maxEmails = 15): Pro
 
           const subject = msg.envelope.subject || "(no subject)";
           const date = msg.envelope.date ? new Date(msg.envelope.date) : new Date();
+          const messageId = msg.envelope.messageId || null;
 
-          let text = "";
-          if (msg.source) {
-            const raw = msg.source.toString();
-            const textMatch = raw.match(/Content-Type:\s*text\/plain[\s\S]*?\r\n\r\n([\s\S]*?)(?:\r\n--|\r\n\.\r\n|$)/i);
-            const htmlMatch = raw.match(/Content-Type:\s*text\/html[\s\S]*?\r\n\r\n([\s\S]*?)(?:\r\n--|\r\n\.\r\n|$)/i);
+          const text = msg.source ? parseEmailSource(msg.source.toString()) : "";
 
-            if (textMatch) {
-              text = textMatch[1].trim();
-            } else if (htmlMatch) {
-              text = stripHtml(htmlMatch[1]);
-            } else {
-              const bodyStart = raw.indexOf("\r\n\r\n");
-              if (bodyStart > -1) {
-                const body = raw.slice(bodyStart + 4);
-                text = body.includes("<") ? stripHtml(body) : body;
-              }
-            }
-
-            if (text.includes("=\r\n") || text.includes("=3D")) {
-              text = text
-                .replace(/=\r\n/g, "")
-                .replace(/=([0-9A-Fa-f]{2})/g, (_, hex) =>
-                  String.fromCharCode(parseInt(hex, 16))
-                );
-            }
-          }
-
-          if (text.length > 3000) {
-            text = text.slice(0, 3000) + "\n...(truncated)";
-          }
-
-          emails.push({ uid, from, subject, text, date });
-
-          await client.messageFlagsAdd(String(uid), ["\\Seen"], { uid: true });
+          emails.push({ uid, messageId, from, subject, text, date });
         } catch (e) {
           console.error(`Failed to process email uid=${uid}:`, e);
         }

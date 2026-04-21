@@ -12,10 +12,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { fetchUnseenEmails, type RawEmail, type ImapConfig } from "@/lib/email-reader";
+import { fetchEmailsSince, type RawEmail, type ImapConfig } from "@/lib/email-reader";
 import type { BusinessEmailConfig } from "@/types/database";
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
@@ -38,8 +38,12 @@ interface BusinessResult {
   processed: number;
   leads: number;
   skipped: number;
+  duplicates: number;
   error?: string;
 }
+
+// Daily scan covers the last ~26 hours (small overlap guards against boundary misses).
+const SCAN_WINDOW_HOURS = 26;
 
 async function sendTelegram(text: string) {
   if (!BOT_TOKEN || !CHAT_ID) return;
@@ -57,30 +61,31 @@ async function classifyEmail(
   email: RawEmail,
   businessName: string
 ): Promise<LeadExtraction> {
-  const prompt = `You are an email classifier for "${businessName}", a business that receives customer enquiries via email.
+  const prompt = `You are an email classifier for "${businessName}", a trades/services business that receives customer enquiries via email.
 
-Your job is to capture EVERY genuine business opportunity. When in doubt, classify as a lead — missing a real lead is far worse than importing a borderline one.
+Read this email carefully and decide whether it is a GENUINE NEW LEAD — a real person with real work they may hire this business for.
 
-A LEAD is ANY email from a real human (or a lead-gen platform forwarding a real human's enquiry) that could lead to work or a business relationship, including:
-- Quote / pricing / availability requests
-- Job bookings or scheduling requests
-- Enquiries about services, even vague or general ones ("do you do X?", "can you help with Y?")
-- Repair, issue, or problem reports
-- Referrals or introductions from other tradies/agents/property managers
-- Real-estate agents, property managers, strata managers reaching out about work
-- Lead-gen / job-board notifications that contain a real customer enquiry (ServiceSeeking, hipages, Oneflare, Airtasker, Google Local Services leads, Facebook lead ads, etc.) — these ARE leads, extract the customer's details from the forwarded content
-- Follow-ups or replies from prospects who haven't booked yet
-- Cold outreach from potential business partners, suppliers offering relevant services, or collaborators (if it looks like a real person and relevant to the business)
-- Anything ambiguous that could plausibly be a customer
+A LEAD is:
+- A direct enquiry from a real person (homeowner, tenant, builder, contractor, etc.) asking for a quote, booking, availability, repair, inspection, or advice
+- A real estate agent, property manager, strata manager, or building manager reaching out about work on a property they manage
+- A referral or introduction from another tradie/professional who is sending a real customer's details
+- A follow-up from a previous prospect who hasn't booked yet
+- An enquiry forwarded from this business's own website contact form or quote form
+- Anything where a real human is describing real work to be done, even briefly
 
-NOT a lead (skip these):
-- Obvious spam / phishing / scams
-- Generic marketing newsletters and promotional blasts
-- Transactional / automated notifications with no customer intent: password resets, 2FA codes, subscription confirmations, payment receipts, invoices from suppliers, delivery/shipping notifications, calendar invites, system alerts
-- Social media notifications (Facebook/Instagram/LinkedIn alerts, likes, comments)
-- Platform notifications that are NOT customer enquiries (e.g. "your profile was viewed", "weekly stats")
-- Replies inside an ongoing thread the business already owns (but a NEW enquiry in a reply chain IS still a lead)
-- Internal emails from the business's own staff
+NOT a lead (set is_lead=false, this is important):
+- **Lead-generation platform forwards: ServiceSeeking, hipages, Oneflare, Airtasker, Yellow Pages leads, Google Local Services leads, Facebook lead-ad forwards, Bark, TaskRabbit, Jim's, etc.** The business handles these on each platform directly — do NOT import them here. If the sender domain or subject is from a lead-gen platform, it is NOT a lead regardless of the customer content inside.
+- SEO / digital-marketing / web-design / lead-generation sales pitches targeted AT this business ("we can rank you #1 on Google", "get more leads", "we build websites for tradies")
+- Cold outreach from agencies, overseas developers, salespeople, or services trying to sell TO this business
+- Generic spam, phishing, scams, crypto, "business opportunities", "partnership proposals"
+- Marketing newsletters, promotional blasts, industry newsletters
+- Transactional / automated mail with no customer intent: password resets, 2FA codes, subscription confirmations, payment receipts, supplier invoices, delivery notifications, calendar invites, system alerts, Stripe/PayPal/Xero emails
+- Social media notifications (Facebook, Instagram, LinkedIn, Google Business, review-platform digests)
+- Platform dashboards / stats / "your profile was viewed"
+- Internal emails from the business's own staff or owner
+- Automated replies, out-of-office, bounces, delivery failures
+
+When unsure between "real human asking about work" and "sales pitch AT this business", read the content: if they're asking the business to DO work for them, it's a lead; if they're trying to sell the business something, it's NOT.
 
 Email:
 From: ${email.from}
@@ -137,6 +142,7 @@ async function processBusinessEmails(
     processed: 0,
     leads: 0,
     skipped: 0,
+    duplicates: 0,
   };
 
   try {
@@ -147,10 +153,32 @@ async function processBusinessEmails(
       pass: config.imap_pass,
     };
 
-    const emails = await fetchUnseenEmails(imapConfig, 15);
+    const since = new Date(Date.now() - SCAN_WINDOW_HOURS * 60 * 60 * 1000);
+    const emails = await fetchEmailsSince(imapConfig, since, 200);
     result.processed = emails.length;
 
+    if (emails.length === 0) return result;
+
+    // Preload already-imported Message-IDs for this business so we skip them without paying for AI classification.
+    const incomingIds = emails.map((e) => e.messageId).filter((m): m is string => !!m);
+    const seenIds = new Set<string>();
+    if (incomingIds.length) {
+      const { data: existing } = await sb
+        .from("leads")
+        .select("source_message_id")
+        .eq("business_id", config.business_id)
+        .in("source_message_id", incomingIds);
+      for (const row of (existing || []) as Array<{ source_message_id: string | null }>) {
+        if (row.source_message_id) seenIds.add(row.source_message_id);
+      }
+    }
+
     for (const email of emails) {
+      if (email.messageId && seenIds.has(email.messageId)) {
+        result.duplicates++;
+        continue;
+      }
+
       const extraction = await classifyEmail(anthropic, email, config.business_name);
 
       if (!extraction.is_lead) {
@@ -174,15 +202,22 @@ async function processBusinessEmails(
             : `[Email: ${email.subject}]`,
           status: "new",
           source: "email",
+          source_message_id: email.messageId,
           business_id: config.business_id,
           user_id: config.business_user_id,
         });
 
       if (error) {
-        console.error(`Failed to create lead for ${config.business_name}:`, error);
+        // Unique-index collision on (business_id, source_message_id) — treat as duplicate, not failure.
+        if ((error as { code?: string }).code === "23505") {
+          result.duplicates++;
+        } else {
+          console.error(`Failed to create lead for ${config.business_name}:`, error);
+        }
         continue;
       }
 
+      if (email.messageId) seenIds.add(email.messageId);
       result.leads++;
 
       await sendTelegram(

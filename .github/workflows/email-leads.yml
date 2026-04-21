@@ -2,10 +2,8 @@ name: Email Leads Scanner
 
 on:
   schedule:
-    # Daytime (7am–9pm AEST = 21:00–11:00 UTC) — every 15 minutes
-    - cron: '*/15 21-23,0-11 * * *'
-    # Overnight (9pm–7am AEST = 11:00–21:00 UTC) — every ~5 hours
-    - cron: '0 11,16,21 * * *'
+    # Once daily — 7:30 AM AEST (= 21:30 UTC). Scans the last ~26 hours of inbox.
+    - cron: '30 21 * * *'
   workflow_dispatch: {}  # manual trigger from GitHub UI
 
 jobs:
