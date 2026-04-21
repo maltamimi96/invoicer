@@ -59,11 +59,28 @@ async function classifyEmail(
 ): Promise<LeadExtraction> {
   const prompt = `You are an email classifier for "${businessName}", a business that receives customer enquiries via email.
 
-Analyze this email and determine if it's a genuine customer lead/enquiry.
+Your job is to capture EVERY genuine business opportunity. When in doubt, classify as a lead — missing a real lead is far worse than importing a borderline one.
 
-A LEAD is: someone asking for a quote, booking a job, enquiring about services, reporting an issue, requesting information about pricing or availability.
+A LEAD is ANY email from a real human (or a lead-gen platform forwarding a real human's enquiry) that could lead to work or a business relationship, including:
+- Quote / pricing / availability requests
+- Job bookings or scheduling requests
+- Enquiries about services, even vague or general ones ("do you do X?", "can you help with Y?")
+- Repair, issue, or problem reports
+- Referrals or introductions from other tradies/agents/property managers
+- Real-estate agents, property managers, strata managers reaching out about work
+- Lead-gen / job-board notifications that contain a real customer enquiry (ServiceSeeking, hipages, Oneflare, Airtasker, Google Local Services leads, Facebook lead ads, etc.) — these ARE leads, extract the customer's details from the forwarded content
+- Follow-ups or replies from prospects who haven't booked yet
+- Cold outreach from potential business partners, suppliers offering relevant services, or collaborators (if it looks like a real person and relevant to the business)
+- Anything ambiguous that could plausibly be a customer
 
-NOT a lead: spam, newsletters, marketing, automated notifications, invoices from suppliers, replies to existing conversations, internal emails, social media alerts, Google/Facebook notifications, payment receipts, delivery notifications, password resets, subscription confirmations.
+NOT a lead (skip these):
+- Obvious spam / phishing / scams
+- Generic marketing newsletters and promotional blasts
+- Transactional / automated notifications with no customer intent: password resets, 2FA codes, subscription confirmations, payment receipts, invoices from suppliers, delivery/shipping notifications, calendar invites, system alerts
+- Social media notifications (Facebook/Instagram/LinkedIn alerts, likes, comments)
+- Platform notifications that are NOT customer enquiries (e.g. "your profile was viewed", "weekly stats")
+- Replies inside an ongoing thread the business already owns (but a NEW enquiry in a reply chain IS still a lead)
+- Internal emails from the business's own staff
 
 Email:
 From: ${email.from}
@@ -133,8 +150,6 @@ async function processBusinessEmails(
     const emails = await fetchUnseenEmails(imapConfig, 15);
     result.processed = emails.length;
 
-    if (emails.length === 0) return result;
-
     for (const email of emails) {
       const extraction = await classifyEmail(anthropic, email, config.business_name);
 
@@ -181,16 +196,18 @@ async function processBusinessEmails(
       );
     }
 
-    // Update last_checked
-    await sb
-      .from("business_email_config")
-      .update({ last_checked: new Date().toISOString() })
-      .eq("business_id", config.business_id);
-
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     result.error = msg;
     console.error(`[email-leads] Error for ${config.business_name}:`, msg);
+  } finally {
+    const { error: updateErr } = await sb
+      .from("business_email_config")
+      .update({ last_checked: new Date().toISOString() })
+      .eq("business_id", config.business_id);
+    if (updateErr) {
+      console.error(`[email-leads] Failed to update last_checked for ${config.business_name}:`, updateErr);
+    }
   }
 
   return result;
@@ -198,8 +215,13 @@ async function processBusinessEmails(
 
 export async function GET(req: NextRequest) {
   // Auth
+  const secret = process.env.CRON_SECRET;
+  if (!secret) {
+    console.error("[email-leads] CRON_SECRET is not configured");
+    return new NextResponse("Server misconfigured", { status: 500 });
+  }
   const auth = req.headers.get("authorization");
-  if (process.env.CRON_SECRET && auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (auth !== `Bearer ${secret}`) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
 

@@ -13,6 +13,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
+      - name: Verify secrets are present
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          INVOICER_URL: ${{ secrets.INVOICER_URL }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::CRON_SECRET repo secret is missing or empty"
+            exit 1
+          fi
+          if [ -z "$INVOICER_URL" ]; then
+            echo "::error::INVOICER_URL repo secret is missing or empty"
+            exit 1
+          fi
+          echo "CRON_SECRET length: ${#CRON_SECRET}"
+          echo "INVOICER_URL: $INVOICER_URL"
+
       - name: Trigger email leads scan
         run: |
           response=$(curl -sf -w "\n%{http_code}" \
