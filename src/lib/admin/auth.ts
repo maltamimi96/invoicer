@@ -13,20 +13,15 @@
  * requireAdmin().
  */
 
+import "server-only";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { AdminRole, Operator } from "./roles";
 
-export type AdminRole = "superadmin" | "billing" | "support" | "read_only";
-
-export type Operator = {
-  id: string;
-  user_id: string;
-  email: string;
-  role: AdminRole;
-  display_name: string | null;
-};
+export { canWrite, canManageOperators, canManageBilling } from "./roles";
+export type { AdminRole, Operator };
 
 /**
  * Returns the operator for the current session, or null.
@@ -88,18 +83,3 @@ export async function requireAdminRole(allowed: AdminRole[]): Promise<Operator> 
   return op;
 }
 
-/**
- * Roles that can write (mutate tenants, manage operators, extend trials).
- * read_only sees everything but can do nothing.
- */
-export function canWrite(role: AdminRole): boolean {
-  return role === "superadmin" || role === "billing" || role === "support";
-}
-
-export function canManageOperators(role: AdminRole): boolean {
-  return role === "superadmin";
-}
-
-export function canManageBilling(role: AdminRole): boolean {
-  return role === "superadmin" || role === "billing";
-}

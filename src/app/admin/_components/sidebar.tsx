@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { Operator } from "@/lib/admin/auth";
-import { canManageOperators } from "@/lib/admin/auth";
+import type { Operator } from "@/lib/admin/roles";
+import { canManageOperators } from "@/lib/admin/roles";
 
 const NAV: { href: string; label: string; superadminOnly?: boolean }[] = [
   { href: "/admin", label: "Overview" },
