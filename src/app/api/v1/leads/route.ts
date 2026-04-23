@@ -28,6 +28,13 @@ export async function POST(req: NextRequest) {
 
   if (!name) return err("name is required", 400);
 
+  // DB has a CHECK constraint on source. Coerce unknown values to 'landing-page'
+  // and preserve the caller-supplied label in utm_source so tracking isn't lost.
+  const ALLOWED_SOURCES = ["landing-page", "website", "referral", "telegram", "email", "phone", "manual"];
+  const rawSource = (source || "landing-page").trim();
+  const normalizedSource = ALLOWED_SOURCES.includes(rawSource) ? rawSource : "landing-page";
+  const effectiveUtmSource = utm_source || (normalizedSource !== rawSource ? rawSource : null);
+
   const sb = createAdminClient();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (sb as any)
@@ -42,8 +49,8 @@ export async function POST(req: NextRequest) {
       timing: timing || null,
       notes: notes || null,
       status: "new",
-      source: source || "landing-page",
-      utm_source: utm_source || null,
+      source: normalizedSource,
+      utm_source: effectiveUtmSource,
       utm_medium: utm_medium || null,
       utm_campaign: utm_campaign || null,
       business_id: ctx.businessId,
