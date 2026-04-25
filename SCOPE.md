@@ -26,7 +26,7 @@
 2. Diff current repo against each **Capability** section below.
 3. Pick the highest-priority unchecked item (priorities: P0 → P1 → P2).
 4. Before implementing, confirm the data model, server actions, routes, and AI tool signature match the spec here. If the spec is wrong or ambiguous, **update this file first**, then implement.
-5. After shipping, tick the box, append the location pointer, and update `memory/project_overview.md` if architecture changed.
+5. After shipping, tick the box, add a **sub-bullet** like `  - Shipped: <file paths>` (sub-bullet so the sync script keeps the title stable), and update `memory/project_overview.md` if architecture changed.
 6. Never delete a section — mark deprecated items with `~~strikethrough~~` and a reason.
 
 **Agent loop order of preference when idle:**
@@ -83,7 +83,8 @@
 ## 1.1 Jobs / Work Orders (core) — extend
 
 - [x] Job CRUD, status lifecycle
-- [ ] **P0** Job types with per-type default checklists, default duration, default price, default forms
+- [x] **P0** Job types with per-type default checklists, default duration, default price, default forms
+  - Shipped: `src/lib/actions/job-types.ts`, `src/app/(dashboard)/settings/job-types/`, `src/components/settings/job-types-client.tsx`, migration `20260426000001_job_types.sql`
 - [ ] **P0** Dynamic job forms (per job-type): fields rendered in tech PWA, answers stored on the job, surfaced on PDF
 - [ ] **P1** Job profitability view: labour cost (from time entries × member pay rate) + materials cost vs invoiced total → margin
 - [ ] **P1** Job dependencies (this job blocked by that job)
