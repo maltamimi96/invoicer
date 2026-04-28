@@ -4,13 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
-  Plus, Mail, Phone, Building2, Search, MoreHorizontal,
-  Trash2, TrendingUp, User,
+  Plus, Mail, Phone, Search, MoreHorizontal,
+  Trash2, TrendingUp,
 } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -30,13 +28,13 @@ import {
 } from "@/lib/actions/contacts";
 import type { Contact, LifecycleStage } from "@/types/database";
 
-const STAGE_BADGE: Record<LifecycleStage, string> = {
-  lead:     "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
-  contact:  "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
-  customer: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
-};
-
 const STAGES: LifecycleStage[] = ["lead", "contact", "customer"];
+
+const STAGE_DOT: Record<LifecycleStage, string> = {
+  lead:     "bg-blue-500",
+  contact:  "bg-amber-500",
+  customer: "bg-emerald-600",
+};
 
 type Form = {
   name: string;
@@ -60,6 +58,10 @@ function formToPayload(f: Form) {
     tags: f.tags ? f.tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
     lifecycle_stage: f.lifecycle_stage,
   };
+}
+
+function initials(name: string) {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? "").join("");
 }
 
 export function ContactsClient({ contacts: initial }: { contacts: Contact[] }) {
@@ -155,109 +157,138 @@ export function ContactsClient({ contacts: initial }: { contacts: Contact[] }) {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Contacts</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
-            {counts.total} total · {counts.lead} leads · {counts.contact} contacts · {counts.customer} customers
+    <div className="max-w-5xl mx-auto space-y-10">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 pb-2">
+        <div className="space-y-2">
+          <h1 className="font-display text-4xl sm:text-5xl tracking-tight">Contacts</h1>
+          <p className="text-sm text-muted-foreground">
+            {counts.total} total
+            <span className="mx-2 text-muted-foreground/40">·</span>
+            {counts.lead} leads
+            <span className="mx-2 text-muted-foreground/40">·</span>
+            {counts.contact} contacts
+            <span className="mx-2 text-muted-foreground/40">·</span>
+            {counts.customer} customers
           </p>
         </div>
-        <Button onClick={() => { setForm(EMPTY); setShowAdd(true); }}>
-          <Plus className="h-4 w-4 mr-2" /> Add Contact
+        <Button
+          onClick={() => { setForm(EMPTY); setShowAdd(true); }}
+          className="bg-foreground text-background hover:bg-foreground/90 rounded-md h-9 px-4"
+        >
+          <Plus className="h-4 w-4 mr-1.5" /> New contact
         </Button>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search contacts..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+      {/* Filter row */}
+      <div className="flex flex-col sm:flex-row gap-3 border-b border-border pb-4">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            placeholder="Search by name, email, phone, company"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 h-9 bg-card border-border focus-visible:ring-1 focus-visible:ring-accent"
+          />
         </div>
-        <Select value={stageFilter} onValueChange={(v) => setStageFilter(v as LifecycleStage | "all")}>
-          <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All stages</SelectItem>
-            {STAGES.map((s) => (
-              <SelectItem key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-1 text-sm">
+          {(["all", ...STAGES] as const).map((s) => (
+            <button
+              key={s}
+              onClick={() => setStageFilter(s)}
+              className={`px-3 h-9 rounded-md transition-colors ${
+                stageFilter === s
+                  ? "bg-foreground text-background"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              }`}
+            >
+              {s === "all" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* List */}
       {filtered.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            No contacts {search || stageFilter !== "all" ? "match your filter" : "yet — add one or promote a lead"}.
-          </CardContent>
-        </Card>
+        <div className="py-24 text-center">
+          <p className="font-display text-2xl text-muted-foreground italic">
+            No contacts {search || stageFilter !== "all" ? "match your filter" : "yet"}
+          </p>
+          {(!search && stageFilter === "all") && (
+            <p className="text-sm text-muted-foreground mt-3">
+              Add one, or promote a lead from <a href="/leads" className="text-accent underline-offset-4 hover:underline">/leads</a>.
+            </p>
+          )}
+        </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <ul className="divide-y divide-border">
           {filtered.map((c) => (
-            <Card key={c.id} className="hover:shadow-md transition-shadow">
-              <CardContent className="p-4 space-y-3">
-                <div className="flex items-start justify-between gap-1">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <User className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <span className="font-medium truncate">{c.name}</span>
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => startEdit(c)}>Edit</DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => handlePromote(c.id)}
-                        disabled={!!c.customer_id || promoting === c.id}
-                      >
-                        <TrendingUp className="h-3.5 w-3.5 mr-2" />
-                        {c.customer_id ? "Customer ✓" : "Promote to customer"}
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => setDeleteId(c.id)} className="text-destructive focus:text-destructive">
-                        <Trash2 className="h-3.5 w-3.5 mr-2" /> Archive
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
+            <li key={c.id} className="group py-4 flex items-center gap-4">
+              {/* Avatar */}
+              <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-sm font-medium text-foreground/70 shrink-0">
+                {initials(c.name) || "·"}
+              </div>
 
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Badge className={STAGE_BADGE[c.lifecycle_stage]} variant="secondary">
-                    {c.lifecycle_stage}
-                  </Badge>
+              {/* Main */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium truncate">{c.name}</span>
+                  <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${STAGE_DOT[c.lifecycle_stage]}`} />
+                  <span className="text-xs text-muted-foreground capitalize">{c.lifecycle_stage}</span>
                   {c.tags.map((t) => (
-                    <Badge key={t} variant="outline" className="text-xs">{t}</Badge>
+                    <span key={t} className="text-xs text-muted-foreground border border-border rounded px-1.5 py-0.5">
+                      {t}
+                    </span>
                   ))}
                 </div>
-
-                <div className="space-y-1">
-                  {c.company && (
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Building2 className="h-3 w-3 shrink-0" />
-                      <span className="truncate">{c.company}</span>
-                    </div>
-                  )}
+                <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
+                  {c.company && <span className="truncate">{c.company}</span>}
                   {c.email && (
-                    <a href={`mailto:${c.email}`} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
-                      <Mail className="h-3 w-3 shrink-0" />
-                      <span className="truncate">{c.email}</span>
+                    <a href={`mailto:${c.email}`} className="flex items-center gap-1 hover:text-foreground truncate">
+                      <Mail className="h-3 w-3 shrink-0" /> {c.email}
                     </a>
                   )}
                   {c.phone && (
-                    <a href={`tel:${c.phone.replace(/\s/g, "")}`} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
-                      <Phone className="h-3 w-3 shrink-0" />
-                      <span className="truncate">{c.phone}</span>
+                    <a href={`tel:${c.phone.replace(/\s/g, "")}`} className="flex items-center gap-1 hover:text-foreground">
+                      <Phone className="h-3 w-3 shrink-0" /> {c.phone}
                     </a>
                   )}
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handlePromote(c.id)}
+                  disabled={!!c.customer_id || promoting === c.id}
+                  className="h-8 text-xs"
+                >
+                  <TrendingUp className="h-3.5 w-3.5 mr-1.5" />
+                  {c.customer_id ? "Customer" : "Promote"}
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => startEdit(c)}>Edit</DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => setDeleteId(c.id)}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="h-3.5 w-3.5 mr-2" /> Archive
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
 
       {/* Add / Edit Dialog */}
@@ -265,29 +296,31 @@ export function ContactsClient({ contacts: initial }: { contacts: Contact[] }) {
         open={showAdd || !!editing}
         onOpenChange={(o) => { if (!o) { setShowAdd(false); setEditing(null); } }}
       >
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto bg-card">
           <DialogHeader>
-            <DialogTitle>{editing ? "Edit Contact" : "Add Contact"}</DialogTitle>
+            <DialogTitle className="font-display text-2xl">
+              {editing ? "Edit contact" : "New contact"}
+            </DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-2">
             <div className="col-span-2 space-y-1.5">
-              <Label>Name *</Label>
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Name</Label>
               <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <Label>Email</Label>
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Email</Label>
               <Input value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <Label>Phone</Label>
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Phone</Label>
               <Input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <Label>Company</Label>
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Company</Label>
               <Input value={form.company} onChange={(e) => setForm((f) => ({ ...f, company: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <Label>Stage</Label>
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Stage</Label>
               <Select value={form.lifecycle_stage} onValueChange={(v) => setForm((f) => ({ ...f, lifecycle_stage: v as LifecycleStage }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -298,27 +331,35 @@ export function ContactsClient({ contacts: initial }: { contacts: Contact[] }) {
               </Select>
             </div>
             <div className="col-span-2 space-y-1.5">
-              <Label>Tags (comma-separated)</Label>
-              <Input value={form.tags} onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))} placeholder="vip, follow-up" />
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Tags</Label>
+              <Input
+                value={form.tags}
+                onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))}
+                placeholder="comma, separated"
+              />
             </div>
             <div className="col-span-2 space-y-1.5">
-              <Label>Notes</Label>
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Notes</Label>
               <Textarea value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} rows={3} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setShowAdd(false); setEditing(null); }}>Cancel</Button>
-            <Button onClick={editing ? handleEditSave : handleAdd} disabled={saving}>
-              {saving ? "Saving..." : editing ? "Save Changes" : "Add Contact"}
+            <Button variant="ghost" onClick={() => { setShowAdd(false); setEditing(null); }}>Cancel</Button>
+            <Button
+              onClick={editing ? handleEditSave : handleAdd}
+              disabled={saving}
+              className="bg-foreground text-background hover:bg-foreground/90"
+            >
+              {saving ? "Saving…" : editing ? "Save changes" : "Add contact"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <AlertDialog open={!!deleteId} onOpenChange={(o) => { if (!o) setDeleteId(null); }}>
-        <AlertDialogContent>
+        <AlertDialogContent className="bg-card">
           <AlertDialogHeader>
-            <AlertDialogTitle>Archive contact?</AlertDialogTitle>
+            <AlertDialogTitle className="font-display text-2xl">Archive contact?</AlertDialogTitle>
             <AlertDialogDescription>You can restore it from the database if needed.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
