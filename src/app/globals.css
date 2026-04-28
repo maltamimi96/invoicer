@@ -180,12 +180,9 @@
   font-feature-settings: "ss01", "cv11";
 }
 
-[data-theme="console"] .font-display,
-[data-theme="console"] h1.font-display,
-[data-theme="console"] h2.font-display {
+.font-display {
   font-family: var(--font-display), "Newsreader", ui-serif, Georgia, serif;
-  font-weight: 400;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
 }
 
 /* ─── Sidebar theme presets ───────────────────────────────── */
