@@ -52,7 +52,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" data-theme="console" suppressHydrationWarning>
       <body className={`${inter.variable} ${newsreader.variable} font-sans antialiased`} suppressHydrationWarning>
         <ThemeProvider
           attribute="class"
