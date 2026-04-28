@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, FileText, FileCheck, Users,
-  Package, Settings, ChevronRight, FileStack, X, ClipboardList, Wrench, Users2, UserPlus, CalendarDays, MessageSquare, Bot, Repeat, HelpCircle
+  Package, Settings, ChevronRight, FileStack, X, ClipboardList, Wrench, Users2, UserPlus, CalendarDays, MessageSquare, Bot, Repeat, HelpCircle, Columns3
 } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 import type { Business } from "@/types/database";
@@ -20,6 +20,7 @@ const navItems = [
   { label: "Quotes",    href: "/quotes",    icon: FileCheck },
   { label: "Customers", href: "/customers", icon: Users },
   { label: "Products",  href: "/products",  icon: Package },
+  { label: "Tasks",       href: "/tasks",       icon: Columns3 },
   { label: "Schedule",    href: "/schedule",    icon: CalendarDays },
   { label: "Recurring",   href: "/recurring",   icon: Repeat },
   { label: "Leads",       href: "/leads",       icon: UserPlus },
