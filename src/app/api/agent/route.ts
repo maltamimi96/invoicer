@@ -9,7 +9,7 @@ import { createInvoice, updateInvoice, sendInvoiceEmail, addPayment } from "@/li
 import { getProducts, createProduct } from "@/lib/actions/products";
 import { createReport } from "@/lib/actions/reports";
 import { createSite } from "@/lib/actions/sites";
-import { createContact } from "@/lib/actions/contacts";
+import { createContact } from "@/lib/actions/account-contacts";
 import { createBillingProfile, updateBillingProfile, archiveBillingProfile, setSiteBilling } from "@/lib/actions/billing-profiles";
 import { enableWorkOrderShareLink, disableWorkOrderShareLink, invoiceUnbilledForWorkOrder } from "@/lib/actions/work-orders";
 import { updateWorkOrder } from "@/lib/actions/work-orders";
@@ -1131,7 +1131,7 @@ async function executeTool(
 
     case "search_contacts": {
       const sb = await getRawSupabase();
-      let q = sb.from("contacts")
+      let q = sb.from("account_contacts")
         .select("id, account_id, name, email, phone, role")
         .eq("business_id", ctx.businessId)
         .eq("archived", false)

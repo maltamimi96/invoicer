@@ -27,6 +27,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useRouter } from "next/navigation";
 import { updateLeadStatus, deleteLead, createLead, updateLead, convertLeadToCustomer, convertLeadToQuote, convertLeadToWorkOrder } from "@/lib/actions/leads";
+import { addLeadAsContact } from "@/lib/actions/contacts";
 import type { Lead, LeadStatus, LeadSource } from "@/types/database";
 
 const COLUMNS: { status: LeadStatus; label: string; color: string; dot: string }[] = [
@@ -140,6 +141,19 @@ export function LeadsClient({ leads: initial }: { leads: Lead[] }) {
       toast.success("Lead added");
     } catch { toast.error("Failed to add lead"); }
     setSaving(false);
+  };
+
+  const handleAddAsContact = async (id: string) => {
+    setConverting(id);
+    try {
+      await addLeadAsContact(id);
+      toast.success("Added as contact");
+      router.push("/contacts");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to add as contact");
+    } finally {
+      setConverting(null);
+    }
   };
 
   const handleConvert = async (id: string, target: "customer" | "quote" | "work_order") => {
@@ -290,6 +304,7 @@ export function LeadsClient({ leads: initial }: { leads: Lead[] }) {
                       onDelete={() => setDeleteId(lead.id)}
                       onEdit={() => { setEditLead(lead); setEditForm({ name: lead.name, phone: lead.phone, email: lead.email, suburb: lead.suburb, service: lead.service, property_type: lead.property_type, timing: lead.timing, notes: lead.notes }); }}
                       onConvert={(target) => handleConvert(lead.id, target)}
+                      onAddAsContact={() => handleAddAsContact(lead.id)}
                     />
                   </div>
                 ))}
@@ -433,6 +448,7 @@ function LeadCard({
   onDelete,
   onEdit,
   onConvert,
+  onAddAsContact,
 }: {
   lead: Lead;
   converting: boolean;
@@ -440,6 +456,7 @@ function LeadCard({
   onDelete: () => void;
   onEdit: () => void;
   onConvert: (target: "customer" | "quote" | "work_order") => void;
+  onAddAsContact: () => void;
 }) {
   const NEXT_STATUS: Partial<Record<LeadStatus, LeadStatus>> = {
     new: "contacted",
@@ -469,6 +486,9 @@ function LeadCard({
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={onEdit}>Edit</DropdownMenuItem>
             <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={onAddAsContact} disabled={converting}>
+              Add as contact
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onConvert("customer")} disabled={converting || !!lead.customer_id}>
               Convert to customer{lead.customer_id ? " ✓" : ""}
             </DropdownMenuItem>

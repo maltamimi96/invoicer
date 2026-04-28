@@ -457,7 +457,9 @@ export interface CustomerNote {
 // Note: the `customers` table is the "Account" backing — no rename.
 
 export type AccountType = 'individual' | 'property_mgmt' | 'commercial' | 'strata' | 'other';
-export type ContactRole = 'owner' | 'pm' | 'tenant' | 'super' | 'primary' | 'accounts' | 'other';
+export type AccountContactRole = 'owner' | 'pm' | 'tenant' | 'super' | 'primary' | 'accounts' | 'other';
+/** @deprecated Use AccountContactRole. */
+export type ContactRole = AccountContactRole;
 export type SiteContactRole = 'tenant' | 'super' | 'owner_onsite' | 'primary' | 'other';
 
 export interface Site {
@@ -479,15 +481,36 @@ export interface Site {
   updated_at: string;
 }
 
-export interface Contact {
+/** A person attached to a customer account (PM, tenant, primary, etc). */
+export interface AccountContact {
   id: string;
   business_id: string;
   account_id: string;
   name: string;
   email: string | null;
   phone: string | null;
-  role: ContactRole;
+  role: AccountContactRole;
   notes: string | null;
+  archived: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export type LifecycleStage = 'lead' | 'contact' | 'customer';
+
+/** Top-level CRM contact. Lifecycle: lead -> contact -> customer. */
+export interface Contact {
+  id: string;
+  business_id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  company: string | null;
+  notes: string | null;
+  lifecycle_stage: LifecycleStage;
+  source_lead_id: string | null;
+  customer_id: string | null;
+  tags: string[];
   archived: boolean;
   created_at: string;
   updated_at: string;

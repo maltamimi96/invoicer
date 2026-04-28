@@ -23,6 +23,7 @@ const navItems = [
   { label: "Schedule",    href: "/schedule",    icon: CalendarDays },
   { label: "Recurring",   href: "/recurring",   icon: Repeat },
   { label: "Leads",       href: "/leads",       icon: UserPlus },
+  { label: "Contacts",    href: "/contacts",    icon: Users2 },
   { label: "Reports",     href: "/reports",     icon: ClipboardList },
   { label: "Work Orders", href: "/work-orders", icon: Wrench },
   { label: "Messages",    href: "/messages",    icon: MessageSquare },

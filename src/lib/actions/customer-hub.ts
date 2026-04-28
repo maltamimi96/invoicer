@@ -19,10 +19,10 @@ import {
 } from "@/lib/actions/sites";
 import {
   getContactsForAccount, createContact, updateContact, archiveContact,
-} from "@/lib/actions/contacts";
+} from "@/lib/actions/account-contacts";
 import type {
   CustomerProperty, CustomerContact, CustomerNote,
-  Site, Contact, ContactRole,
+  Site, AccountContact, AccountContactRole,
 } from "@/types/database";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -46,7 +46,7 @@ function siteToProperty(s: Site): CustomerProperty {
   };
 }
 
-function contactToCustomerContact(c: Contact): CustomerContact {
+function contactToCustomerContact(c: AccountContact): CustomerContact {
   return {
     id: c.id,
     business_id: c.business_id,
@@ -116,7 +116,7 @@ export async function createCustomerContact(
   customerId: string,
   payload: { name: string; role?: string; email?: string; phone?: string; is_primary?: boolean; notes?: string }
 ): Promise<CustomerContact> {
-  const role: ContactRole = payload.is_primary ? 'primary' : (payload.role as ContactRole) || 'other';
+  const role: AccountContactRole = payload.is_primary ? 'primary' : (payload.role as AccountContactRole) || 'other';
   const c = await createContact(customerId, {
     name: payload.name,
     email: payload.email ?? null,

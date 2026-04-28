@@ -136,7 +136,7 @@ export async function resolveContact(query: string, accountId?: string): Promise
   const { supabase, businessId } = await ctx();
   const q = query.trim();
   if (!q) return { match: null, candidates: [], ambiguous: false };
-  let req = tbl(supabase, "contacts")
+  let req = tbl(supabase, "account_contacts")
     .select("id, account_id, name, email, phone, role")
     .eq("business_id", businessId)
     .eq("archived", false)
