@@ -8,7 +8,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   minimumScale: 1,
 };
-import { Inter } from "next/font/google";
+import { Inter, Newsreader } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
@@ -19,6 +19,14 @@ const inter = Inter({
   subsets: ["latin"],
   variable: "--font-sans",
   display: "swap",
+});
+
+const newsreader = Newsreader({
+  subsets: ["latin"],
+  variable: "--font-display",
+  display: "swap",
+  style: ["normal", "italic"],
+  weight: ["400", "500", "600"],
 });
 
 export const metadata: Metadata = {
@@ -45,7 +53,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} font-sans antialiased`} suppressHydrationWarning>
+      <body className={`${inter.variable} ${newsreader.variable} font-sans antialiased`} suppressHydrationWarning>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
