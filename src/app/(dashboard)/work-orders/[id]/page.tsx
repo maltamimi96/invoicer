@@ -81,7 +81,7 @@ export default async function WorkOrderDetailPage({ params }: { params: Promise<
     }
     if (workOrder.booker_contact_id) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (supabase as any).from("contacts").select("id, name, email, phone, role").eq("id", workOrder.booker_contact_id).maybeSingle();
+      const { data } = await (supabase as any).from("account_contacts").select("id, name, email, phone, role").eq("id", workOrder.booker_contact_id).maybeSingle();
       bookerContact = data;
     }
 

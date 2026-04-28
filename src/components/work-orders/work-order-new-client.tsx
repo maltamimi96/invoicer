@@ -16,9 +16,9 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { AddressSelect } from "@/components/addresses/address-select";
 import { createWorkOrder } from "@/lib/actions/work-orders";
 import { getSitesForAccount, getSite } from "@/lib/actions/sites";
-import { getContactsForAccount } from "@/lib/actions/contacts";
+import { getContactsForAccount } from "@/lib/actions/account-contacts";
 import { getBillingProfilesForAccount, getSiteBilling } from "@/lib/actions/billing-profiles";
-import type { Customer, MemberProfile, Site, Contact, BillingProfile } from "@/types/database";
+import type { Customer, MemberProfile, Site, AccountContact, BillingProfile } from "@/types/database";
 
 const AVATAR_COLORS = [
   "bg-blue-500","bg-violet-500","bg-pink-500","bg-orange-500",
@@ -61,7 +61,7 @@ export function WorkOrderNewClient({
 
   // Account-driven selectors
   const [sites, setSites] = useState<Site[]>([]);
-  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [contacts, setContacts] = useState<AccountContact[]>([]);
   const [billingProfiles, setBillingProfiles] = useState<BillingProfile[]>([]);
   const [siteId, setSiteId] = useState<string>(defaultSiteId ?? "");
   const [bookerContactId, setBookerContactId] = useState<string>("");
