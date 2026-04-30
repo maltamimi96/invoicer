@@ -3,7 +3,7 @@
 import { motion, type Variants } from "framer-motion";
 import {
   TrendingUp, Clock, AlertTriangle, CheckCircle, Plus, FileText,
-  Wrench, MapPin, User, ArrowRight, FileCheck, UserPlus, Bell, Search,
+  Wrench, MapPin, User, ArrowRight, FileCheck, UserPlus,
   MoreHorizontal,
 } from "@/components/ui/icons";
 import Link from "next/link";
@@ -84,20 +84,17 @@ export function DashboardClient({ stats, currency = "GBP", todayJobs }: Dashboar
             <span className="text-neutral-400">·</span>
             <span>{dateLabel}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <button className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-full bg-white dark:bg-neutral-900 border border-black/5 dark:border-white/5 text-sm text-neutral-500 w-64">
-              <Search className="w-4 h-4" />
-              <span>Search…</span>
-            </button>
-            <button className="relative w-10 h-10 rounded-full bg-white dark:bg-neutral-900 border border-black/5 dark:border-white/5 flex items-center justify-center hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">
-              <Bell className="w-4 h-4 text-neutral-700 dark:text-neutral-300" />
-              {needsReview.length > 0 && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-lime-300 text-lime-950 text-[10px] font-bold flex items-center justify-center border-2 border-white dark:border-neutral-950">
-                  {needsReview.length}
-                </span>
-              )}
-            </button>
-          </div>
+          {needsReview.length > 0 && (
+            <Link
+              href="/work-orders"
+              className="relative inline-flex items-center gap-2 pl-2 pr-4 py-1.5 rounded-full bg-white dark:bg-neutral-900 border border-black/5 dark:border-white/5 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+            >
+              <span className="w-7 h-7 rounded-full bg-lime-300 text-lime-950 text-xs font-bold flex items-center justify-center">
+                {needsReview.length}
+              </span>
+              <span className="text-neutral-700 dark:text-neutral-200">need review</span>
+            </Link>
+          )}
         </motion.div>
 
         {/* ── Title row ────────────────────────────────────────────────── */}
@@ -235,20 +232,6 @@ export function DashboardClient({ stats, currency = "GBP", todayJobs }: Dashboar
               </Link>
             </motion.div>
 
-            {/* Pulse — wellness-style dot grid */}
-            <motion.div variants={fadeUp}>
-              <div className="rounded-[24px] bg-white dark:bg-neutral-900 p-6 border border-black/5 dark:border-white/5">
-                <CardHeader
-                  icon={<TrendingUp className="w-4 h-4" />}
-                  label="Pulse"
-                  chip={<DeltaChip value={`${paidPct}%`} positive />}
-                />
-                <div className="font-display text-3xl font-semibold tracking-tight tabular-nums mt-2 text-neutral-900 dark:text-neutral-50">
-                  {paidPct}<span className="text-base text-neutral-500 ml-0.5">%</span>
-                </div>
-                <DotGrid paidPct={paidPct} />
-              </div>
-            </motion.div>
           </motion.div>
 
           {/* ── DARK Cash Flow card (full bottom) ─────────────────── */}
@@ -529,29 +512,6 @@ function BubbleChart({
         <span className="font-display text-lg tabular-nums">{fmt(overdue)}</span>
         <span className="text-[10px] font-normal opacity-80">overdue</span>
       </div>
-    </div>
-  );
-}
-
-function DotGrid({ paidPct }: { paidPct: number }) {
-  const cols = 14;
-  const rows = 5;
-  const total = cols * rows;
-  const filled = Math.round((paidPct / 100) * total);
-  return (
-    <div className="grid mt-4" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: "4px" }}>
-      {Array.from({ length: total }).map((_, i) => {
-        const isFilled = i < filled;
-        const isAccent = isFilled && i % 3 === 0;
-        return (
-          <span
-            key={i}
-            className={`aspect-square rounded-full ${
-              isAccent ? "bg-violet-400" : isFilled ? "bg-violet-300" : "bg-neutral-200 dark:bg-neutral-800"
-            }`}
-          />
-        );
-      })}
     </div>
   );
 }
