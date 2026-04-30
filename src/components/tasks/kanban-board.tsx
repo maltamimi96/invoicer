@@ -21,7 +21,7 @@ import {
   sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Plus, X, Trash2, User } from "@/components/ui/icons";
+import { Plus, X, Trash2, User, Search, Wrench, Users as UsersIcon, Users2 } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 import {
   createTask,
@@ -34,6 +34,11 @@ import {
 } from "@/lib/actions/tasks";
 
 type Member = { user_id: string; email: string; name: string | null };
+type WorkOrderLite = { id: string; title: string | null };
+type CustomerLite = { id: string; name: string; company: string | null };
+type ContactLite = { id: string; name: string; company: string | null };
+
+const PRIORITIES: TaskPriority[] = ["low", "normal", "high", "urgent"];
 
 const COLUMNS: { id: TaskStatus; title: string; tone: string }[] = [
   { id: "todo", title: "To do", tone: "bg-neutral-100 dark:bg-neutral-800" },
@@ -52,15 +57,46 @@ const PRIORITY_TONE: Record<TaskPriority, string> = {
 export function KanbanBoard({
   initialTasks,
   members,
+  workOrders = [],
+  customers = [],
+  contacts = [],
 }: {
   initialTasks: Task[];
   members: Member[];
+  workOrders?: WorkOrderLite[];
+  customers?: CustomerLite[];
+  contacts?: ContactLite[];
 }) {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Task | null>(null);
   const [composerStatus, setComposerStatus] = useState<TaskStatus | null>(null);
   const [, startTransition] = useTransition();
+
+  // Filters
+  const [search, setSearch] = useState("");
+  const [filterAssignee, setFilterAssignee] = useState<string>("all"); // "all" | "unassigned" | user_id
+  const [filterPriority, setFilterPriority] = useState<TaskPriority | "all">("all");
+  const [filterTag, setFilterTag] = useState<string>("all");
+
+  const allTags = useMemo(() => {
+    const s = new Set<string>();
+    for (const t of tasks) for (const tag of t.tags ?? []) s.add(tag);
+    return Array.from(s).sort();
+  }, [tasks]);
+
+  const visibleTasks = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return tasks.filter((t) => {
+      if (filterAssignee === "unassigned" && t.assignee_user_id) return false;
+      if (filterAssignee !== "all" && filterAssignee !== "unassigned" && t.assignee_user_id !== filterAssignee) return false;
+      if (filterPriority !== "all" && t.priority !== filterPriority) return false;
+      if (filterTag !== "all" && !(t.tags ?? []).includes(filterTag)) return false;
+      if (!q) return true;
+      const hay = `${t.title} ${t.description ?? ""} ${(t.tags ?? []).join(" ")}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [tasks, search, filterAssignee, filterPriority, filterTag]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -80,11 +116,11 @@ export function KanbanBoard({
       in_review: [],
       done: [],
     };
-    for (const t of [...tasks].sort((a, b) => a.position - b.position)) {
+    for (const t of [...visibleTasks].sort((a, b) => a.position - b.position)) {
       groups[t.status].push(t);
     }
     return groups;
-  }, [tasks]);
+  }, [visibleTasks]);
 
   function findColumn(id: string): TaskStatus | null {
     if ((COLUMNS as ReadonlyArray<{ id: string }>).some((c) => c.id === id)) return id as TaskStatus;
@@ -170,6 +206,10 @@ export function KanbanBoard({
     priority?: TaskPriority;
     assignee_user_id?: string | null;
     due_date?: string | null;
+    tags?: string[];
+    related_work_order_id?: string | null;
+    related_customer_id?: string | null;
+    related_contact_id?: string | null;
   }) {
     const updated = await updateTask(patch);
     setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
@@ -188,6 +228,8 @@ export function KanbanBoard({
 
   const activeTask = activeId ? tasks.find((t) => t.id === activeId) : null;
 
+  const filtersActive = search || filterAssignee !== "all" || filterPriority !== "all" || filterTag !== "all";
+
   return (
     <DndContext
       sensors={sensors}
@@ -196,6 +238,63 @@ export function KanbanBoard({
       onDragOver={onDragOver}
       onDragEnd={onDragEnd}
     >
+      {/* Filter bar */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[200px] max-w-xs">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-neutral-400" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search tasks…"
+            className="w-full pl-8 pr-3 h-8 text-sm rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 outline-none focus:border-neutral-400"
+          />
+        </div>
+        <select
+          value={filterAssignee}
+          onChange={(e) => setFilterAssignee(e.target.value)}
+          className="h-8 px-2 text-sm rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900"
+        >
+          <option value="all">All assignees</option>
+          <option value="unassigned">Unassigned</option>
+          {members.map((m) => (
+            <option key={m.user_id} value={m.user_id}>{m.name || m.email}</option>
+          ))}
+        </select>
+        <select
+          value={filterPriority}
+          onChange={(e) => setFilterPriority(e.target.value as TaskPriority | "all")}
+          className="h-8 px-2 text-sm rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900"
+        >
+          <option value="all">Any priority</option>
+          {PRIORITIES.map((p) => (
+            <option key={p} value={p}>{p}</option>
+          ))}
+        </select>
+        {allTags.length > 0 && (
+          <select
+            value={filterTag}
+            onChange={(e) => setFilterTag(e.target.value)}
+            className="h-8 px-2 text-sm rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900"
+          >
+            <option value="all">Any tag</option>
+            {allTags.map((t) => (
+              <option key={t} value={t}>#{t}</option>
+            ))}
+          </select>
+        )}
+        {filtersActive && (
+          <button
+            onClick={() => { setSearch(""); setFilterAssignee("all"); setFilterPriority("all"); setFilterTag("all"); }}
+            className="h-8 px-2 text-xs text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100"
+          >
+            Clear
+          </button>
+        )}
+        <span className="ml-auto text-xs text-neutral-500 tabular-nums">
+          {visibleTasks.length} of {tasks.length}
+        </span>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         {COLUMNS.map((col) => (
           <Column
@@ -222,6 +321,9 @@ export function KanbanBoard({
         <TaskModal
           task={editing}
           members={members}
+          workOrders={workOrders}
+          customers={customers}
+          contacts={contacts}
           onClose={() => setEditing(null)}
           onSave={handleSave}
           onDelete={() => handleDelete(editing.id)}
@@ -338,6 +440,14 @@ function TaskCard({
   const due = task.due_date ? new Date(task.due_date) : null;
   const overdue = due && task.status !== "done" && due < new Date(new Date().toDateString());
 
+  const linkIcon = task.related_work_order_id
+    ? Wrench
+    : task.related_customer_id
+      ? UsersIcon
+      : task.related_contact_id
+        ? Users2
+        : null;
+
   return (
     <div
       className={cn(
@@ -349,6 +459,18 @@ function TaskCard({
       <div className="text-sm font-medium leading-snug">{task.title}</div>
       {task.description && (
         <div className="text-xs text-neutral-500 mt-1 line-clamp-2">{task.description}</div>
+      )}
+      {task.tags && task.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-2">
+          {task.tags.slice(0, 4).map((t) => (
+            <span key={t} className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300">
+              #{t}
+            </span>
+          ))}
+          {task.tags.length > 4 && (
+            <span className="text-[10px] text-neutral-400">+{task.tags.length - 4}</span>
+          )}
+        </div>
       )}
       <div className="flex items-center justify-between mt-2 gap-2">
         <div className="flex items-center gap-1.5">
@@ -367,6 +489,10 @@ function TaskCard({
               {due.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
             </span>
           )}
+          {linkIcon && (() => {
+            const Icon = linkIcon;
+            return <Icon className="size-3 text-neutral-400" />;
+          })()}
         </div>
         {assignee ? (
           <span
@@ -439,12 +565,18 @@ function Composer({
 function TaskModal({
   task,
   members,
+  workOrders,
+  customers,
+  contacts,
   onClose,
   onSave,
   onDelete,
 }: {
   task: Task;
   members: Member[];
+  workOrders: WorkOrderLite[];
+  customers: CustomerLite[];
+  contacts: ContactLite[];
   onClose: () => void;
   onSave: (p: {
     id: string;
@@ -453,6 +585,10 @@ function TaskModal({
     priority?: TaskPriority;
     assignee_user_id?: string | null;
     due_date?: string | null;
+    tags?: string[];
+    related_work_order_id?: string | null;
+    related_customer_id?: string | null;
+    related_contact_id?: string | null;
   }) => Promise<void>;
   onDelete: () => void;
 }) {
@@ -461,7 +597,22 @@ function TaskModal({
   const [priority, setPriority] = useState<TaskPriority>(task.priority);
   const [assignee, setAssignee] = useState<string>(task.assignee_user_id ?? "");
   const [dueDate, setDueDate] = useState(task.due_date ?? "");
+  const [tags, setTags] = useState<string[]>(task.tags ?? []);
+  const [tagInput, setTagInput] = useState("");
+  const [workOrderId, setWorkOrderId] = useState<string>(task.related_work_order_id ?? "");
+  const [customerId, setCustomerId] = useState<string>(task.related_customer_id ?? "");
+  const [contactId, setContactId] = useState<string>(task.related_contact_id ?? "");
   const [saving, setSaving] = useState(false);
+
+  function addTag(raw: string) {
+    const v = raw.trim().replace(/^#/, "").toLowerCase();
+    if (!v || tags.includes(v)) return;
+    setTags((prev) => [...prev, v]);
+    setTagInput("");
+  }
+  function removeTag(t: string) {
+    setTags((prev) => prev.filter((x) => x !== t));
+  }
 
   async function save() {
     setSaving(true);
@@ -473,6 +624,10 @@ function TaskModal({
         priority,
         assignee_user_id: assignee || null,
         due_date: dueDate || null,
+        tags,
+        related_work_order_id: workOrderId || null,
+        related_customer_id: customerId || null,
+        related_contact_id: contactId || null,
       });
     } finally {
       setSaving(false);
@@ -546,6 +701,80 @@ function TaskModal({
                 onChange={(e) => setDueDate(e.target.value)}
                 className="w-full px-3 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-sm"
               />
+            </div>
+          </div>
+
+          {/* Tags */}
+          <div>
+            <label className="text-xs text-neutral-500 block mb-1">Tags</label>
+            <div className="flex flex-wrap gap-1.5 items-center px-2 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 min-h-[36px]">
+              {tags.map((t) => (
+                <span key={t} className="text-xs px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-200 flex items-center gap-1">
+                  #{t}
+                  <button onClick={() => removeTag(t)} className="text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100">
+                    <X className="size-3" />
+                  </button>
+                </span>
+              ))}
+              <input
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === ",") {
+                    e.preventDefault();
+                    addTag(tagInput);
+                  }
+                  if (e.key === "Backspace" && !tagInput && tags.length) {
+                    removeTag(tags[tags.length - 1]);
+                  }
+                }}
+                onBlur={() => tagInput && addTag(tagInput)}
+                placeholder={tags.length ? "" : "Add tag and press Enter"}
+                className="flex-1 min-w-[120px] bg-transparent outline-none text-sm"
+              />
+            </div>
+          </div>
+
+          {/* Context links */}
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="text-xs text-neutral-500 block mb-1">Work order</label>
+              <select
+                value={workOrderId}
+                onChange={(e) => setWorkOrderId(e.target.value)}
+                className="w-full px-3 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-sm"
+              >
+                <option value="">— none —</option>
+                {workOrders.map((w) => (
+                  <option key={w.id} value={w.id}>{w.title || w.id.slice(0, 8)}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-neutral-500 block mb-1">Customer</label>
+              <select
+                value={customerId}
+                onChange={(e) => setCustomerId(e.target.value)}
+                className="w-full px-3 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-sm"
+              >
+                <option value="">— none —</option>
+                {customers.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}{c.company ? ` (${c.company})` : ""}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-neutral-500 block mb-1">Contact</label>
+              <select
+                value={contactId}
+                onChange={(e) => setContactId(e.target.value)}
+                className="w-full px-3 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-sm"
+              >
+                <option value="">— none —</option>
+                {contacts.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}{c.company ? ` (${c.company})` : ""}</option>
+                ))}
+              </select>
             </div>
           </div>
         </div>

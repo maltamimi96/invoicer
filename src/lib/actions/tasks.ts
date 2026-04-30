@@ -26,6 +26,10 @@ export type Task = {
   position: number;
   created_by: string;
   completed_at: string | null;
+  tags: string[];
+  related_work_order_id: string | null;
+  related_customer_id: string | null;
+  related_contact_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -64,6 +68,10 @@ const createSchema = z.object({
   priority: z.enum(PRIORITIES).default("normal"),
   assignee_user_id: z.string().uuid().optional().nullable(),
   due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  tags: z.array(z.string().max(40)).max(20).optional(),
+  related_work_order_id: z.string().uuid().optional().nullable(),
+  related_customer_id: z.string().uuid().optional().nullable(),
+  related_contact_id: z.string().uuid().optional().nullable(),
 });
 
 export async function createTask(input: z.input<typeof createSchema>): Promise<Task> {
@@ -93,6 +101,10 @@ export async function createTask(input: z.input<typeof createSchema>): Promise<T
       priority: args.priority,
       assignee_user_id: args.assignee_user_id ?? null,
       due_date: args.due_date ?? null,
+      tags: args.tags ?? [],
+      related_work_order_id: args.related_work_order_id ?? null,
+      related_customer_id: args.related_customer_id ?? null,
+      related_contact_id: args.related_contact_id ?? null,
       position: nextPosition,
       created_by: user.id,
     })
@@ -111,13 +123,20 @@ const updateSchema = z.object({
   priority: z.enum(PRIORITIES).optional(),
   assignee_user_id: z.string().uuid().nullable().optional(),
   due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  tags: z.array(z.string().max(40)).max(20).optional(),
+  related_work_order_id: z.string().uuid().nullable().optional(),
+  related_customer_id: z.string().uuid().nullable().optional(),
+  related_contact_id: z.string().uuid().nullable().optional(),
 });
 
 export async function updateTask(input: z.input<typeof updateSchema>): Promise<Task> {
   const args = updateSchema.parse(input);
   const { supabase, businessId } = await ctx();
   const patch: Record<string, unknown> = {};
-  for (const k of ["title", "description", "priority", "assignee_user_id", "due_date"] as const) {
+  for (const k of [
+    "title", "description", "priority", "assignee_user_id", "due_date",
+    "tags", "related_work_order_id", "related_customer_id", "related_contact_id",
+  ] as const) {
     if (args[k] !== undefined) patch[k] = args[k];
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
