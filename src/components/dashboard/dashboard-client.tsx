@@ -71,7 +71,7 @@ export function DashboardClient({ stats, currency = "GBP", todayJobs }: Dashboar
   const peakIdx = monthly.reduce((acc, m, i) => (m.revenue > monthly[acc].revenue ? i : acc), 0);
 
   return (
-    <div className="-mx-4 -my-6 sm:-mx-6 sm:-my-8 lg:-mx-8 lg:-my-8 min-h-[calc(100vh-2rem)] bg-[#eaf0c8] dark:bg-neutral-950 p-4 sm:p-6 lg:p-8">
+    <div className="min-h-full">
       <div className="max-w-[1500px] mx-auto">
 
         {/* ── Top bar ──────────────────────────────────────────────────── */}
