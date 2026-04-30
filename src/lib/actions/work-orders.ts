@@ -88,25 +88,32 @@ export async function createWorkOrder(payload: {
   const hasWorkers = (payload.member_profile_ids?.length ?? 0) > 0 || !!payload.assigned_to;
   const status = hasWorkers ? "assigned" : "draft";
 
+  // Coerce empty strings to null for UUID/date columns — Postgres rejects "" for
+  // those types (22P02 invalid_text_representation).
+  const nz = (v: string | null | undefined) => (v && v.trim() ? v : null);
+  // Strict UUID gate so a stray display name can never reach a UUID column.
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const uid = (v: string | null | undefined) => (v && UUID_RE.test(v.trim()) ? v.trim() : null);
+
   const { data, error } = await tbl(supabase, "work_orders").insert({
     business_id: businessId,
     user_id: user.id,
     number,
     title: payload.title,
     description: payload.description ?? null,
-    customer_id: payload.customer_id ?? null,
+    customer_id: uid(payload.customer_id),
     property_address: payload.property_address ?? null,
-    assigned_to: payload.assigned_to ?? null,
+    assigned_to: uid(payload.assigned_to),
     assigned_to_email: payload.assigned_to_email ?? null,
-    assigned_to_profile_id: payload.assigned_to_profile_id ?? null,
-    scheduled_date: payload.scheduled_date ?? null,
-    start_time: payload.start_time ?? null,
-    end_time: payload.end_time ?? null,
-    site_id: payload.site_id ?? null,
-    booker_contact_id: payload.booker_contact_id ?? null,
-    onsite_contact_id: payload.onsite_contact_id ?? null,
-    billing_profile_id: payload.billing_profile_id ?? null,
-    cc_contact_ids: payload.cc_contact_ids ?? [],
+    assigned_to_profile_id: uid(payload.assigned_to_profile_id),
+    scheduled_date: nz(payload.scheduled_date),
+    start_time: nz(payload.start_time),
+    end_time: nz(payload.end_time),
+    site_id: uid(payload.site_id),
+    booker_contact_id: uid(payload.booker_contact_id),
+    onsite_contact_id: uid(payload.onsite_contact_id),
+    billing_profile_id: uid(payload.billing_profile_id),
+    cc_contact_ids: (payload.cc_contact_ids ?? []).filter((id) => UUID_RE.test(id ?? "")),
     reported_issue: payload.reported_issue ?? null,
     status,
     photos: [],

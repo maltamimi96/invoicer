@@ -150,7 +150,9 @@ export function WorkOrderNewClient({
           scheduled_date: scheduledDate || null,
           start_time: startTime || null,
           end_time: endTime || null,
-          assigned_to: firstProfile?.name ?? null,
+          // assigned_to is a UUID FK to auth.users — leave null when assigning via
+          // member_profile (profile id + email below already capture the worker).
+          assigned_to: null,
           assigned_to_email: firstProfile?.email ?? null,
           assigned_to_profile_id: firstProfile?.id ?? null,
           member_profile_ids: selectedWorkers,
