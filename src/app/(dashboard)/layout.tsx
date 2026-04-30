@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
-import type { Role } from "@/lib/permissions";
+import { isWorker, isPathAllowedForWorker, type Role } from "@/lib/permissions";
 import type { Business } from "@/types/database";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -43,6 +43,20 @@ export default async function DashboardLayout({ children }: { children: React.Re
   if (!isOwnerOfBiz) {
     const membership = memberships.find((m) => m.business_id === business.id);
     userRole = (membership?.role ?? "viewer") as Role;
+  }
+
+  // Idempotent profile link: if a member_profile exists for this user's email
+  // in the active business, point its user_id at the auth user.
+  // Best-effort — the function is SECURITY DEFINER and a no-op if nothing matches.
+  await sb.rpc("link_my_member_profile").catch(() => undefined);
+
+  // Redirect workers away from pages they shouldn't see
+  if (isWorker(userRole)) {
+    const h = await headers();
+    const path = h.get("x-pathname") ?? h.get("x-invoke-path") ?? "/dashboard";
+    if (!isPathAllowedForWorker(path)) {
+      redirect("/work-orders");
+    }
   }
 
   return (

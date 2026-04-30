@@ -865,7 +865,7 @@ export interface BusinessApiKey {
   revoked_at: string | null;
 }
 
-export type MemberRole = 'admin' | 'editor' | 'viewer';
+export type MemberRole = 'admin' | 'editor' | 'viewer' | 'worker';
 export type MemberStatus = 'pending' | 'active';
 
 export interface BusinessMember {
