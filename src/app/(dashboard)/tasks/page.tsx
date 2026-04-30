@@ -49,7 +49,7 @@ export default async function TasksPage() {
   const contacts = (contactsRes.data ?? []) as { id: string; name: string; company: string | null }[];
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div>
       <div className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight">Tasks</h1>
         <p className="text-sm text-neutral-500 mt-0.5">
