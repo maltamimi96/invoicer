@@ -47,8 +47,10 @@ export function DashboardShell({ business, businesses, user, userRole, children 
             business={business}
             onMenuClick={() => setSidebarOpen((o) => !o)}
           />
-          <main className="app-content flex-1 overflow-auto p-4 md:p-6 lg:p-8">
-            {children}
+          <main className="app-content flex-1 overflow-auto">
+            <div className="max-w-7xl mx-auto w-full p-5 sm:p-6 lg:p-8">
+              {children}
+            </div>
           </main>
         </div>
       </div>

@@ -37,7 +37,7 @@ export default async function AgentsPage() {
   const installs = await listAgentInstalls();
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
+    <div className="">
       <AgentsStore installs={installs} />
     </div>
   );

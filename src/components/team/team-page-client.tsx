@@ -298,7 +298,7 @@ export function TeamPageClient({ profiles: initialProfiles, members, userRole, c
   };
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 ">
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between gap-4">
         <div>

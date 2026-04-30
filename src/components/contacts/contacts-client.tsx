@@ -157,7 +157,7 @@ export function ContactsClient({ contacts: initial }: { contacts: Contact[] }) {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-10">
+    <div className="space-y-10">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 pb-2">
         <div className="space-y-2">
