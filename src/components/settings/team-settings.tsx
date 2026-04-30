@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Loader2, UserPlus, Trash2, Crown, ShieldCheck, Pencil, Eye, Link2 } from "@/components/ui/icons";
+import { Loader2, UserPlus, Trash2, Crown, ShieldCheck, Pencil, Eye, Link2, Wrench } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +19,7 @@ const ROLE_ICONS: Record<Role, React.ElementType> = {
   admin:  ShieldCheck,
   editor: Pencil,
   viewer: Eye,
+  worker: Wrench,
 };
 
 const ROLE_COLORS: Record<Role, string> = {
@@ -26,6 +27,7 @@ const ROLE_COLORS: Record<Role, string> = {
   admin:  "bg-purple-100 text-purple-800 border-purple-200",
   editor: "bg-blue-100 text-blue-800 border-blue-200",
   viewer: "bg-slate-100 text-slate-600 border-slate-200",
+  worker: "bg-lime-200 text-lime-900 border-lime-300",
 };
 
 interface TeamSettingsProps {
@@ -104,8 +106,8 @@ export function TeamSettings({ members: initialMembers, ownerEmail, userRole }: 
 
   // Selectable roles depend on caller's role
   const selectableRoles: MemberRole[] = isOwner(userRole)
-    ? ["admin", "editor", "viewer"]
-    : ["editor", "viewer"];
+    ? ["admin", "editor", "viewer", "worker"]
+    : ["editor", "viewer", "worker"];
 
   return (
     <div className="space-y-6">
@@ -255,7 +257,7 @@ export function TeamSettings({ members: initialMembers, ownerEmail, userRole }: 
         </CardHeader>
         <CardContent>
           <div className="grid gap-3 text-sm">
-            {(["owner", "admin", "editor", "viewer"] as Role[]).map((r) => (
+            {(["owner", "admin", "editor", "viewer", "worker"] as Role[]).map((r) => (
               <div key={r} className="flex items-start gap-3">
                 <RoleBadge role={r} />
                 <p className="text-muted-foreground text-xs mt-0.5">{ROLE_DESCRIPTIONS[r]}</p>
@@ -283,4 +285,5 @@ const ROLE_DESCRIPTIONS: Record<Role, string> = {
   admin:  "Full data access (invoices, quotes, customers, products, reports) and can manage the team. Cannot delete the business.",
   editor: "Can create, edit, and delete invoices, quotes, customers, products, and reports. Cannot access settings.",
   viewer: "Read-only. Can view everything but cannot create or change anything.",
+  worker: "Field worker. Sees only the work orders assigned to them — no invoices, quotes, customers, or financials.",
 };

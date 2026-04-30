@@ -10,27 +10,29 @@ import {
 import { cn } from "@/lib/utils";
 import type { Business } from "@/types/database";
 import type { Role } from "@/lib/permissions";
-import { canManageSettings, ROLE_LABELS } from "@/lib/permissions";
+import { canManageSettings, isWorker, ROLE_LABELS } from "@/lib/permissions";
 import Image from "next/image";
 import { BusinessSwitcher } from "@/components/business/business-switcher";
 
-const navItems = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Invoices",  href: "/invoices",  icon: FileText },
-  { label: "Quotes",    href: "/quotes",    icon: FileCheck },
-  { label: "Customers", href: "/customers", icon: Users },
-  { label: "Products",  href: "/products",  icon: Package },
-  { label: "Tasks",       href: "/tasks",       icon: Columns3 },
-  { label: "Schedule",    href: "/schedule",    icon: CalendarDays },
-  { label: "Recurring",   href: "/recurring",   icon: Repeat },
-  { label: "Leads",       href: "/leads",       icon: UserPlus },
-  { label: "Contacts",    href: "/contacts",    icon: Users2 },
-  { label: "Reports",     href: "/reports",     icon: ClipboardList },
-  { label: "Work Orders", href: "/work-orders", icon: Wrench },
-  { label: "Messages",    href: "/messages",    icon: MessageSquare },
-  { label: "Team",        href: "/team",        icon: Users2 },
-  { label: "Agents",      href: "/agents",      icon: Bot },
-  { label: "Help",        href: "/help",        icon: HelpCircle },
+type NavItem = { label: string; href: string; icon: typeof LayoutDashboard; worker?: boolean };
+
+const navItems: NavItem[] = [
+  { label: "Dashboard",   href: "/dashboard",   icon: LayoutDashboard, worker: true  },
+  { label: "Invoices",    href: "/invoices",    icon: FileText                       },
+  { label: "Quotes",      href: "/quotes",      icon: FileCheck                      },
+  { label: "Customers",   href: "/customers",   icon: Users                          },
+  { label: "Products",    href: "/products",    icon: Package                        },
+  { label: "Tasks",       href: "/tasks",       icon: Columns3                       },
+  { label: "Work Orders", href: "/work-orders", icon: Wrench,         worker: true  },
+  { label: "Schedule",    href: "/schedule",    icon: CalendarDays,   worker: true  },
+  { label: "Recurring",   href: "/recurring",   icon: Repeat                         },
+  { label: "Leads",       href: "/leads",       icon: UserPlus                       },
+  { label: "Contacts",    href: "/contacts",    icon: Users2                         },
+  { label: "Reports",     href: "/reports",     icon: ClipboardList                  },
+  { label: "Messages",    href: "/messages",    icon: MessageSquare                  },
+  { label: "Team",        href: "/team",        icon: Users2                         },
+  { label: "Agents",      href: "/agents",      icon: Bot                            },
+  { label: "Help",        href: "/help",        icon: HelpCircle,     worker: true  },
 ];
 
 interface AppSidebarProps {
@@ -43,6 +45,8 @@ interface AppSidebarProps {
 
 export function AppSidebar({ business, businesses, userRole, open, onClose }: AppSidebarProps) {
   const pathname = usePathname();
+  const workerView = isWorker(userRole);
+  const visibleNav = workerView ? navItems.filter((n) => n.worker) : navItems;
 
   const isActive = (href: string) =>
     href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);
@@ -101,7 +105,7 @@ export function AppSidebar({ business, businesses, userRole, open, onClose }: Ap
           Menu
         </p>
         <ul className="space-y-0.5">
-          {navItems.map((item, i) => (
+          {visibleNav.map((item, i) => (
             <li key={item.href}>
               <motion.div
                 initial={{ opacity: 0, x: -12 }}
