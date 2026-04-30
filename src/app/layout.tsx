@@ -8,25 +8,26 @@ export const viewport: Viewport = {
   initialScale: 1,
   minimumScale: 1,
 };
-import { Inter, Newsreader } from "next/font/google";
+import { Geist, Fraunces } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { PWARegister } from "@/components/pwa-register";
 import { IconProvider } from "@/components/ui/icon-provider";
 
-const inter = Inter({
+const geist = Geist({
   subsets: ["latin"],
   variable: "--font-sans",
   display: "swap",
 });
 
-const newsreader = Newsreader({
+const fraunces = Fraunces({
   subsets: ["latin"],
   variable: "--font-display",
   display: "swap",
   style: ["normal", "italic"],
   weight: ["400", "500", "600"],
+  axes: ["opsz", "SOFT"],
 });
 
 export const metadata: Metadata = {
@@ -52,8 +53,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} ${newsreader.variable} font-sans antialiased`} suppressHydrationWarning>
+    <html lang="en" data-theme="console" suppressHydrationWarning>
+      <body className={`${geist.variable} ${fraunces.variable} font-sans antialiased`} suppressHydrationWarning>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
