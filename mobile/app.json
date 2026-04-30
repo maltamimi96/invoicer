@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "Connected Hub",
+    "slug": "connected-hub",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "connectedhub",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.crownroofers.connectedhub",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Connected Hub needs camera access so you can attach photos to jobs.",
+        "NSPhotoLibraryUsageDescription": "Connected Hub needs photo library access so you can attach existing photos to jobs.",
+        "NSLocationWhenInUseUsageDescription": "Connected Hub uses your location to confirm you're on site for a job.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.crownroofers.connectedhub",
+      "permissions": ["CAMERA", "READ_MEDIA_IMAGES", "READ_EXTERNAL_STORAGE"]
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Connected Hub needs photo library access so you can attach photos to jobs.",
+          "cameraPermission": "Connected Hub needs camera access so you can take photos for jobs."
+        }
+      ],
+      "expo-notifications",
+      "expo-font"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {}
+    }
+  }
+}
