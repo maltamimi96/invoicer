@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, FileText, FileCheck, Users,
-  Package, Settings, ChevronRight, FileStack, X, ClipboardList, Wrench, Users2, UserPlus, CalendarDays, MessageSquare, Bot, Repeat, HelpCircle, Columns3
+  Package, Settings, FileStack, X, ClipboardList, Wrench, Users2, UserPlus, CalendarDays, MessageSquare, Bot, Repeat, HelpCircle, Columns3
 } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 import type { Business } from "@/types/database";
@@ -112,27 +112,24 @@ export function AppSidebar({ business, businesses, userRole, open, onClose }: Ap
                   href={item.href}
                   onClick={onClose}
                   className={cn(
-                    "relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors duration-150",
+                    "relative flex items-center gap-3 px-3.5 py-2.5 rounded-full text-sm transition-colors duration-150",
                     isActive(item.href)
-                      ? "text-sidebar-primary font-semibold"
-                      : "text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                      ? "text-sidebar-foreground font-semibold"
+                      : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
                   )}
                 >
                   {isActive(item.href) && (
                     <motion.div
                       layoutId="sidebar-active"
-                      className="absolute inset-0 bg-sidebar-accent rounded-lg"
+                      className="absolute inset-0 bg-sidebar-accent rounded-full ring-1 ring-white/5"
                       transition={{ type: "spring", stiffness: 380, damping: 30 }}
                     />
                   )}
                   <item.icon className={cn(
                     "w-4 h-4 relative z-10 flex-shrink-0",
-                    isActive(item.href) ? "text-sidebar-primary" : "text-sidebar-foreground/50"
+                    isActive(item.href) ? "text-sidebar-foreground" : "text-sidebar-foreground/50"
                   )} />
                   <span className="relative z-10">{item.label}</span>
-                  {isActive(item.href) && (
-                    <ChevronRight className="w-3.5 h-3.5 ml-auto relative z-10 text-sidebar-primary/50" />
-                  )}
                 </Link>
               </motion.div>
             </li>
@@ -141,33 +138,61 @@ export function AppSidebar({ business, businesses, userRole, open, onClose }: Ap
       </nav>
 
       {/* Footer */}
-      <div className="px-2 pb-4 pt-3 border-t border-sidebar-border space-y-0.5">
+      <div className="px-2 pb-4 pt-3 space-y-2">
         {canManageSettings(userRole) && (
           <Link
             href="/settings"
             onClick={onClose}
             className={cn(
-              "relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors duration-150",
+              "relative flex items-center gap-3 px-3.5 py-2.5 rounded-full text-sm transition-colors duration-150",
               pathname.startsWith("/settings")
-                ? "text-sidebar-primary font-semibold"
-                : "text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                ? "text-sidebar-foreground font-semibold"
+                : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
             )}
           >
             {pathname.startsWith("/settings") && (
               <motion.div
                 layoutId="sidebar-active"
-                className="absolute inset-0 bg-sidebar-accent rounded-lg"
+                className="absolute inset-0 bg-sidebar-accent rounded-full ring-1 ring-white/5"
                 transition={{ type: "spring", stiffness: 380, damping: 30 }}
               />
             )}
             <Settings className={cn(
               "w-4 h-4 relative z-10",
-              pathname.startsWith("/settings") ? "text-sidebar-primary" : "text-sidebar-foreground/50"
+              pathname.startsWith("/settings") ? "text-sidebar-foreground" : "text-sidebar-foreground/50"
             )} />
             <span className="relative z-10">Settings</span>
           </Link>
         )}
-        <div className="px-3 py-1.5">
+
+        {/* Upgrade card */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.4 }}
+          className="relative mx-1 mt-3 rounded-2xl bg-lime-300 text-lime-950 p-4 overflow-hidden"
+        >
+          <div className="pointer-events-none absolute -bottom-6 -right-6 w-20 h-20 rounded-full bg-violet-300/60 blur-2xl" />
+          <div className="pointer-events-none absolute -top-4 -left-4 w-14 h-14 rounded-full bg-white/40 blur-xl" />
+          <div className="relative">
+            <div className="flex items-center gap-1.5 mb-2">
+              <span className="text-base">🚀</span>
+              <p className="text-sm font-bold tracking-tight">Upgrade to Pro</p>
+            </div>
+            <p className="text-[11px] leading-snug text-lime-900/80 mb-3">
+              Unlock AI agents, automations, and unlimited invoices.
+            </p>
+            <Link
+              href="/settings/billing"
+              onClick={onClose}
+              className="block text-center px-3 py-2 rounded-full bg-lime-950 text-lime-50 text-xs font-semibold hover:bg-lime-900 transition-colors"
+            >
+              Upgrade now
+            </Link>
+          </div>
+        </motion.div>
+
+        <div className="px-3 pt-2">
           <span className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40">
             {ROLE_LABELS[userRole]}
           </span>
