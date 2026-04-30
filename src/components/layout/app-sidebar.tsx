@@ -165,33 +165,6 @@ export function AppSidebar({ business, businesses, userRole, open, onClose }: Ap
           </Link>
         )}
 
-        {/* Upgrade card */}
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.4 }}
-          className="relative mx-1 mt-3 rounded-2xl bg-lime-300 text-lime-950 p-4 overflow-hidden"
-        >
-          <div className="pointer-events-none absolute -bottom-6 -right-6 w-20 h-20 rounded-full bg-violet-300/60 blur-2xl" />
-          <div className="pointer-events-none absolute -top-4 -left-4 w-14 h-14 rounded-full bg-white/40 blur-xl" />
-          <div className="relative">
-            <div className="flex items-center gap-1.5 mb-2">
-              <span className="text-base">🚀</span>
-              <p className="text-sm font-bold tracking-tight">Upgrade to Pro</p>
-            </div>
-            <p className="text-[11px] leading-snug text-lime-900/80 mb-3">
-              Unlock AI agents, automations, and unlimited invoices.
-            </p>
-            <Link
-              href="/settings/billing"
-              onClick={onClose}
-              className="block text-center px-3 py-2 rounded-full bg-lime-950 text-lime-50 text-xs font-semibold hover:bg-lime-900 transition-colors"
-            >
-              Upgrade now
-            </Link>
-          </div>
-        </motion.div>
-
         <div className="px-3 pt-2">
           <span className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40">
             {ROLE_LABELS[userRole]}
