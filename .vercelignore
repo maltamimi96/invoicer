@@ -1,0 +1,2 @@
+# Don't upload the React Native app to Vercel — it's deployed separately via Expo/EAS.
+mobile/
