@@ -48,7 +48,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // Idempotent profile link: if a member_profile exists for this user's email
   // in the active business, point its user_id at the auth user.
   // Best-effort — the function is SECURITY DEFINER and a no-op if nothing matches.
-  await sb.rpc("link_my_member_profile").catch(() => undefined);
+  // (Supabase's PostgrestFilterBuilder is thenable but doesn't expose .catch,
+  //  so we wrap in try/catch instead.)
+  try { await sb.rpc("link_my_member_profile"); } catch { /* non-fatal */ }
 
   // Redirect workers away from pages they shouldn't see
   if (isWorker(userRole)) {
