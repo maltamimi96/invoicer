@@ -19,11 +19,22 @@ export default function RootLayout() {
   const segments = useSegments();
 
   useEffect(() => {
+    // Idempotent: if a member_profile exists for this email in any business
+    // the worker is in, point its user_id at the auth user. Lets a worker who
+    // ONLY uses Connected Hub (never the web) still light up assigned jobs.
+    const linkProfile = () => {
+      supabase.rpc("link_my_member_profile").then(() => undefined, () => undefined);
+    };
+
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       setLoaded(true);
+      if (data.session) linkProfile();
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
+      setSession(s);
+      if (s) linkProfile();
+    });
     return () => sub.subscription.unsubscribe();
   }, []);
 
