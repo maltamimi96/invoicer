@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, FileText, FileCheck, Users,
-  Package, Settings, FileStack, X, ClipboardList, Wrench, Users2, UserPlus, CalendarDays, MessageSquare, Bot, Repeat, HelpCircle, Columns3
+  Package, Settings, FileStack, X, ClipboardList, Wrench, Users2, UserPlus, CalendarDays, MessageSquare, Bot, Repeat, HelpCircle, Columns3, TrendingUp
 } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 import type { Business } from "@/types/database";
@@ -44,6 +44,9 @@ const navSections: NavSection[] = [
   { section: "Workforce", items: [
     { label: "Team",       href: "/team",       icon: Users2                        },
     { label: "Agents",     href: "/agents",     icon: Bot                           },
+  ]},
+  { section: "Insights", items: [
+    { label: "Analytics",  href: "/analytics",  icon: TrendingUp                    },
   ]},
   { section: "Account", items: [
     { label: "Help",       href: "/help",       icon: HelpCircle,    worker: true   },
