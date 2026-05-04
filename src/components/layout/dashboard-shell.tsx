@@ -48,7 +48,9 @@ export function DashboardShell({ business, businesses, user, userRole, children 
             onMenuClick={() => setSidebarOpen((o) => !o)}
           />
           <main className="app-content flex-1 overflow-auto">
-            <div className="max-w-7xl mx-auto w-full p-5 sm:p-6 lg:p-8">
+            {/* Connected Hub layout: content fills the main pane (no max-width
+                cap), with the prototype's uniform 24px padding. */}
+            <div className="w-full p-6">
               {children}
             </div>
           </main>
