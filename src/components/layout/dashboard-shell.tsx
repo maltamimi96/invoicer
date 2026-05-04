@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { AppSidebar } from "./app-sidebar";
 import { AppHeader } from "./app-header";
 import { AppearanceProvider } from "./appearance-provider";
+import { AppLoadingProvider } from "./app-loading";
+import { RouteProgress } from "./route-progress";
 import { AgentPanel } from "@/components/agent/agent-panel";
 import type { Business } from "@/types/database";
 import type { Role } from "@/lib/permissions";
@@ -22,6 +24,8 @@ export function DashboardShell({ business, businesses, user, userRole, children 
 
   return (
     <AppearanceProvider accentColor={business.accent_color} bgPattern={business.bg_pattern} sidebarTheme={business.sidebar_theme}>
+      <AppLoadingProvider>
+      <Suspense fallback={null}><RouteProgress /></Suspense>
       <div className="flex h-screen overflow-hidden bg-background">
         {/* Sidebar */}
         <AppSidebar
@@ -58,6 +62,7 @@ export function DashboardShell({ business, businesses, user, userRole, children 
       </div>
 
       <AgentPanel />
+      </AppLoadingProvider>
     </AppearanceProvider>
   );
 }
