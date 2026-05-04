@@ -110,12 +110,19 @@ export function InvoiceDetailClient({
         products={products}
         business={business}
         invoice={invoice}
+        onSaved={(saved) => {
+          // Update the in-memory invoice so download / status pills / totals
+          // re-render with the just-saved values without needing a hard refresh.
+          setInvoice((prev) => ({ ...prev, ...saved } as typeof prev));
+          setEditing(false);
+          router.refresh();
+        }}
       />
     );
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-6">
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-center gap-4">
         <Link href="/invoices">

@@ -4,15 +4,15 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Plus, Search, FileText, MoreHorizontal, Copy, Trash2, Eye } from "@/components/ui/icons";
+import { Plus, Search, FileText, MoreHorizontal, Copy, Trash2, Eye, Download, CheckCircle, Send, XCircle } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { PageHeader } from "@/components/layout/page-header";
-import { deleteInvoice, duplicateInvoice } from "@/lib/actions/invoices";
+import { deleteInvoice, duplicateInvoice, updateInvoice } from "@/lib/actions/invoices";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import type { Customer, InvoiceWithCustomer } from "@/types/database";
+import type { Customer, Invoice, InvoiceWithCustomer } from "@/types/database";
 
 const TABS = [
   { id: "all",       label: "All"       },
@@ -75,6 +75,24 @@ export function InvoicesClient({ invoices: initial, currency = "GBP" }: Invoices
       toast.success("Invoice deleted");
     } catch { toast.error("Failed to delete"); }
     setDeleteId(null);
+  };
+
+  const handleStatusChange = async (id: string, status: Invoice["status"]) => {
+    // Optimistic update — most actions are instant in the UI; revert on failure.
+    const prev = invoices;
+    setInvoices((p) => p.map((i) => (i.id === id ? { ...i, status } : i)));
+    try {
+      await updateInvoice(id, { status });
+      toast.success(`Marked as ${status}`);
+    } catch {
+      setInvoices(prev);
+      toast.error("Failed to update status");
+    }
+  };
+
+  const downloadPdf = (invoice: { id: string; number: string }) => {
+    // Open the PDF route in a new tab — same backend used by the detail page's download.
+    window.open(`/api/pdf/invoice/${invoice.id}`, "_blank");
   };
 
   return (
@@ -193,12 +211,31 @@ export function InvoicesClient({ invoices: initial, currency = "GBP" }: Invoices
                           <MoreHorizontal className="w-4 h-4" />
                         </button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
+                      <DropdownMenuContent align="end" className="w-48">
                         <DropdownMenuItem asChild>
                           <Link href={`/invoices/${invoice.id}`} className="flex items-center gap-2"><Eye className="w-3.5 h-3.5" />View</Link>
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => downloadPdf(invoice)} className="gap-2">
+                          <Download className="w-3.5 h-3.5" />Download PDF
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleDuplicate(invoice.id)} className="gap-2">
                           <Copy className="w-3.5 h-3.5" />Duplicate
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuLabel className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground py-1">
+                          Mark as
+                        </DropdownMenuLabel>
+                        <DropdownMenuItem onClick={() => handleStatusChange(invoice.id, "sent")} className="gap-2" disabled={invoice.status === "sent"}>
+                          <Send className="w-3.5 h-3.5" />Sent
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleStatusChange(invoice.id, "paid")} className="gap-2" disabled={invoice.status === "paid"}>
+                          <CheckCircle className="w-3.5 h-3.5" />Paid
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleStatusChange(invoice.id, "overdue")} className="gap-2" disabled={invoice.status === "overdue"}>
+                          <FileText className="w-3.5 h-3.5" />Overdue
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleStatusChange(invoice.id, "cancelled")} className="gap-2" disabled={invoice.status === "cancelled"}>
+                          <XCircle className="w-3.5 h-3.5" />Cancelled
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => setDeleteId(invoice.id)} className="text-destructive gap-2">

@@ -4,13 +4,13 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Plus, Search, FileCheck, MoreHorizontal, Trash2, Eye, ArrowRight } from "@/components/ui/icons";
+import { Plus, Search, FileCheck, MoreHorizontal, Trash2, Eye, ArrowRight, Download, Send, CheckCircle, XCircle } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { PageHeader } from "@/components/layout/page-header";
-import { deleteQuote, convertQuoteToInvoice } from "@/lib/actions/quotes";
+import { deleteQuote, convertQuoteToInvoice, updateQuote } from "@/lib/actions/quotes";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { Customer, QuoteWithCustomer } from "@/types/database";
 
@@ -63,6 +63,22 @@ export function QuotesClient({ quotes: initial, currency = "GBP" }: { quotes: Qu
       toast.success("Quote deleted");
     } catch { toast.error("Failed to delete"); }
     setDeleteId(null);
+  };
+
+  const handleStatusChange = async (id: string, status: QuoteWithCustomer["status"]) => {
+    const prev = quotes;
+    setQuotes((p) => p.map((q) => (q.id === id ? { ...q, status } : q)));
+    try {
+      await updateQuote(id, { status });
+      toast.success(`Marked as ${status}`);
+    } catch {
+      setQuotes(prev);
+      toast.error("Failed to update status");
+    }
+  };
+
+  const downloadPdf = (quote: { id: string }) => {
+    window.open(`/api/pdf/quote/${quote.id}`, "_blank");
   };
 
   const handleConvert = async (id: string) => {
@@ -173,15 +189,34 @@ export function QuotesClient({ quotes: initial, currency = "GBP" }: { quotes: Qu
                           <MoreHorizontal className="w-4 h-4" />
                         </button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
+                      <DropdownMenuContent align="end" className="w-48">
                         <DropdownMenuItem asChild>
                           <Link href={`/quotes/${quote.id}`} className="flex items-center gap-2"><Eye className="w-3.5 h-3.5" />View</Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => downloadPdf(quote)} className="gap-2">
+                          <Download className="w-3.5 h-3.5" />Download PDF
                         </DropdownMenuItem>
                         {!quote.invoice_id && (
                           <DropdownMenuItem onClick={() => handleConvert(quote.id)} disabled={converting === quote.id} className="gap-2">
                             <ArrowRight className="w-3.5 h-3.5" />Convert to invoice
                           </DropdownMenuItem>
                         )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuLabel className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground py-1">
+                          Mark as
+                        </DropdownMenuLabel>
+                        <DropdownMenuItem onClick={() => handleStatusChange(quote.id, "sent")} className="gap-2" disabled={quote.status === "sent"}>
+                          <Send className="w-3.5 h-3.5" />Sent
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleStatusChange(quote.id, "accepted")} className="gap-2" disabled={quote.status === "accepted"}>
+                          <CheckCircle className="w-3.5 h-3.5" />Accepted
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleStatusChange(quote.id, "rejected")} className="gap-2" disabled={quote.status === "rejected"}>
+                          <XCircle className="w-3.5 h-3.5" />Rejected
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleStatusChange(quote.id, "expired")} className="gap-2" disabled={quote.status === "expired"}>
+                          <XCircle className="w-3.5 h-3.5" />Expired
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => setDeleteId(quote.id)} className="text-destructive gap-2">
                           <Trash2 className="w-3.5 h-3.5" />Delete

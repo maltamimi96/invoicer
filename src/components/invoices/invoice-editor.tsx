@@ -48,6 +48,10 @@ interface InvoiceEditorProps {
   invoice?: Invoice & { customers?: Customer | null; payments?: unknown[] };
   defaultCustomerId?: string;
   mode?: "invoice" | "quote";
+  /** Called after a successful save (draft or send). When provided, parent
+   *  takes over post-save UX (e.g. exit edit mode + refresh detail) instead
+   *  of the default router.push. */
+  onSaved?: (saved: Invoice) => void;
 }
 
 function addDays(days: number) {
@@ -56,7 +60,7 @@ function addDays(days: number) {
   return d.toISOString().split("T")[0];
 }
 
-export function InvoiceEditor({ customers, products, business, invoice, defaultCustomerId }: InvoiceEditorProps) {
+export function InvoiceEditor({ customers, products, business, invoice, defaultCustomerId, onSaved }: InvoiceEditorProps) {
   const router = useRouter();
   const [lineItems, setLineItems] = useState<LineItem[]>((invoice?.line_items as LineItem[]) ?? []);
   const [saving, setSaving] = useState(false);
@@ -145,7 +149,11 @@ export function InvoiceEditor({ customers, products, business, invoice, defaultC
     const saved = await onSubmit(d);
     if (saved) {
       toast.success("Invoice saved");
-      router.push(`/invoices/${saved.id}`);
+      if (onSaved) {
+        onSaved(saved);
+      } else {
+        router.push(`/invoices/${saved.id}`);
+      }
     }
   });
 
