@@ -186,16 +186,71 @@ async function proposeCustomerCleanup() {
   }
   for (const [k, group] of Object.entries(byNameAddr)) cluster(`namaddr:${k}`, group);
 
-  // Track every id that's going to be merged-as-duplicate so we don't
-  // also propose a tidy on a row that'll be deleted seconds later.
-  const willBeMerged = new Set<string>();
+  // Pull all FK references so we can propose safe deletes for empty rows
+  // (only when no children point at them).
+  const idsRefByFk = new Set<string>();
+  for (const fc of CUSTOMER_FK_COLUMNS) {
+    const { data: refs } = await tbl(supabase, fc.table)
+      .select(fc.column)
+      .eq("business_id", businessId)
+      .not(fc.column, "is", null);
+    for (const r of (refs ?? []) as Array<Record<string, string | null>>) {
+      const id = r[fc.column];
+      if (id) idsRefByFk.add(id);
+    }
+  }
+
+  // Empty rows — name is the only NOT NULL column on customers. Propose a
+  // delete when nothing real is on the row AND nothing FK-references it.
+  // Otherwise (rare: an invoice points at a name-only customer), propose
+  // archiving instead so the historical link stays intact.
+  for (const c of customers) {
+    const isEmpty =
+      !c.email?.trim() && !c.phone?.trim() &&
+      !c.address?.trim() && !c.city?.trim() &&
+      !c.postcode?.trim() && !c.country?.trim() &&
+      !c.company?.trim() && !c.notes?.trim() &&
+      // Either name is missing/placeholder OR all the rest is missing.
+      (!c.name?.trim() || /^(unknown|n\/a|new customer|no name|customer)$/i.test(c.name.trim()) || true);
+
+    if (!isEmpty) continue;
+
+    const referenced = idsRefByFk.has(c.id);
+    if (referenced) {
+      proposals.push({
+        change_id: `arch-${c.id}`,
+        op: "update",
+        severity: "med",
+        label: `Archive empty customer · ${c.name || "(no name)"}`,
+        detail: "All fields are blank, but invoices / quotes / sites still reference this row — archiving instead of deleting keeps history intact.",
+        payload: { op: "update", table: "customers", id: c.id, patch: { archived: true } },
+      });
+    } else {
+      proposals.push({
+        change_id: `del-${c.id}`,
+        op: "delete",
+        severity: "med",
+        label: `Delete empty customer · ${c.name || "(no name)"}`,
+        detail: "No email, phone, address, company, or notes — and nothing else points at this row.",
+        payload: { op: "delete", table: "customers", id: c.id },
+      });
+    }
+  }
+
+  // Track every id that'll be removed (merged / deleted / archived) so we
+  // don't also propose a tidy on a row that'll be gone seconds later.
+  const willBeRemoved = new Set<string>();
   for (const p of proposals) {
-    if (p.op === "merge") for (const id of (p.payload as MergePayload).duplicate_ids) willBeMerged.add(id);
+    if (p.op === "merge")  for (const id of (p.payload as MergePayload).duplicate_ids) willBeRemoved.add(id);
+    if (p.op === "delete") willBeRemoved.add((p.payload as DeletePayload).id);
+    if (p.op === "update" && p.change_id.startsWith("arch-")) {
+      willBeRemoved.add((p.payload as UpdatePayload).id);
+    }
   }
 
   // Normalize email casing / trim whitespace
   for (const c of customers) {
-    if (willBeMerged.has(c.id)) continue;
+    if (willBeRemoved.has(c.id)) continue;
     const trimmedName  = c.name?.trim();
     const loweredEmail = c.email?.trim().toLowerCase() || null;
     const trimmedPhone = c.phone?.trim() || null;
