@@ -186,8 +186,16 @@ async function proposeCustomerCleanup() {
   }
   for (const [k, group] of Object.entries(byNameAddr)) cluster(`namaddr:${k}`, group);
 
+  // Track every id that's going to be merged-as-duplicate so we don't
+  // also propose a tidy on a row that'll be deleted seconds later.
+  const willBeMerged = new Set<string>();
+  for (const p of proposals) {
+    if (p.op === "merge") for (const id of (p.payload as MergePayload).duplicate_ids) willBeMerged.add(id);
+  }
+
   // Normalize email casing / trim whitespace
   for (const c of customers) {
+    if (willBeMerged.has(c.id)) continue;
     const trimmedName  = c.name?.trim();
     const loweredEmail = c.email?.trim().toLowerCase() || null;
     const trimmedPhone = c.phone?.trim() || null;
@@ -234,15 +242,34 @@ export async function applyCleanup(
   const selected = proposals.filter((p) => selected_ids.includes(p.change_id));
   if (selected.length === 0) throw new Error("No changes selected");
 
+  // Run order: updates first → deletes → merges last. Otherwise a "tidy"
+  // update can target a row a merge already absorbed and nuke the run.
+  const order: Record<ProposedChange["op"], number> = { update: 0, delete: 1, merge: 2 };
+  selected.sort((a, b) => order[a.op] - order[b.op]);
+
+  // Build a set of row ids that will be deleted by merges so updates can skip
+  // them gracefully (instead of erroring on "no row found").
+  const willBeDeleted = new Set<string>();
+  for (const c of selected) {
+    if (c.op === "merge") for (const id of (c.payload as MergePayload).duplicate_ids) willBeDeleted.add(id);
+    if (c.op === "delete") willBeDeleted.add((c.payload as DeletePayload).id);
+  }
+
   const log: AppliedChangeEntry[] = [];
 
   for (const change of selected) {
     if (change.op === "update") {
       const { table, id, patch } = change.payload as UpdatePayload;
+      // Skip if this row's about to be deleted by a merge — there's no point
+      // tidying fields on a customer we're absorbing into another.
+      if (willBeDeleted.has(id)) continue;
       // Capture before for undo
       const { data: before } = await tbl(supabase, table).select("*").eq("id", id).maybeSingle();
-      const { data: after, error } = await tbl(supabase, table).update(patch).eq("id", id).select().single();
+      if (!before) continue; // Row vanished between propose and apply — skip silently
+      const { data: after, error } = await tbl(supabase, table)
+        .update(patch).eq("id", id).select().maybeSingle();
       if (error) throw new Error(`Update failed on ${table} ${id}: ${error.message}`);
+      if (!after) continue;
       log.push({ change_id: change.change_id, op: "update", before, after });
     } else if (change.op === "delete") {
       const { table, id } = change.payload as DeletePayload;
