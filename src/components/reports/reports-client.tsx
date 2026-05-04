@@ -43,12 +43,12 @@ export function ReportsClient({ reports }: ReportsClientProps) {
   return (
     <div>
       <PageHeader
-        title="Reports"
-        subtitle={`${reports.length} report${reports.length !== 1 ? "s" : ""}`}
+        title="Site Reports"
+        subtitle={`${reports.length} report${reports.length !== 1 ? "s" : ""} for clients · inspection / scope-of-works`}
         actions={
           <Link href="/reports/new">
             <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
-              <Plus className="w-3.5 h-3.5" /> New report
+              <Plus className="w-3.5 h-3.5" /> New site report
             </button>
           </Link>
         }

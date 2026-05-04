@@ -24,10 +24,11 @@ const navSections: NavSection[] = [
     { label: "Tasks",      href: "/tasks",      icon: Columns3                      },
   ]},
   { section: "Sales", items: [
-    { label: "Leads",      href: "/leads",      icon: UserPlus                      },
-    { label: "Quotes",     href: "/quotes",     icon: FileCheck                     },
-    { label: "Invoices",   href: "/invoices",   icon: FileText                      },
-    { label: "Recurring",  href: "/recurring",  icon: Repeat                        },
+    { label: "Leads",         href: "/leads",      icon: UserPlus                      },
+    { label: "Quotes",        href: "/quotes",     icon: FileCheck                     },
+    { label: "Invoices",      href: "/invoices",   icon: FileText                      },
+    { label: "Site Reports",  href: "/reports",    icon: ClipboardList                 },
+    { label: "Recurring",     href: "/recurring",  icon: Repeat                        },
   ]},
   { section: "Service", items: [
     { label: "Work Orders", href: "/work-orders", icon: Wrench,        worker: true },
@@ -43,9 +44,6 @@ const navSections: NavSection[] = [
   { section: "Workforce", items: [
     { label: "Team",       href: "/team",       icon: Users2                        },
     { label: "Agents",     href: "/agents",     icon: Bot                           },
-  ]},
-  { section: "Insights", items: [
-    { label: "Reports",    href: "/reports",    icon: ClipboardList                 },
   ]},
   { section: "Account", items: [
     { label: "Help",       href: "/help",       icon: HelpCircle,    worker: true   },
