@@ -1,22 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Plus, Search, FileText, MoreHorizontal, Copy, Trash2, Eye } from "@/components/ui/icons";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { PageHeader } from "@/components/layout/page-header";
 import { deleteInvoice, duplicateInvoice } from "@/lib/actions/invoices";
-import { formatCurrency, formatDate, getStatusColor } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import type { Customer, InvoiceWithCustomer } from "@/types/database";
 
-const STATUSES = ["all", "draft", "sent", "paid", "overdue", "partial", "cancelled"];
+const TABS = [
+  { id: "all",       label: "All"       },
+  { id: "draft",     label: "Draft"     },
+  { id: "sent",      label: "Sent"      },
+  { id: "partial",   label: "Partial"   },
+  { id: "paid",      label: "Paid"      },
+  { id: "overdue",   label: "Overdue"   },
+  { id: "cancelled", label: "Cancelled" },
+] as const;
 
 interface InvoicesClientProps {
   invoices: InvoiceWithCustomer[];
@@ -25,16 +31,33 @@ interface InvoicesClientProps {
 }
 
 export function InvoicesClient({ invoices: initial, currency = "GBP" }: InvoicesClientProps) {
+  const router = useRouter();
   const [invoices, setInvoices] = useState(initial);
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("all");
+  const [tab, setTab] = useState<typeof TABS[number]["id"]>("all");
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  const filtered = invoices.filter((inv) => {
-    const matchSearch = `${inv.number} ${inv.customers?.name} ${inv.customers?.email}`.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = status === "all" || inv.status === status;
+  const filtered = useMemo(() => invoices.filter((inv) => {
+    const matchSearch = `${inv.number} ${inv.customers?.name ?? ""} ${inv.customers?.email ?? ""}`.toLowerCase().includes(search.toLowerCase());
+    const matchStatus = tab === "all" || inv.status === tab;
     return matchSearch && matchStatus;
-  });
+  }), [invoices, search, tab]);
+
+  const counts = useMemo(() => {
+    const c: Record<string, number> = { all: invoices.length };
+    for (const t of TABS) c[t.id] = invoices.filter((i) => t.id === "all" || i.status === t.id).length;
+    return c;
+  }, [invoices]);
+
+  const totalOutstanding = useMemo(
+    () => invoices.filter((i) => ["sent", "partial", "overdue"].includes(i.status))
+                  .reduce((s, i) => s + (i.total - i.amount_paid), 0),
+    [invoices]
+  );
+  const totalPaid = useMemo(
+    () => invoices.filter((i) => i.status === "paid").reduce((s, i) => s + i.total, 0),
+    [invoices]
+  );
 
   const handleDuplicate = async (id: string) => {
     try {
@@ -54,77 +77,121 @@ export function InvoicesClient({ invoices: initial, currency = "GBP" }: Invoices
     setDeleteId(null);
   };
 
-  const totals = {
-    all: filtered.reduce((s, i) => s + i.total, 0),
-    outstanding: filtered.filter(i => ["sent", "partial"].includes(i.status)).reduce((s, i) => s + i.total - i.amount_paid, 0),
-  };
-
   return (
-    <div className="space-y-6">
-      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Invoices</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{invoices.length} total · {formatCurrency(totals.outstanding, currency)} outstanding</p>
-        </div>
-        <Link href="/invoices/new" className="w-full sm:w-auto">
-          <Button size="sm" className="gap-1.5 w-full sm:w-auto"><Plus className="w-3.5 h-3.5" />New invoice</Button>
-        </Link>
-      </motion.div>
+    <div>
+      <PageHeader
+        title="Invoices"
+        subtitle={`${invoices.length} total · ${formatCurrency(totalOutstanding, currency)} outstanding`}
+        actions={
+          <Link href="/invoices/new">
+            <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
+              <Plus className="w-3.5 h-3.5" /> New invoice
+            </button>
+          </Link>
+        }
+      />
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input className="pl-9" placeholder="Search invoices..." value={search} onChange={(e) => setSearch(e.target.value)} />
+      {/* KPI strip */}
+      <div className="ch-stat-grid">
+        <div className="ch-stat">
+          <div className="ch-stat-label"><FileText className="w-3.5 h-3.5" /><span>Total</span></div>
+          <div className="ch-stat-value">{invoices.length}</div>
+          <div className="ch-stat-meta">all time</div>
         </div>
-        <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className="w-full sm:w-40">
-            <SelectValue placeholder="All statuses" />
-          </SelectTrigger>
-          <SelectContent>
-            {STATUSES.map((s) => (
-              <SelectItem key={s} value={s}>{s === "all" ? "All statuses" : s.charAt(0).toUpperCase() + s.slice(1)}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="ch-stat">
+          <div className="ch-stat-label"><FileText className="w-3.5 h-3.5" /><span>Outstanding</span></div>
+          <div className="ch-stat-value">{formatCurrency(totalOutstanding, currency)}</div>
+          <div className="ch-stat-meta">awaiting payment</div>
+        </div>
+        <div className="ch-stat">
+          <div className="ch-stat-label"><FileText className="w-3.5 h-3.5" /><span>Paid</span></div>
+          <div className="ch-stat-value">{formatCurrency(totalPaid, currency)}</div>
+          <div className="ch-stat-meta">all time</div>
+        </div>
+        <div className="ch-stat">
+          <div className="ch-stat-label"><FileText className="w-3.5 h-3.5" /><span>Overdue</span></div>
+          <div className="ch-stat-value">{counts.overdue ?? 0}</div>
+          <div className="ch-stat-meta">need follow-up</div>
+        </div>
+      </div>
+
+      {/* Status tabs */}
+      <div className="ch-tabs">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            className={`ch-tab ${tab === t.id ? "active" : ""}`}
+            onClick={() => setTab(t.id)}
+          >
+            {t.label}
+            <span className="count">{counts[t.id] ?? 0}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Search */}
+      <div className="ch-filter-bar">
+        <div className="relative flex-1 min-w-[240px] max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="Search invoices..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 h-9"
+          />
+        </div>
       </div>
 
       {/* Table */}
       {filtered.length === 0 ? (
-        <div className="text-center py-20">
-          <FileText className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-          <h3 className="font-medium mb-1">No invoices found</h3>
-          <p className="text-sm text-muted-foreground mb-4">{search || status !== "all" ? "Try different filters" : "Create your first invoice to get started"}</p>
-          {!search && status === "all" && <Link href="/invoices/new"><Button size="sm">Create invoice</Button></Link>}
+        <div className="ch-empty">
+          <FileText className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+          <h4>No invoices found</h4>
+          <p>{search || tab !== "all" ? "Try different filters." : "Create your first invoice to get started."}</p>
+          {!search && tab === "all" && (
+            <Link href="/invoices/new">
+              <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium">
+                <Plus className="w-3 h-3" /> Create invoice
+              </button>
+            </Link>
+          )}
         </div>
       ) : (
-        <div className="space-y-2">
-          {filtered.map((invoice, i) => (
-            <motion.div key={invoice.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}>
-              <Card className="hover:shadow-sm transition-shadow">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-4">
-                    <div className="min-w-0 flex-1 grid grid-cols-1 sm:grid-cols-4 gap-2 items-center">
-                      <div>
-                        <Link href={`/invoices/${invoice.id}`} className="font-medium text-sm hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-                          {invoice.number}
-                        </Link>
-                        <p className="text-xs text-muted-foreground">{invoice.customers?.name ?? "No client"}</p>
-                      </div>
-                      <div className="hidden sm:block text-sm text-muted-foreground">
-                        Issued {formatDate(invoice.issue_date)}
-                      </div>
-                      <div className="hidden sm:block text-sm text-muted-foreground">
-                        Due {formatDate(invoice.due_date)}
-                      </div>
-                      <div className="flex items-center gap-2 sm:justify-end">
-                        <Badge variant="secondary" className={`text-xs ${getStatusColor(invoice.status)}`}>{invoice.status}</Badge>
-                        <span className="font-semibold text-sm">{formatCurrency(invoice.total, currency)}</span>
-                      </div>
-                    </div>
+        <motion.div
+          initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}
+          className="ch-table-wrap"
+        >
+          <table className="ch-table">
+            <thead>
+              <tr>
+                <th>Invoice</th>
+                <th>Customer</th>
+                <th>Issued</th>
+                <th>Due</th>
+                <th>Status</th>
+                <th className="num">Total</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((invoice) => (
+                <tr
+                  key={invoice.id}
+                  onClick={() => router.push(`/invoices/${invoice.id}`)}
+                  onAuxClick={(e) => { if (e.button === 1) window.open(`/invoices/${invoice.id}`, "_blank"); }}
+                >
+                  <td><span className="ref">{invoice.number}</span></td>
+                  <td className="font-medium">{invoice.customers?.name ?? "No client"}</td>
+                  <td className="text-muted-foreground">{formatDate(invoice.issue_date)}</td>
+                  <td className="text-muted-foreground">{formatDate(invoice.due_date)}</td>
+                  <td><span className={`ch-pill ${invoice.status}`}>{invoice.status}</span></td>
+                  <td className="num font-semibold">{formatCurrency(invoice.total, currency)}</td>
+                  <td className="text-right" onClick={(e) => e.stopPropagation()}>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0"><MoreHorizontal className="w-4 h-4" /></Button>
+                        <button className="inline-flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:bg-muted">
+                          <MoreHorizontal className="w-4 h-4" />
+                        </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem asChild>
@@ -139,12 +206,12 @@ export function InvoicesClient({ invoices: initial, currency = "GBP" }: Invoices
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
-        </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </motion.div>
       )}
 
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>

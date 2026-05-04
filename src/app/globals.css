@@ -333,3 +333,388 @@
     linear-gradient(90deg, hsl(var(--border) / 0.25) 1px, transparent 1px);
   background-size: 64px 64px, 64px 64px, 16px 16px, 16px 16px;
 }
+
+/* ─── Connected Hub utility classes ────────────────────────────
+   Scoped utility set lifted from the design handoff; bound to our
+   HSL token vars so accent / sidebar / theme customisation drives
+   everything. Pages opt-in by adding the class names below.
+*/
+
+/* Page header */
+.ch-page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.ch-page-title {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: hsl(var(--foreground));
+  margin: 0;
+}
+.ch-page-subtitle {
+  font-size: 13px;
+  color: hsl(var(--muted-foreground));
+  margin: 4px 0 0;
+}
+.ch-page-actions { display: flex; align-items: center; gap: 8px; }
+
+/* KPI grid + stat */
+.ch-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.ch-stat {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 1px 2px hsl(var(--foreground) / 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ch-stat-label {
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ch-stat-value {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: hsl(var(--foreground));
+}
+.ch-stat-meta {
+  font-size: 11.5px;
+  color: hsl(var(--muted-foreground));
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ch-stat-delta { font-weight: 600; font-variant-numeric: tabular-nums; }
+.ch-stat-delta.up   { color: hsl(150 60% 38%); }
+.ch-stat-delta.down { color: hsl(0 70% 50%); }
+
+/* Tables */
+.ch-table-wrap {
+  overflow-x: auto;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 14px;
+  box-shadow: 0 1px 2px hsl(var(--foreground) / 0.04);
+}
+.ch-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.ch-table th {
+  text-align: left;
+  padding: 10px 16px;
+  font-weight: 600;
+  color: hsl(var(--muted-foreground));
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid hsl(var(--border));
+  background: hsl(var(--muted));
+  white-space: nowrap;
+}
+.ch-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid hsl(var(--border));
+  vertical-align: middle;
+}
+.ch-table tr:last-child td { border-bottom: none; }
+.ch-table tbody tr {
+  transition: background 0.08s;
+  cursor: pointer;
+}
+.ch-table tbody tr:hover { background: hsl(var(--muted) / 0.6); }
+.ch-table .num   { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--font-mono, ui-monospace, monospace); }
+.ch-table .ref   { font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; color: hsl(var(--muted-foreground)); }
+
+/* Status pills */
+.ch-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+.ch-pill::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.ch-pill.no-dot::before { display: none; }
+.ch-pill.paid,
+.ch-pill.completed,
+.ch-pill.accepted   { background: hsl(150 50% 95%); color: hsl(150 60% 32%); }
+.ch-pill.pending,
+.ch-pill.in-progress { background: hsl(40 80% 95%); color: hsl(35 75% 38%); }
+.ch-pill.overdue,
+.ch-pill.cancelled  { background: hsl(0 70% 96%); color: hsl(0 70% 45%); }
+.ch-pill.draft      { background: hsl(220 14% 95%); color: hsl(220 10% 40%); }
+.ch-pill.scheduled  { background: hsl(280 40% 96%); color: hsl(280 40% 40%); }
+.ch-pill.sent       { background: hsl(var(--primary) / 0.12); color: hsl(var(--primary)); }
+.ch-pill.partial    { background: hsl(40 80% 95%); color: hsl(35 75% 38%); }
+.ch-pill.declined,
+.ch-pill.rejected   { background: hsl(220 14% 95%); color: hsl(220 10% 40%); }
+.ch-pill.new        { background: hsl(var(--primary) / 0.12); color: hsl(var(--primary)); }
+.ch-pill.contacted  { background: hsl(220 80% 95%); color: hsl(220 70% 45%); }
+.ch-pill.quoted     { background: hsl(280 40% 96%); color: hsl(280 40% 40%); }
+.ch-pill.won        { background: hsl(150 50% 95%); color: hsl(150 60% 32%); }
+.ch-pill.lost       { background: hsl(0 70% 96%); color: hsl(0 70% 45%); }
+.ch-pill.active     { background: hsl(150 50% 95%); color: hsl(150 60% 32%); }
+.ch-pill.archived   { background: hsl(220 14% 95%); color: hsl(220 10% 40%); }
+
+/* Tabs */
+.ch-tabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid hsl(var(--border));
+  margin-bottom: 16px;
+  overflow-x: auto;
+}
+.ch-tab {
+  padding: 9px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.12s, border-color 0.12s;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+  cursor: pointer;
+}
+.ch-tab:hover { color: hsl(var(--foreground)); }
+.ch-tab.active {
+  color: hsl(var(--foreground));
+  border-bottom-color: hsl(var(--primary));
+  font-weight: 600;
+}
+.ch-tab .count {
+  font-size: 11px;
+  background: hsl(var(--muted));
+  padding: 1px 6px;
+  border-radius: 8px;
+  color: hsl(var(--muted-foreground));
+  font-variant-numeric: tabular-nums;
+}
+
+/* Filter chips */
+.ch-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.ch-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+  font-weight: 500;
+  transition: background 0.12s, border-color 0.12s;
+  cursor: pointer;
+}
+.ch-filter-chip:hover { background: hsl(var(--muted)); }
+.ch-filter-chip.active {
+  background: hsl(var(--primary) / 0.1);
+  border-color: hsl(var(--primary) / 0.4);
+  color: hsl(var(--primary));
+}
+
+/* Bar chart */
+.ch-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 140px;
+  padding: 8px 0;
+}
+.ch-bar-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.ch-bar {
+  width: 100%;
+  max-width: 32px;
+  background: hsl(var(--muted));
+  border-radius: 4px 4px 0 0;
+  transition: background 0.18s;
+}
+.ch-bar.primary { background: hsl(var(--primary)); }
+.ch-bar.primary:hover { background: hsl(var(--primary) / 0.85); }
+.ch-bar-label {
+  font-size: 10.5px;
+  color: hsl(var(--muted-foreground));
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sparkline */
+.ch-spark      { stroke: hsl(var(--primary)); stroke-width: 2; fill: none; }
+.ch-spark-fill { fill: hsl(var(--primary)); opacity: 0.08; }
+
+/* Schedule items */
+.ch-schedule-item {
+  display: grid;
+  grid-template-columns: 60px 4px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 4px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 0.08s;
+}
+.ch-schedule-item:hover { background: hsl(var(--muted) / 0.6); }
+.ch-schedule-time {
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+.ch-schedule-bar {
+  width: 4px;
+  height: 32px;
+  border-radius: 2px;
+  background: hsl(var(--primary));
+}
+.ch-schedule-content { min-width: 0; }
+.ch-schedule-title { font-size: 13px; font-weight: 600; }
+.ch-schedule-meta {
+  font-size: 11.5px;
+  color: hsl(var(--muted-foreground));
+  margin-top: 2px;
+}
+.ch-schedule-day {
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 4px 0;
+}
+
+/* Activity items */
+.ch-activity-item {
+  display: flex;
+  gap: 10px;
+  padding: 8px 4px;
+  align-items: flex-start;
+}
+.ch-activity-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.ch-activity-content { font-size: 12.5px; min-width: 0; }
+.ch-activity-meta {
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+  margin-top: 2px;
+}
+
+/* Quick actions */
+.ch-quick-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.ch-quick-action {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  background: hsl(var(--muted) / 0.4);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  text-align: left;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: hsl(var(--foreground));
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+  width: 100%;
+}
+.ch-quick-action:hover {
+  background: hsl(var(--card));
+  border-color: hsl(var(--border));
+}
+.ch-quick-action-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: hsl(var(--primary) / 0.12);
+  color: hsl(var(--primary));
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.ch-quick-action-meta {
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+  font-weight: 400;
+  margin-top: 2px;
+}
+
+/* 2-col grid for dashboard */
+.ch-grid-2 {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 1100px) { .ch-grid-2 { grid-template-columns: 1fr; } }
+
+/* Empty state */
+.ch-empty {
+  padding: 48px 24px;
+  text-align: center;
+  color: hsl(var(--muted-foreground));
+}
+.ch-empty h4 { color: hsl(var(--foreground)); margin: 0 0 6px; font-size: 14px; }
+.ch-empty p  { margin: 0 0 12px; font-size: 13px; }
+
+/* Mono utility for tabular figures */
+.ch-mono { font-family: var(--font-mono, ui-monospace, monospace); font-feature-settings: "tnum"; }
+.ch-tnum { font-variant-numeric: tabular-nums; }
