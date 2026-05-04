@@ -6,6 +6,7 @@ import { Plus, Search, Package, Edit, Trash2, Upload } from "@/components/ui/ico
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/layout/page-header";
+import { CleanupButton } from "@/components/cleanup/cleanup-button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { createProduct, updateProduct, deleteProduct, bulkImportProducts } from "@/lib/actions/products";
@@ -84,6 +85,7 @@ export function ProductsClient({ products: initial, currency = "GBP" }: { produc
         subtitle={`${products.length - archivedCount} active · ${archivedCount} archived`}
         actions={
           <>
+            <CleanupButton entity="products" entityLabel="products" />
             <button
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-card text-sm font-medium hover:bg-muted transition-colors"
               onClick={() => setShowImport(true)}

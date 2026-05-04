@@ -14,8 +14,21 @@ export function invoiceEmailHtml({
   lineItems: LineItem[];
   portalUrl?: string | null;
 }): string {
+  // Coerce numbers — Postgres returns numeric columns as strings via PostgREST,
+  // so plain subtraction was producing NaN in the email Total field.
+  const num = (v: unknown) => {
+    const n = typeof v === "number" ? v : parseFloat(String(v ?? 0));
+    return Number.isFinite(n) ? n : 0;
+  };
+  const total       = num(invoice.total);
+  const amountPaid  = num(invoice.amount_paid);
+  const subtotal    = num(invoice.subtotal);
+  const discountAmt = num(invoice.discount_amount);
+  const taxTotal    = num(invoice.tax_total);
+  const balanceDue  = Math.max(0, total - amountPaid);
+
   const fmt = (n: number) =>
-    new Intl.NumberFormat("en-GB", { style: "currency", currency: business.currency }).format(n);
+    new Intl.NumberFormat("en-GB", { style: "currency", currency: business.currency }).format(num(n));
 
   const issueDate = new Date(invoice.issue_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
   const dueDate = new Date(invoice.due_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
@@ -45,7 +58,7 @@ export function invoiceEmailHtml({
       </tr>` : ""}
       <tr>
         <td style="font-size:15px;font-weight:700;color:#18181b;padding-top:16px;border-top:1px solid #e4e4e7;">Amount due</td>
-        <td style="font-size:18px;font-weight:700;color:#3b82f6;text-align:right;padding-top:16px;border-top:1px solid #e4e4e7;">${fmt(invoice.total - invoice.amount_paid)}</td>
+        <td style="font-size:18px;font-weight:700;color:#3b82f6;text-align:right;padding-top:16px;border-top:1px solid #e4e4e7;">${fmt(balanceDue)}</td>
       </tr>
     </table>
 
@@ -56,7 +69,7 @@ export function invoiceEmailHtml({
       </td></tr>
     </table>` : ""}
 
-    ${lineItemsTable(lineItems, business.currency, invoice.subtotal, invoice.discount_amount, invoice.tax_total, invoice.total)}
+    ${lineItemsTable(lineItems, business.currency, subtotal, discountAmt, taxTotal, total)}
 
     ${invoice.notes ? `<p style="margin:24px 0 0;font-size:13px;color:#71717a;"><strong>Notes:</strong> ${invoice.notes}</p>` : ""}
     ${invoice.terms ? `<p style="margin:8px 0 0;font-size:13px;color:#71717a;"><strong>Payment terms:</strong> ${invoice.terms}</p>` : ""}

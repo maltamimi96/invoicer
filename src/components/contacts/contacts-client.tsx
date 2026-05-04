@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/layout/page-header";
+import { CleanupButton } from "@/components/cleanup/cleanup-button";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -163,12 +164,15 @@ export function ContactsClient({ contacts: initial }: { contacts: Contact[] }) {
         title="Contacts"
         subtitle={`${counts.total} total · ${counts.lead} leads · ${counts.contact} contacts · ${counts.customer} customers`}
         actions={
-          <button
-            onClick={() => { setForm(EMPTY); setShowAdd(true); }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
-          >
-            <Plus className="w-3.5 h-3.5" /> New contact
-          </button>
+          <>
+            <CleanupButton entity="contacts" entityLabel="contacts" />
+            <button
+              onClick={() => { setForm(EMPTY); setShowAdd(true); }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+            >
+              <Plus className="w-3.5 h-3.5" /> New contact
+            </button>
+          </>
         }
       />
 

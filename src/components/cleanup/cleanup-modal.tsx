@@ -30,6 +30,25 @@ export function CleanupModal({ open, onOpenChange, entity, entityLabel }: Props)
   const [totalRows, setTotalRows] = useState<number>(0);
   const [runId,     setRunId]     = useState<string | null>(null);
   const [appliedCount, setApplied] = useState(0);
+  /** 0–100. Animated separately from the actual server work — we drive it
+   *  with rAF so the user sees movement even when the server takes a beat. */
+  const [progress, setProgress] = useState(0);
+
+  // Animated progress: climbs from 0 to ~92% over the analyze/apply window
+  // then snaps to 100% when the work returns. Pure rAF, no deps.
+  useEffect(() => {
+    if (stage !== "analyzing" && stage !== "applying") return;
+    let raf = 0;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / 1400);
+      const eased = 1 - Math.pow(1 - t, 2);
+      setProgress(8 + 84 * eased);
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [stage]);
 
   // Generate proposals each time the modal opens
   useEffect(() => {
@@ -39,12 +58,14 @@ export function CleanupModal({ open, onOpenChange, entity, entityLabel }: Props)
     setProposals([]);
     setRunId(null);
     setApplied(0);
+    setProgress(0);
 
     (async () => {
       try {
         const { proposals, total_rows } = await proposeCleanup(entity);
         setTotalRows(total_rows);
         setProposals(proposals);
+        setProgress(100);
         if (proposals.length === 0) {
           setStage("empty");
         } else {
@@ -69,11 +90,14 @@ export function CleanupModal({ open, onOpenChange, entity, entityLabel }: Props)
   const apply = async () => {
     if (selected.size === 0) return;
     setStage("applying");
+    setProgress(0);
     try {
       const { run_id, applied } = await applyCleanup(entity, proposals, [...selected]);
       setRunId(run_id);
       setApplied(applied);
+      setProgress(100);
       setStage("done");
+      // Refetch so the page picks up the changes immediately.
       router.refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Couldn't apply changes");
@@ -93,6 +117,15 @@ export function CleanupModal({ open, onOpenChange, entity, entityLabel }: Props)
     }
   };
 
+  // Always refetch when the modal closes after a successful run, so list
+  // components that hold their own useState(initial) pick up the new data.
+  const handleOpenChange = (next: boolean) => {
+    if (!next && stage === "done") {
+      router.refresh();
+    }
+    onOpenChange(next);
+  };
+
   const grouped = {
     high: proposals.filter((p) => p.severity === "high"),
     med:  proposals.filter((p) => p.severity === "med"),
@@ -100,20 +133,30 @@ export function CleanupModal({ open, onOpenChange, entity, entityLabel }: Props)
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-primary" /> Clean up {entityLabel}
+            <Sparkles className="w-4 h-4 text-primary" /> Smart Organise · {entityLabel}
           </DialogTitle>
           <DialogDescription>
-            {stage === "analyzing" && "Scanning for duplicates and fields to tidy…"}
+            {stage === "analyzing" && "Scanning for duplicates, empty rows, and fields to tidy…"}
             {stage === "review"    && `${proposals.length} suggested change${proposals.length === 1 ? "" : "s"} across ${totalRows} ${entityLabel}. Untick anything you'd rather keep.`}
             {stage === "applying"  && "Applying your selections…"}
             {stage === "done"      && `Applied ${appliedCount} change${appliedCount === 1 ? "" : "s"}. You can undo this run if anything looks off.`}
-            {stage === "empty"     && `Nothing to clean up — all ${totalRows} ${entityLabel} look healthy.`}
+            {stage === "empty"     && `Nothing to organise — all ${totalRows} ${entityLabel} look healthy.`}
           </DialogDescription>
         </DialogHeader>
+
+        {/* Progress bar — visible during analyzing + applying */}
+        {(stage === "analyzing" || stage === "applying") && (
+          <div className="h-1 -mt-2 mb-1 rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full bg-primary transition-[width] duration-200 ease-out"
+              style={{ width: `${progress}%`, boxShadow: "0 0 8px hsl(var(--primary) / 0.5)" }}
+            />
+          </div>
+        )}
 
         <AnimatePresence mode="wait">
           {stage === "analyzing" && (

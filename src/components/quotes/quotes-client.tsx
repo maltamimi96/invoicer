@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { PageHeader } from "@/components/layout/page-header";
+import { CleanupButton } from "@/components/cleanup/cleanup-button";
 import { deleteQuote, convertQuoteToInvoice, updateQuote } from "@/lib/actions/quotes";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { Customer, QuoteWithCustomer } from "@/types/database";
@@ -96,11 +97,14 @@ export function QuotesClient({ quotes: initial, currency = "GBP" }: { quotes: Qu
         title="Quotes"
         subtitle={`${quotes.length} total · ${formatCurrency(totalPipeline, currency)} in pipeline`}
         actions={
-          <Link href="/quotes/new">
-            <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
-              <Plus className="w-3.5 h-3.5" /> New quote
-            </button>
-          </Link>
+          <>
+            <CleanupButton entity="quotes" entityLabel="quotes" />
+            <Link href="/quotes/new">
+              <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
+                <Plus className="w-3.5 h-3.5" /> New quote
+              </button>
+            </Link>
+          </>
         }
       />
 
