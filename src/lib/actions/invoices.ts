@@ -116,6 +116,142 @@ export async function duplicateInvoice(id: string): Promise<Invoice> {
   return createInvoice({ ...rest, status: "draft", amount_paid: 0 });
 }
 
+/**
+ * Get the children of a parent invoice (deposit + remainder + any other splits).
+ */
+export async function getChildInvoices(parentId: string): Promise<Invoice[]> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+  const businessId = await getActiveBizId(supabase, user.id);
+
+  const { data, error } = await tbl(supabase, "invoices")
+    .select("*")
+    .eq("parent_invoice_id", parentId)
+    .eq("business_id", businessId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as Invoice[];
+}
+
+/**
+ * Create a progress / deposit invoice that bills a portion of a parent invoice.
+ * Inputs are flat scalars so this is callable from the AI agent layer.
+ *
+ * @param parent_invoice_id The full-job invoice this progress invoice bills against.
+ * @param amount             Absolute currency amount to bill now. Mutually exclusive with `percent`.
+ * @param percent            Percentage of the parent total (0-100). Mutually exclusive with `amount`.
+ * @param description        Line-item description, e.g. "30% deposit" or "Final balance".
+ * @param due_date           ISO date for the new invoice's due date. Defaults to parent's due_date.
+ */
+export async function createProgressInvoice(input: {
+  parent_invoice_id: string;
+  amount?: number;
+  percent?: number;
+  description?: string;
+  due_date?: string;
+}): Promise<Invoice> {
+  if (!input.parent_invoice_id) throw new Error("parent_invoice_id is required");
+  if ((input.amount == null) === (input.percent == null)) {
+    throw new Error("Provide exactly one of `amount` or `percent`");
+  }
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+  const businessId = await getActiveBizId(supabase, user.id);
+
+  // Pull parent + existing children to compute remaining
+  const { data: parent, error: pErr } = await tbl(supabase, "invoices")
+    .select("*")
+    .eq("id", input.parent_invoice_id)
+    .eq("business_id", businessId)
+    .single();
+  if (pErr || !parent) throw new Error(pErr?.message ?? "Parent invoice not found");
+
+  const { data: childrenRaw } = await tbl(supabase, "invoices")
+    .select("total")
+    .eq("parent_invoice_id", parent.id)
+    .eq("business_id", businessId);
+  const billedSoFar = ((childrenRaw ?? []) as { total: number }[])
+    .reduce((sum, c) => sum + Number(c.total ?? 0), 0);
+  const remaining = Math.max(0, Number(parent.total) - billedSoFar);
+
+  // Resolve the requested amount
+  let amount = input.amount;
+  if (input.percent != null) {
+    if (input.percent < 0 || input.percent > 100) throw new Error("percent must be between 0 and 100");
+    amount = Math.round((Number(parent.total) * input.percent) / 100 * 100) / 100;
+  }
+  amount = Math.round((amount ?? 0) * 100) / 100;
+  if (amount <= 0) throw new Error("Amount must be greater than 0");
+  if (amount > remaining + 0.01) {
+    throw new Error(`Amount exceeds remaining balance (${remaining.toFixed(2)} left on ${parent.number})`);
+  }
+
+  // Build a description: "30% deposit on INV-0042" or user-provided
+  const inferredPercent = Math.round((amount / Number(parent.total)) * 100);
+  const description = (input.description?.trim()) || (
+    Math.abs(amount - remaining) < 0.01
+      ? `Final balance for ${parent.number}`
+      : `${inferredPercent}% progress payment on ${parent.number}`
+  );
+
+  // Pull issuing prefix + counter
+  const { data: business } = await tbl(supabase, "businesses")
+    .select("invoice_prefix, invoice_next_number")
+    .eq("id", businessId)
+    .single();
+  const number = `${business?.invoice_prefix ?? "INV"}-${String(business?.invoice_next_number ?? 1).padStart(4, "0")}`;
+  await tbl(supabase, "businesses")
+    .update({ invoice_next_number: (business?.invoice_next_number ?? 1) + 1 })
+    .eq("id", businessId);
+
+  const today = new Date().toISOString().split("T")[0];
+  const lineItem = {
+    id: typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `li_${Date.now()}`,
+    description,
+    quantity: 1,
+    unit_price: amount,
+    amount,
+  };
+
+  const { data, error } = await tbl(supabase, "invoices")
+    .insert({
+      user_id: user.id,
+      business_id: businessId,
+      number,
+      status: "draft",
+      customer_id: parent.customer_id,
+      issue_date: today,
+      due_date: input.due_date ?? parent.due_date ?? today,
+      line_items: [lineItem],
+      subtotal: amount,
+      discount_type: null,
+      discount_value: 0,
+      discount_amount: 0,
+      tax_total: 0,
+      total: amount,
+      amount_paid: 0,
+      notes: parent.notes ?? null,
+      terms: parent.terms ?? null,
+      site_id: parent.site_id ?? null,
+      property_address: parent.property_address ?? null,
+      parent_invoice_id: parent.id,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  revalidatePath("/invoices");
+  revalidatePath(`/invoices/${parent.id}`);
+  revalidatePath(`/invoices/${data.id}`);
+  revalidatePath("/dashboard");
+  dispatchWebhook(businessId, "invoice.created", data);
+  return data as Invoice;
+}
+
 export async function addPayment(invoiceId: string, payment: { amount: number; date: string; method?: string; reference?: string; notes?: string }): Promise<void> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

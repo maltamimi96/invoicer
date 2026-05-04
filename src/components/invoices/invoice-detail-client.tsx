@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeft, Edit, Send, Copy, Trash2, CheckCircle, DollarSign, MoreHorizontal } from "@/components/ui/icons";
+import { ArrowLeft, Edit, Send, Copy, Trash2, CheckCircle, DollarSign, MoreHorizontal, FileStack, ArrowRight } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,7 @@ import { updateInvoice, deleteInvoice, duplicateInvoice, addPayment, sendInvoice
 import { SendDocumentModal } from "@/components/send/send-document-modal";
 import { InvoiceEditor } from "./invoice-editor";
 import { InvoicePDFDownload } from "./invoice-pdf";
+import { ProgressInvoiceModal } from "./progress-invoice-modal";
 
 import { formatCurrency, formatDate, getStatusColor } from "@/lib/utils";
 import type { Business, Customer, Invoice, LineItem, Payment, Product } from "@/types/database";
@@ -29,9 +30,16 @@ interface InvoiceDetailClientProps {
   customers: Customer[];
   products: Product[];
   business: Business;
+  /** Children of THIS invoice if it's a parent, or siblings if this is itself a child. */
+  progressInvoices?: Invoice[];
+  /** Set when viewing a child — the invoice this one bills against. */
+  parentInvoice?: Invoice | null;
 }
 
-export function InvoiceDetailClient({ invoice: initial, customers, products, business }: InvoiceDetailClientProps) {
+export function InvoiceDetailClient({
+  invoice: initial, customers, products, business,
+  progressInvoices = [], parentInvoice = null,
+}: InvoiceDetailClientProps) {
   const router = useRouter();
   const [invoice, setInvoice] = useState(initial);
   const [editing, setEditing] = useState(false);
@@ -43,9 +51,17 @@ export function InvoiceDetailClient({ invoice: initial, customers, products, bus
   const [paymentRef, setPaymentRef] = useState("");
   const [saving, setSaving] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
+  const [progressOpen, setProgressOpen] = useState(false);
 
   const lineItems = (invoice.line_items ?? []) as LineItem[];
   const customer = customers.find((c) => c.id === invoice.customer_id);
+
+  // For progress-invoice billing math: when this is a parent, compute how
+  // much has been split into children already.
+  const isChild  = !!invoice.parent_invoice_id;
+  const isParent = !isChild && progressInvoices.length > 0;
+  const billedSoFar = progressInvoices.reduce((sum, c) => sum + Number(c.total ?? 0), 0);
+  const remaining   = Math.max(0, Number(invoice.total) - billedSoFar);
 
   const handleStatusChange = async (status: Invoice["status"]) => {
     try {
@@ -118,6 +134,12 @@ export function InvoiceDetailClient({ invoice: initial, customers, products, bus
               <CheckCircle className="w-3.5 h-3.5" />Mark paid
             </Button>
           )}
+          {!isChild && invoice.status !== "cancelled" && remaining > 0 && (
+            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setProgressOpen(true)}>
+              <FileStack className="w-3.5 h-3.5" />
+              {progressInvoices.length === 0 ? "Send deposit" : "Add progress invoice"}
+            </Button>
+          )}
           <Button size="sm" className="gap-1.5" onClick={() => setEditing(true)}>
             <Edit className="w-3.5 h-3.5" />Edit
           </Button>
@@ -149,6 +171,70 @@ export function InvoiceDetailClient({ invoice: initial, customers, products, bus
           </DropdownMenu>
         </div>
       </motion.div>
+
+      {/* Linked parent / progress strip */}
+      {(isChild || isParent) && (
+        <div className="rounded-2xl border border-border bg-muted/30 p-4">
+          {isChild && parentInvoice && (
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center flex-shrink-0">
+                <FileStack className="w-4 h-4" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-muted-foreground">Progress payment for</p>
+                <Link href={`/invoices/${parentInvoice.id}`} className="text-sm font-semibold hover:underline">
+                  {parentInvoice.number} · {formatCurrency(parentInvoice.total, business.currency)} total
+                </Link>
+              </div>
+              <Link href={`/invoices/${parentInvoice.id}`} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+                View parent <ArrowRight className="w-3 h-3" />
+              </Link>
+            </div>
+          )}
+          {isParent && (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <FileStack className="w-4 h-4 text-muted-foreground" />
+                  <p className="text-sm font-semibold">Progress invoices</p>
+                </div>
+                <p className="text-xs">
+                  <span className="text-muted-foreground">Billed</span>{" "}
+                  <span className="font-medium">{formatCurrency(billedSoFar, business.currency)}</span>
+                  <span className="text-muted-foreground"> of </span>
+                  <span className="font-medium">{formatCurrency(invoice.total, business.currency)}</span>
+                  {remaining > 0 && (
+                    <>
+                      <span className="text-muted-foreground"> · </span>
+                      <span className="font-semibold">{formatCurrency(remaining, business.currency)} remaining</span>
+                    </>
+                  )}
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                {progressInvoices.map((c) => (
+                  <Link
+                    key={c.id}
+                    href={`/invoices/${c.id}`}
+                    className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl bg-card border border-border hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="font-mono text-xs text-muted-foreground">{c.number}</span>
+                      <Badge variant="secondary" className={`text-[10px] border-0 ${getStatusColor(c.status)}`}>
+                        {c.status}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground truncate">
+                        {(c.line_items?.[0] as LineItem | undefined)?.description ?? ""}
+                      </span>
+                    </div>
+                    <span className="font-semibold tabular-nums text-sm">{formatCurrency(c.total, business.currency)}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Amount paid progress */}
       {invoice.status === "partial" && (
@@ -365,6 +451,18 @@ export function InvoiceDetailClient({ invoice: initial, customers, products, bus
           setInvoice((prev) => ({ ...prev, status: prev.status === "draft" ? "sent" : prev.status }));
         }}
       />
+
+      {!isChild && (
+        <ProgressInvoiceModal
+          open={progressOpen}
+          onOpenChange={setProgressOpen}
+          parentInvoiceId={invoice.id}
+          parentNumber={invoice.number}
+          parentTotal={Number(invoice.total)}
+          alreadyBilled={billedSoFar}
+          currency={business.currency ?? "GBP"}
+        />
+      )}
 
       <AlertDialog open={showDelete} onOpenChange={setShowDelete}>
         <AlertDialogContent>
