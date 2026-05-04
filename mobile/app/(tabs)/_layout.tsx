@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { Wrench, Calendar, User } from "lucide-react-native";
+import { Wrench, Calendar, User, CheckSquare } from "lucide-react-native";
 import { colors } from "@/lib/theme";
 
 export default function TabsLayout() {
@@ -24,6 +24,13 @@ export default function TabsLayout() {
         options={{
           title: "Jobs",
           tabBarIcon: ({ color }) => <Wrench size={20} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="tasks"
+        options={{
+          title: "Tasks",
+          tabBarIcon: ({ color }) => <CheckSquare size={20} color={color} />,
         }}
       />
       <Tabs.Screen

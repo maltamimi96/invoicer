@@ -19,7 +19,7 @@ export default function ScheduleScreen() {
   if (isLoading) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas, alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator color={colors.text} />
+        <ActivityIndicator color={colors.primary} />
       </SafeAreaView>
     );
   }

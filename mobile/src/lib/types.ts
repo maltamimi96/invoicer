@@ -28,6 +28,33 @@ export type WorkOrder = {
   worker_notes: string | null;
   completed_at: string | null;
   created_at: string;
+  /** Per-account contact links — fetched separately and joined on detail. */
+  booker_contact_id?: string | null;
+  onsite_contact_id?: string | null;
+};
+
+export type AccountContact = {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  role: string | null;
+};
+
+export type Task = {
+  id: string;
+  business_id: string;
+  title: string;
+  description: string | null;
+  status: "todo" | "in_progress" | "in_review" | "done";
+  priority: "low" | "normal" | "high" | "urgent";
+  assignee_user_id: string | null;
+  due_date: string | null;
+  related_work_order_id: string | null;
+  related_customer_id: string | null;
+  tags: string[];
+  position: number;
+  created_at: string;
 };
 
 export type WorkOrderPhoto = {

@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  ActivityIndicator, Alert, Image, Linking, Pressable, ScrollView,
-  Text, TextInput, View,
+  ActivityIndicator, Alert, Image, Linking, Modal, Platform,
+  Pressable, ScrollView, Text, TextInput, View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
@@ -10,13 +10,25 @@ import * as ImagePicker from "expo-image-picker";
 import * as Haptics from "expo-haptics";
 import {
   ArrowLeft, MapPin, Phone, Mail, User, Calendar, Clock,
-  Camera, Image as ImageIcon, Send, Play, CheckCircle2,
+  Camera, Image as ImageIcon, Send, Play, CheckCircle2, X, Trash2, Briefcase,
 } from "lucide-react-native";
-import { fetchWorkOrder, setWorkOrderStatus, addWorkOrderPhoto, setWorkerNotes } from "@/lib/jobs";
+import {
+  fetchWorkOrder, setWorkOrderStatus, addWorkOrderPhoto, setWorkerNotes,
+  fetchJobContacts, removeWorkOrderPhoto,
+} from "@/lib/jobs";
 import { uploadJobPhoto } from "@/lib/storage";
 import { StatusPill } from "@/components/StatusPill";
 import { colors, radius, space } from "@/lib/theme";
 import type { WorkOrderStatus } from "@/lib/types";
+
+/** Native maps deep-link — Apple Maps on iOS, Google Maps everywhere else. */
+function openMaps(address: string) {
+  const q = encodeURIComponent(address);
+  const url = Platform.OS === "ios"
+    ? `https://maps.apple.com/?q=${q}`
+    : `https://maps.google.com/?q=${q}`;
+  Linking.openURL(url);
+}
 
 export default function JobDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -29,8 +41,24 @@ export default function JobDetail() {
     enabled:  !!id,
   });
 
+  // Load per-account contacts (booker + onsite) so the worker has someone to
+  // call about the actual job, not just the master customer record.
+  const { data: jobContacts } = useQuery({
+    queryKey: ["work-order-contacts", id, job?.booker_contact_id, job?.onsite_contact_id],
+    queryFn:  () => fetchJobContacts(job?.booker_contact_id, job?.onsite_contact_id),
+    enabled:  !!job,
+  });
+
   const [notes, setNotes] = useState<string>("");
   const [savingNotes, setSavingNotes] = useState(false);
+  const [photoZoom, setPhotoZoom] = useState<string | null>(null);
+
+  // Pre-fill notes with whatever's been saved already so the worker can edit
+  // their own notes instead of starting blank every time.
+  useEffect(() => {
+    if (job?.worker_notes && !notes) setNotes(job.worker_notes);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job?.worker_notes]);
 
   const statusMutation = useMutation({
     mutationFn: ({ status }: { status: WorkOrderStatus }) => setWorkOrderStatus(id!, status),
@@ -52,6 +80,16 @@ export default function JobDetail() {
       qc.invalidateQueries({ queryKey: ["work-order", id] });
     },
     onError: (e: Error) => Alert.alert("Couldn't upload photo", e.message),
+  });
+
+  const deletePhotoMutation = useMutation({
+    mutationFn: (url: string) => removeWorkOrderPhoto(id!, url),
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      qc.invalidateQueries({ queryKey: ["work-order", id] });
+      setPhotoZoom(null);
+    },
+    onError: (e: Error) => Alert.alert("Couldn't delete", e.message),
   });
 
   if (isLoading) {
@@ -175,16 +213,60 @@ export default function JobDetail() {
           <Card>
             <SectionLabel>Where</SectionLabel>
             <Row icon={<MapPin size={16} color={colors.muted} />} label="Address" value={job.property_address} />
-            <Pressable
-              onPress={() =>
-                Linking.openURL(
-                  `https://maps.google.com/?q=${encodeURIComponent(job.property_address!)}`
-                )
-              }
-              style={openMapsBtn}
-            >
-              <Text style={{ color: colors.white, fontWeight: "700" }}>Open in Maps</Text>
+            <Pressable onPress={() => openMaps(job.property_address!)} style={openMapsBtn}>
+              <MapPin size={14} color={colors.white} />
+              <Text style={{ color: colors.white, fontWeight: "700", marginLeft: 6 }}>
+                {Platform.OS === "ios" ? "Open in Apple Maps" : "Open in Google Maps"}
+              </Text>
             </Pressable>
+          </Card>
+        )}
+
+        {/* Booker (who requested the job) */}
+        {jobContacts?.booker && (
+          <Card>
+            <SectionLabel>Booker</SectionLabel>
+            <Row
+              icon={<Briefcase size={16} color={colors.muted} />}
+              label="Requested by"
+              value={`${jobContacts.booker.name}${jobContacts.booker.role ? ` · ${jobContacts.booker.role}` : ""}`}
+            />
+            {jobContacts.booker.phone && (
+              <PressableRow
+                icon={<Phone size={16} color={colors.muted} />}
+                label="Call"
+                value={jobContacts.booker.phone}
+                onPress={() => Linking.openURL(`tel:${jobContacts.booker!.phone}`)}
+              />
+            )}
+            {jobContacts.booker.email && (
+              <PressableRow
+                icon={<Mail size={16} color={colors.muted} />}
+                label="Email"
+                value={jobContacts.booker.email}
+                onPress={() => Linking.openURL(`mailto:${jobContacts.booker!.email}`)}
+              />
+            )}
+          </Card>
+        )}
+
+        {/* On-site contact */}
+        {jobContacts?.onsite && (
+          <Card>
+            <SectionLabel>On-site contact</SectionLabel>
+            <Row
+              icon={<User size={16} color={colors.muted} />}
+              label="Meet"
+              value={`${jobContacts.onsite.name}${jobContacts.onsite.role ? ` · ${jobContacts.onsite.role}` : ""}`}
+            />
+            {jobContacts.onsite.phone && (
+              <PressableRow
+                icon={<Phone size={16} color={colors.muted} />}
+                label="Call"
+                value={jobContacts.onsite.phone}
+                onPress={() => Linking.openURL(`tel:${jobContacts.onsite!.phone}`)}
+              />
+            )}
           </Card>
         )}
 
@@ -223,11 +305,12 @@ export default function JobDetail() {
           {photos.length > 0 && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: space.md }}>
               {photos.map((p, i) => (
-                <Image
-                  key={`${p.url}-${i}`}
-                  source={{ uri: p.url }}
-                  style={{ width: 96, height: 96, borderRadius: radius.md, marginRight: space.sm, backgroundColor: "#eee" }}
-                />
+                <Pressable key={`${p.url}-${i}`} onPress={() => setPhotoZoom(p.url)}>
+                  <Image
+                    source={{ uri: p.url }}
+                    style={{ width: 96, height: 96, borderRadius: radius.md, marginRight: space.sm, backgroundColor: "#eee" }}
+                  />
+                </Pressable>
               ))}
             </ScrollView>
           )}
@@ -304,9 +387,9 @@ export default function JobDetail() {
             )}
             {(job.status === "submitted" || job.status === "reviewed") && (
               <BigAction
-                color={colors.lime}
-                fg={colors.limeDeep}
-                icon={<CheckCircle2 size={16} color={colors.limeDeep} />}
+                color={colors.emerald}
+                fg={colors.emeraldDeep}
+                icon={<CheckCircle2 size={16} color={colors.emeraldDeep} />}
                 label="Mark complete"
                 onPress={() => statusMutation.mutate({ status: "completed" })}
                 busy={statusMutation.isPending}
@@ -315,6 +398,51 @@ export default function JobDetail() {
           </View>
         </View>
       </ScrollView>
+
+      {/* Full-screen photo viewer w/ delete */}
+      <Modal visible={!!photoZoom} transparent animationType="fade" onRequestClose={() => setPhotoZoom(null)}>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.92)", justifyContent: "center" }}>
+          <Pressable
+            onPress={() => setPhotoZoom(null)}
+            hitSlop={12}
+            style={{ position: "absolute", top: 56, right: 20, zIndex: 2,
+                     width: 36, height: 36, borderRadius: 18,
+                     backgroundColor: "rgba(255,255,255,0.12)",
+                     alignItems: "center", justifyContent: "center" }}
+          >
+            <X size={18} color={colors.white} />
+          </Pressable>
+          {photoZoom && (
+            <Image
+              source={{ uri: photoZoom }}
+              style={{ width: "100%", height: "70%", resizeMode: "contain" }}
+            />
+          )}
+          <Pressable
+            onPress={() => {
+              if (!photoZoom) return;
+              Alert.alert("Delete photo?", "This can't be undone.", [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Delete", style: "destructive",
+                  onPress: () => deletePhotoMutation.mutate(photoZoom),
+                },
+              ]);
+            }}
+            disabled={deletePhotoMutation.isPending}
+            style={{ position: "absolute", bottom: 60, alignSelf: "center",
+                     flexDirection: "row", alignItems: "center", gap: 6,
+                     paddingHorizontal: 14, paddingVertical: 10,
+                     backgroundColor: "rgba(220, 38, 38, 0.95)",
+                     borderRadius: radius.pill }}
+          >
+            <Trash2 size={14} color={colors.white} />
+            <Text style={{ color: colors.white, fontWeight: "700", fontSize: 13 }}>
+              {deletePhotoMutation.isPending ? "Deleting…" : "Delete photo"}
+            </Text>
+          </Pressable>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -331,8 +459,10 @@ const backBtn = {
 const openMapsBtn = {
   marginTop: 12,
   alignSelf: "flex-start" as const,
+  flexDirection: "row" as const,
+  alignItems: "center" as const,
   paddingHorizontal: 14, paddingVertical: 8,
-  backgroundColor: colors.text, borderRadius: 999,
+  backgroundColor: colors.primary, borderRadius: 999,
 };
 
 function Card({ children }: { children: React.ReactNode }) {
