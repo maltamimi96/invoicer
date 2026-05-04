@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/layout/page-header";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -157,28 +158,19 @@ export function ContactsClient({ contacts: initial }: { contacts: Contact[] }) {
   };
 
   return (
-    <div className="space-y-10">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 pb-2">
-        <div className="space-y-2">
-          <h1 className="font-display text-4xl sm:text-5xl tracking-tight">Contacts</h1>
-          <p className="text-sm text-muted-foreground">
-            {counts.total} total
-            <span className="mx-2 text-muted-foreground/40">·</span>
-            {counts.lead} leads
-            <span className="mx-2 text-muted-foreground/40">·</span>
-            {counts.contact} contacts
-            <span className="mx-2 text-muted-foreground/40">·</span>
-            {counts.customer} customers
-          </p>
-        </div>
-        <Button
-          onClick={() => { setForm(EMPTY); setShowAdd(true); }}
-          className="bg-foreground text-background hover:bg-foreground/90 rounded-md h-9 px-4"
-        >
-          <Plus className="h-4 w-4 mr-1.5" /> New contact
-        </Button>
-      </div>
+    <div>
+      <PageHeader
+        title="Contacts"
+        subtitle={`${counts.total} total · ${counts.lead} leads · ${counts.contact} contacts · ${counts.customer} customers`}
+        actions={
+          <button
+            onClick={() => { setForm(EMPTY); setShowAdd(true); }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+          >
+            <Plus className="w-3.5 h-3.5" /> New contact
+          </button>
+        }
+      />
 
       {/* Filter row */}
       <div className="flex flex-col sm:flex-row gap-3 border-b border-border pb-4">

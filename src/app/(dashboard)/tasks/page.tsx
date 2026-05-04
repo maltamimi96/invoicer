@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { listTasks } from "@/lib/actions/tasks";
 import { KanbanBoard } from "@/components/tasks/kanban-board";
+import { PageHeader } from "@/components/layout/page-header";
 
 export const dynamic = "force-dynamic";
 
@@ -50,12 +51,10 @@ export default async function TasksPage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">Tasks</h1>
-        <p className="text-sm text-neutral-500 mt-0.5">
-          Drag cards between columns. Click a card to assign, tag, or link it to a job.
-        </p>
-      </div>
+      <PageHeader
+        title="Tasks"
+        subtitle="Drag cards between columns. Click a card to assign, tag, or link it to a job."
+      />
       <KanbanBoard
         initialTasks={tasks}
         members={members}

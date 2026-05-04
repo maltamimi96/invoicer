@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { MessageSquare, Plus, Send, Phone, User, Search, Loader2, ChevronLeft } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/layout/page-header";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -185,19 +186,25 @@ export function MessagesClient({ conversations: initialConvs, customers, autoOpe
 
   return (
     <div className="flex flex-col h-[calc(100vh-6rem)]">
-      {/* Page header */}
-      <div className="flex items-center justify-between mb-4 flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-bold">Messages</h1>
-          {totalUnread > 0 && (
-            <Badge className="bg-blue-500 text-white text-xs">{totalUnread}</Badge>
-          )}
-        </div>
-        <Button size="sm" className="gap-1.5" onClick={() => setShowNewModal(true)}>
-          <Plus className="w-4 h-4" />
-          New Message
-        </Button>
-      </div>
+      <PageHeader
+        title={
+          <span className="inline-flex items-center gap-2">
+            Messages
+            {totalUnread > 0 && (
+              <span className="ch-pill new no-dot">{totalUnread}</span>
+            )}
+          </span>
+        }
+        subtitle={`${conversations.length} thread${conversations.length === 1 ? "" : "s"}`}
+        actions={
+          <button
+            onClick={() => setShowNewModal(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+          >
+            <Plus className="w-3.5 h-3.5" /> New message
+          </button>
+        }
+      />
 
       {/* Main panel */}
       <div className="flex flex-1 border rounded-xl overflow-hidden min-h-0">

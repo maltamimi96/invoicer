@@ -6,6 +6,7 @@ import { Users2, Plus, Pencil, Trash2, Loader2, X, Check, Phone, Mail, Briefcase
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/layout/page-header";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -298,22 +299,20 @@ export function TeamPageClient({ profiles: initialProfiles, members, userRole, c
   };
 
   return (
-    <div className="space-y-6 ">
-      {/* Header */}
-      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Users2 className="w-6 h-6" /> Team
-          </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Manage team member profiles and skills</p>
-        </div>
-        {canManage && (
-          <Button size="sm" className="gap-1.5" onClick={() => setShowAddForm((v) => !v)}>
+    <div>
+      <PageHeader
+        title="Team"
+        subtitle="Manage team member profiles and skills"
+        actions={canManage && (
+          <button
+            onClick={() => setShowAddForm((v) => !v)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+          >
             {showAddForm ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
             {showAddForm ? "Cancel" : "Add member"}
-          </Button>
+          </button>
         )}
-      </motion.div>
+      />
 
       {/* Add form */}
       <AnimatePresence>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { FileText, Plus, Trash2, Download, Eye, ClipboardList } from "@/components/ui/icons";
 import { toast } from "sonner";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -40,16 +41,18 @@ export function ReportsClient({ reports }: ReportsClientProps) {
   };
 
   return (
-    <div className="space-y-6">
-      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Reports</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{reports.length} report{reports.length !== 1 ? "s" : ""}</p>
-        </div>
-        <Link href="/reports/new">
-          <Button size="sm"><Plus className="w-4 h-4 mr-1.5" />New Report</Button>
-        </Link>
-      </motion.div>
+    <div>
+      <PageHeader
+        title="Reports"
+        subtitle={`${reports.length} report${reports.length !== 1 ? "s" : ""}`}
+        actions={
+          <Link href="/reports/new">
+            <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
+              <Plus className="w-3.5 h-3.5" /> New report
+            </button>
+          </Link>
+        }
+      />
 
       {reports.length === 0 ? (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center py-24 text-center">
