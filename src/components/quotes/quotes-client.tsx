@@ -1,37 +1,59 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Plus, Search, FileCheck, MoreHorizontal, Trash2, Eye, ArrowRight } from "@/components/ui/icons";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { PageHeader } from "@/components/layout/page-header";
 import { deleteQuote, convertQuoteToInvoice } from "@/lib/actions/quotes";
-import { formatCurrency, formatDate, getStatusColor } from "@/lib/utils";
-import { useRouter } from "next/navigation";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import type { Customer, QuoteWithCustomer } from "@/types/database";
 
-const STATUSES = ["all", "draft", "sent", "accepted", "rejected", "expired"];
+const TABS = [
+  { id: "all",      label: "All"      },
+  { id: "draft",    label: "Draft"    },
+  { id: "sent",     label: "Sent"     },
+  { id: "accepted", label: "Accepted" },
+  { id: "rejected", label: "Rejected" },
+  { id: "expired",  label: "Expired"  },
+] as const;
 
 export function QuotesClient({ quotes: initial, currency = "GBP" }: { quotes: QuoteWithCustomer[]; customers: Customer[]; currency?: string }) {
   const router = useRouter();
   const [quotes, setQuotes] = useState(initial);
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("all");
+  const [tab, setTab] = useState<typeof TABS[number]["id"]>("all");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [converting, setConverting] = useState<string | null>(null);
 
-  const filtered = quotes.filter((q) => {
-    const matchSearch = `${q.number} ${q.customers?.name}`.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = status === "all" || q.status === status;
+  const filtered = useMemo(() => quotes.filter((q) => {
+    const matchSearch = `${q.number} ${q.customers?.name ?? ""}`.toLowerCase().includes(search.toLowerCase());
+    const matchStatus = tab === "all" || q.status === tab;
     return matchSearch && matchStatus;
-  });
+  }), [quotes, search, tab]);
+
+  const counts = useMemo(() => {
+    const c: Record<string, number> = { all: quotes.length };
+    for (const t of TABS) c[t.id] = quotes.filter((q) => t.id === "all" || q.status === t.id).length;
+    return c;
+  }, [quotes]);
+
+  const totalPipeline = useMemo(
+    () => quotes.filter((q) => q.status === "sent").reduce((s, q) => s + q.total, 0),
+    [quotes]
+  );
+  const totalAccepted = useMemo(
+    () => quotes.filter((q) => q.status === "accepted").reduce((s, q) => s + q.total, 0),
+    [quotes]
+  );
+  const acceptanceRate = quotes.length === 0
+    ? 0
+    : Math.round((counts.accepted / Math.max(counts.accepted + counts.rejected + counts.expired, 1)) * 100);
 
   const handleDelete = async () => {
     if (!deleteId) return;
@@ -53,63 +75,103 @@ export function QuotesClient({ quotes: initial, currency = "GBP" }: { quotes: Qu
   };
 
   return (
-    <div className="space-y-6">
-      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Quotes</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{quotes.length} total</p>
-        </div>
-        <Link href="/quotes/new" className="w-full sm:w-auto">
-          <Button size="sm" className="gap-1.5 w-full sm:w-auto"><Plus className="w-3.5 h-3.5" />New quote</Button>
-        </Link>
-      </motion.div>
+    <div>
+      <PageHeader
+        title="Quotes"
+        subtitle={`${quotes.length} total · ${formatCurrency(totalPipeline, currency)} in pipeline`}
+        actions={
+          <Link href="/quotes/new">
+            <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
+              <Plus className="w-3.5 h-3.5" /> New quote
+            </button>
+          </Link>
+        }
+      />
 
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input className="pl-9" placeholder="Search quotes..." value={search} onChange={(e) => setSearch(e.target.value)} />
+      <div className="ch-stat-grid">
+        <div className="ch-stat">
+          <div className="ch-stat-label"><FileCheck className="w-3.5 h-3.5" /><span>Total</span></div>
+          <div className="ch-stat-value">{quotes.length}</div>
+          <div className="ch-stat-meta">all time</div>
         </div>
-        <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className="w-full sm:w-40">
-            <SelectValue placeholder="All statuses" />
-          </SelectTrigger>
-          <SelectContent>
-            {STATUSES.map((s) => (
-              <SelectItem key={s} value={s}>{s === "all" ? "All statuses" : s.charAt(0).toUpperCase() + s.slice(1)}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="ch-stat">
+          <div className="ch-stat-label"><FileCheck className="w-3.5 h-3.5" /><span>Open pipeline</span></div>
+          <div className="ch-stat-value">{formatCurrency(totalPipeline, currency)}</div>
+          <div className="ch-stat-meta">awaiting decision</div>
+        </div>
+        <div className="ch-stat">
+          <div className="ch-stat-label"><FileCheck className="w-3.5 h-3.5" /><span>Accepted</span></div>
+          <div className="ch-stat-value">{formatCurrency(totalAccepted, currency)}</div>
+          <div className="ch-stat-meta">won deals</div>
+        </div>
+        <div className="ch-stat">
+          <div className="ch-stat-label"><FileCheck className="w-3.5 h-3.5" /><span>Acceptance rate</span></div>
+          <div className="ch-stat-value">{acceptanceRate}%</div>
+          <div className="ch-stat-meta">of decided quotes</div>
+        </div>
+      </div>
+
+      <div className="ch-tabs">
+        {TABS.map((t) => (
+          <button key={t.id} className={`ch-tab ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}>
+            {t.label}
+            <span className="count">{counts[t.id] ?? 0}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="ch-filter-bar">
+        <div className="relative flex-1 min-w-[240px] max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+          <Input placeholder="Search quotes..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-9" />
+        </div>
       </div>
 
       {filtered.length === 0 ? (
-        <div className="text-center py-20">
-          <FileCheck className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-          <h3 className="font-medium mb-1">No quotes found</h3>
-          <p className="text-sm text-muted-foreground mb-4">{search || status !== "all" ? "Try different filters" : "Create your first quote"}</p>
-          {!search && status === "all" && <Link href="/quotes/new"><Button size="sm">Create quote</Button></Link>}
+        <div className="ch-empty">
+          <FileCheck className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+          <h4>No quotes found</h4>
+          <p>{search || tab !== "all" ? "Try different filters." : "Create your first quote."}</p>
+          {!search && tab === "all" && (
+            <Link href="/quotes/new">
+              <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium">
+                <Plus className="w-3 h-3" /> Create quote
+              </button>
+            </Link>
+          )}
         </div>
       ) : (
-        <div className="space-y-2">
-          {filtered.map((quote, i) => (
-            <motion.div key={quote.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}>
-              <Card className="hover:shadow-sm transition-shadow">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-4">
-                    <div className="min-w-0 flex-1 grid grid-cols-1 sm:grid-cols-4 gap-2 items-center">
-                      <div>
-                        <Link href={`/quotes/${quote.id}`} className="font-medium text-sm hover:text-blue-600 dark:hover:text-blue-400 transition-colors">{quote.number}</Link>
-                        <p className="text-xs text-muted-foreground">{quote.customers?.name ?? "No client"}</p>
-                      </div>
-                      <div className="hidden sm:block text-sm text-muted-foreground">Issued {formatDate(quote.issue_date)}</div>
-                      <div className="hidden sm:block text-sm text-muted-foreground">Expires {formatDate(quote.expiry_date)}</div>
-                      <div className="flex items-center gap-2 sm:justify-end">
-                        <Badge variant="secondary" className={`text-xs ${getStatusColor(quote.status)}`}>{quote.status}</Badge>
-                        <span className="font-semibold text-sm">{formatCurrency(quote.total, currency)}</span>
-                      </div>
-                    </div>
+        <motion.div
+          initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}
+          className="ch-table-wrap"
+        >
+          <table className="ch-table">
+            <thead>
+              <tr>
+                <th>Quote</th>
+                <th>Customer</th>
+                <th>Issued</th>
+                <th>Expires</th>
+                <th>Status</th>
+                <th className="num">Total</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((quote) => (
+                <tr key={quote.id} onClick={() => router.push(`/quotes/${quote.id}`)}>
+                  <td><span className="ref">{quote.number}</span></td>
+                  <td className="font-medium">{quote.customers?.name ?? "No client"}</td>
+                  <td className="text-muted-foreground">{formatDate(quote.issue_date)}</td>
+                  <td className="text-muted-foreground">{formatDate(quote.expiry_date)}</td>
+                  <td><span className={`ch-pill ${quote.status}`}>{quote.status}</span></td>
+                  <td className="num font-semibold">{formatCurrency(quote.total, currency)}</td>
+                  <td className="text-right" onClick={(e) => e.stopPropagation()}>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0"><MoreHorizontal className="w-4 h-4" /></Button>
+                        <button className="inline-flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:bg-muted">
+                          <MoreHorizontal className="w-4 h-4" />
+                        </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem asChild>
@@ -126,12 +188,12 @@ export function QuotesClient({ quotes: initial, currency = "GBP" }: { quotes: Qu
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
-        </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </motion.div>
       )}
 
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>

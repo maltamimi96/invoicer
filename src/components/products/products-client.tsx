@@ -2,12 +2,10 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Search, Package, Edit, Trash2, Archive, Upload } from "@/components/ui/icons";
+import { Plus, Search, Package, Edit, Trash2, Upload } from "@/components/ui/icons";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { PageHeader } from "@/components/layout/page-header";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { createProduct, updateProduct, deleteProduct, bulkImportProducts } from "@/lib/actions/products";
@@ -76,71 +74,128 @@ export function ProductsClient({ products: initial, currency = "GBP" }: { produc
     setDeleteId(null);
   };
 
-  return (
-    <div className="space-y-6">
-      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Products & Services</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{products.length} item{products.length !== 1 ? "s" : ""}</p>
-        </div>
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <Button size="sm" variant="outline" className="gap-1.5 flex-1 sm:flex-initial" onClick={() => setShowImport(true)}>
-            <Upload className="w-3.5 h-3.5" />Import CSV
-          </Button>
-          <Button size="sm" className="gap-1.5 flex-1 sm:flex-initial" onClick={() => setShowNew(true)}>
-            <Plus className="w-3.5 h-3.5" />Add product
-          </Button>
-        </div>
-      </motion.div>
+  const totalCatalogValue = products.reduce((s, p) => s + (p.unit_price ?? 0), 0);
+  const archivedCount = products.filter((p) => p.archived).length;
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input className="pl-9" placeholder="Search products..." value={search} onChange={(e) => setSearch(e.target.value)} />
+  return (
+    <div>
+      <PageHeader
+        title="Products & Services"
+        subtitle={`${products.length - archivedCount} active · ${archivedCount} archived`}
+        actions={
+          <>
+            <button
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-card text-sm font-medium hover:bg-muted transition-colors"
+              onClick={() => setShowImport(true)}
+            >
+              <Upload className="w-3.5 h-3.5" /> Import CSV
+            </button>
+            <button
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+              onClick={() => setShowNew(true)}
+            >
+              <Plus className="w-3.5 h-3.5" /> Add product
+            </button>
+          </>
+        }
+      />
+
+      <div className="ch-stat-grid">
+        <div className="ch-stat">
+          <div className="ch-stat-label"><Package className="w-3.5 h-3.5" /><span>Total items</span></div>
+          <div className="ch-stat-value">{products.length}</div>
+          <div className="ch-stat-meta">in catalog</div>
+        </div>
+        <div className="ch-stat">
+          <div className="ch-stat-label"><Package className="w-3.5 h-3.5" /><span>Catalog value</span></div>
+          <div className="ch-stat-value">{formatCurrency(totalCatalogValue, currency)}</div>
+          <div className="ch-stat-meta">sum of unit prices</div>
+        </div>
+        <div className="ch-stat">
+          <div className="ch-stat-label"><Package className="w-3.5 h-3.5" /><span>Active</span></div>
+          <div className="ch-stat-value">{products.length - archivedCount}</div>
+          <div className="ch-stat-meta">available to invoice</div>
+        </div>
+      </div>
+
+      <div className="ch-filter-bar">
+        <div className="relative flex-1 min-w-[240px] max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+          <Input className="pl-9 h-9" placeholder="Search products..." value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
       </div>
 
       {filtered.length === 0 ? (
-        <div className="text-center py-20">
-          <Package className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-          <h3 className="font-medium mb-1">No products found</h3>
-          <p className="text-sm text-muted-foreground mb-4">{search ? "Try a different search" : "Add your products and services to quickly fill line items"}</p>
-          {!search && <Button size="sm" onClick={() => setShowNew(true)}>Add product</Button>}
+        <div className="ch-empty">
+          <Package className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+          <h4>No products found</h4>
+          <p>{search ? "Try a different search." : "Add your products and services to quickly fill line items."}</p>
+          {!search && (
+            <button
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium"
+              onClick={() => setShowNew(true)}
+            >
+              <Plus className="w-3 h-3" /> Add product
+            </button>
+          )}
         </div>
       ) : (
-        <div className="grid gap-3">
-          <AnimatePresence>
-            {filtered.map((product) => (
-              <motion.div key={product.id} layout initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}>
-                <Card>
-                  <CardContent className="p-4 flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                      <Package className="w-5 h-5 text-muted-foreground" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium text-sm">{product.name}</span>
-                        {product.unit && <Badge variant="outline" className="text-xs">{product.unit}</Badge>}
-                        {product.archived && <Badge variant="secondary" className="text-xs">Archived</Badge>}
+        <motion.div
+          initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}
+          className="ch-table-wrap"
+        >
+          <table className="ch-table">
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>Unit</th>
+                <th>Tax</th>
+                <th>Status</th>
+                <th className="num">Unit price</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <AnimatePresence>
+                {filtered.map((product) => (
+                  <tr key={product.id} onClick={() => setEditProduct(product)}>
+                    <td>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-7 h-7 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
+                          <Package className="w-3.5 h-3.5 text-muted-foreground" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-semibold truncate">{product.name}</div>
+                          {product.description && (
+                            <div className="text-[11.5px] text-muted-foreground truncate max-w-md">{product.description}</div>
+                          )}
+                        </div>
                       </div>
-                      {product.description && <p className="text-xs text-muted-foreground mt-0.5 truncate">{product.description}</p>}
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="font-semibold text-sm">{formatCurrency(product.unit_price, currency)}</p>
-                      <p className="text-xs text-muted-foreground">{product.tax_rate}% tax</p>
-                    </div>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditProduct(product)}>
-                        <Edit className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => setDeleteId(product.id)}>
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </div>
+                    </td>
+                    <td className="text-muted-foreground">{product.unit ?? "—"}</td>
+                    <td className="text-muted-foreground">{product.tax_rate}%</td>
+                    <td>
+                      <span className={`ch-pill ${product.archived ? "archived" : "active"}`}>
+                        {product.archived ? "archived" : "active"}
+                      </span>
+                    </td>
+                    <td className="num font-semibold">{formatCurrency(product.unit_price, currency)}</td>
+                    <td className="text-right" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-1">
+                        <button className="inline-flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:bg-muted" onClick={() => setEditProduct(product)}>
+                          <Edit className="w-3.5 h-3.5" />
+                        </button>
+                        <button className="inline-flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:bg-muted hover:text-destructive" onClick={() => setDeleteId(product.id)}>
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </AnimatePresence>
+            </tbody>
+          </table>
+        </motion.div>
       )}
 
       {/* New product sheet */}
