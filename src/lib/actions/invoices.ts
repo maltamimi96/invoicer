@@ -298,7 +298,7 @@ export async function getDashboardStats() {
   const businessId = await getActiveBizId(supabase, user.id);
 
   const { data: invoices } = await tbl(supabase, "invoices")
-    .select("total, amount_paid, status, due_date, created_at, number, customers(name)")
+    .select("id, number, total, amount_paid, status, issue_date, due_date, created_at, customers(name)")
     .eq("business_id", businessId);
 
   if (!invoices) return { totalRevenue: 0, outstanding: 0, overdue: 0, paidThisMonth: 0, recentInvoices: [], monthlyData: [] };

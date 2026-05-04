@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   TrendingUp, Clock, AlertTriangle, CheckCircle, Plus, FileText,
@@ -49,6 +50,7 @@ function fmtShort(n: number, currency: string) {
 }
 
 export function DashboardClient({ stats, currency = "GBP", todayJobs }: DashboardClientProps) {
+  const router = useRouter();
   const todayStr = new Date().toISOString().split("T")[0];
   const now = new Date();
   const hour = now.getHours();
@@ -211,7 +213,11 @@ export function DashboardClient({ stats, currency = "GBP", todayJobs }: Dashboar
                   </thead>
                   <tbody>
                     {stats.recentInvoices.slice(0, 5).map((inv, i) => (
-                      <tr key={inv.id ?? i} onClick={() => inv.id && (window.location.href = `/invoices/${inv.id}`)}>
+                      <tr
+                        key={inv.id ?? i}
+                        className={inv.id ? "" : "cursor-default"}
+                        onClick={() => { if (inv.id) router.push(`/invoices/${inv.id}`); }}
+                      >
                         <td><span className="ref">{inv.number ?? "—"}</span></td>
                         <td>{inv.customers?.name ?? "—"}</td>
                         <td className="text-muted-foreground">{inv.issue_date ?? inv.due_date ?? ""}</td>
@@ -277,8 +283,8 @@ export function DashboardClient({ stats, currency = "GBP", todayJobs }: Dashboar
                 <h3 className="text-sm font-semibold">Activity</h3>
               </div>
               <div className="p-2">
-                {stats.recentInvoices.slice(0, 5).map((inv, i) => (
-                  <Link key={inv.id ?? i} href={`/invoices/${inv.id}`}>
+                {stats.recentInvoices.slice(0, 5).map((inv, i) => {
+                  const inner = (
                     <div className="ch-activity-item">
                       <div className="ch-activity-icon">
                         <FileText className="w-3.5 h-3.5" />
@@ -291,8 +297,11 @@ export function DashboardClient({ stats, currency = "GBP", todayJobs }: Dashboar
                         <div className="ch-activity-meta">{inv.customers?.name ?? "No client"}</div>
                       </div>
                     </div>
-                  </Link>
-                ))}
+                  );
+                  return inv.id
+                    ? <Link key={inv.id} href={`/invoices/${inv.id}`}>{inner}</Link>
+                    : <div key={i}>{inner}</div>;
+                })}
               </div>
             </div>
           )}
