@@ -36,28 +36,35 @@ export async function POST(req: NextRequest) {
   const effectiveUtmSource = utm_source || (normalizedSource !== rawSource ? rawSource : null);
 
   const sb = createAdminClient();
+  // Route through upsert_lead so external integrations (landing pages,
+  // Zapier, scrapers) can post the same prospect repeatedly without
+  // creating duplicates — sources/source_refs/last_seen_at are appended.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (sb as any)
-    .from("leads")
-    .insert({
-      name,
-      phone: phone || null,
-      email: email || null,
-      suburb: suburb || null,
-      service: service || null,
-      property_type: property_type || null,
-      timing: timing || null,
-      notes: notes || null,
-      status: "new",
-      source: normalizedSource,
-      utm_source: effectiveUtmSource,
-      utm_medium: utm_medium || null,
-      utm_campaign: utm_campaign || null,
-      business_id: ctx.businessId,
-      user_id: ctx.userId,
-    })
-    .select("id, name, status")
-    .single();
+  const { data, error } = await (sb as any).rpc("upsert_lead", {
+    p_business_id:   ctx.businessId,
+    p_user_id:       ctx.userId,
+    p_name:          name,
+    p_email:         email   || null,
+    p_phone:         phone   || null,
+    p_address:       null,
+    p_suburb:        suburb  || null,
+    p_service:       service || null,
+    p_property_type: property_type || null,
+    p_timing:        timing  || null,
+    p_notes:         notes   || null,
+    p_source:        normalizedSource,
+    p_source_ref:    effectiveUtmSource ?? null,
+  }).single();
+
+  // Backfill UTM fields directly (they're not part of upsert_lead's surface).
+  if (data && (effectiveUtmSource || utm_medium || utm_campaign)) {
+    const patch: Record<string, string | null> = {};
+    if (effectiveUtmSource) patch.utm_source   = effectiveUtmSource;
+    if (utm_medium)         patch.utm_medium   = utm_medium;
+    if (utm_campaign)       patch.utm_campaign = utm_campaign;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (sb as any).from("leads").update(patch).eq("id", (data as { id: string }).id);
+  }
 
   if (error) {
     console.error("Lead create error:", error);
