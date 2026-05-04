@@ -446,6 +446,17 @@ export function LeadsClient({ leads: initial }: { leads: Lead[] }) {
   );
 }
 
+// Whole-card tinting per stage so a glance at the kanban tells you where each
+// lead stands. Soft surface + matching left rail; dark mode uses translucent
+// overlays so the prototype's neutral surface still shows through.
+const CARD_TONE: Record<LeadStatus, string> = {
+  new:       "bg-blue-50/80   dark:bg-blue-950/30   border-blue-200/70   dark:border-blue-900/60   border-l-4 border-l-blue-500",
+  contacted: "bg-amber-50/80  dark:bg-amber-950/30  border-amber-200/70  dark:border-amber-900/60  border-l-4 border-l-amber-500",
+  quoted:    "bg-violet-50/80 dark:bg-violet-950/30 border-violet-200/70 dark:border-violet-900/60 border-l-4 border-l-violet-500",
+  won:       "bg-emerald-50/90 dark:bg-emerald-950/40 border-emerald-200/80 dark:border-emerald-900/60 border-l-4 border-l-emerald-500",
+  lost:      "bg-rose-50/80   dark:bg-rose-950/30   border-rose-200/70   dark:border-rose-900/60   border-l-4 border-l-rose-500 opacity-90",
+};
+
 function LeadCard({
   lead,
   converting,
@@ -469,12 +480,13 @@ function LeadCard({
     quoted: "won",
   };
   const next = NEXT_STATUS[lead.status];
+  const tone = CARD_TONE[lead.status] ?? "bg-card border-border";
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
-      className="rounded-lg border bg-card shadow-sm p-3 space-y-2 hover:shadow-md transition-shadow"
+      className={`rounded-lg border shadow-sm p-3 space-y-2 hover:shadow-md transition-shadow ${tone}`}
     >
       {/* Name + menu */}
       <div className="flex items-start justify-between gap-1">
