@@ -104,6 +104,76 @@ export async function deleteCustomer(id: string): Promise<void> {
   revalidatePath("/customers");
 }
 
+/**
+ * Bulk action for the multi-select toolbar. Defaults to soft-delete
+ * (archive) so historical invoice / quote / work-order links keep their
+ * customer name; pass mode="hard" to actually drop the rows.
+ */
+export async function bulkArchiveCustomers(
+  ids: string[],
+  mode: "archive" | "hard" = "archive",
+): Promise<{ ok: number }> {
+  if (!ids.length) return { ok: 0 };
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+  const businessId = await getActiveBizId(supabase, user.id);
+
+  if (mode === "hard") {
+    const { error } = await tbl(supabase, "customers")
+      .delete()
+      .in("id", ids)
+      .eq("business_id", businessId);
+    if (error) throw error;
+  } else {
+    const { error } = await tbl(supabase, "customers")
+      .update({ archived: true })
+      .in("id", ids)
+      .eq("business_id", businessId);
+    if (error) throw error;
+  }
+  revalidateTag(`customers-${businessId}`, {});
+  revalidatePath("/customers");
+  return { ok: ids.length };
+}
+
+/**
+ * Returns aggregate stats per customer: invoice count, total billed,
+ * total paid, outstanding. Cheap enough to fetch all rows for the
+ * business and group client-side; we already do that elsewhere.
+ */
+export async function getCustomerStats(): Promise<Record<string, {
+  invoice_count: number;
+  total_billed: number;
+  total_paid: number;
+  outstanding: number;
+}>> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+  const businessId = await getActiveBizId(supabase, user.id);
+
+  const { data: invoices, error } = await tbl(supabase, "invoices")
+    .select("customer_id, total, amount_paid, status")
+    .eq("business_id", businessId);
+  if (error) throw error;
+
+  const stats: Record<string, { invoice_count: number; total_billed: number; total_paid: number; outstanding: number }> = {};
+  for (const inv of (invoices ?? []) as Array<{
+    customer_id: string | null; total: number; amount_paid: number; status: string;
+  }>) {
+    if (!inv.customer_id) continue;
+    const s = stats[inv.customer_id] ??= { invoice_count: 0, total_billed: 0, total_paid: 0, outstanding: 0 };
+    s.invoice_count += 1;
+    s.total_billed  += Number(inv.total ?? 0);
+    s.total_paid    += Number(inv.amount_paid ?? 0);
+    if (inv.status !== "cancelled" && inv.status !== "draft") {
+      s.outstanding += Math.max(0, Number(inv.total ?? 0) - Number(inv.amount_paid ?? 0));
+    }
+  }
+  return stats;
+}
+
 export async function bulkImportCustomers(
   rows: Array<Omit<Customer, "id" | "created_at" | "updated_at" | "user_id" | "business_id" | "archived">>
 ): Promise<{ imported: number; errors: string[] }> {
