@@ -14,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { setActiveBusiness } from "@/lib/actions/business";
 import { AddBusinessModal } from "./add-business-modal";
+import { useAppLoading } from "@/components/layout/app-loading";
 import type { Business } from "@/types/database";
 
 interface BusinessSwitcherProps {
@@ -26,13 +27,21 @@ export function BusinessSwitcher({ business, businesses, onClose }: BusinessSwit
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [addOpen, setAddOpen] = useState(false);
+  const { setBusy } = useAppLoading();
 
   const handleSwitch = (biz: Business) => {
     if (biz.id === business.id) return;
+    setBusy(`Switching to ${biz.name}…`);
     startTransition(async () => {
-      await setActiveBusiness(biz.id);
-      router.refresh();
-      onClose?.();
+      try {
+        await setActiveBusiness(biz.id);
+        router.refresh();
+        onClose?.();
+      } finally {
+        // Clear the overlay shortly after refresh kicks off so the new
+        // route's RSC payload arrives behind the spinner without flashing.
+        setTimeout(() => setBusy(null), 350);
+      }
     });
   };
 
