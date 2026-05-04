@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 
 export const ACCENT_PRESETS = [
+  { key: "teal",    label: "Teal",    hex: "#3a847e" },
   { key: "blue",    label: "Blue",    hex: "#2563eb" },
   { key: "violet",  label: "Violet",  hex: "#7c3aed" },
   { key: "emerald", label: "Emerald", hex: "#059669" },
@@ -23,6 +24,24 @@ export const PATTERN_PRESETS = [
 // sidebarBg / sidebarFg / sidebarAccent used only for preview rendering —
 // the real values live in CSS. All combos pass WCAG AA (≥4.5:1).
 export const SIDEBAR_THEMES = [
+  {
+    key: "light",
+    label: "Light",
+    dark: false,
+    sidebarBg: "#ffffff",
+    sidebarFg: "#1a1a17",
+    sidebarAccent: "#f5f4ef",
+    dot: "#3a847e",
+  },
+  {
+    key: "soft",
+    label: "Soft",
+    dark: false,
+    sidebarBg: "#fafaf7",
+    sidebarFg: "#1a1a17",
+    sidebarAccent: "#ecebe4",
+    dot: "#3a847e",
+  },
   {
     key: "dark-navy",
     label: "Dark Navy",
@@ -86,24 +105,6 @@ export const SIDEBAR_THEMES = [
     sidebarAccent: "#2d3748",
     dot: "#94a3b8",
   },
-  {
-    key: "light",
-    label: "Light",
-    dark: false,
-    sidebarBg: "#ffffff",
-    sidebarFg: "#0f172a",
-    sidebarAccent: "#f1f5f9",
-    dot: "#2563eb",
-  },
-  {
-    key: "soft",
-    label: "Soft",
-    dark: false,
-    sidebarBg: "#f0f4f8",
-    sidebarFg: "#1e293b",
-    sidebarAccent: "#e2e8f0",
-    dot: "#7c3aed",
-  },
 ] as const;
 
 interface AppearanceContextValue {
@@ -116,9 +117,9 @@ interface AppearanceContextValue {
 }
 
 const AppearanceContext = createContext<AppearanceContextValue>({
-  accentColor: "blue",
+  accentColor: "teal",
   bgPattern: "none",
-  sidebarTheme: "dark-navy",
+  sidebarTheme: "light",
   setAccentColor: () => {},
   setBgPattern: () => {},
   setSidebarTheme: () => {},
@@ -132,7 +133,7 @@ export function AppearanceProvider({
   children,
   accentColor: initialAccent = "blue",
   bgPattern: initialPattern = "none",
-  sidebarTheme: initialTheme = "dark-navy",
+  sidebarTheme: initialTheme = "light",
 }: {
   children: React.ReactNode;
   accentColor?: string;

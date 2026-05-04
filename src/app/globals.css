@@ -121,56 +121,57 @@
   }
 }
 
-/* ─── Flux theme (active) ─────────────────────────────────────
-   Cream-lime canvas, white rounded cards, lime + lavender accents.
-   Inspired by the flux dashboard reference. Active globally via
+/* ─── Connected Hub theme (active) ────────────────────────────
+   Warm off-white canvas, pure white cards, deep-teal accent —
+   modern SaaS for trades contractors. Adapted from the
+   Connected Hub design handoff. Active globally via
    <html data-theme="console"> in app/layout.tsx.
 */
 [data-theme="console"] {
-  /* Light: cream-lime canvas, pure white cards */
-  --background: 73 45% 86%;          /* #eaf0c8 */
-  --foreground: 0 0% 8%;              /* near-black */
-  --card: 0 0% 100%;                  /* pure white */
-  --card-foreground: 0 0% 8%;
+  /* Light: warm off-white canvas, white cards */
+  --background: 60 9% 98%;            /* #fafaf7 */
+  --foreground: 60 5% 9%;             /* #1a1a17 */
+  --card: 0 0% 100%;
+  --card-foreground: 60 5% 9%;
   --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 8%;
-  --primary: 0 0% 9%;                 /* near-black CTAs */
+  --popover-foreground: 60 5% 9%;
+  --primary: 191 38% 36%;             /* deep teal — oklch(0.55 0.08 195) ish */
   --primary-foreground: 0 0% 100%;
-  --secondary: 0 0% 96%;
-  --secondary-foreground: 0 0% 9%;
-  --muted: 0 0% 96%;
-  --muted-foreground: 0 0% 42%;
-  --accent: 73 78% 60%;               /* lime #c4eb4a */
-  --accent-foreground: 0 0% 9%;
-  --destructive: 0 72% 51%;
+  --secondary: 50 22% 95%;            /* surface-2 */
+  --secondary-foreground: 60 5% 9%;
+  --muted: 50 22% 95%;
+  --muted-foreground: 50 4% 40%;      /* #6b6a62 */
+  --accent: 191 38% 36%;              /* same teal as primary */
+  --accent-foreground: 0 0% 100%;
+  --destructive: 18 75% 50%;          /* status-overdue terracotta */
   --destructive-foreground: 0 0% 100%;
-  --border: 0 0% 92%;                 /* hairline */
-  --input: 0 0% 92%;
-  --ring: 73 78% 60%;
-  --radius: 1rem;                     /* big-bubble defaults */
+  --border: 50 17% 88%;               /* #e5e3d9 */
+  --input: 50 17% 88%;
+  --ring: 191 38% 36%;
+  --radius: 0.625rem;                 /* 10px → matches the prototype's --r-md */
 }
 
 .dark [data-theme="console"],
 [data-theme="console"].dark {
-  --background: 0 0% 6%;
-  --foreground: 0 0% 95%;
-  --card: 0 0% 9%;
-  --card-foreground: 0 0% 95%;
-  --popover: 0 0% 9%;
-  --popover-foreground: 0 0% 95%;
-  --primary: 0 0% 96%;
-  --primary-foreground: 0 0% 9%;
-  --secondary: 0 0% 14%;
-  --secondary-foreground: 0 0% 95%;
-  --muted: 0 0% 14%;
-  --muted-foreground: 0 0% 65%;
-  --accent: 73 78% 60%;
-  --accent-foreground: 0 0% 9%;
-  --destructive: 0 72% 55%;
+  --background: 60 4% 8%;
+  --foreground: 50 17% 92%;
+  --card: 60 4% 11%;
+  --card-foreground: 50 17% 92%;
+  --popover: 60 4% 11%;
+  --popover-foreground: 50 17% 92%;
+  --primary: 191 50% 55%;             /* lighter teal for dark mode contrast */
+  --primary-foreground: 60 4% 8%;
+  --secondary: 60 4% 16%;
+  --secondary-foreground: 50 17% 92%;
+  --muted: 60 4% 16%;
+  --muted-foreground: 50 8% 65%;
+  --accent: 191 50% 55%;
+  --accent-foreground: 60 4% 8%;
+  --destructive: 18 75% 55%;
   --destructive-foreground: 0 0% 100%;
-  --border: 0 0% 16%;
-  --input: 0 0% 16%;
-  --ring: 73 78% 60%;
+  --border: 60 4% 19%;
+  --input: 60 4% 19%;
+  --ring: 191 50% 55%;
 }
 
 [data-theme="console"] {
@@ -268,6 +269,10 @@
 }
 
 /* ─── Accent colour overrides ─────────────────────────────── */
+:root[data-accent="teal"] {
+  --primary: 191 38% 36%; --ring: 191 38% 36%; --accent: 191 38% 36%;
+  --sidebar-primary: 191 50% 45%; --sidebar-ring: 191 50% 45%;
+}
 :root[data-accent="blue"] {
   --primary: 221 83% 53%; --ring: 221 83% 53%;
   --sidebar-primary: 217 91% 60%; --sidebar-ring: 217 91% 60%;

@@ -15,24 +15,41 @@ import Image from "next/image";
 import { BusinessSwitcher } from "@/components/business/business-switcher";
 
 type NavItem = { label: string; href: string; icon: typeof LayoutDashboard; worker?: boolean };
+type NavSection = { section: string; items: NavItem[] };
 
-const navItems: NavItem[] = [
-  { label: "Dashboard",   href: "/dashboard",   icon: LayoutDashboard, worker: true  },
-  { label: "Invoices",    href: "/invoices",    icon: FileText                       },
-  { label: "Quotes",      href: "/quotes",      icon: FileCheck                      },
-  { label: "Customers",   href: "/customers",   icon: Users                          },
-  { label: "Products",    href: "/products",    icon: Package                        },
-  { label: "Tasks",       href: "/tasks",       icon: Columns3                       },
-  { label: "Work Orders", href: "/work-orders", icon: Wrench,         worker: true  },
-  { label: "Schedule",    href: "/schedule",    icon: CalendarDays,   worker: true  },
-  { label: "Recurring",   href: "/recurring",   icon: Repeat                         },
-  { label: "Leads",       href: "/leads",       icon: UserPlus                       },
-  { label: "Contacts",    href: "/contacts",    icon: Users2                         },
-  { label: "Reports",     href: "/reports",     icon: ClipboardList                  },
-  { label: "Messages",    href: "/messages",    icon: MessageSquare                  },
-  { label: "Team",        href: "/team",        icon: Users2                         },
-  { label: "Agents",      href: "/agents",      icon: Bot                            },
-  { label: "Help",        href: "/help",        icon: HelpCircle,     worker: true  },
+const navSections: NavSection[] = [
+  { section: "Workspace", items: [
+    { label: "Dashboard",  href: "/dashboard",  icon: LayoutDashboard, worker: true },
+    { label: "Messages",   href: "/messages",   icon: MessageSquare                 },
+    { label: "Tasks",      href: "/tasks",      icon: Columns3                      },
+  ]},
+  { section: "Sales", items: [
+    { label: "Leads",      href: "/leads",      icon: UserPlus                      },
+    { label: "Quotes",     href: "/quotes",     icon: FileCheck                     },
+    { label: "Invoices",   href: "/invoices",   icon: FileText                      },
+    { label: "Recurring",  href: "/recurring",  icon: Repeat                        },
+  ]},
+  { section: "Service", items: [
+    { label: "Work Orders", href: "/work-orders", icon: Wrench,        worker: true },
+    { label: "Schedule",    href: "/schedule",    icon: CalendarDays,  worker: true },
+  ]},
+  { section: "Contacts", items: [
+    { label: "Customers",  href: "/customers",  icon: Users                         },
+    { label: "Contacts",   href: "/contacts",   icon: Users2                        },
+  ]},
+  { section: "Catalog", items: [
+    { label: "Products",   href: "/products",   icon: Package                       },
+  ]},
+  { section: "Workforce", items: [
+    { label: "Team",       href: "/team",       icon: Users2                        },
+    { label: "Agents",     href: "/agents",     icon: Bot                           },
+  ]},
+  { section: "Insights", items: [
+    { label: "Reports",    href: "/reports",    icon: ClipboardList                 },
+  ]},
+  { section: "Account", items: [
+    { label: "Help",       href: "/help",       icon: HelpCircle,    worker: true   },
+  ]},
 ];
 
 interface AppSidebarProps {
@@ -46,7 +63,9 @@ interface AppSidebarProps {
 export function AppSidebar({ business, businesses, userRole, open, onClose }: AppSidebarProps) {
   const pathname = usePathname();
   const workerView = isWorker(userRole);
-  const visibleNav = workerView ? navItems.filter((n) => n.worker) : navItems;
+  const visibleSections = navSections
+    .map((s) => ({ ...s, items: workerView ? s.items.filter((i) => i.worker) : s.items }))
+    .filter((s) => s.items.length > 0);
 
   const isActive = (href: string) =>
     href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);
@@ -100,64 +119,68 @@ export function AppSidebar({ business, businesses, userRole, open, onClose }: Ap
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-2 py-3 overflow-y-auto">
-        <p className="px-2 mb-2 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40">
-          Menu
-        </p>
-        <ul className="space-y-0.5">
-          {visibleNav.map((item, i) => (
-            <li key={item.href}>
-              <motion.div
-                initial={{ opacity: 0, x: -12 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.22, delay: i * 0.04, ease: "easeOut" }}
-              >
-                <Link
-                  href={item.href}
-                  onClick={onClose}
-                  className={cn(
-                    "relative flex items-center gap-3 px-3.5 py-2.5 rounded-full text-sm transition-colors duration-150",
-                    isActive(item.href)
-                      ? "text-sidebar-foreground font-semibold"
-                      : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
-                  )}
+      <nav className="flex-1 px-3 py-2 overflow-y-auto">
+        {visibleSections.map((group, gi) => (
+          <div key={group.section} className={cn("flex flex-col gap-px", gi > 0 && "mt-2")}>
+            <p className="px-2 pt-2.5 pb-1 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-sidebar-foreground/45">
+              {group.section}
+            </p>
+            {group.items.map((item, i) => {
+              const active = isActive(item.href);
+              return (
+                <motion.div
+                  key={item.href}
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.18, delay: (gi * 4 + i) * 0.02, ease: "easeOut" }}
                 >
-                  {isActive(item.href) && (
-                    <motion.div
-                      layoutId="sidebar-active"
-                      className="absolute inset-0 bg-sidebar-accent rounded-full ring-1 ring-white/5"
-                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                    />
-                  )}
-                  <item.icon className={cn(
-                    "w-4 h-4 relative z-10 flex-shrink-0",
-                    isActive(item.href) ? "text-sidebar-foreground" : "text-sidebar-foreground/50"
-                  )} />
-                  <span className="relative z-10">{item.label}</span>
-                </Link>
-              </motion.div>
-            </li>
-          ))}
-        </ul>
+                  <Link
+                    href={item.href}
+                    onClick={onClose}
+                    className={cn(
+                      "relative flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-[13px] transition-colors duration-150",
+                      active
+                        ? "bg-sidebar-accent text-sidebar-foreground font-semibold"
+                        : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60 font-medium"
+                    )}
+                  >
+                    {active && (
+                      <motion.span
+                        layoutId="sidebar-active-rail"
+                        className="absolute -left-2 top-1.5 bottom-1.5 w-0.5 rounded-full bg-sidebar-primary"
+                        transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                      />
+                    )}
+                    <item.icon className={cn(
+                      "w-4 h-4 flex-shrink-0",
+                      active ? "text-sidebar-foreground" : "text-sidebar-foreground/55"
+                    )} />
+                    <span>{item.label}</span>
+                  </Link>
+                </motion.div>
+              );
+            })}
+          </div>
+        ))}
       </nav>
 
       {/* Footer */}
-      <div className="px-2 pb-4 pt-3 space-y-2">
+      <div className="px-3 pb-3 pt-2 border-t border-sidebar-border space-y-px">
         {canManageSettings(userRole) && (
           <Link
             href="/settings"
             onClick={onClose}
             className={cn(
-              "relative flex items-center gap-3 px-3.5 py-2.5 rounded-full text-sm transition-colors duration-150",
+              "relative flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-[13px] transition-colors duration-150",
               pathname.startsWith("/settings")
-                ? "text-sidebar-foreground font-semibold"
-                : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+                ? "bg-sidebar-accent text-sidebar-foreground font-semibold"
+                : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60 font-medium"
             )}
           >
             {pathname.startsWith("/settings") && (
-              <motion.div
-                layoutId="sidebar-active"
-                className="absolute inset-0 bg-sidebar-accent rounded-full ring-1 ring-white/5"
+              <motion.span
+                layoutId="sidebar-active-rail"
+                className="absolute -left-2 top-1.5 bottom-1.5 w-0.5 rounded-full bg-sidebar-primary"
                 transition={{ type: "spring", stiffness: 380, damping: 30 }}
               />
             )}
