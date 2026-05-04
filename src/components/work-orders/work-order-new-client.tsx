@@ -63,6 +63,7 @@ export function WorkOrderNewClient({
   const [sites, setSites] = useState<Site[]>([]);
   const [contacts, setContacts] = useState<AccountContact[]>([]);
   const [billingProfiles, setBillingProfiles] = useState<BillingProfile[]>([]);
+  const [accountLoading, setAccountLoading] = useState(false);
   const [siteId, setSiteId] = useState<string>(defaultSiteId ?? "");
   const [bookerContactId, setBookerContactId] = useState<string>("");
   const [onsiteContactId, setOnsiteContactId] = useState<string>("");
@@ -75,8 +76,10 @@ export function WorkOrderNewClient({
     if (!accountId) {
       setSites([]); setContacts([]); setBillingProfiles([]);
       setSiteId(""); setBookerContactId(""); setOnsiteContactId(""); setBillingProfileId("");
+      setAccountLoading(false);
       return;
     }
+    setAccountLoading(true);
     (async () => {
       try {
         const [s, c, b] = await Promise.all([
@@ -101,6 +104,8 @@ export function WorkOrderNewClient({
         if (!siteId && s.length === 1) setSiteId(s[0].id);
       } catch (e) {
         console.error("Failed to load account context", e);
+      } finally {
+        if (!cancelled) setAccountLoading(false);
       }
     })();
     return () => { cancelled = true; };
@@ -227,6 +232,13 @@ export function WorkOrderNewClient({
                 label="Property address"
               />
             </div>
+
+            {accountSelected && accountLoading && contacts.length === 0 && billingProfiles.length === 0 && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground rounded-xl bg-muted/40 border border-border px-3 py-2.5">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Loading customer details…
+              </div>
+            )}
 
             {accountSelected && contacts.length > 0 && (
               <>
