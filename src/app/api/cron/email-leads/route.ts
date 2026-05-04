@@ -188,32 +188,43 @@ async function processBusinessEmails(
 
       const senderEmail = extraction.email || email.from.match(/<(.+?)>/)?.[1] || null;
 
-      const { error } = await sb
-        .from("leads")
-        .insert({
-          name: extraction.name || email.from.replace(/<.*>/, "").trim() || "Unknown",
-          phone: extraction.phone || null,
-          email: senderEmail,
-          suburb: extraction.suburb || null,
-          service: extraction.service || null,
-          property_type: extraction.property_type || null,
-          notes: extraction.notes
-            ? `[Email: ${email.subject}]\n${extraction.notes}`
-            : `[Email: ${email.subject}]`,
-          status: "new",
-          source: "email",
-          source_message_id: email.messageId,
-          business_id: config.business_id,
-          user_id: config.business_user_id,
-        });
+      // Route through upsert_lead so the same prospect arriving on a
+      // different Message-ID (or also via Airtasker / Hipages / manual) gets
+      // merged into the existing row — sources/source_refs/last_seen_at are
+      // appended, never duplicated.
+      const { data: upserted, error } = await sb.rpc("upsert_lead", {
+        p_business_id:   config.business_id,
+        p_user_id:       config.business_user_id,
+        p_name:          extraction.name || email.from.replace(/<.*>/, "").trim() || "Unknown",
+        p_email:         senderEmail,
+        p_phone:         extraction.phone   || null,
+        p_address:       null,
+        p_suburb:        extraction.suburb  || null,
+        p_service:       extraction.service || null,
+        p_property_type: extraction.property_type || null,
+        p_timing:        null,
+        p_notes:         extraction.notes
+          ? `[Email: ${email.subject}]\n${extraction.notes}`
+          : `[Email: ${email.subject}]`,
+        p_source:        "email",
+        p_source_ref:    email.messageId ?? null,
+      });
 
       if (error) {
-        // Unique-index collision on (business_id, source_message_id) — treat as duplicate, not failure.
-        if ((error as { code?: string }).code === "23505") {
-          result.duplicates++;
-        } else {
-          console.error(`Failed to create lead for ${config.business_name}:`, error);
-        }
+        console.error(`Failed to create lead for ${config.business_name}:`, error);
+        continue;
+      }
+
+      // Distinguish "new lead row" vs "merged into existing" so the digest is honest.
+      // upsert_lead returns the row in both cases; we infer "merged" when sources
+      // already contained 'email' from a prior run with the same Message-ID.
+      const refs = (upserted as { source_refs?: Array<{ ref?: string | null }> } | null)?.source_refs ?? [];
+      const isMergeOfSameEmail = email.messageId
+        ? refs.filter((r) => r.ref === email.messageId).length > 1
+        : false;
+
+      if (isMergeOfSameEmail) {
+        result.duplicates++;
         continue;
       }
 

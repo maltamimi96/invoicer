@@ -409,6 +409,14 @@ export interface Lead {
   utm_campaign: string | null;
   customer_id: string | null;
   quote_id: string | null;
+  /** Distinct sources this lead has come in from (e.g. ["email","airtasker"]). */
+  sources?: string[];
+  /** Append-only audit of every ingest: [{source, ref, at}]. */
+  source_refs?: Array<{ source?: string; ref?: string | null; message_id?: string | null; at?: string }>;
+  /** Most recent ingest timestamp; differs from updated_at when a row is merged. */
+  last_seen_at?: string;
+  /** Generated key for dedup — read-only, computed from email/phone/name+address. */
+  identity_key?: string | null;
   created_at: string;
   updated_at: string;
 }

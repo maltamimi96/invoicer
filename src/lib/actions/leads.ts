@@ -52,12 +52,14 @@ export async function createLead(payload: {
   name: string;
   email?: string | null;
   phone?: string | null;
+  address?: string | null;
   suburb?: string | null;
   service?: string | null;
   property_type?: string | null;
   timing?: string | null;
   notes?: string | null;
   source?: Lead["source"];
+  source_ref?: string | null;
   utm_source?: string | null;
   utm_medium?: string | null;
   utm_campaign?: string | null;
@@ -68,17 +70,37 @@ export async function createLead(payload: {
 
   const businessId = await getActiveBizId(supabase, user.id);
 
-  const { data, error } = await tbl(supabase, "leads")
-    .insert({
-      ...payload,
-      status: "new",
-      business_id: businessId,
-      user_id: user.id,
-    })
-    .select("*")
-    .single();
+  // Dedup-aware ingest: matches existing leads by identity_key (email > phone
+  // > name+address). Existing rows get the new payload merged in (filling
+  // nulls, appending the new source) instead of creating a duplicate.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any).rpc("upsert_lead", {
+    p_business_id:   businessId,
+    p_user_id:       user.id,
+    p_name:          payload.name,
+    p_email:         payload.email   ?? null,
+    p_phone:         payload.phone   ?? null,
+    p_address:       payload.address ?? null,
+    p_suburb:        payload.suburb  ?? null,
+    p_service:       payload.service ?? null,
+    p_property_type: payload.property_type ?? null,
+    p_timing:        payload.timing  ?? null,
+    p_notes:         payload.notes   ?? null,
+    p_source:        payload.source  ?? "manual",
+    p_source_ref:    payload.source_ref ?? null,
+  }).single();
 
   if (error) throw error;
+
+  // Backfill UTM params on the row directly (upsert_lead doesn't take them).
+  if (payload.utm_source || payload.utm_medium || payload.utm_campaign) {
+    const patch: Record<string, string | null> = {};
+    if (payload.utm_source)   patch.utm_source   = payload.utm_source;
+    if (payload.utm_medium)   patch.utm_medium   = payload.utm_medium;
+    if (payload.utm_campaign) patch.utm_campaign = payload.utm_campaign;
+    await tbl(supabase, "leads").update(patch).eq("id", (data as Lead).id);
+  }
+
   revalidatePath("/leads");
   dispatchWebhook(businessId, "lead.created", data);
   return data as Lead;
