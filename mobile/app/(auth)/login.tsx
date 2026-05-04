@@ -4,10 +4,12 @@ import {
   ScrollView, Text, TextInput, View, ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Link, useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { colors, radius, space } from "@/lib/theme";
 
 export default function Login() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -18,12 +20,19 @@ export default function Login() {
       return;
     }
     setBusy(true);
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim().toLowerCase(),
       password,
     });
     setBusy(false);
-    if (error) Alert.alert("Couldn't sign in", error.message);
+    if (error) {
+      Alert.alert("Couldn't sign in", error.message);
+      return;
+    }
+    // Belt-and-braces redirect — the root layout's onAuthStateChange handler
+    // also fires, but we route directly so success isn't dependent on that
+    // listener winning the race.
+    if (data.session) router.replace("/(tabs)");
   };
 
   return (
@@ -99,9 +108,18 @@ export default function Login() {
             </Pressable>
           </View>
 
-          <Text style={{ marginTop: space.xl, textAlign: "center", color: colors.muted, fontSize: 12 }}>
-            Use the same email your team owner invited you with.
-          </Text>
+          <View style={{ marginTop: space.xl, alignItems: "center", gap: 6 }}>
+            <Link href="/(auth)/signup" asChild>
+              <Pressable hitSlop={10}>
+                <Text style={{ color: colors.primary, fontWeight: "600", fontSize: 13 }}>
+                  Got an invite code? Sign up →
+                </Text>
+              </Pressable>
+            </Link>
+            <Text style={{ textAlign: "center", color: colors.muted, fontSize: 12 }}>
+              Use the same email your team owner invited you with.
+            </Text>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

@@ -50,14 +50,16 @@ export async function addMember(email: string, role: MemberRole): Promise<void> 
   // Admins cannot add other admins — only the owner can
   if (role === "admin" && !isOwner(callerRole)) throw new Error("Only the owner can add admins");
 
-  // Check if there's already a Supabase auth user with this email — if so, link immediately
-  // We can't look up auth.users directly from the client, so we store the email and the
-  // activate_pending_memberships() RPC will link them on their next login.
+  // Generate a short, human-readable invite code so the worker can self-
+  // serve via Connected Hub without needing the email link to load.
+  const inviteToken = generateInviteCode();
+
   const { error } = await tbl(supabase, "business_members").insert({
     business_id: businessId,
     email: email.toLowerCase().trim(),
     role,
     status: "pending",
+    invite_token: inviteToken,
     added_by: user.id,
   });
   if (error) {
@@ -81,6 +83,7 @@ export async function addMember(email: string, role: MemberRole): Promise<void> 
         inviterName,
         role,
         inviteUrl,
+        inviteCode: inviteToken,
       }),
     });
   } catch {
@@ -88,6 +91,42 @@ export async function addMember(email: string, role: MemberRole): Promise<void> 
   }
 
   revalidatePath("/settings");
+}
+
+/** 8-char readable code, no ambiguous chars (no 0/O, 1/I/l). */
+function generateInviteCode(): string {
+  const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  let out = "";
+  for (let i = 0; i < 8; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+}
+
+/** Read the existing invite code (or generate one if missing) so the
+ *  Settings UI can show "Copy code" next to a pending member. */
+export async function getMemberInviteCode(memberId: string): Promise<string | null> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+  const businessId = await getActiveBizId(supabase, user.id);
+  const callerRole = await getCallerRole(supabase, user.id, businessId);
+  if (!canManageTeam(callerRole)) throw new Error("Only owners and admins can view invite codes");
+
+  const { data: row } = await tbl(supabase, "business_members")
+    .select("invite_token, status")
+    .eq("id", memberId)
+    .eq("business_id", businessId)
+    .maybeSingle();
+
+  if (!row || row.status !== "pending") return null;
+  if (row.invite_token) return row.invite_token;
+
+  // Backfill on read for older rows that pre-date the column.
+  const fresh = generateInviteCode();
+  await tbl(supabase, "business_members")
+    .update({ invite_token: fresh })
+    .eq("id", memberId)
+    .eq("business_id", businessId);
+  return fresh;
 }
 
 export async function updateMemberRole(memberId: string, newRole: MemberRole): Promise<void> {
