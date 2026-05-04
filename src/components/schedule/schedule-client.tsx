@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight, Plus, Clock, MapPin, LayoutGrid, Columns3 } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/layout/page-header";
 import { toast } from "sonner";
 import { getScheduledJobs } from "@/lib/actions/schedule";
 import { JobModal } from "./job-modal";
@@ -129,12 +130,10 @@ export function ScheduleClient({ initialJobs, initialStart, initialEnd, profiles
 
   return (
     <div className="flex flex-col h-full space-y-4">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Schedule</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{formatWeekRange(weekStart, weekEnd)}</p>
-        </div>
+      <PageHeader
+        title="Schedule"
+        subtitle={formatWeekRange(weekStart, weekEnd)}
+        actions={
         <div className="flex items-center gap-2">
           <div className="flex items-center rounded-lg border overflow-hidden">
             <Button variant={view === "week" ? "secondary" : "ghost"} size="sm" className="rounded-none h-8 px-2.5" onClick={() => setView("week")} title="Week view">
@@ -159,7 +158,8 @@ export function ScheduleClient({ initialJobs, initialStart, initialEnd, profiles
             <Plus className="h-4 w-4 mr-1.5" /> New Job
           </Button>
         </div>
-      </div>
+        }
+      />
 
       {view === "dispatch" ? (
         <DispatchBoard

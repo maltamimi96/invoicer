@@ -5,6 +5,7 @@ import { Plus, Repeat, Pause, Play, Trash2, Edit2, MapPin, User as UserIcon, Cal
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/layout/page-header";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -140,14 +141,19 @@ export function RecurringJobsClient({ initialSchedules, customers, profiles }: P
   const customerName = (id: string | null) => customers.find((c) => c.id === id)?.name ?? null;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2"><Repeat className="h-6 w-6" /> Recurring jobs</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">{schedules.length} schedule{schedules.length === 1 ? "" : "s"} · cron generates jobs nightly</p>
-        </div>
-        <Button onClick={openNew}><Plus className="h-4 w-4 mr-1.5" /> New schedule</Button>
-      </div>
+    <div>
+      <PageHeader
+        title="Recurring jobs"
+        subtitle={`${schedules.length} schedule${schedules.length === 1 ? "" : "s"} · cron generates jobs nightly`}
+        actions={
+          <button
+            onClick={openNew}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+          >
+            <Plus className="w-3.5 h-3.5" /> New schedule
+          </button>
+        }
+      />
 
       {schedules.length === 0 ? (
         <Card>
