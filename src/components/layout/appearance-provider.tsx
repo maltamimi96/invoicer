@@ -140,20 +140,21 @@ export function AppearanceProvider({
   bgPattern?: string;
   sidebarTheme?: string;
 }) {
-  const [accentColor, setAccentColor] = useState(initialAccent);
-  const [bgPattern, setBgPattern] = useState(initialPattern);
-  const [sidebarTheme, setSidebarTheme] = useState(initialTheme);
+  const [accentColor, setAccentColor]     = useState(initialAccent);
+  const [bgPattern,   setBgPattern]       = useState(initialPattern);
+  const [sidebarTheme, setSidebarTheme]   = useState(initialTheme);
+
+  // Sync state when the active business changes (router.refresh re-renders
+  // this provider with the new business's saved appearance, but useState
+  // ignores prop changes after mount — without this sync, switching
+  // businesses left the previous biz's theme in place until a hard reload.
+  useEffect(() => { setAccentColor(initialAccent);  }, [initialAccent]);
+  useEffect(() => { setBgPattern(initialPattern);   }, [initialPattern]);
+  useEffect(() => { setSidebarTheme(initialTheme);  }, [initialTheme]);
 
   useEffect(() => { document.documentElement.dataset.accent = accentColor; }, [accentColor]);
   useEffect(() => { document.documentElement.dataset.pattern = bgPattern; }, [bgPattern]);
   useEffect(() => { document.documentElement.dataset.sidebarTheme = sidebarTheme; }, [sidebarTheme]);
-
-  // Hydration catch — apply all on first mount
-  useEffect(() => {
-    document.documentElement.dataset.accent = initialAccent;
-    document.documentElement.dataset.pattern = initialPattern;
-    document.documentElement.dataset.sidebarTheme = initialTheme;
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <AppearanceContext.Provider value={{ accentColor, bgPattern, sidebarTheme, setAccentColor, setBgPattern, setSidebarTheme }}>

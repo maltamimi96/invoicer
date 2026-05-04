@@ -53,8 +53,12 @@ export function DashboardShell({ business, businesses, user, userRole, children 
           />
           <main className="app-content flex-1 overflow-auto">
             {/* Connected Hub layout: content fills the main pane (no max-width
-                cap), with the prototype's uniform 24px padding. */}
-            <div className="w-full p-6">
+                cap), with the prototype's uniform 24px padding.
+                Keyed by business.id so switching businesses fully remounts
+                the page tree — list components hold their data in local
+                useState(initial) and otherwise show the previous biz's
+                rows until a hard refresh. */}
+            <div key={business.id} className="w-full p-6">
               {children}
             </div>
           </main>
