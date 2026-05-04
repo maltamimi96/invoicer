@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { PageHeader } from "@/components/layout/page-header";
+import { CleanupButton } from "@/components/cleanup/cleanup-button";
 import { deleteInvoice, duplicateInvoice, updateInvoice } from "@/lib/actions/invoices";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { Customer, Invoice, InvoiceWithCustomer } from "@/types/database";
@@ -101,11 +102,14 @@ export function InvoicesClient({ invoices: initial, currency = "GBP" }: Invoices
         title="Invoices"
         subtitle={`${invoices.length} total · ${formatCurrency(totalOutstanding, currency)} outstanding`}
         actions={
-          <Link href="/invoices/new">
-            <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
-              <Plus className="w-3.5 h-3.5" /> New invoice
-            </button>
-          </Link>
+          <>
+            <CleanupButton entity="invoices" entityLabel="invoices" />
+            <Link href="/invoices/new">
+              <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
+                <Plus className="w-3.5 h-3.5" /> New invoice
+              </button>
+            </Link>
+          </>
         }
       />
 

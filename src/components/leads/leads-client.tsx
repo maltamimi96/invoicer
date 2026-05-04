@@ -9,6 +9,7 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/page-header";
+import { CleanupButton } from "@/components/cleanup/cleanup-button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -208,12 +209,15 @@ export function LeadsClient({ leads: initial }: { leads: Lead[] }) {
         title="Leads"
         subtitle={`${stats.total} total · ${stats.new} new · ${stats.won} won · ${stats.lost} lost`}
         actions={
-          <button
-            onClick={() => setShowAdd(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
-          >
-            <Plus className="w-3.5 h-3.5" /> Add lead
-          </button>
+          <>
+            <CleanupButton entity="leads" entityLabel="leads" />
+            <button
+              onClick={() => setShowAdd(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+            >
+              <Plus className="w-3.5 h-3.5" /> Add lead
+            </button>
+          </>
         }
       />
 

@@ -28,9 +28,9 @@ export function CleanupButton({
           "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-primary/30 bg-[hsl(var(--primary)/0.08)] text-primary text-sm font-medium hover:bg-[hsl(var(--primary)/0.14)] transition-colors " +
           className
         }
-        title={`Clean up ${entityLabel}`}
+        title={`Smart Organise ${entityLabel}`}
       >
-        <Sparkles className="w-3.5 h-3.5" /> Clean up
+        <Sparkles className="w-3.5 h-3.5" /> Smart Organise
       </button>
       <CleanupModal open={open} onOpenChange={setOpen} entity={entity} entityLabel={entityLabel} />
     </>

@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { PageHeader } from "@/components/layout/page-header";
+import { CleanupButton } from "@/components/cleanup/cleanup-button";
 import { deleteWorkOrder } from "@/lib/actions/work-orders";
 import type { WorkOrderWithCustomer, WorkOrderStatus, BusinessMember } from "@/types/database";
 
@@ -75,11 +76,14 @@ export function WorkOrdersClient({ workOrders }: WorkOrdersClientProps) {
         title="Work Orders"
         subtitle={`${workOrders.length} total · ${stats.onSite} on site now`}
         actions={
-          <Link href="/work-orders/new">
-            <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
-              <Plus className="w-3.5 h-3.5" /> New work order
-            </button>
-          </Link>
+          <>
+            <CleanupButton entity="work_orders" entityLabel="work orders" />
+            <Link href="/work-orders/new">
+              <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
+                <Plus className="w-3.5 h-3.5" /> New work order
+              </button>
+            </Link>
+          </>
         }
       />
 

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/layout/page-header";
+import { CleanupButton } from "@/components/cleanup/cleanup-button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -304,13 +305,16 @@ export function TeamPageClient({ profiles: initialProfiles, members, userRole, c
         title="Team"
         subtitle="Manage team member profiles and skills"
         actions={canManage && (
-          <button
-            onClick={() => setShowAddForm((v) => !v)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
-          >
-            {showAddForm ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
-            {showAddForm ? "Cancel" : "Add member"}
-          </button>
+          <>
+            <CleanupButton entity="team_profiles" entityLabel="team profiles" />
+            <button
+              onClick={() => setShowAddForm((v) => !v)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+            >
+              {showAddForm ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+              {showAddForm ? "Cancel" : "Add member"}
+            </button>
+          </>
         )}
       />
 
