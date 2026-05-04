@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MapPin, Plus } from "@/components/ui/icons";
+import { MapPin, Plus, Loader2 } from "@/components/ui/icons";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,23 +42,44 @@ export function AddressSelect({
   sites: sitesProp,
   label = "Address",
 }: AddressSelectProps) {
-  const [sites, setSites] = useState<Site[]>(sitesProp ?? []);
+  const [sites, setSites]       = useState<Site[]>(sitesProp ?? []);
+  const [loading, setLoading]   = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
 
   // Fetch sites when the customer changes (unless caller passes them).
   useEffect(() => {
-    if (sitesProp) { setSites(sitesProp); return; }
-    if (!customer?.id) { setSites([]); return; }
+    if (sitesProp) { setSites(sitesProp); setLoading(false); return; }
+    if (!customer?.id) { setSites([]); setLoading(false); return; }
+
     let cancelled = false;
+    setLoading(true);
     (async () => {
       try {
         const data = await getSitesForAccount(customer.id);
-        if (!cancelled) setSites(data);
+        if (cancelled) return;
+        setSites(data);
+
+        // If the user hasn't picked an address yet, auto-fill with the most
+        // sensible default so they don't reach for "Custom address" while
+        // we're still resolving real ones. Prefer primary, else single site.
+        const noUserPick = !value.property_address && !value.site_id;
+        if (noUserPick) {
+          const customerAddr = customerAddress(customer);
+          if (customerAddr) {
+            onChange({ site_id: null, property_address: customerAddr });
+          } else if (data.length === 1) {
+            onChange({ site_id: data[0].id, property_address: siteAddress(data[0]) });
+          }
+        }
       } catch {
         if (!cancelled) setSites([]);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
+    // value is intentionally excluded — we only auto-fill on customer change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customer?.id, sitesProp]);
 
   const customerAddr = customer ? customerAddress(customer) : "";
@@ -108,12 +129,24 @@ export function AddressSelect({
 
   return (
     <div className="space-y-1.5">
-      <Label className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> {label}</Label>
+      <Label className="flex items-center gap-1.5">
+        <MapPin className="h-3.5 w-3.5" /> {label}
+        {loading && (
+          <span className="ml-1 inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Loading addresses…
+          </span>
+        )}
+      </Label>
       <SearchableSelect
         items={items}
         value={selectedKey}
         onValueChange={handleSelect}
-        placeholder={customer ? "Select address" : "Select a customer first"}
+        placeholder={
+          !customer ? "Select a customer first"
+          : loading  ? "Loading addresses…"
+          : "Select address"
+        }
         searchPlaceholder="Search addresses..."
         disabled={!customer}
         allowNone
