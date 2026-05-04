@@ -131,6 +131,7 @@ export interface Invoice {
   terms: string | null;
   site_id: string | null;
   property_address: string | null;
+  parent_invoice_id?: string | null;
   created_at: string;
   updated_at: string;
 }
