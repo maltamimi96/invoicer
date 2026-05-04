@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Controller } from "react-hook-form";
 import { updateBusiness, uploadLogo } from "@/lib/actions/business";
 import { useAppearance, ACCENT_PRESETS, PATTERN_PRESETS, SIDEBAR_THEMES } from "@/components/layout/appearance-provider";
+import { PageHeader } from "@/components/layout/page-header";
 import { TeamSettings } from "@/components/settings/team-settings";
 import { ApiKeysSettings } from "@/components/settings/api-keys-settings";
 import { EmailSettings } from "@/components/settings/email-settings";
@@ -226,25 +227,33 @@ export function SettingsClient({ business: initial, members, apiKeys, emailConfi
   };
 
   return (
-    <div className="space-y-6 max-w-3xl mx-auto">
-      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="text-2xl font-bold">Settings</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">Manage your business profile and preferences</p>
-      </motion.div>
+    <div>
+      <PageHeader
+        title="Settings"
+        subtitle={`Configuration for ${initial.name}`}
+      />
 
       <Tabs defaultValue="business">
-        <div className="-mx-4 sm:mx-0 overflow-x-auto sm:overflow-visible">
-          <TabsList className="px-4 sm:px-0 inline-flex sm:flex w-max sm:w-auto whitespace-nowrap">
-            <TabsTrigger value="business"   className="gap-1.5"><Building2 className="w-3.5 h-3.5" />Business</TabsTrigger>
-            <TabsTrigger value="payment"    className="gap-1.5"><CreditCard className="w-3.5 h-3.5" />Payment</TabsTrigger>
-            <TabsTrigger value="documents"  className="gap-1.5"><FileText className="w-3.5 h-3.5" />Documents</TabsTrigger>
-            <TabsTrigger value="appearance" className="gap-1.5"><Palette className="w-3.5 h-3.5" />Appearance</TabsTrigger>
-            <TabsTrigger value="team"       className="gap-1.5"><Users className="w-3.5 h-3.5" />Team</TabsTrigger>
-            <TabsTrigger value="api"        className="gap-1.5"><Key className="w-3.5 h-3.5" />API</TabsTrigger>
-            <TabsTrigger value="email"      className="gap-1.5"><Mail className="w-3.5 h-3.5" />Email</TabsTrigger>
-            <TabsTrigger value="webhooks"   className="gap-1.5"><Webhook className="w-3.5 h-3.5" />Webhooks</TabsTrigger>
-          </TabsList>
-        </div>
+        <TabsList className="bg-transparent p-0 h-auto border-b border-border w-full justify-start gap-0 rounded-none mb-5 overflow-x-auto whitespace-nowrap">
+          {[
+            { id: "business",   icon: Building2,  label: "Business"   },
+            { id: "payment",    icon: CreditCard, label: "Payment"    },
+            { id: "documents",  icon: FileText,   label: "Documents"  },
+            { id: "appearance", icon: Palette,    label: "Appearance" },
+            { id: "team",       icon: Users,      label: "Team"       },
+            { id: "api",        icon: Key,        label: "API"        },
+            { id: "email",      icon: Mail,       label: "Email"      },
+            { id: "webhooks",   icon: Webhook,    label: "Webhooks"   },
+          ].map((t) => (
+            <TabsTrigger
+              key={t.id}
+              value={t.id}
+              className="rounded-none border-b-2 border-transparent bg-transparent px-3.5 py-2 text-[13px] font-medium text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:font-semibold data-[state=active]:shadow-none -mb-px gap-1.5"
+            >
+              <t.icon className="w-3.5 h-3.5" />{t.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
 
         {/* ── Business tab ── */}
         <TabsContent value="business" className="space-y-4 mt-6">
