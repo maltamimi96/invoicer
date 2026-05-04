@@ -48,6 +48,7 @@ interface QuoteEditorProps {
   business: Business;
   quote?: Quote & { customers?: Customer | null };
   defaultCustomerId?: string;
+  onSaved?: (saved: Quote) => void;
 }
 
 function addDays(days: number) {
@@ -56,7 +57,7 @@ function addDays(days: number) {
   return d.toISOString().split("T")[0];
 }
 
-export function QuoteEditor({ customers, products, business, quote, defaultCustomerId }: QuoteEditorProps) {
+export function QuoteEditor({ customers, products, business, quote, defaultCustomerId, onSaved }: QuoteEditorProps) {
   const router = useRouter();
   const [lineItems, setLineItems] = useState<LineItem[]>((quote?.line_items as LineItem[]) ?? []);
   const [saving, setSaving] = useState(false);
@@ -139,7 +140,8 @@ export function QuoteEditor({ customers, products, business, quote, defaultCusto
     const saved = await onSubmit(d, "draft");
     if (saved) {
       toast.success("Quote saved");
-      router.push(`/quotes/${saved.id}`);
+      if (onSaved) onSaved(saved);
+      else router.push(`/quotes/${saved.id}`);
     }
   });
 

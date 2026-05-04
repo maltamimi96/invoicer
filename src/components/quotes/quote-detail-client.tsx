@@ -62,10 +62,22 @@ export function QuoteDetailClient({ quote: initial, customers, products, busines
     } catch { toast.error("Failed to delete"); }
   };
 
-  if (editing) return <QuoteEditor customers={customers} products={products} business={business} quote={quote} />;
+  if (editing) return (
+    <QuoteEditor
+      customers={customers}
+      products={products}
+      business={business}
+      quote={quote}
+      onSaved={(saved) => {
+        setQuote((prev) => ({ ...prev, ...saved } as typeof prev));
+        setEditing(false);
+        router.refresh();
+      }}
+    />
+  );
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-6">
       <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-center gap-4">
         <Link href="/quotes"><Button variant="ghost" size="icon" className="h-8 w-8"><ArrowLeft className="w-4 h-4" /></Button></Link>
         <div className="flex-1">
