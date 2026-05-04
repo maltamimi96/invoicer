@@ -83,7 +83,7 @@ export default function Login() {
               onPress={submit}
               disabled={busy}
               style={({ pressed }) => ({
-                backgroundColor: colors.black,
+                backgroundColor: colors.primary,
                 borderRadius: radius.pill,
                 paddingVertical: 14,
                 alignItems: "center",

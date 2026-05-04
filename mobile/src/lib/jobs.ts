@@ -62,3 +62,52 @@ export async function setWorkerNotes(id: string, worker_notes: string): Promise<
   const { error } = await supabase.from("work_orders").update({ worker_notes }).eq("id", id);
   if (error) throw error;
 }
+
+/**
+ * Pull booker / onsite contact records for a work order. Returns nulls if the
+ * job has no per-account contact links set or RLS blocks the read.
+ */
+export async function fetchJobContacts(
+  bookerId: string | null | undefined,
+  onsiteId: string | null | undefined,
+): Promise<{ booker: AccountContactRow | null; onsite: AccountContactRow | null }> {
+  const ids = [bookerId, onsiteId].filter((x): x is string => !!x);
+  if (ids.length === 0) return { booker: null, onsite: null };
+
+  const { data } = await supabase
+    .from("account_contacts")
+    .select("id, name, email, phone, role")
+    .in("id", ids);
+
+  const rows = (data ?? []) as AccountContactRow[];
+  return {
+    booker: rows.find((r) => r.id === bookerId) ?? null,
+    onsite: rows.find((r) => r.id === onsiteId) ?? null,
+  };
+}
+
+type AccountContactRow = {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  role: string | null;
+};
+
+/**
+ * Remove a single photo from the work_orders.photos JSON array. Re-reads the
+ * current array, filters by url, writes back.
+ */
+export async function removeWorkOrderPhoto(id: string, url: string): Promise<void> {
+  const { data: current, error: readErr } = await supabase
+    .from("work_orders")
+    .select("photos")
+    .eq("id", id)
+    .single();
+  if (readErr) throw readErr;
+  const photos = (Array.isArray(current?.photos) ? current.photos : []).filter(
+    (p: { url?: string }) => p?.url !== url,
+  );
+  const { error } = await supabase.from("work_orders").update({ photos }).eq("id", id);
+  if (error) throw error;
+}
