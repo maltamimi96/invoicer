@@ -208,13 +208,67 @@ export async function createProgressInvoice(input: {
     .eq("id", businessId);
 
   const today = new Date().toISOString().split("T")[0];
-  const lineItem = {
-    id: typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `li_${Date.now()}`,
-    description,
-    quantity: 1,
-    unit_price: amount,
-    amount,
+
+  // Coerce PostgREST numeric-as-string and copy parent's line items verbatim so
+  // the customer can see exactly what they're paying a deposit *toward*. Then
+  // append a single balance-reduction line that brings the total down to the
+  // requested deposit amount. Keeps math transparent and avoids NaN.
+  const num = (v: unknown) => {
+    const n = typeof v === "number" ? v : parseFloat(String(v ?? 0));
+    return Number.isFinite(n) ? n : 0;
   };
+  const newId = () =>
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `li_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+  const parentLineItems = (Array.isArray(parent.line_items) ? parent.line_items : []) as Partial<LineItem>[];
+  const cleanedParentItems: LineItem[] = parentLineItems.map((li) => {
+    const quantity   = num(li.quantity);
+    const unit_price = num(li.unit_price);
+    const liSubtotal = num(li.subtotal ?? quantity * unit_price);
+    const liTotal    = num(li.total ?? liSubtotal);
+    return {
+      id: li.id ?? newId(),
+      product_id: li.product_id,
+      name: li.name ?? li.description ?? "Item",
+      description: li.description ?? "",
+      quantity,
+      unit_price,
+      tax_rate: num(li.tax_rate),
+      discount_percent: num(li.discount_percent),
+      subtotal: liSubtotal,
+      tax_amount: num(li.tax_amount),
+      total: liTotal,
+    };
+  });
+
+  const parentTotalNum = num(parent.total);
+  const balance = Math.round((parentTotalNum - amount) * 100) / 100;
+
+  const lineItems: LineItem[] = [...cleanedParentItems];
+  if (balance > 0) {
+    lineItems.push({
+      id: newId(),
+      name: "Balance due on completion",
+      description: `Remainder of ${parent.number} payable on completion of works`,
+      quantity: 1,
+      unit_price: -balance,
+      tax_rate: 0,
+      discount_percent: 0,
+      subtotal: -balance,
+      tax_amount: 0,
+      total: -balance,
+    });
+  }
+
+  // Subtotal sums the line items (including the negative balance line) so it
+  // matches `total` exactly — no tax/discount needed on the deposit invoice.
+  const subtotal = Math.round(lineItems.reduce((s, li) => s + num(li.total), 0) * 100) / 100;
+
+  // Stash the deposit framing in notes so the PDF's notes block calls it out.
+  const depositNote = description;
+  const mergedNotes = parent.notes ? `${depositNote}\n\n${parent.notes}` : depositNote;
 
   const { data, error } = await tbl(supabase, "invoices")
     .insert({
@@ -225,15 +279,15 @@ export async function createProgressInvoice(input: {
       customer_id: parent.customer_id,
       issue_date: today,
       due_date: input.due_date ?? parent.due_date ?? today,
-      line_items: [lineItem],
-      subtotal: amount,
+      line_items: lineItems,
+      subtotal,
       discount_type: null,
       discount_value: 0,
       discount_amount: 0,
       tax_total: 0,
       total: amount,
       amount_paid: 0,
-      notes: parent.notes ?? null,
+      notes: mergedNotes,
       terms: parent.terms ?? null,
       site_id: parent.site_id ?? null,
       property_address: parent.property_address ?? null,
@@ -270,6 +324,41 @@ export async function addPayment(invoiceId: string, payment: { amount: number; d
 
   await tbl(supabase, "payments").insert({ ...payment, invoice_id: invoiceId, user_id: user.id, business_id: businessId });
   await tbl(supabase, "invoices").update({ amount_paid: newAmountPaid, status: newStatus }).eq("id", invoiceId);
+
+  // If this invoice is a child of a progress-billed parent, roll the new
+  // payment up. Once the sum of all sibling collections plus the parent's own
+  // direct payments covers the parent's total, auto-mark the parent paid so
+  // it stops appearing in outstanding lists.
+  const { data: childRow } = await tbl(supabase, "invoices")
+    .select("parent_invoice_id")
+    .eq("id", invoiceId)
+    .maybeSingle();
+  const parentId = childRow?.parent_invoice_id as string | null;
+  if (parentId) {
+    const [{ data: siblings }, { data: parentRow }] = await Promise.all([
+      tbl(supabase, "invoices")
+        .select("amount_paid")
+        .eq("parent_invoice_id", parentId)
+        .eq("business_id", businessId),
+      tbl(supabase, "invoices")
+        .select("total, amount_paid, status")
+        .eq("id", parentId)
+        .eq("business_id", businessId)
+        .maybeSingle(),
+    ]);
+    if (parentRow) {
+      const collectedFromChildren = ((siblings ?? []) as { amount_paid: unknown }[])
+        .reduce((s, r) => s + Number(r.amount_paid ?? 0), 0);
+      const parentTotal     = Number(parentRow.total ?? 0);
+      const parentDirect    = Number(parentRow.amount_paid ?? 0);
+      const fullyCovered    = collectedFromChildren + parentDirect >= parentTotal - 0.01;
+      if (fullyCovered && parentRow.status !== "paid" && parentRow.status !== "cancelled") {
+        await tbl(supabase, "invoices").update({ status: "paid" }).eq("id", parentId);
+        dispatchWebhook(businessId, "invoice.paid", { id: parentId, total: parentTotal, via_progress: true });
+      }
+      revalidatePath(`/invoices/${parentId}`);
+    }
+  }
 
   revalidatePath(`/invoices/${invoiceId}`);
   revalidatePath("/invoices");
