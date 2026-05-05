@@ -31,7 +31,7 @@ export default async function PortalInvoicePage({ params }: { params: Promise<{ 
       .eq("business_id", link.business_id)
       .eq("customer_id", link.customer_id)
       .maybeSingle(),
-    tbl(sb, "businesses").select("name, logo_url, currency").eq("id", link.business_id).maybeSingle(),
+    tbl(sb, "businesses").select("name, logo_url, currency, bank_name, bank_account_name, bank_account_number, bank_sort_code, bank_iban").eq("id", link.business_id).maybeSingle(),
     tbl(sb, "customers").select("name, company, email, billing_address").eq("id", link.customer_id).maybeSingle(),
     tbl(sb, "payments")
       .select("amount, date, method, reference")
@@ -146,6 +146,25 @@ export default async function PortalInvoicePage({ params }: { params: Promise<{ 
                 </li>
               ))}
             </ul>
+          </Card>
+        )}
+
+        {/* How to pay — bank transfer details */}
+        {!isPaid && balance > 0 && (business?.bank_account_name || business?.bank_account_number || business?.bank_iban) && (
+          <Card className="p-5 space-y-3 border-primary/20 bg-primary/5">
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">How to pay</p>
+              <p className="text-xs text-muted-foreground">Bank transfer</p>
+            </div>
+            <div className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5 text-sm">
+              {business?.bank_account_name && (<><span className="text-muted-foreground">Account name</span><span className="font-medium">{business.bank_account_name}</span></>)}
+              {business?.bank_name && (<><span className="text-muted-foreground">Bank</span><span className="font-medium">{business.bank_name}</span></>)}
+              {business?.bank_account_number && (<><span className="text-muted-foreground">Account no.</span><span className="font-mono font-medium">{business.bank_account_number}</span></>)}
+              {business?.bank_sort_code && (<><span className="text-muted-foreground">Sort code</span><span className="font-mono font-medium">{business.bank_sort_code}</span></>)}
+              {business?.bank_iban && (<><span className="text-muted-foreground">IBAN</span><span className="font-mono font-medium">{business.bank_iban}</span></>)}
+              <span className="text-muted-foreground">Reference</span><span className="font-mono font-medium">{invoice.number}</span>
+              <span className="text-muted-foreground">Amount</span><span className="font-bold">{formatCurrency(balance, currency)}</span>
+            </div>
           </Card>
         )}
 
