@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { updateInvoice, deleteInvoice, duplicateInvoice, addPayment, sendInvoiceEmail, sendInvoiceSms } from "@/lib/actions/invoices";
+import { updateInvoice, deleteInvoice, duplicateInvoice, addPayment, sendInvoiceEmail, sendInvoiceSms, createProgressInvoice } from "@/lib/actions/invoices";
 import { SendDocumentModal } from "@/components/send/send-document-modal";
 import { InvoiceEditor } from "./invoice-editor";
 import { InvoicePDFDownload } from "./invoice-pdf";
@@ -60,8 +60,11 @@ export function InvoiceDetailClient({
   // much has been split into children already.
   const isChild  = !!invoice.parent_invoice_id;
   const isParent = !isChild && progressInvoices.length > 0;
-  const billedSoFar = progressInvoices.reduce((sum, c) => sum + Number(c.total ?? 0), 0);
-  const remaining   = Math.max(0, Number(invoice.total) - billedSoFar);
+  const billedSoFar      = progressInvoices.reduce((sum, c) => sum + Number(c.total ?? 0), 0);
+  const depositsReceived = progressInvoices.reduce((sum, c) => sum + Number(c.amount_paid ?? 0), 0);
+  const remaining        = Math.max(0, Number(invoice.total) - billedSoFar);
+  // What the customer still owes across all linked invoices (parent + children).
+  const balanceAfterDeposits = Math.max(0, Number(invoice.total) - Number(invoice.amount_paid ?? 0) - depositsReceived);
 
   const handleStatusChange = async (status: Invoice["status"]) => {
     try {
@@ -85,6 +88,23 @@ export function InvoiceDetailClient({
       toast.success("Invoice deleted");
       router.push("/invoices");
     } catch { toast.error("Failed to delete"); }
+  };
+
+  const handleSendRemainder = async () => {
+    if (remaining <= 0) { toast.error("Nothing left to invoice"); return; }
+    setSaving(true);
+    try {
+      const created = await createProgressInvoice({
+        parent_invoice_id: invoice.id,
+        amount: Math.round(remaining * 100) / 100,
+        description: `Final balance for ${invoice.number}`,
+      });
+      toast.success(`${created.number} created`);
+      router.push(`/invoices/${created.id}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't create remainder invoice");
+    }
+    setSaving(false);
   };
 
   const handleAddPayment = async () => {
@@ -142,10 +162,17 @@ export function InvoiceDetailClient({
             </Button>
           )}
           {!isChild && invoice.status !== "cancelled" && remaining > 0 && (
-            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setProgressOpen(true)}>
-              <FileStack className="w-3.5 h-3.5" />
-              {progressInvoices.length === 0 ? "Send deposit" : "Add progress invoice"}
-            </Button>
+            <>
+              {isParent && (
+                <Button size="sm" className="gap-1.5" onClick={handleSendRemainder} disabled={saving}>
+                  <ArrowRight className="w-3.5 h-3.5" />Send remainder
+                </Button>
+              )}
+              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setProgressOpen(true)}>
+                <FileStack className="w-3.5 h-3.5" />
+                {progressInvoices.length === 0 ? "Send deposit" : "Add progress invoice"}
+              </Button>
+            </>
           )}
           <Button size="sm" className="gap-1.5" onClick={() => setEditing(true)}>
             <Edit className="w-3.5 h-3.5" />Edit
@@ -210,10 +237,16 @@ export function InvoiceDetailClient({
                   <span className="font-medium">{formatCurrency(billedSoFar, business.currency)}</span>
                   <span className="text-muted-foreground"> of </span>
                   <span className="font-medium">{formatCurrency(invoice.total, business.currency)}</span>
+                  {depositsReceived > 0 && (
+                    <>
+                      <span className="text-muted-foreground"> · </span>
+                      <span className="text-emerald-600 font-medium">{formatCurrency(depositsReceived, business.currency)} collected</span>
+                    </>
+                  )}
                   {remaining > 0 && (
                     <>
                       <span className="text-muted-foreground"> · </span>
-                      <span className="font-semibold">{formatCurrency(remaining, business.currency)} remaining</span>
+                      <span className="font-semibold">{formatCurrency(remaining, business.currency)} not yet invoiced</span>
                     </>
                   )}
                 </p>
@@ -332,10 +365,19 @@ export function InvoiceDetailClient({
                   <Separator />
                   <div className="flex justify-between font-bold text-lg"><span>Total</span><span>{formatCurrency(invoice.total, business.currency)}</span></div>
                   {invoice.amount_paid > 0 && (
-                    <>
-                      <div className="flex justify-between text-sm text-emerald-600"><span>Paid</span><span>{formatCurrency(invoice.amount_paid, business.currency)}</span></div>
-                      <div className="flex justify-between font-semibold"><span>Balance due</span><span>{formatCurrency(invoice.total - invoice.amount_paid, business.currency)}</span></div>
-                    </>
+                    <div className="flex justify-between text-sm text-emerald-600"><span>Paid</span><span>{formatCurrency(invoice.amount_paid, business.currency)}</span></div>
+                  )}
+                  {isParent && depositsReceived > 0 && (
+                    <div className="flex justify-between text-sm text-emerald-600">
+                      <span>Deposits received</span>
+                      <span>− {formatCurrency(depositsReceived, business.currency)}</span>
+                    </div>
+                  )}
+                  {(invoice.amount_paid > 0 || (isParent && depositsReceived > 0)) && (
+                    <div className="flex justify-between font-semibold">
+                      <span>Balance due</span>
+                      <span>{formatCurrency(isParent ? balanceAfterDeposits : invoice.total - invoice.amount_paid, business.currency)}</span>
+                    </div>
                   )}
                 </div>
               </div>
