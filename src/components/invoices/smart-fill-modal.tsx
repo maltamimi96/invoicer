@@ -63,6 +63,9 @@ interface SmartFillModalProps {
   mode: "invoice" | "quote";
   defaultTaxRate?: number;
   currency?: string;
+  /** If the form already has a customer selected, Smart Fill respects it
+   *  instead of inventing a new one when the pasted text is ambiguous. */
+  preselectedCustomerId?: string | null;
 }
 
 function calcItem(raw: Omit<LineItem, "subtotal" | "tax_amount" | "total">): LineItem {
@@ -79,7 +82,11 @@ export function SmartFillModal({
   mode,
   defaultTaxRate = 10,
   currency = "AUD",
+  preselectedCustomerId = null,
 }: SmartFillModalProps) {
+  const preselectedCustomer = preselectedCustomerId
+    ? customers.find((c) => c.id === preselectedCustomerId) ?? null
+    : null;
   const [text, setText] = useState("");
   const [parsing, setParsing] = useState(false);
   const [applying, setApplying] = useState(false);
@@ -97,6 +104,11 @@ export function SmartFillModal({
           text,
           mode,
           customers: customers.map((c) => ({ id: c.id, name: c.name, company: c.company, email: c.email })),
+          // Tell the AI the user already chose someone — only override if the
+          // text clearly names a different person/business.
+          preselected_customer: preselectedCustomer
+            ? { id: preselectedCustomer.id, name: preselectedCustomer.name, company: preselectedCustomer.company, email: preselectedCustomer.email }
+            : null,
           defaultTaxRate,
           today: new Date().toISOString().split("T")[0],
         }),
@@ -117,6 +129,14 @@ export function SmartFillModal({
     try {
       let customerId = result.existing_customer_id ?? "";
       let newCustomer: Customer | null = null;
+
+      // If the form already has a customer selected and the AI didn't match a
+      // *different* existing one, keep the user's choice — don't fabricate a
+      // new "Unknown client". The AI only sees the pasted text, so the user's
+      // explicit selection is the more trustworthy signal.
+      if (!customerId && preselectedCustomerId) {
+        customerId = preselectedCustomerId;
+      }
 
       if (!customerId && result.new_customer?.name) {
         newCustomer = await createCustomer({
@@ -175,9 +195,16 @@ export function SmartFillModal({
     ? result.line_items.reduce((s, i) => s + i.quantity * i.unit_price, 0)
     : 0;
 
+  // Preview resolves to: explicit AI match → preselected → new → none.
   const matchedCustomer = result?.existing_customer_id
-    ? customers.find((c) => c.id === result.existing_customer_id)
+    ? customers.find((c) => c.id === result.existing_customer_id) ?? null
     : null;
+  const willKeepPreselected = !matchedCustomer && !!preselectedCustomer && !result?.new_customer?.name
+    ? preselectedCustomer
+    : (!matchedCustomer && !!preselectedCustomer && result?.new_customer?.name
+        // AI proposed a new client but user already had one selected — prefer the user's pick.
+        ? preselectedCustomer
+        : null);
 
   return (
     <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) { setText(""); setResult(null); } }}>
@@ -227,6 +254,15 @@ export function SmartFillModal({
                         {matchedCustomer.company && <p className="text-xs text-muted-foreground">{matchedCustomer.company}</p>}
                       </div>
                       <Badge variant="secondary" className="ml-auto text-xs">Existing client</Badge>
+                    </div>
+                  ) : willKeepPreselected ? (
+                    <div className="flex items-center gap-2">
+                      <User className="w-4 h-4 text-green-500 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium text-sm">{willKeepPreselected.name}</p>
+                        {willKeepPreselected.company && <p className="text-xs text-muted-foreground">{willKeepPreselected.company}</p>}
+                      </div>
+                      <Badge variant="secondary" className="ml-auto text-xs">Already selected · keeping</Badge>
                     </div>
                   ) : result.new_customer ? (
                     <div className="flex items-center gap-2">
