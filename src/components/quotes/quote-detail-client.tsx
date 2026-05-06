@@ -138,9 +138,11 @@ export function QuoteDetailClient({ quote: initial, customers, products, busines
               <Button variant="outline" size="icon" className="h-8 w-8"><MoreHorizontal className="w-4 h-4" /></Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleStatusChange("draft")}>Reset to draft</DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleStatusChange("sent")}>Mark as sent</DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleStatusChange("accepted")}>Mark as accepted</DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleStatusChange("rejected")}>Mark as rejected</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleStatusChange("expired")}>Mark as expired</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleDuplicate} className="gap-2"><Copy className="w-3.5 h-3.5" />Duplicate</DropdownMenuItem>
               <DropdownMenuSeparator />

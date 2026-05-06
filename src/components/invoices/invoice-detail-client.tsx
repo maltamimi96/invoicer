@@ -210,6 +210,7 @@ export function InvoiceDetailClient({
               <Button variant="outline" size="icon" className="h-8 w-8"><MoreHorizontal className="w-4 h-4" /></Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleStatusChange("draft")}>Reset to draft</DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleStatusChange("sent")}>Mark as sent</DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleStatusChange("paid")}>Mark as paid</DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleStatusChange("cancelled")}>Mark as cancelled</DropdownMenuItem>

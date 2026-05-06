@@ -31,7 +31,7 @@ export default async function PortalReportPage({ params }: { params: Promise<{ t
       .eq("customer_id", link.customer_id)
       .maybeSingle(),
     tbl(sb, "businesses").select("name, logo_url, license_number, phone, email").eq("id", link.business_id).maybeSingle(),
-    tbl(sb, "customers").select("name, company, billing_address").eq("id", link.customer_id).maybeSingle(),
+    tbl(sb, "customers").select("name, company, email, address, city, postcode, country").eq("id", link.customer_id).maybeSingle(),
   ]);
   if (!report) notFound();
 
@@ -85,7 +85,11 @@ export default async function PortalReportPage({ params }: { params: Promise<{ t
             <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Prepared for</p>
             <p className="text-lg font-semibold mt-1">{customer.name}</p>
             {customer.company && <p className="text-sm text-muted-foreground">{customer.company}</p>}
-            {customer.billing_address && <p className="text-sm text-muted-foreground whitespace-pre-line mt-1">{customer.billing_address}</p>}
+            {(customer.address || customer.city) && (
+              <p className="text-sm text-muted-foreground whitespace-pre-line mt-1">
+                {[customer.address, [customer.city, customer.postcode].filter(Boolean).join(" "), customer.country].filter(Boolean).join("\n")}
+              </p>
+            )}
           </Card>
         )}
 

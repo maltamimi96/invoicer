@@ -32,7 +32,7 @@ export default async function PortalInvoicePage({ params }: { params: Promise<{ 
       .eq("customer_id", link.customer_id)
       .maybeSingle(),
     tbl(sb, "businesses").select("name, logo_url, currency, bank_name, bank_account_name, bank_account_number, bank_sort_code, bank_iban, phone, email").eq("id", link.business_id).maybeSingle(),
-    tbl(sb, "customers").select("name, company, email, billing_address").eq("id", link.customer_id).maybeSingle(),
+    tbl(sb, "customers").select("name, company, email, phone, address, city, postcode, country").eq("id", link.customer_id).maybeSingle(),
     tbl(sb, "payments")
       .select("amount, date, method, reference")
       .eq("invoice_id", id)
@@ -86,9 +86,12 @@ export default async function PortalInvoicePage({ params }: { params: Promise<{ 
           <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Billed to</p>
           <p className="text-lg font-semibold mt-1">{customer?.name}</p>
           {customer?.company && <p className="text-sm text-muted-foreground">{customer.company}</p>}
-          {customer?.billing_address && (
-            <p className="text-sm text-muted-foreground whitespace-pre-line mt-1">{customer.billing_address}</p>
+          {(customer?.address || customer?.city) && (
+            <p className="text-sm text-muted-foreground whitespace-pre-line mt-1">
+              {[customer.address, [customer.city, customer.postcode].filter(Boolean).join(" "), customer.country].filter(Boolean).join("\n")}
+            </p>
           )}
+          {customer?.email && <p className="text-sm text-muted-foreground mt-1">{customer.email}</p>}
         </Card>
 
         {/* Line items */}
