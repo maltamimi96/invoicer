@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Mail, MessageSquare, Plus, Send, X } from "@/components/ui/icons";
+import { Loader2, Mail, MessageSquare, Plus, Send, X, Clock } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +36,9 @@ interface SendDocumentModalProps {
   defaultSmsBody?: string;
   /** Called when the user clicks send */
   onSend: (result: SendDocumentResult) => Promise<void>;
+  /** Optional — when provided, the modal exposes a "Schedule for later"
+   *  toggle. Receives the same payload as onSend plus the chosen ISO time. */
+  onSchedule?: (sendAtIso: string, result: SendDocumentResult) => Promise<void>;
 }
 
 function isValidEmail(s: string) {
@@ -52,6 +55,7 @@ export function SendDocumentModal({
   defaultSubject,
   defaultSmsBody,
   onSend,
+  onSchedule,
 }: SendDocumentModalProps) {
   const [channel, setChannel] = useState<Channel>("email");
   const [emails, setEmails] = useState<string[]>(defaultEmails);
@@ -60,6 +64,8 @@ export function SendDocumentModal({
   const [phone, setPhone] = useState(defaultPhone ?? "");
   const [smsBody, setSmsBody] = useState(defaultSmsBody ?? "");
   const [sending, setSending] = useState(false);
+  const [schedule, setSchedule] = useState(false);
+  const [sendAtLocal, setSendAtLocal] = useState<string>("");
 
   // Re-sync defaults whenever the modal opens
   useEffect(() => {
@@ -70,6 +76,13 @@ export function SendDocumentModal({
       setSubject(defaultSubject);
       setPhone(defaultPhone ?? "");
       setSmsBody(defaultSmsBody ?? "");
+      setSchedule(false);
+      // Default the picker to "in 1 hour" so the form is never blank.
+      const inOneHour = new Date(Date.now() + 60 * 60 * 1000);
+      const pad = (n: number) => String(n).padStart(2, "0");
+      setSendAtLocal(
+        `${inOneHour.getFullYear()}-${pad(inOneHour.getMonth() + 1)}-${pad(inOneHour.getDate())}T${pad(inOneHour.getHours())}:${pad(inOneHour.getMinutes())}`
+      );
     }
   }, [open, defaultEmails, defaultSubject, defaultPhone, defaultSmsBody]);
 
@@ -92,11 +105,24 @@ export function SendDocumentModal({
       if (!phone.trim()) { toast.error("Phone number is required"); return; }
       if (!smsBody.trim()) { toast.error("Message body is required"); return; }
     }
+
+    const result: SendDocumentResult = channel === "email"
+      ? { channel: "email", recipients: emails, subject: subject.trim() }
+      : { channel: "sms", to: phone.trim(), body: smsBody.trim() };
+
+    let sendAtIso: string | null = null;
+    if (schedule) {
+      if (!sendAtLocal) { toast.error("Pick a date and time"); return; }
+      const d = new Date(sendAtLocal);
+      if (Number.isNaN(d.getTime())) { toast.error("Invalid date/time"); return; }
+      if (d.getTime() <= Date.now() + 30_000) { toast.error("Pick a time at least a minute in the future"); return; }
+      sendAtIso = d.toISOString();
+    }
+
     setSending(true);
     try {
-      await onSend(channel === "email"
-        ? { channel: "email", recipients: emails, subject: subject.trim() }
-        : { channel: "sms", to: phone.trim(), body: smsBody.trim() });
+      if (sendAtIso && onSchedule) await onSchedule(sendAtIso, result);
+      else                          await onSend(result);
       onOpenChange(false);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to send");
@@ -206,13 +232,45 @@ export function SendDocumentModal({
           </div>
         )}
 
+        {onSchedule && (
+          <div className="space-y-3 pt-2 border-t">
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={schedule}
+                onChange={(e) => setSchedule(e.target.checked)}
+                className="h-4 w-4 rounded border-border"
+              />
+              <Clock className="w-4 h-4 text-muted-foreground" />
+              <span className="font-medium">Schedule for later</span>
+            </label>
+            {schedule && (
+              <div className="space-y-1.5 pl-6">
+                <Label>Send at</Label>
+                <Input
+                  type="datetime-local"
+                  value={sendAtLocal}
+                  onChange={(e) => setSendAtLocal(e.target.value)}
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Times are in your local timezone. We&apos;ll dispatch within ~1 minute of the scheduled moment.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="flex gap-2 pt-2">
           <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)} disabled={sending}>
             Cancel
           </Button>
           <Button className="flex-1" onClick={handleSend} disabled={sending}>
-            {sending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Send className="w-3.5 h-3.5 mr-1.5" />}
-            Send {channel === "email" ? "email" : "SMS"}
+            {sending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+              : schedule ? <Clock className="w-3.5 h-3.5 mr-1.5" />
+              : <Send className="w-3.5 h-3.5 mr-1.5" />}
+            {schedule
+              ? `Schedule ${channel === "email" ? "email" : "SMS"}`
+              : `Send ${channel === "email" ? "email" : "SMS"}`}
           </Button>
         </div>
       </DialogContent>
