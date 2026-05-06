@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { canManageTeam, isOwner } from "@/lib/permissions";
-import type { MemberProfile } from "@/types/database";
+import { sendEmail } from "@/lib/email";
+import { teamInviteEmailHtml } from "@/lib/emails/team-invite";
+import type { MemberProfile, MemberRole } from "@/types/database";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: Awaited<ReturnType<typeof createClient>>, name: string) => (sb as any).from(name);
@@ -46,6 +48,14 @@ export async function getAssignableProfiles(): Promise<Pick<MemberProfile, 'id' 
   return data ?? [];
 }
 
+/** 8-char readable invite code (no ambiguous chars) — same scheme as members.ts. */
+function generateInviteCode(): string {
+  const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  let out = "";
+  for (let i = 0; i < 8; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+}
+
 export async function createMemberProfile(payload: {
   email: string;
   name: string;
@@ -53,6 +63,12 @@ export async function createMemberProfile(payload: {
   role_title?: string;
   skills?: string[];
   bio?: string;
+  /** When true (default), also creates a pending business_members row +
+   *  emails the new teammate a login invite with code. Same flow as
+   *  Settings → Team → Add member. */
+  send_invite?: boolean;
+  /** Login role for the invite. Defaults to 'worker'. */
+  role?: MemberRole;
 }): Promise<MemberProfile> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -62,9 +78,11 @@ export async function createMemberProfile(payload: {
   const callerRole = await getCallerRole(supabase, user.id, businessId);
   if (!canManageTeam(callerRole)) throw new Error("Only owners and admins can create profiles");
 
+  const cleanEmail = payload.email.toLowerCase().trim();
+
   const { data, error } = await tbl(supabase, "member_profiles").insert({
     business_id: businessId,
-    email: payload.email.toLowerCase().trim(),
+    email: cleanEmail,
     name: payload.name.trim(),
     phone: payload.phone ?? null,
     role_title: payload.role_title ?? null,
@@ -77,8 +95,65 @@ export async function createMemberProfile(payload: {
     throw error;
   }
 
+  // Send the login invite email + create the pending business_members row so
+  // the new teammate can actually sign in. Best-effort — profile creation
+  // succeeds even if the invite plumbing fails (we just toast a warning).
+  const sendInvite = payload.send_invite !== false;
+  if (sendInvite) {
+    const role = payload.role ?? "worker";
+    try {
+      // Skip if they're already a member (e.g. owner re-adding their own profile).
+      const { data: existingMember } = await tbl(supabase, "business_members")
+        .select("id, status, invite_token")
+        .eq("business_id", businessId)
+        .eq("email", cleanEmail)
+        .maybeSingle();
+
+      let inviteToken = (existingMember?.invite_token as string | undefined) ?? null;
+      if (!existingMember) {
+        inviteToken = generateInviteCode();
+        await tbl(supabase, "business_members").insert({
+          business_id: businessId,
+          email:        cleanEmail,
+          role,
+          status:       "pending",
+          invite_token: inviteToken,
+          added_by:     user.id,
+        });
+      } else if (!inviteToken) {
+        // Backfill an invite token on an old pending row that's missing one.
+        inviteToken = generateInviteCode();
+        await tbl(supabase, "business_members")
+          .update({ invite_token: inviteToken })
+          .eq("id", existingMember.id);
+      }
+
+      const { data: biz } = await tbl(supabase, "businesses").select("name").eq("id", businessId).single();
+      const inviterName = user.user_metadata?.full_name ?? user.email ?? "Your team owner";
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://kireihq.com";
+      const params = new URLSearchParams({ email: cleanEmail, biz: businessId });
+      const inviteUrl = `${appUrl}/auth/register?${params.toString()}`;
+
+      await sendEmail({
+        to: cleanEmail,
+        subject: `You've been invited to ${biz?.name ?? "a team"} on Kirei`,
+        html: teamInviteEmailHtml({
+          businessName: biz?.name ?? "a team",
+          inviterName,
+          role,
+          inviteUrl,
+          inviteCode: inviteToken!,
+        }),
+        tags: { business_id: businessId, doc_type: "team_invite" },
+      });
+    } catch {
+      // Non-fatal — the profile is still usable, owner can resend from Settings → Team.
+    }
+  }
+
   revalidatePath("/team");
   revalidatePath("/work-orders/new");
+  revalidatePath("/settings");
   return data as MemberProfile;
 }
 
