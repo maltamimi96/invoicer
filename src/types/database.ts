@@ -46,6 +46,8 @@ export interface Business {
   country: string | null;
   website: string | null;
   tax_number: string | null;
+  /** Trade licence / registration number — shown on PDFs (reports, invoices, quotes). */
+  license_number: string | null;
   logo_url: string | null;
   currency: string;
   locale: string;
@@ -221,6 +223,8 @@ export interface ReportMeta {
   advisory_banner: string;
   roof_type: string;
   inspector_name: string;
+  /** Optional licence/registration number to display next to the inspector. */
+  inspector_license?: string;
   roof_features: string;
   inspection_method: string;
   risk_items: RiskItem[];

@@ -58,6 +58,7 @@ export function ReportGenerator({ customers: initialCustomers, business, default
   const [reportDate, setReportDate] = useState(new Date().toISOString().split("T")[0]);
   const [roofType, setRoofType] = useState("Terracotta/Concrete Tile");
   const [inspectorName, setInspectorName] = useState(business.name);
+  const [inspectorLicense, setInspectorLicense] = useState("");
 
   // Step 2 fields
   const [description, setDescription] = useState("");
@@ -87,7 +88,7 @@ export function ReportGenerator({ customers: initialCustomers, business, default
         property_address: propertyAddress,
         inspection_date: inspectionDate,
         report_date: reportDate,
-        meta: { roof_type: roofType, inspector_name: inspectorName } as never,
+        meta: { roof_type: roofType, inspector_name: inspectorName, inspector_license: inspectorLicense } as never,
       });
 
       setReportId(report.id);
@@ -202,6 +203,7 @@ export function ReportGenerator({ customers: initialCustomers, business, default
         advisory_banner: result.meta?.advisory_banner ?? "",
         roof_type: roofType,
         inspector_name: inspectorName,
+        inspector_license: inspectorLicense,
         roof_features: result.meta?.roof_features ?? "",
         inspection_method: result.meta?.inspection_method ?? savedReport.meta.inspection_method,
         risk_items: result.meta?.risk_items ?? [],
@@ -323,7 +325,11 @@ export function ReportGenerator({ customers: initialCustomers, business, default
                   </div>
                   <div className="space-y-1.5">
                     <Label>Inspector Name</Label>
-                    <Input placeholder="Inspector name" value={inspectorName} onChange={(e) => setInspectorName(e.target.value)} />
+                    <Input placeholder="Person who carried out the report" value={inspectorName} onChange={(e) => setInspectorName(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Inspector Licence Number <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                    <Input placeholder="e.g. 471250C" value={inspectorLicense} onChange={(e) => setInspectorLicense(e.target.value)} />
                   </div>
                 </div>
               </CardContent>
