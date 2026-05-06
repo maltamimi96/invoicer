@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeft, Edit, Send, Copy, Trash2, CheckCircle, DollarSign, MoreHorizontal, FileStack, ArrowRight } from "@/components/ui/icons";
+import { ArrowLeft, Edit, Send, Copy, Trash2, CheckCircle, DollarSign, MoreHorizontal, FileStack, ArrowRight, Link2 } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +24,7 @@ import { ProgressInvoiceModal } from "./progress-invoice-modal";
 import { DeliveryStatusCard } from "@/components/delivery/delivery-status-card";
 import { ScheduledSendsCard } from "@/components/delivery/scheduled-sends-card";
 import { scheduleSend } from "@/lib/actions/scheduled-sends";
+import { ShareWithCustomerDialog } from "@/components/share/share-with-customer-dialog";
 
 import { formatCurrency, formatDate, getStatusColor } from "@/lib/utils";
 import type { Business, Customer, Invoice, LineItem, Payment, Product } from "@/types/database";
@@ -54,6 +55,7 @@ export function InvoiceDetailClient({
   const [paymentRef, setPaymentRef] = useState("");
   const [saving, setSaving] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [progressOpen, setProgressOpen] = useState(false);
 
   const lineItems = (invoice.line_items ?? []) as LineItem[];
@@ -189,6 +191,17 @@ export function InvoiceDetailClient({
             >
               <Send className="w-3.5 h-3.5" />
               Send
+            </Button>
+          )}
+          {invoice.customer_id && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              onClick={() => setShareOpen(true)}
+            >
+              <Link2 className="w-3.5 h-3.5" />
+              Share link
             </Button>
           )}
           <InvoicePDFDownload invoiceId={invoice.id} invoiceNumber={invoice.number} />
@@ -519,6 +532,19 @@ export function InvoiceDetailClient({
           router.refresh();
         }}
       />
+
+      {invoice.customer_id && (
+        <ShareWithCustomerDialog
+          open={shareOpen}
+          onOpenChange={setShareOpen}
+          customerId={invoice.customer_id}
+          customerName={customer?.name ?? null}
+          customerPhone={customer?.phone ?? null}
+          docType="invoice"
+          docId={invoice.id}
+          docNumber={invoice.number}
+        />
+      )}
 
       {!isChild && (
         <ProgressInvoiceModal

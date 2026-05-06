@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeft, Download, FileText, Pencil, Check, X, Trash2, CheckCircle, RotateCcw, Mail } from "@/components/ui/icons";
+import { ArrowLeft, Download, FileText, Pencil, Check, X, Trash2, CheckCircle, RotateCcw, Mail, Copy, Link2 } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { updateReportSection, updateReportStatus, updateReportPhotos, deleteReport } from "@/lib/actions/reports";
+import { updateReportSection, updateReportStatus, updateReportPhotos, deleteReport, duplicateReport } from "@/lib/actions/reports";
+import { ShareWithCustomerDialog } from "@/components/share/share-with-customer-dialog";
 import { ROOF_INSPECTION_SECTIONS, SECTION_MAP } from "@/lib/templates/roof-inspection";
 import type { Report, ReportPhoto, Customer, Business, RiskItem } from "@/types/database";
 import Link from "next/link";
@@ -37,6 +38,15 @@ export function ReportDetailClient({ report: initialReport, business }: ReportDe
   const [captionContent, setCaptionContent] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+
+  const handleDuplicate = async () => {
+    try {
+      const dup = await duplicateReport(report.id);
+      toast.success("Report duplicated");
+      router.push(`/reports/${dup.id}`);
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't duplicate"); }
+  };
 
   const sectionMap = Object.fromEntries(report.sections.map((s) => [s.id, s]));
 
@@ -126,8 +136,13 @@ export function ReportDetailClient({ report: initialReport, business }: ReportDe
           <a href={`/api/docx/report/${report.id}`} target="_blank" rel="noopener noreferrer">
             <Button variant="outline" size="sm"><FileText className="w-3.5 h-3.5 mr-1.5" />DOCX</Button>
           </a>
-          <Button variant="outline" size="sm" onClick={() => toast.info("Email coming soon")}>
-            <Mail className="w-3.5 h-3.5 mr-1.5" />Email
+          {report.customer_id && (
+            <Button variant="outline" size="sm" onClick={() => setShareOpen(true)}>
+              <Link2 className="w-3.5 h-3.5 mr-1.5" />Share link
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={handleDuplicate}>
+            <Copy className="w-3.5 h-3.5 mr-1.5" />Duplicate
           </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
@@ -349,6 +364,19 @@ export function ReportDetailClient({ report: initialReport, business }: ReportDe
           </Card>
         </div>
       </div>
+
+      {report.customer_id && (
+        <ShareWithCustomerDialog
+          open={shareOpen}
+          onOpenChange={setShareOpen}
+          customerId={report.customer_id}
+          customerName={report.customers?.name ?? null}
+          customerPhone={report.customers?.phone ?? null}
+          docType="report"
+          docId={report.id}
+          docNumber={report.title}
+        />
+      )}
     </div>
   );
 }

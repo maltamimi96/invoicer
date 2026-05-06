@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeft, Edit, Trash2, ArrowRight, MoreHorizontal, Send } from "@/components/ui/icons";
+import { ArrowLeft, Edit, Trash2, ArrowRight, MoreHorizontal, Send, Copy, Link2 } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { deleteQuote, updateQuote, convertQuoteToInvoice, sendQuoteEmail, sendQuoteSms } from "@/lib/actions/quotes";
+import { deleteQuote, updateQuote, convertQuoteToInvoice, sendQuoteEmail, sendQuoteSms, duplicateQuote } from "@/lib/actions/quotes";
+import { ShareWithCustomerDialog } from "@/components/share/share-with-customer-dialog";
 import { DeliveryStatusCard } from "@/components/delivery/delivery-status-card";
 import { ScheduledSendsCard } from "@/components/delivery/scheduled-sends-card";
 import { scheduleSend } from "@/lib/actions/scheduled-sends";
@@ -36,6 +37,15 @@ export function QuoteDetailClient({ quote: initial, customers, products, busines
   const [showDelete, setShowDelete] = useState(false);
   const [converting, setConverting] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+
+  const handleDuplicate = async () => {
+    try {
+      const dup = await duplicateQuote(quote.id);
+      toast.success("Quote duplicated");
+      router.push(`/quotes/${dup.id}`);
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't duplicate"); }
+  };
 
   const lineItems = (quote.line_items ?? []) as LineItem[];
   const customer = customers.find((c) => c.id === quote.customer_id);
@@ -108,6 +118,17 @@ export function QuoteDetailClient({ quote: initial, customers, products, busines
               Send
             </Button>
           )}
+          {quote.customer_id && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              onClick={() => setShareOpen(true)}
+            >
+              <Link2 className="w-3.5 h-3.5" />
+              Share link
+            </Button>
+          )}
           <QuotePDFDownload quoteId={quote.id} quoteNumber={quote.number} />
           <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setEditing(true)}>
             <Edit className="w-3.5 h-3.5" />Edit
@@ -120,6 +141,8 @@ export function QuoteDetailClient({ quote: initial, customers, products, busines
               <DropdownMenuItem onClick={() => handleStatusChange("sent")}>Mark as sent</DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleStatusChange("accepted")}>Mark as accepted</DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleStatusChange("rejected")}>Mark as rejected</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleDuplicate} className="gap-2"><Copy className="w-3.5 h-3.5" />Duplicate</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => setShowDelete(true)} className="text-destructive gap-2"><Trash2 className="w-3.5 h-3.5" />Delete</DropdownMenuItem>
             </DropdownMenuContent>
@@ -259,6 +282,19 @@ export function QuoteDetailClient({ quote: initial, customers, products, busines
           router.refresh();
         }}
       />
+
+      {quote.customer_id && (
+        <ShareWithCustomerDialog
+          open={shareOpen}
+          onOpenChange={setShareOpen}
+          customerId={quote.customer_id}
+          customerName={customer?.name ?? null}
+          customerPhone={customer?.phone ?? null}
+          docType="quote"
+          docId={quote.id}
+          docNumber={quote.number}
+        />
+      )}
 
       <AlertDialog open={showDelete} onOpenChange={setShowDelete}>
         <AlertDialogContent>
