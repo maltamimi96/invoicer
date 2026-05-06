@@ -74,7 +74,7 @@ export default function SignUp() {
         if (signIn.error) {
           setBusy(false); setStage("form");
           return Alert.alert("Account exists",
-            "An Invoicer account with this email already exists. Sign in with your existing password to redeem the code.");
+            "A Kirei account with this email already exists. Sign in with your existing password to redeem the code.");
         }
       } else {
         setBusy(false); setStage("form");
