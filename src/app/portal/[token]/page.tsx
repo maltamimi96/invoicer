@@ -34,7 +34,7 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
   ]);
   if (!customer) notFound();
 
-  const [{ data: invoices }, { data: quotes }, { data: workOrders }] = await Promise.all([
+  const [{ data: invoices }, { data: quotes }, { data: workOrders }, { data: reports }] = await Promise.all([
     tbl(sb, "invoices")
       .select("id, number, status, issue_date, due_date, total, amount_paid")
       .eq("business_id", link.business_id)
@@ -50,11 +50,17 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
       .eq("business_id", link.business_id)
       .eq("customer_id", link.customer_id)
       .order("scheduled_date", { ascending: false }),
+    tbl(sb, "reports")
+      .select("id, title, status, report_date, property_address")
+      .eq("business_id", link.business_id)
+      .eq("customer_id", link.customer_id)
+      .order("report_date", { ascending: false }),
   ]);
 
   const invs = invoices ?? [];
   const qts = quotes ?? [];
   const wos = workOrders ?? [];
+  const rps = reports ?? [];
   const totalOwing = invs
     .filter((i: { status: string }) => i.status !== "paid" && i.status !== "cancelled")
     .reduce((s: number, i: { total: number; amount_paid: number }) => s + (i.total - (i.amount_paid || 0)), 0);
@@ -123,23 +129,26 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
           ) : (
             <div className="space-y-2">
               {invs.map((inv: { id: string; number: string; status: string; issue_date: string; due_date: string; total: number; amount_paid: number }) => (
-                <Card key={inv.id} className="p-4 flex items-center justify-between gap-4">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium">#{inv.number}</span>
-                      <StatusBadge status={inv.status} />
+                <Link key={inv.id} href={`/portal/${token}/invoice/${inv.id}`}>
+                  <Card className="p-4 flex items-center justify-between gap-4 hover:shadow-md transition-shadow">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium">#{inv.number}</span>
+                        <StatusBadge status={inv.status} />
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Issued {formatDate(inv.issue_date)} · Due {formatDate(inv.due_date)}
+                      </p>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Issued {formatDate(inv.issue_date)} · Due {formatDate(inv.due_date)}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold">{formatCurrency(inv.total)}</p>
-                    {inv.amount_paid > 0 && inv.amount_paid < inv.total && (
-                      <p className="text-xs text-emerald-500">{formatCurrency(inv.amount_paid)} paid</p>
-                    )}
-                  </div>
-                </Card>
+                    <div className="text-right">
+                      <p className="font-semibold">{formatCurrency(inv.total)}</p>
+                      {inv.amount_paid > 0 && inv.amount_paid < inv.total && (
+                        <p className="text-xs text-emerald-500">{formatCurrency(inv.amount_paid)} paid</p>
+                      )}
+                      <p className="text-xs text-emerald-600 mt-0.5">View →</p>
+                    </div>
+                  </Card>
+                </Link>
               ))}
             </div>
           )}
@@ -210,6 +219,34 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
             </div>
           )}
         </section>
+
+        {/* Reports */}
+        {rps.length > 0 && (
+          <section>
+            <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+              <FileText className="w-4 h-4 text-amber-500" /> Reports
+            </h3>
+            <div className="space-y-2">
+              {rps.map((r: { id: string; title: string; status: string; report_date: string | null; property_address: string | null }) => (
+                <Link key={r.id} href={`/portal/${token}/report/${r.id}`}>
+                  <Card className="p-4 flex items-center justify-between gap-4 hover:shadow-md transition-shadow">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium truncate">{r.title}</span>
+                        <StatusBadge status={r.status === "complete" ? "completed" : "draft"} />
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {r.report_date ? formatDate(r.report_date) : ""}
+                        {r.property_address ? ` · ${r.property_address}` : ""}
+                      </p>
+                    </div>
+                    <p className="text-xs text-amber-600 font-medium flex-shrink-0">View →</p>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
 
         <footer className="text-center text-xs text-muted-foreground py-6 border-t">
           Powered by Invoicer · This link is private to {customer.name}

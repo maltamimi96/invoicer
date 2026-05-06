@@ -89,6 +89,39 @@ export async function createReport(payload: {
   return data as Report;
 }
 
+/** Clone a report — copies sections, meta, photos and resets status to draft.
+ *  The new report appends "(copy)" to the title and gets today's report_date. */
+export async function duplicateReport(id: string): Promise<Report> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+  const businessId = await getActiveBizId(supabase, user.id);
+
+  const { data: src, error: srcErr } = await tbl(supabase, "reports")
+    .select("*")
+    .eq("id", id)
+    .eq("business_id", businessId)
+    .single();
+  if (srcErr || !src) throw new Error("Report not found");
+
+  const today = new Date().toISOString().split("T")[0];
+  const { data, error } = await tbl(supabase, "reports").insert({
+    user_id: user.id,
+    business_id: businessId,
+    title: `${src.title} (copy)`,
+    status: "draft",
+    customer_id: src.customer_id,
+    property_address: src.property_address,
+    inspection_date: src.inspection_date,
+    report_date: today,
+    sections: src.sections,
+    photos: src.photos,
+    meta: src.meta,
+  }).select().single();
+  if (error) throw error;
+  return data as Report;
+}
+
 export async function updateReport(id: string, payload: Partial<Omit<Report, "id" | "user_id" | "created_at" | "updated_at">>): Promise<Report> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
