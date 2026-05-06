@@ -12,11 +12,11 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <div className="w-10 h-10 rounded-xl bg-blue-500 flex items-center justify-center">
             <FileText className="w-5 h-5 text-white" />
           </div>
-          <span className="text-xl font-semibold tracking-tight">Invoicer</span>
+          <span className="text-xl font-semibold tracking-tight">Kirei</span>
         </div>
         <div className="relative z-10 space-y-6">
           <blockquote className="text-2xl font-light leading-relaxed text-zinc-100">
-            "The cleanest invoicing tool I've ever used. My clients pay faster and I look more professional."
+            &ldquo;Kirei keeps the whole job tidy — quotes, invoices, photos, payments. I stopped chasing paperwork and started chasing leads.&rdquo;
           </blockquote>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-zinc-700 flex items-center justify-center text-sm font-medium">
@@ -24,7 +24,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             </div>
             <div>
               <p className="font-medium text-sm">James Davies</p>
-              <p className="text-sm text-zinc-400">Freelance Designer</p>
+              <p className="text-sm text-zinc-400">Roofing contractor</p>
             </div>
           </div>
         </div>
@@ -37,7 +37,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center">
               <FileText className="w-4 h-4 text-white" />
             </div>
-            <span className="text-lg font-semibold">Invoicer</span>
+            <span className="text-lg font-semibold">Kirei</span>
           </div>
           {children}
         </div>

@@ -115,7 +115,7 @@ export default async function OperatorsPage() {
         <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-5">
           <h2 className="text-sm font-medium mb-3">Invite operator</h2>
           <p className="text-xs text-neutral-500 mb-4">
-            The user must already have an Invoicer account. They&apos;ll get admin access the next time they visit /admin.
+            The user must already have a Kirei account. They&apos;ll get admin access the next time they visit /admin.
           </p>
           <form action={inviteOperatorAction} className="space-y-3">
             <div>

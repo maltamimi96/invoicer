@@ -16,7 +16,7 @@ import { Resend } from "resend";
 
 export const maxDuration = 60;
 
-const FROM = process.env.RESEND_FROM_EMAIL ?? "Invoicer <noreply@resend.dev>";
+const FROM = process.env.RESEND_FROM_EMAIL ?? "Kirei <noreply@resend.dev>";
 
 function getResend() { return new Resend(process.env.RESEND_API_KEY!); }
 

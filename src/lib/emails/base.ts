@@ -21,7 +21,7 @@ export function emailBase(title: string, body: string, accentColor = "#3b82f6"):
         </td></tr>
         <!-- Footer -->
         <tr><td style="padding:16px 32px;border-top:1px solid #e4e4e7;">
-          <p style="margin:0;font-size:12px;color:#71717a;">Sent via Invoicer · Please do not reply to this email.</p>
+          <p style="margin:0;font-size:12px;color:#71717a;">Sent via Kirei · Please do not reply to this email.</p>
         </td></tr>
       </table>
     </td></tr>

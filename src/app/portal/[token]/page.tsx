@@ -252,7 +252,7 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
         )}
 
         <footer className="text-center text-xs text-muted-foreground py-6 border-t">
-          Powered by Invoicer · This link is private to {customer.name}
+          Powered by Kirei · This link is private to {customer.name}
         </footer>
       </main>
     </div>

@@ -23,7 +23,7 @@ export function AdminSidebar({ operator }: { operator: Operator }) {
   return (
     <aside className="w-56 shrink-0 border-r border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 min-h-screen">
       <div className="h-14 px-5 flex items-center border-b border-neutral-200 dark:border-neutral-800">
-        <span className="font-semibold text-sm tracking-tight">Invoicer Admin</span>
+        <span className="font-semibold text-sm tracking-tight">Kirei Admin</span>
       </div>
       <nav className="py-3 px-2 space-y-0.5">
         {items.map((n) => {

@@ -150,7 +150,7 @@ export default async function PortalReportPage({ params }: { params: Promise<{ t
         </Card>
 
         <footer className="text-center text-xs text-muted-foreground py-6 border-t">
-          Powered by Invoicer
+          Powered by Kirei
         </footer>
       </main>
     </div>

@@ -77,7 +77,7 @@ export async function addMember(email: string, role: MemberRole): Promise<void> 
 
     await sendEmail({
       to: email.toLowerCase().trim(),
-      subject: `You've been invited to ${biz?.name ?? "a team"} on Invoicer`,
+      subject: `You've been invited to ${biz?.name ?? "a team"} on Kirei`,
       html: teamInviteEmailHtml({
         businessName: biz?.name ?? "a team",
         inviterName,

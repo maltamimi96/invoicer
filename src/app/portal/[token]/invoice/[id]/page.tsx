@@ -223,7 +223,7 @@ export default async function PortalInvoicePage({ params }: { params: Promise<{ 
         </Card>
 
         <footer className="text-center text-xs text-muted-foreground py-6 border-t">
-          Powered by Invoicer
+          Powered by Kirei
         </footer>
       </main>
     </div>

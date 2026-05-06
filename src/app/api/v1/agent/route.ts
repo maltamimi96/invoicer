@@ -2,7 +2,7 @@
  * POST /api/v1/agent
  *
  * API endpoint — allows external applications (Telegram bot, etc.)
- * to interact with the Invoicer using natural language.
+ * to interact with Kirei using natural language.
  *
  * Security:
  *   - Per-business API key required (Authorization: Bearer inv_xxx)
