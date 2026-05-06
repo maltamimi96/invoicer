@@ -76,7 +76,12 @@ export function useVoiceCapture(onText: (text: string) => void) {
         cleanup();
         if (cancelledRef.current) return;
         const blob = new Blob(chunksRef.current, { type: recorder.mimeType || "audio/webm" });
-        if (blob.size < 500) { return; } // ignore taps shorter than ~half-second
+        if (blob.size < 500) {
+          // Ignore extremely short blips (button bounce, mic permission hiccup)
+          // but tell the user — silent failure is the worst kind.
+          setError("Recording too short — try again and speak for at least a second.");
+          return;
+        }
         setTranscribing(true);
         try {
           const fd = new FormData();

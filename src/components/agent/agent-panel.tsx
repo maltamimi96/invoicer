@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import {
   Bot, Send, Loader2, CheckCircle2, AlertCircle, ChevronRight,
   Minimize2, Trash2, Sparkles, Mic,
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { motion, AnimatePresence } from "framer-motion";
 import { useVoiceCapture } from "./use-voice-capture";
+import { getAgentContext } from "@/lib/actions/agent-context";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -158,7 +159,7 @@ function EmptyState({ onSuggestion }: { onSuggestion: (text: string) => void }) 
       <div>
         <p className="font-semibold text-sm">What can I help with?</p>
         <p className="text-xs text-muted-foreground mt-1">
-          Type or hold the mic to talk. I can run accounts, sites, contacts, work orders, quotes, invoices and team scheduling.
+          Type or tap the mic to talk. I can see your live data — recent customers, jobs, invoices, leads — and can run anything in the app.
         </p>
       </div>
       <div className="w-full space-y-1.5">
@@ -180,6 +181,7 @@ function EmptyState({ onSuggestion }: { onSuggestion: (text: string) => void }) 
 
 export function AgentPanel() {
   const router = useRouter();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
@@ -235,10 +237,16 @@ export function AgentPanel() {
     setMessages((prev) => [...prev, assistantMsg]);
 
     try {
+      // Snapshot of current state — recent customers, jobs, stats — so the AI
+      // knows what 'this invoice' / 'today's jobs' refer to without making the
+      // user spell out IDs. Best-effort; non-fatal if it fails.
+      let context: unknown = undefined;
+      try { context = await getAgentContext(pathname || "/"); } catch { /* skip */ }
+
       const response = await fetch("/api/agent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: newApiHistory }),
+        body: JSON.stringify({ messages: newApiHistory, context }),
       });
 
       if (!response.ok || !response.body) {
@@ -456,7 +464,7 @@ export function AgentPanel() {
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
                     <span className="relative inline-flex h-2 w-2 rounded-full bg-red-600" />
                   </span>
-                  Listening… release to send
+                  Listening… tap mic to send
                 </div>
               )}
               {voice.transcribing && !voice.recording && (
@@ -473,7 +481,7 @@ export function AgentPanel() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Type or hold the mic to talk…"
+                  placeholder="Type or tap the mic to talk…"
                   className="resize-none text-sm min-h-[40px] max-h-[120px] flex-1 py-2.5"
                   rows={1}
                   disabled={loading || voice.recording}
@@ -483,11 +491,9 @@ export function AgentPanel() {
                   variant={voice.recording ? "destructive" : "outline"}
                   className="h-10 w-10 flex-shrink-0 select-none touch-none"
                   disabled={loading || voice.transcribing}
-                  onPointerDown={(e) => { e.preventDefault(); voice.start(); }}
-                  onPointerUp={() => voice.stop()}
-                  onPointerLeave={() => { if (voice.recording) voice.stop(); }}
-                  onPointerCancel={() => voice.cancel()}
-                  title="Hold to talk"
+                  onClick={() => { voice.recording ? voice.stop() : voice.start(); }}
+                  title={voice.recording ? "Tap to stop and send" : "Tap to start talking"}
+                  aria-label={voice.recording ? "Stop voice input" : "Start voice input"}
                 >
                   <Mic className={`w-4 h-4 ${voice.recording ? "animate-pulse" : ""}`} />
                 </Button>
