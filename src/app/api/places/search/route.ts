@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const res = await fetch(url.toString(), {
-      headers: { "User-Agent": "Invoicer (admin@invoicer.app)" },
+      headers: { "User-Agent": "Kirei (admin@kireihq.com)" },
       cache: "no-store",
     });
     if (!res.ok) return NextResponse.json([], { status: 200 });

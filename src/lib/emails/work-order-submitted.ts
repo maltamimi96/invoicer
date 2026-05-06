@@ -44,7 +44,7 @@ export function workOrderSubmittedEmailHtml({
 
     <p style="margin:0 0 24px;">${btn("Review work order", viewUrl, "#10b981")}</p>
     <p style="margin:0;font-size:12px;color:#a1a1aa;">
-      Sent from <strong>${businessName}</strong> — Invoicer
+      Sent from <strong>${businessName}</strong> — Kirei
     </p>
   `;
 

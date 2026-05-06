@@ -13,7 +13,7 @@ function getResend(): Resend {
 
 // Default from address — override with RESEND_FROM_EMAIL env var once you verify a domain.
 // During development, Resend allows sending from onboarding@resend.dev to your own email only.
-const FROM = process.env.RESEND_FROM_EMAIL ?? "Invoicer <onboarding@resend.dev>";
+const FROM = process.env.RESEND_FROM_EMAIL ?? "Kirei <onboarding@resend.dev>";
 
 export type EmailDocType = "invoice" | "quote" | "team_invite" | "lead" | "custom";
 
@@ -41,9 +41,9 @@ export async function sendEmail({
 }) {
   // Resend headers can carry tags for our own webhook handler to read back.
   const headers: Record<string, string> = {};
-  if (tags?.business_id) headers["X-Invoicer-Business"] = tags.business_id;
-  if (tags?.doc_type)    headers["X-Invoicer-Doc-Type"] = tags.doc_type;
-  if (tags?.doc_id)      headers["X-Invoicer-Doc-Id"]   = tags.doc_id;
+  if (tags?.business_id) headers["X-Kirei-Business"] = tags.business_id;
+  if (tags?.doc_type)    headers["X-Kirei-Doc-Type"] = tags.doc_type;
+  if (tags?.doc_id)      headers["X-Kirei-Doc-Id"]   = tags.doc_id;
 
   let resendId: string | null = null;
   let sendError: string | null = null;

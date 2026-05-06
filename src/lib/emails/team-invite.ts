@@ -20,7 +20,7 @@ export function teamInviteEmailHtml({
   const body = `
     <p style="margin:0 0 16px;font-size:14px;color:#71717a;">
       <strong style="color:#18181b;">${inviterName}</strong> has invited you to join
-      <strong style="color:#18181b;">${businessName}</strong> on Invoicer as an <strong style="color:#18181b;">${roleLabel}</strong>.
+      <strong style="color:#18181b;">${businessName}</strong> on Kirei as an <strong style="color:#18181b;">${roleLabel}</strong>.
     </p>
     ${isWorker && inviteCode ? `
     <!-- Worker code (Connected Hub mobile) -->
@@ -45,7 +45,7 @@ export function teamInviteEmailHtml({
       <span style="color:#3b82f6;word-break:break-all;">${inviteUrl}</span>
     </p>
     <p style="margin:16px 0 0;font-size:12px;color:#a1a1aa;">
-      If you already have an Invoicer account, the link will sign you in and grant access automatically.
+      If you already have a Kirei account, the link will sign you in and grant access automatically.
     </p>
   `;
 

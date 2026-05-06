@@ -6,7 +6,7 @@ import { AdminSidebar } from "./_components/sidebar";
 import { ImpersonationBanner } from "./_components/impersonation-banner";
 
 export const metadata = {
-  title: "Admin — Invoicer",
+  title: "Admin — Kirei",
   robots: { index: false, follow: false },
 };
 

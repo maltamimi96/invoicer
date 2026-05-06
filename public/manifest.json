@@ -1,7 +1,7 @@
 {
-  "name": "Invoicer — Crown Roofers",
-  "short_name": "Invoicer",
-  "description": "Invoices, quotes, leads and work orders for Crown Roofers",
+  "name": "Kirei",
+  "short_name": "Kirei",
+  "description": "Quotes, invoices, leads, jobs and reports — clean, organised, AI-assisted. Built for tradies.",
   "start_url": "/dashboard",
   "display": "standalone",
   "orientation": "portrait",

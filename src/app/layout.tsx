@@ -30,13 +30,13 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "Invoicer — Crown Roofers",
-  description: "Invoices, quotes, leads and work orders for Crown Roofers",
+  title: "Kirei — Tidy your trade business",
+  description: "Quotes, invoices, leads, jobs and reports — clean, organised, and AI-assisted. Built for tradies.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Invoicer",
+    title: "Kirei",
   },
   formatDetection: {
     telephone: false,

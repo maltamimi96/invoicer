@@ -160,7 +160,7 @@ export default async function PortalQuotePage({ params }: { params: Promise<{ to
         ) : null}
 
         <footer className="text-center text-xs text-muted-foreground py-6 border-t">
-          Powered by Invoicer
+          Powered by Kirei
         </footer>
       </main>
     </div>

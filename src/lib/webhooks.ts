@@ -45,7 +45,7 @@ async function deliverWebhook(
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     "X-Webhook-Event": payload.event,
-    "User-Agent": "Invoicer-Webhook/1.0",
+    "User-Agent": "Kirei-Webhook/1.0",
   };
 
   if (webhook.secret) {

@@ -293,7 +293,7 @@ export function HelpClient() {
           </div>
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Help & feature guide</h1>
-            <p className="text-sm text-muted-foreground">Everything Invoicer can do, and how to drive it — by click or by voice.</p>
+            <p className="text-sm text-muted-foreground">Everything Kirei can do, and how to drive it — by click or by voice.</p>
           </div>
         </div>
       </motion.div>
