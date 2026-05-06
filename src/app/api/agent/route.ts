@@ -1662,8 +1662,75 @@ async function executeTool(
 
 // ── System prompt ────────────────────────────────────────────────────────────
 
-function buildSystemPrompt(businessName: string): string {
-  return `You are a powerful AI assistant built into ${businessName}'s business management app. You have full access to every feature of the system.
+interface ContextSnapshot {
+  business: { name: string; currency: string; phone: string | null; email: string | null; license_number: string | null };
+  current_page: string;
+  recent_customers: Array<{ id: string; name: string; company: string | null }>;
+  recent_invoices: Array<{ id: string; number: string; status: string; total: number; balance: number; customer_name: string | null }>;
+  recent_quotes:   Array<{ id: string; number: string; status: string; total: number; customer_name: string | null }>;
+  todays_jobs:     Array<{ id: string; number: string; title: string; status: string; customer_name: string | null; scheduled_date: string | null }>;
+  open_leads:      Array<{ id: string; name: string; status: string; created_at: string }>;
+  stats: {
+    outstanding: number; overdue: number; jobs_today: number; jobs_this_week: number; draft_quotes: number; new_leads_7d: number;
+  };
+}
+
+function fmtMoney(n: number, currency: string): string {
+  try { return new Intl.NumberFormat("en-GB", { style: "currency", currency }).format(n); } catch { return `${currency} ${n.toFixed(2)}`; }
+}
+
+function renderContext(ctx: ContextSnapshot | null): string {
+  if (!ctx) return "";
+  const c = ctx.business.currency;
+  const lines: string[] = ["", "── LIVE CONTEXT (what's going on right now) ──", `User is currently on: ${ctx.current_page}`];
+
+  lines.push("", "Stats:",
+    `  • Outstanding invoiced: ${fmtMoney(ctx.stats.outstanding, c)}`,
+    `  • Overdue: ${fmtMoney(ctx.stats.overdue, c)}`,
+    `  • Jobs today: ${ctx.stats.jobs_today}, this week: ${ctx.stats.jobs_this_week}`,
+    `  • Draft quotes waiting to send: ${ctx.stats.draft_quotes}`,
+    `  • New leads (7d): ${ctx.stats.new_leads_7d}`,
+  );
+
+  if (ctx.recent_customers.length) {
+    lines.push("", "Recent customers:");
+    for (const r of ctx.recent_customers.slice(0, 5)) lines.push(`  • ${r.name}${r.company ? ` (${r.company})` : ""} — id ${r.id}`);
+  }
+  if (ctx.recent_invoices.length) {
+    lines.push("", "Recent invoices:");
+    for (const i of ctx.recent_invoices.slice(0, 5)) {
+      lines.push(`  • ${i.number} ${i.status} — ${fmtMoney(i.total, c)}${i.balance > 0 ? ` (${fmtMoney(i.balance, c)} due)` : ""}${i.customer_name ? ` — ${i.customer_name}` : ""} — id ${i.id}`);
+    }
+  }
+  if (ctx.recent_quotes.length) {
+    lines.push("", "Recent quotes:");
+    for (const q of ctx.recent_quotes.slice(0, 5)) {
+      lines.push(`  • ${q.number} ${q.status} — ${fmtMoney(q.total, c)}${q.customer_name ? ` — ${q.customer_name}` : ""} — id ${q.id}`);
+    }
+  }
+  if (ctx.todays_jobs.length) {
+    lines.push("", "Upcoming jobs (next 7 days):");
+    for (const w of ctx.todays_jobs.slice(0, 8)) {
+      lines.push(`  • ${w.number} ${w.scheduled_date ?? "unscheduled"} ${w.status} — ${w.title}${w.customer_name ? ` (${w.customer_name})` : ""} — id ${w.id}`);
+    }
+  }
+  if (ctx.open_leads.length) {
+    lines.push("", "Recent leads:");
+    for (const l of ctx.open_leads.slice(0, 5)) lines.push(`  • ${l.name} — ${l.status} — id ${l.id}`);
+  }
+
+  lines.push("",
+    "Use this context when the user refers to 'that customer', 'the invoice I just made',",
+    "'today's jobs', 'this lead' etc — match their pronouns to entries above. If the user",
+    "is on a detail page like /invoices/<id>, prefer that record when they ask about",
+    "'this invoice' / 'this job' / 'this customer' without further qualification.",
+    "──────────────────────────────────────────────",
+  );
+  return lines.join("\n");
+}
+
+function buildSystemPrompt(businessName: string, ctx: ContextSnapshot | null): string {
+  return `You are a powerful AI assistant built into ${businessName}'s Kirei workspace. You have full access to every feature of the system.
 
 DOMAIN MODEL:
 - Account = a customer (company or person). One account can have many Sites and many Contacts.
@@ -1699,7 +1766,8 @@ WORKFLOW RULES:
 9. Voice prompts are transcribed and may have slight errors — interpret intent generously.
 10. Never say you "don't have access" — you can do everything listed above.
 
-Today's date: ${new Date().toISOString().split("T")[0]}`;
+Today's date: ${new Date().toISOString().split("T")[0]}
+${renderContext(ctx)}`;
 }
 
 // ── Route handler ────────────────────────────────────────────────────────────
@@ -1713,8 +1781,12 @@ export async function POST(request: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: business } = await (supabase as any).from("businesses").select("name").eq("id", businessId).single();
 
-  const { messages } = await request.json() as { messages: Anthropic.MessageParam[] };
+  const { messages, context } = await request.json() as {
+    messages: Anthropic.MessageParam[];
+    context?: ContextSnapshot;
+  };
   const ctx: ToolContext = { businessId };
+  const snapshot: ContextSnapshot | null = context ?? null;
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -1733,7 +1805,7 @@ export async function POST(request: NextRequest) {
           const response = await anthropic.messages.create({
             model: "claude-opus-4-6",
             max_tokens: 4096,
-            system: buildSystemPrompt(business?.name ?? "your business"),
+            system: buildSystemPrompt(business?.name ?? "your business", snapshot),
             tools: TOOLS,
             messages: allMessages,
           });
