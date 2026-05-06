@@ -30,7 +30,7 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
 
   const [{ data: customer }, { data: business }] = await Promise.all([
     tbl(sb, "customers").select("*").eq("id", link.customer_id).maybeSingle(),
-    tbl(sb, "businesses").select("name, logo_url, accent_color, email, phone").eq("id", link.business_id).maybeSingle(),
+    tbl(sb, "businesses").select("name, logo_url, accent_color, email, phone, currency, license_number").eq("id", link.business_id).maybeSingle(),
   ]);
   if (!customer) notFound();
 
@@ -69,22 +69,25 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
       {/* Header */}
       <header className="border-b bg-background/80 backdrop-blur sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
+        <div className="max-w-5xl mx-auto px-6 py-5 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4 min-w-0">
             {business?.logo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={business.logo_url} alt={business.name} className="w-10 h-10 rounded-lg object-contain" />
+              <img src={business.logo_url} alt={business.name} className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-contain bg-white border border-border p-1" />
             ) : (
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Building2 className="w-5 h-5 text-primary" />
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Building2 className="w-8 h-8 text-primary" />
               </div>
             )}
             <div className="min-w-0">
-              <p className="text-xs text-muted-foreground">Customer portal</p>
-              <h1 className="font-semibold truncate">{business?.name ?? "Your provider"}</h1>
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Customer portal</p>
+              <h1 className="text-xl sm:text-2xl font-bold truncate">{business?.name ?? "Your provider"}</h1>
+              {business?.license_number && (
+                <p className="text-xs text-muted-foreground">Licence {business.license_number}</p>
+              )}
             </div>
           </div>
-          <div className="hidden sm:flex items-center gap-3 text-xs text-muted-foreground">
+          <div className="hidden sm:flex flex-col items-end gap-1 text-xs text-muted-foreground">
             {business?.email && <a href={`mailto:${business.email}`} className="flex items-center gap-1 hover:text-foreground"><Mail className="w-3.5 h-3.5" />{business.email}</a>}
             {business?.phone && <a href={`tel:${business.phone}`} className="flex items-center gap-1 hover:text-foreground"><Phone className="w-3.5 h-3.5" />{business.phone}</a>}
           </div>
@@ -112,7 +115,7 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <div>
                 <p className="text-xs uppercase tracking-wider text-amber-600 dark:text-amber-400 font-semibold">Outstanding balance</p>
-                <p className="text-2xl font-bold mt-1">{formatCurrency(totalOwing)}</p>
+                <p className="text-2xl font-bold mt-1">{formatCurrency(totalOwing, business?.currency)}</p>
               </div>
               <Badge variant="secondary" className="bg-amber-500/15 text-amber-600 dark:text-amber-400">Across {invs.filter((i: {status: string}) => i.status !== "paid" && i.status !== "cancelled").length} invoice(s)</Badge>
             </div>
@@ -141,9 +144,9 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold">{formatCurrency(inv.total)}</p>
+                      <p className="font-semibold">{formatCurrency(inv.total, business?.currency)}</p>
                       {inv.amount_paid > 0 && inv.amount_paid < inv.total && (
-                        <p className="text-xs text-emerald-500">{formatCurrency(inv.amount_paid)} paid</p>
+                        <p className="text-xs text-emerald-500">{formatCurrency(inv.amount_paid, business?.currency)} paid</p>
                       )}
                       <p className="text-xs text-emerald-600 mt-0.5">View →</p>
                     </div>
@@ -176,7 +179,7 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold">{formatCurrency(q.total)}</p>
+                      <p className="font-semibold">{formatCurrency(q.total, business?.currency)}</p>
                       <p className="text-xs text-violet-500 mt-0.5">View →</p>
                     </div>
                   </Card>
