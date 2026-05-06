@@ -32,7 +32,7 @@ export default async function PortalQuotePage({ params }: { params: Promise<{ to
       .eq("business_id", link.business_id)
       .eq("customer_id", link.customer_id)
       .maybeSingle(),
-    tbl(sb, "businesses").select("name, logo_url, currency").eq("id", link.business_id).maybeSingle(),
+    tbl(sb, "businesses").select("name, logo_url, currency, phone, email").eq("id", link.business_id).maybeSingle(),
     tbl(sb, "customers").select("name, company, email, billing_address").eq("id", link.customer_id).maybeSingle(),
   ]);
 
@@ -45,16 +45,20 @@ export default async function PortalQuotePage({ params }: { params: Promise<{ to
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
       <header className="border-b bg-background/80 backdrop-blur sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
+        <div className="max-w-3xl mx-auto px-6 py-5 flex items-center justify-between gap-4">
           <Link href={`/portal/${token}`} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
             <ArrowLeft className="w-4 h-4" /> Back
           </Link>
-          {business?.logo_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={business.logo_url} alt={business.name} className="w-8 h-8 rounded object-contain" />
-          ) : (
-            <span className="text-sm font-semibold">{business?.name}</span>
-          )}
+          <div className="flex items-center gap-3">
+            {business?.logo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={business.logo_url} alt={business.name} className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg object-contain bg-white border border-border p-1" />
+            ) : null}
+            <div className="text-right">
+              <p className="font-semibold text-sm">{business?.name}</p>
+              {business?.phone && <p className="text-xs text-muted-foreground">{business.phone}</p>}
+            </div>
+          </div>
         </div>
       </header>
 
@@ -76,7 +80,7 @@ export default async function PortalQuotePage({ params }: { params: Promise<{ to
         {/* Customer */}
         <Card className="p-5">
           <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Prepared for</p>
-          <p className="font-medium mt-1">{customer?.name}</p>
+          <p className="text-lg font-semibold mt-1">{customer?.name}</p>
           {customer?.company && <p className="text-sm text-muted-foreground">{customer.company}</p>}
           {customer?.billing_address && <p className="text-sm text-muted-foreground whitespace-pre-line mt-1">{customer.billing_address}</p>}
         </Card>
