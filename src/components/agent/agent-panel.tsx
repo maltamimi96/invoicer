@@ -391,10 +391,15 @@ export function AgentPanel() {
             exit={{ scale: 0, opacity: 0 }}
             transition={{ type: "spring", stiffness: 400, damping: 25 }}
             onClick={() => setOpen(true)}
-            className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-full shadow-lg bg-gradient-to-br from-purple-600 to-violet-700 text-white text-sm font-medium hover:from-purple-500 hover:to-violet-600 transition-all hover:shadow-xl"
+            aria-label="Open AI assistant"
+            title="AI assistant"
+            // Positioned bottom-LEFT to avoid clobbering page-level primary CTAs
+            // (Send / Save / Mark paid) which conventionally sit bottom-right.
+            // Mobile pushes it up clear of any sticky thumb bar.
+            className="fixed bottom-4 left-4 sm:bottom-5 sm:left-5 z-50 w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center rounded-full shadow-lg bg-gradient-to-br from-purple-600 to-violet-700 text-white hover:from-purple-500 hover:to-violet-600 transition-all hover:shadow-xl"
+            style={{ paddingBottom: "env(safe-area-inset-bottom, 0)" }}
           >
-            <Bot className="w-4 h-4" />
-            AI Assistant
+            <Bot className="w-5 h-5" />
           </motion.button>
         )}
       </AnimatePresence>
@@ -407,7 +412,7 @@ export function AgentPanel() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 24, scale: 0.96 }}
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            className="fixed bottom-6 right-6 z-50 w-[400px] max-w-[calc(100vw-2rem)] flex flex-col rounded-2xl shadow-2xl border bg-background overflow-hidden"
+            className="fixed bottom-4 left-4 sm:bottom-5 sm:left-5 z-50 w-[400px] max-w-[calc(100vw-2rem)] flex flex-col rounded-2xl shadow-2xl border bg-background overflow-hidden"
             style={{ height: "min(560px, calc(100vh - 5rem))" }}
           >
             {/* Header */}
