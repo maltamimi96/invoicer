@@ -459,12 +459,22 @@ export function AgentPanel() {
             {/* Input */}
             <div className="flex-shrink-0 border-t px-3 py-3 bg-background">
               {voice.recording && (
-                <div className="mb-2 flex items-center justify-center gap-2 text-xs text-red-600 dark:text-red-400">
-                  <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-red-600" />
-                  </span>
-                  Listening… tap mic to send
+                <div className="mb-2 rounded-xl border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-950/20 p-2.5 space-y-1.5">
+                  <div className="flex items-center gap-2 text-[11px] font-medium text-red-700 dark:text-red-400">
+                    <span className="relative flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-red-600" />
+                    </span>
+                    Listening · tap mic to send
+                  </div>
+                  {voice.interimText ? (
+                    <p className="text-sm text-foreground leading-snug">
+                      {voice.interimText}
+                      <span className="inline-block w-0.5 h-4 bg-red-500 ml-0.5 animate-pulse align-text-bottom" />
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground italic">Speak now…</p>
+                  )}
                 </div>
               )}
               {voice.transcribing && !voice.recording && (
