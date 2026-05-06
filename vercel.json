@@ -26,7 +26,7 @@
     },
     {
       "path": "/api/cron/process-scheduled-sends",
-      "schedule": "* * * * *"
+      "schedule": "0 8 * * *"
     }
   ]
 }
