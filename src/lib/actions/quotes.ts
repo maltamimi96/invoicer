@@ -242,6 +242,7 @@ export async function sendQuoteEmail(id: string, opts?: { recipients?: string[];
     subject: opts?.subject ?? `Quote ${quoteData.number} from ${businessData.name}`,
     html: quoteEmailHtml({ quote: quoteData, customer, business: businessData, lineItems, acceptUrl }),
     attachments: [{ filename: `${quoteData.number}.pdf`, content: pdfBuffer }],
+    tags: { business_id: businessId, doc_type: "quote", doc_id: quoteData.id },
   });
 
   // Mark as sent if still draft

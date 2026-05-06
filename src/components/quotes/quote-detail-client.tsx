@@ -13,6 +13,9 @@ import { Separator } from "@/components/ui/separator";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { deleteQuote, updateQuote, convertQuoteToInvoice, sendQuoteEmail, sendQuoteSms } from "@/lib/actions/quotes";
+import { DeliveryStatusCard } from "@/components/delivery/delivery-status-card";
+import { ScheduledSendsCard } from "@/components/delivery/scheduled-sends-card";
+import { scheduleSend } from "@/lib/actions/scheduled-sends";
 import { SendDocumentModal } from "@/components/send/send-document-modal";
 import { QuoteEditor } from "./quote-editor";
 import { QuotePDFDownload } from "./quote-pdf";
@@ -197,7 +200,9 @@ export function QuoteDetailClient({ quote: initial, customers, products, busines
           </Card>
         </div>
 
-        <div>
+        <div className="space-y-4">
+          <ScheduledSendsCard docType="quote" docId={quote.id} />
+          <DeliveryStatusCard docType="quote" docId={quote.id} />
           <Card>
             <CardContent className="p-5 space-y-3">
               <h3 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">Quote info</h3>
@@ -238,6 +243,20 @@ export function QuoteDetailClient({ quote: initial, customers, products, busines
             toast.success(`Quote SMS sent to ${r.to}`);
           }
           setQuote((prev) => ({ ...prev, status: prev.status === "draft" ? "sent" : prev.status }));
+        }}
+        onSchedule={async (sendAtIso, r) => {
+          await scheduleSend({
+            doc_type: "quote",
+            doc_id: quote.id,
+            send_at: sendAtIso,
+            channel: r.channel,
+            recipients: r.recipients,
+            to_phone: r.to,
+            subject: r.subject,
+            body: r.body,
+          });
+          toast.success(`Scheduled for ${new Date(sendAtIso).toLocaleString()}`);
+          router.refresh();
         }}
       />
 

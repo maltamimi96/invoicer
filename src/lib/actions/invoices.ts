@@ -490,6 +490,7 @@ export async function sendInvoiceEmail(id: string, opts?: { recipients?: string[
     subject: opts?.subject ?? `Invoice ${invoiceData.number} from ${businessData.name}`,
     html: invoiceEmailHtml({ invoice: invoiceData, customer, business: businessData, lineItems, portalUrl }),
     attachments: [{ filename: `${invoiceData.number}.pdf`, content: pdfBuffer }],
+    tags: { business_id: businessId, doc_type: "invoice", doc_id: invoiceData.id },
   });
 
   // Mark as sent if still draft

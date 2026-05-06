@@ -21,6 +21,9 @@ import { SendDocumentModal } from "@/components/send/send-document-modal";
 import { InvoiceEditor } from "./invoice-editor";
 import { InvoicePDFDownload } from "./invoice-pdf";
 import { ProgressInvoiceModal } from "./progress-invoice-modal";
+import { DeliveryStatusCard } from "@/components/delivery/delivery-status-card";
+import { ScheduledSendsCard } from "@/components/delivery/scheduled-sends-card";
+import { scheduleSend } from "@/lib/actions/scheduled-sends";
 
 import { formatCurrency, formatDate, getStatusColor } from "@/lib/utils";
 import type { Business, Customer, Invoice, LineItem, Payment, Product } from "@/types/database";
@@ -414,6 +417,8 @@ export function InvoiceDetailClient({
 
         {/* Sidebar */}
         <div className="space-y-4">
+          <ScheduledSendsCard docType="invoice" docId={invoice.id} />
+          <DeliveryStatusCard docType="invoice" docId={invoice.id} />
           <Card>
             <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Payment history</CardTitle></CardHeader>
             <CardContent className="space-y-3">
@@ -498,6 +503,20 @@ export function InvoiceDetailClient({
             toast.success(`Invoice SMS sent to ${r.to}`);
           }
           setInvoice((prev) => ({ ...prev, status: prev.status === "draft" ? "sent" : prev.status }));
+        }}
+        onSchedule={async (sendAtIso, r) => {
+          await scheduleSend({
+            doc_type: "invoice",
+            doc_id: invoice.id,
+            send_at: sendAtIso,
+            channel: r.channel,
+            recipients: r.recipients,
+            to_phone: r.to,
+            subject: r.subject,
+            body: r.body,
+          });
+          toast.success(`Scheduled for ${new Date(sendAtIso).toLocaleString()}`);
+          router.refresh();
         }}
       />
 
