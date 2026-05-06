@@ -12,6 +12,20 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
 
     const [reportData, business] = await Promise.all([getReport(id), getBusiness()]);
 
+    // react-pdf can't reliably load remote images during a server-rendered
+    // stream — fetch the logo and embed as a data URL so it actually shows.
+    let logoDataUrl: string | null = null;
+    if (business.logo_url) {
+      try {
+        const res = await fetch(business.logo_url);
+        if (res.ok) {
+          const buf = Buffer.from(await res.arrayBuffer());
+          const ct  = res.headers.get("content-type") ?? "image/png";
+          logoDataUrl = `data:${ct};base64,${buf.toString("base64")}`;
+        }
+      } catch { /* fall back to nothing — header renders the business name */ }
+    }
+
     const { renderToStream } = await import("@react-pdf/renderer");
     const { ReportPdfDocument } = await import("@/components/reports/report-pdf-document");
     const React = await import("react");
@@ -19,6 +33,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     const element = React.createElement(ReportPdfDocument, {
       report: reportData,
       business,
+      logoDataUrl,
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

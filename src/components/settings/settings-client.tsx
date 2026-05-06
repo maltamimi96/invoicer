@@ -78,6 +78,7 @@ const businessSchema = z.object({
   country: z.string().optional(),
   website: z.string().optional(),
   tax_number: z.string().optional(),
+  license_number: z.string().optional(),
   currency: z.string().optional(),
 });
 
@@ -130,6 +131,7 @@ export function SettingsClient({ business: initial, members, apiKeys, emailConfi
       country: business.country ?? "",
       website: business.website ?? "",
       tax_number: business.tax_number ?? "",
+      license_number: business.license_number ?? "",
       currency: business.currency ?? "GBP",
     },
   });
@@ -311,6 +313,9 @@ export function SettingsClient({ business: initial, members, apiKeys, emailConfi
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5"><Label>VAT / Tax number</Label><Input {...businessForm.register("tax_number")} /></div>
+                  <div className="space-y-1.5"><Label>Licence number</Label><Input placeholder="e.g. 471250C" {...businessForm.register("license_number")} /></div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Currency</Label>
                     <Controller

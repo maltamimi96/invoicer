@@ -184,7 +184,7 @@ export function ReportDetailClient({ report: initialReport, business }: ReportDe
                   ["Roof Type", m.roof_type],
                   ["Roof Features", m.roof_features],
                   ["Inspection Method", m.inspection_method],
-                  ["Inspector", m.inspector_name],
+                  ["Inspector", m.inspector_name + (m.inspector_license ? `  (Lic. ${m.inspector_license})` : "")],
                   ["Inspection Date", report.inspection_date],
                 ].map(([k, v]) => (
                   <div key={k}>
