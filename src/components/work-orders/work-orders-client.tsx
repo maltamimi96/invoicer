@@ -12,6 +12,8 @@ import { PageHeader } from "@/components/layout/page-header";
 import { CleanupButton } from "@/components/cleanup/cleanup-button";
 import { deleteWorkOrder } from "@/lib/actions/work-orders";
 import type { WorkOrderWithCustomer, WorkOrderStatus, BusinessMember } from "@/types/database";
+import type { Role } from "@/lib/permissions";
+import { canManageTeam } from "@/lib/permissions";
 
 const TABS: { id: WorkOrderStatus | "all"; label: string }[] = [
   { id: "all",         label: "All"         },
@@ -31,9 +33,11 @@ const STATUS_TO_PILL: Record<WorkOrderStatus, string> = {
 interface WorkOrdersClientProps {
   workOrders: WorkOrderWithCustomer[];
   members: BusinessMember[];
+  userRole: Role;
 }
 
-export function WorkOrdersClient({ workOrders }: WorkOrdersClientProps) {
+export function WorkOrdersClient({ workOrders, userRole }: WorkOrdersClientProps) {
+  const canDelete = canManageTeam(userRole); // owners + admins only
   const router = useRouter();
   const [tab, setTab] = useState<typeof TABS[number]["id"]>("all");
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -168,10 +172,14 @@ export function WorkOrdersClient({ workOrders }: WorkOrdersClientProps) {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem asChild><Link href={`/work-orders/${wo.id}`}>View</Link></DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => setDeleteId(wo.id)} className="text-destructive gap-2">
-                          <Trash2 className="w-3.5 h-3.5" />Delete
-                        </DropdownMenuItem>
+                        {canDelete && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => setDeleteId(wo.id)} className="text-destructive gap-2">
+                              <Trash2 className="w-3.5 h-3.5" />Delete
+                            </DropdownMenuItem>
+                          </>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </td>
