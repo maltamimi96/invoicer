@@ -394,6 +394,21 @@ export async function deleteWorkOrder(id: string): Promise<void> {
 
   const businessId = await getActiveBizId(supabase, user.id);
 
+  // Only owners + admins can delete a work order. Workers and editors must not.
+  const { data: biz } = await tbl(supabase, "businesses").select("user_id").eq("id", businessId).single();
+  const isOwner = biz?.user_id === user.id;
+  if (!isOwner) {
+    const { data: member } = await tbl(supabase, "business_members")
+      .select("role")
+      .eq("business_id", businessId)
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .maybeSingle();
+    if (!member || (member.role !== "admin")) {
+      throw new Error("Only owners and admins can delete work orders");
+    }
+  }
+
   // Clean up storage
   try {
     const { data: files } = await supabase.storage.from("work-order-photos").list(`${user.id}/${id}`);

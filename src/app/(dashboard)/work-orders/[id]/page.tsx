@@ -35,6 +35,7 @@ export default async function WorkOrderDetailPage({ params }: { params: Promise<
 
     const [
       customersRaw,
+      availableWorkersRaw,
       assignmentsRaw,
       timeline,
       jobPhotos,
@@ -46,6 +47,13 @@ export default async function WorkOrderDetailPage({ params }: { params: Promise<
     ] = await Promise.all([
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase as any).from("customers").select("id, name, company, email").eq("business_id", businessId).eq("archived", false).order("name").then((r: { data: unknown[] | null }) => r.data ?? []),
+      // All worker profiles in this business — populates the assignment picker.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any).from("member_profiles")
+        .select("id, name, email, avatar_url, role_title")
+        .eq("business_id", businessId)
+        .order("name")
+        .then((r: { data: unknown[] | null }) => r.data ?? []),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase as any).from("work_order_assignments")
         .select("member_profile_id, member_profiles(id, name, email, avatar_url, role_title)")
@@ -93,6 +101,7 @@ export default async function WorkOrderDetailPage({ params }: { params: Promise<
         currentUserId={user.id}
         currentUserEmail={user.email ?? ""}
         assignedWorkers={allWorkers}
+        availableWorkers={availableWorkersRaw as Pick<MemberProfile, 'id' | 'name' | 'email' | 'avatar_url' | 'role_title'>[]}
         timeline={timeline}
         jobPhotos={jobPhotos}
         timeEntries={timeEntries}

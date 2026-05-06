@@ -32,7 +32,9 @@ import { Badge } from "@/components/ui/badge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { canEdit, isOwner, type Role } from "@/lib/permissions";
+import { canEdit, isOwner, canManageTeam, type Role } from "@/lib/permissions";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Check, ChevronDown, Pencil } from "@/components/ui/icons";
 import { updateWorkOrder, updateWorkOrderStatus, deleteWorkOrder, submitWorkOrder } from "@/lib/actions/work-orders";
 import { addJobPhoto, deleteJobPhoto, updateJobPhoto } from "@/lib/actions/job-photos";
 import { startTimeEntry, stopTimeEntry, deleteTimeEntry } from "@/lib/actions/job-time";
@@ -75,6 +77,8 @@ interface JobPortfolioProps {
   currentUserId: string;
   currentUserEmail: string;
   assignedWorkers: Pick<MemberProfile, 'id' | 'name' | 'email' | 'avatar_url' | 'role_title'>[];
+  /** All worker profiles in the business — used to populate the assignment picker. */
+  availableWorkers: Pick<MemberProfile, 'id' | 'name' | 'email' | 'avatar_url' | 'role_title'>[];
   timeline: JobTimelineEvent[];
   jobPhotos: JobPhoto[];
   timeEntries: JobTimeEntry[];
@@ -163,14 +167,15 @@ function EmptyHint({ children }: { children: React.ReactNode }) {
 
 export function JobPortfolioClient(props: JobPortfolioProps) {
   const {
-    workOrder, userRole, currentUserId, assignedWorkers, timeline,
+    workOrder, userRole, currentUserId, assignedWorkers, availableWorkers, timeline,
     jobPhotos: initialPhotos, timeEntries: initialTime, materials: initialMaterials,
     documents: initialDocs, signatures: initialSignatures, financials, site, bookerContact,
   } = props;
 
   const router = useRouter();
   const editable = canEdit(userRole);
-  const deletable = isOwner(userRole);
+  const deletable = canManageTeam(userRole); // owners + admins
+  const canAssign = canManageTeam(userRole); // who can change job assignments
 
   // Local state mirrors so optimistic updates feel snappy
   const [photos, setPhotos] = useState<JobPhoto[]>(initialPhotos);
@@ -200,6 +205,8 @@ export function JobPortfolioClient(props: JobPortfolioProps) {
         site={site}
         bookerContact={bookerContact}
         assignedWorkers={assignedWorkers}
+        availableWorkers={availableWorkers}
+        canAssign={canAssign}
         userRole={userRole}
         currentUserId={currentUserId}
         editable={editable}
@@ -326,18 +333,21 @@ function ShareControl({ workOrderId, initialToken }: { workOrderId: string; init
 // ── Header ───────────────────────────────────────────────────────────────────
 
 function PortfolioHeader({
-  workOrder, site, bookerContact, assignedWorkers, userRole, editable, deletable, onDelete,
+  workOrder, site, bookerContact, assignedWorkers, availableWorkers, canAssign, editable, deletable, onDelete,
 }: {
   workOrder: WorkOrderWithCustomer;
   site: SiteLite | null;
   bookerContact: ContactLite | null;
   assignedWorkers: Pick<MemberProfile, 'id' | 'name' | 'email' | 'avatar_url' | 'role_title'>[];
+  availableWorkers: Pick<MemberProfile, 'id' | 'name' | 'email' | 'avatar_url' | 'role_title'>[];
+  canAssign: boolean;
   userRole: Role;
   currentUserId: string;
   editable: boolean;
   deletable: boolean;
   onDelete: () => void;
 }) {
+  const [assignOpen, setAssignOpen] = useState(false);
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const status = (workOrder.status ?? "draft") as WorkOrderStatus;
@@ -407,7 +417,12 @@ function PortfolioHeader({
         <FactCard icon={User} label="Customer" value={workOrder.customers?.name ?? "—"} href={workOrder.customer_id ? `/customers/${workOrder.customer_id}` : undefined} />
         <FactCard icon={MapPin} label="Site" value={addr || "No address"} href={site ? `/sites/${site.id}` : undefined} />
         <FactCard icon={Calendar} label="Scheduled" value={workOrder.scheduled_date ? `${fmtDate(workOrder.scheduled_date)}${workOrder.start_time ? ` · ${workOrder.start_time}` : ""}` : "Unscheduled"} />
-        <FactCard icon={User} label="Workers" value={assignedWorkers.length === 0 ? "Unassigned" : assignedWorkers.map((w) => w.name).join(", ")} />
+        <FactCard
+          icon={User}
+          label="Workers"
+          value={assignedWorkers.length === 0 ? "Unassigned" : assignedWorkers.map((w) => w.name).join(", ")}
+          onClick={canAssign ? () => setAssignOpen(true) : undefined}
+        />
       </div>
 
       {(site?.gate_code || site?.parking_notes || bookerContact) && (
@@ -417,23 +432,122 @@ function PortfolioHeader({
           {bookerContact && <span>📞 Booked by {bookerContact.name}{bookerContact.phone ? ` (${bookerContact.phone})` : ""}</span>}
         </div>
       )}
+
+      <AssignWorkersDialog
+        open={assignOpen}
+        onOpenChange={setAssignOpen}
+        workOrderId={workOrder.id}
+        availableWorkers={availableWorkers}
+        initialSelected={assignedWorkers.map((w) => w.id)}
+        onSaved={() => router.refresh()}
+      />
     </motion.div>
   );
 }
 
-function FactCard({ icon: Icon, label, value, href }: {
+// ── Assign workers dialog ────────────────────────────────────────────────────
+
+function AssignWorkersDialog({
+  open, onOpenChange, workOrderId, availableWorkers, initialSelected, onSaved,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  workOrderId: string;
+  availableWorkers: Pick<MemberProfile, 'id' | 'name' | 'email' | 'avatar_url' | 'role_title'>[];
+  initialSelected: string[];
+  onSaved: () => void;
+}) {
+  const [selected, setSelected] = useState<string[]>(initialSelected);
+  const [saving,   setSaving]   = useState(false);
+
+  // Reset selected whenever the dialog re-opens with fresh data.
+  useEffect(() => { if (open) setSelected(initialSelected); }, [open, initialSelected]);
+
+  const toggle = (id: string) =>
+    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await updateWorkOrder(workOrderId, { member_profile_ids: selected });
+      toast.success(selected.length === 0 ? "Workers cleared" : `${selected.length} worker${selected.length > 1 ? "s" : ""} assigned`);
+      onSaved();
+      onOpenChange(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't save");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Assign workers</DialogTitle>
+        </DialogHeader>
+        <div className="max-h-[50vh] overflow-y-auto -mx-6 px-2">
+          {availableWorkers.length === 0 ? (
+            <p className="px-4 py-6 text-sm text-muted-foreground text-center">
+              No workers yet. Add team members in <Link href="/team" className="text-primary underline">Team</Link>.
+            </p>
+          ) : (
+            availableWorkers.map((w) => {
+              const sel = selected.includes(w.id);
+              return (
+                <button
+                  key={w.id}
+                  type="button"
+                  onClick={() => toggle(w.id)}
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted transition-colors text-left ${sel ? "bg-muted/60" : ""}`}
+                >
+                  <div className="h-9 w-9 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-semibold flex-shrink-0">
+                    {w.name?.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("") || "?"}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{w.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{w.role_title ?? w.email ?? "Worker"}</p>
+                  </div>
+                  {sel && <Check className="w-4 h-4 text-primary flex-shrink-0" />}
+                </button>
+              );
+            })
+          )}
+        </div>
+        <div className="flex justify-between items-center pt-2 border-t">
+          <p className="text-xs text-muted-foreground">
+            {selected.length === 0 ? "No workers selected" : `${selected.length} selected`}
+          </p>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
+            <Button size="sm" onClick={save} disabled={saving}>
+              {saving && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
+              Save
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function FactCard({ icon: Icon, label, value, href, onClick }: {
   icon: React.ComponentType<{ className?: string }>; label: string; value: string; href?: string;
+  onClick?: () => void;
 }) {
   const inner = (
-    <div className="flex items-start gap-2.5 p-3 rounded-lg border bg-card hover:bg-muted/40 transition-colors h-full">
+    <div className={`flex items-start gap-2.5 p-3 rounded-lg border bg-card hover:bg-muted/40 transition-colors h-full ${onClick ? "cursor-pointer hover:border-primary/40" : ""}`}>
       <Icon className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
       <div className="min-w-0">
         <p className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium">{label}</p>
         <p className="text-sm font-medium truncate">{value}</p>
       </div>
+      {onClick && <Pencil className="w-3 h-3 text-muted-foreground/60 ml-auto flex-shrink-0" />}
     </div>
   );
-  return href ? <Link href={href}>{inner}</Link> : inner;
+  if (href) return <Link href={href}>{inner}</Link>;
+  if (onClick) return <button type="button" onClick={onClick} className="text-left w-full">{inner}</button>;
+  return inner;
 }
 
 // ── Sticky TOC ───────────────────────────────────────────────────────────────
