@@ -322,6 +322,7 @@ export function QuoteEditor({ customers, products, business, quote, defaultCusto
         mode="quote"
         defaultTaxRate={10}
         currency={business.currency}
+        preselectedCustomerId={watch("customer_id") || null}
       />
     </div>
   );

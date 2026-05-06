@@ -385,6 +385,7 @@ export function InvoiceEditor({ customers, products, business, invoice, defaultC
         mode="invoice"
         defaultTaxRate={10}
         currency={business.currency}
+        preselectedCustomerId={watch("customer_id") || null}
       />
     </div>
   );

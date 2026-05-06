@@ -203,12 +203,13 @@ Use plain text only. Use a dash (-) for bullet points. No markdown, no asterisks
     }
 
     if (body.type === "smart_fill_document") {
-      const { text, mode, customers, defaultTaxRate, today } = body as {
+      const { text, mode, customers, defaultTaxRate, today, preselected_customer } = body as {
         text: string;
         mode: "invoice" | "quote";
         customers: Array<{ id: string; name: string; company?: string | null; email?: string | null }>;
         defaultTaxRate: number;
         today: string;
+        preselected_customer?: { id: string; name: string; company?: string | null; email?: string | null } | null;
       };
 
       if (!text?.trim()) return NextResponse.json({ error: "No text provided" }, { status: 400 });
@@ -216,6 +217,10 @@ Use plain text only. Use a dash (-) for bullet points. No markdown, no asterisks
       const customerList = customers.length
         ? `Existing customers (match by name/email/company if possible):\n${customers.map((c) => `- id:${c.id} | ${c.name}${c.company ? ` (${c.company})` : ""}${c.email ? ` <${c.email}>` : ""}`).join("\n")}`
         : "No existing customers.";
+
+      const preselectedHint = preselected_customer
+        ? `\n\nThe user has already chosen this customer in the form: id:${preselected_customer.id} | ${preselected_customer.name}${preselected_customer.company ? ` (${preselected_customer.company})` : ""}.\nUnless the pasted text clearly names a *different* person or company, set existing_customer_id to "${preselected_customer.id}" and set new_customer to null.`
+        : "";
 
       const dueDateField = mode === "invoice" ? "due_date" : "expiry_date";
 
@@ -227,7 +232,7 @@ Use plain text only. Use a dash (-) for bullet points. No markdown, no asterisks
           role: "user",
           content: `Extract all details from the pasted text to fill a ${mode} form. Today is ${today}.
 
-${customerList}
+${customerList}${preselectedHint}
 
 Return a single JSON object with this exact structure:
 {
