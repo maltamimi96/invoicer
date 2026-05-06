@@ -3,82 +3,125 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
- * Hold-to-talk voice capture for the AI assistant.
+ * Voice capture for the AI assistant — tap-to-toggle.
  *
- * Strategy:
- *  1. On press: start MediaRecorder (browser mic).
- *  2. On release: stop recorder, POST blob to /api/ai/transcribe.
- *  3. If server returns 501 (NO_PROVIDER), fall back to browser Web Speech API
- *     for that single utterance — same UX, just zero-config.
+ * Strategy: prefer the browser's built-in SpeechRecognition (Web Speech API)
+ * when available — it's free, instant, and doesn't need a server hop. Falls
+ * back to MediaRecorder → /api/ai/transcribe for browsers that don't support
+ * Web Speech (Firefox, Safari sometimes), which routes to OpenAI Whisper if
+ * the env is configured.
  *
- * The hook exposes `start()` / `stop()` so a button can use onPointerDown /
- * onPointerUp (and onPointerLeave for cancel-on-drag-out).
+ * Toggle mode: caller calls `start()` once to begin, again to stop & submit.
  */
 export function useVoiceCapture(onText: (text: string) => void) {
-  const [recording, setRecording] = useState(false);
+  const [recording,    setRecording]    = useState(false);
   const [transcribing, setTranscribing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error,        setError]        = useState<string | null>(null);
+  /** Live text-as-you-speak (Web Speech API only — Whisper is one-shot). */
+  const [interimText,  setInterimText]  = useState<string>("");
 
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<BlobPart[]>([]);
-  const streamRef = useRef<MediaStream | null>(null);
+  // Web Speech API instance
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const speechRef = useRef<any>(null);
+  const speechRef    = useRef<any>(null);
+  const speechActive = useRef(false);
+
+  // MediaRecorder fallback refs
+  const recorderRef  = useRef<MediaRecorder | null>(null);
+  const chunksRef    = useRef<BlobPart[]>([]);
+  const streamRef    = useRef<MediaStream | null>(null);
   const cancelledRef = useRef(false);
 
-  const cleanup = useCallback(() => {
+  const cleanupMR = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     recorderRef.current = null;
     chunksRef.current = [];
   }, []);
 
-  useEffect(() => () => cleanup(), [cleanup]);
+  useEffect(() => () => cleanupMR(), [cleanupMR]);
 
-  const browserFallback = useCallback(() => {
+  // ── Web Speech API path (preferred — free, fast, no server) ────────────
+  const startSpeech = useCallback(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) {
-      setError("Voice not supported in this browser. Please type instead.");
-      return;
-    }
-    setTranscribing(true);
+    const SR = (typeof window !== "undefined") && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+    if (!SR) return false;
+
     const rec = new SR();
     rec.lang = "en-US";
-    rec.interimResults = false;
+    rec.interimResults = true;        // ← stream as the user speaks
+    rec.continuous = true;            // keep listening until tapped to stop
     rec.maxAlternatives = 1;
+
+    let finalText = "";
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     rec.onresult = (e: any) => {
-      const text = e.results?.[0]?.[0]?.transcript ?? "";
-      if (text) onText(text);
+      let interim = "";
+      // Walk all results — those with isFinal accumulate into finalText, the
+      // rest go into a live preview string the UI can render under the input.
+      for (let i = e.resultIndex ?? 0; i < e.results.length; i++) {
+        const r = e.results[i];
+        const t = r?.[0]?.transcript ?? "";
+        if (r?.isFinal) {
+          finalText += (finalText ? " " : "") + t;
+        } else {
+          interim += t;
+        }
+      }
+      setInterimText((finalText + (interim ? " " + interim : "")).trim());
     };
-    rec.onerror = () => setError("Speech recognition error");
-    rec.onend = () => { setTranscribing(false); speechRef.current = null; };
-    speechRef.current = rec;
-    try { rec.start(); } catch { setTranscribing(false); }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    rec.onerror = (e: any) => {
+      const msg = e?.error === "not-allowed" ? "Microphone permission denied"
+                : e?.error === "no-speech"   ? "Didn't catch that — try again"
+                : `Voice error: ${e?.error ?? "unknown"}`;
+      setError(msg);
+      speechActive.current = false;
+      setRecording(false);
+    };
+    rec.onend = () => {
+      speechActive.current = false;
+      setRecording(false);
+      const out = finalText.trim();
+      setInterimText("");
+      if (out) onText(out);
+    };
+
+    try {
+      rec.start();
+      speechRef.current = rec;
+      speechActive.current = true;
+      setRecording(true);
+      setError(null);
+      setInterimText("");
+      return true;
+    } catch {
+      return false;
+    }
   }, [onText]);
 
-  const start = useCallback(async () => {
-    setError(null);
+  const stopSpeech = useCallback(() => {
+    if (speechRef.current && speechActive.current) {
+      try { speechRef.current.stop(); } catch { /* ignore */ }
+    }
+  }, []);
+
+  // ── MediaRecorder fallback (Safari/Firefox or when Web Speech blocked) ─
+  const startMR = useCallback(async () => {
     cancelledRef.current = false;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
         ? "audio/webm;codecs=opus"
-        : MediaRecorder.isTypeSupported("audio/webm")
-        ? "audio/webm"
-        : "";
+        : MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "";
       const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
       chunksRef.current = [];
       recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
       recorder.onstop = async () => {
-        cleanup();
+        cleanupMR();
         if (cancelledRef.current) return;
         const blob = new Blob(chunksRef.current, { type: recorder.mimeType || "audio/webm" });
         if (blob.size < 500) {
-          // Ignore extremely short blips (button bounce, mic permission hiccup)
-          // but tell the user — silent failure is the worst kind.
           setError("Recording too short — try again and speak for at least a second.");
           return;
         }
@@ -88,8 +131,8 @@ export function useVoiceCapture(onText: (text: string) => void) {
           fd.append("audio", blob, "voice.webm");
           const res = await fetch("/api/ai/transcribe", { method: "POST", body: fd });
           if (res.status === 501) {
-            setTranscribing(false);
-            browserFallback();
+            // Whisper isn't configured AND Web Speech wasn't available either.
+            setError("Voice not supported in this browser. Try Chrome, or ask the admin to set OPENAI_API_KEY.");
             return;
           }
           if (!res.ok) {
@@ -107,23 +150,44 @@ export function useVoiceCapture(onText: (text: string) => void) {
       recorder.start();
       recorderRef.current = recorder;
       setRecording(true);
+      setError(null);
     } catch {
       setError("Microphone access denied");
-      cleanup();
+      cleanupMR();
     }
-  }, [cleanup, onText, browserFallback]);
+  }, [cleanupMR, onText]);
 
-  const stop = useCallback(() => {
+  const stopMR = useCallback(() => {
     setRecording(false);
     if (recorderRef.current && recorderRef.current.state !== "inactive") {
       recorderRef.current.stop();
     }
   }, []);
 
+  // ── Public API ──────────────────────────────────────────────────────────
+  const start = useCallback(async () => {
+    setError(null);
+    // Prefer Web Speech — free, no server hop, no recording artifacts.
+    const ok = startSpeech();
+    if (!ok) await startMR();
+  }, [startSpeech, startMR]);
+
+  const stop = useCallback(() => {
+    if (speechActive.current) stopSpeech();
+    else                       stopMR();
+  }, [stopSpeech, stopMR]);
+
   const cancel = useCallback(() => {
     cancelledRef.current = true;
-    stop();
-  }, [stop]);
+    if (speechActive.current) {
+      // Drop any captured speech without firing onend's onText.
+      try { speechRef.current?.abort?.(); } catch { /* */ }
+      speechActive.current = false;
+      setRecording(false);
+    } else {
+      stopMR();
+    }
+  }, [stopMR]);
 
-  return { recording, transcribing, error, start, stop, cancel };
+  return { recording, transcribing, error, interimText, start, stop, cancel };
 }
