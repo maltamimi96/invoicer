@@ -52,6 +52,12 @@ Failing items: paste the section number + failing item into a comment on the QA 
 - [ ] Smart Organise button finds duplicates / suggests cleanups
 - [ ] Smart Organise apply works → undo works
 - [ ] Customer detail shows their invoices, quotes, jobs
+- [ ] **Customer hub link** button on detail page (next to Edit)
+  - [ ] Opens dialog with the link already loaded — no "click to generate"
+  - [ ] Reuses any active 90-day token (same link as last time)
+  - [ ] Copy / Open / WhatsApp / SMS / Email shortcuts present
+  - [ ] WhatsApp + SMS only show when customer has a phone on file
+  - [ ] **Rotate** button revokes the old token and mints a fresh one
 
 ## 5. Leads
 
