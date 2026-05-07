@@ -110,8 +110,26 @@ export async function deleteQuote(id: string): Promise<void> {
 
 export async function duplicateQuote(id: string): Promise<Quote> {
   const quote = await getQuote(id);
-  const { customers: _, ...rest } = quote;
-  return createQuote({ ...rest, status: "draft", invoice_id: null });
+  // Build the create payload explicitly so source id / number / timestamps
+  // / invoice_id link don't carry over. createQuote mints fresh values.
+  return createQuote({
+    customer_id:    quote.customer_id,
+    site_id:        quote.site_id,
+    issue_date:     new Date().toISOString().split("T")[0],
+    expiry_date:    quote.expiry_date,
+    line_items:     quote.line_items,
+    subtotal:       quote.subtotal,
+    discount_type:  quote.discount_type,
+    discount_value: quote.discount_value,
+    discount_amount: quote.discount_amount,
+    tax_total:      quote.tax_total,
+    total:          quote.total,
+    notes:          quote.notes,
+    terms:          quote.terms,
+    property_address: quote.property_address,
+    status:         "draft",
+    invoice_id:     null,
+  } as unknown as Parameters<typeof createQuote>[0]);
 }
 
 export async function convertQuoteToInvoice(quoteId: string): Promise<Invoice> {

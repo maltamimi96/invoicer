@@ -112,8 +112,28 @@ export async function deleteInvoice(id: string): Promise<void> {
 
 export async function duplicateInvoice(id: string): Promise<Invoice> {
   const invoice = await getInvoice(id);
-  const { customers: _, payments: __, ...rest } = invoice;
-  return createInvoice({ ...rest, status: "draft", amount_paid: 0 });
+  // Build the create payload explicitly so we never carry the source id /
+  // number / timestamps / parent link through to the new row. createInvoice
+  // mints fresh values for those.
+  return createInvoice({
+    customer_id:    invoice.customer_id,
+    site_id:        invoice.site_id,
+    issue_date:     new Date().toISOString().split("T")[0],
+    due_date:       invoice.due_date,
+    line_items:     invoice.line_items,
+    subtotal:       invoice.subtotal,
+    discount_type:  invoice.discount_type,
+    discount_value: invoice.discount_value,
+    discount_amount: invoice.discount_amount,
+    tax_total:      invoice.tax_total,
+    total:          invoice.total,
+    notes:          invoice.notes,
+    terms:          invoice.terms,
+    property_address: invoice.property_address,
+    status:         "draft",
+    amount_paid:    0,
+    parent_invoice_id: null,
+  } as unknown as Parameters<typeof createInvoice>[0]);
 }
 
 /**
