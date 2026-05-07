@@ -301,7 +301,43 @@ Failing items: paste the section number + failing item into a comment on the QA 
 - [ ] Short blip → "Recording too short" message
 - [ ] Clear conversation button works
 
-## 21. Email delivery tracking
+## 21a. AI briefing / Assistant page (NEW)
+
+### `/assistant` page
+- [ ] Sidebar shows new "Assistant" link in Workspace section
+- [ ] Page title: "Your AI assistant"
+- [ ] Briefing items list every priority of attention item
+- [ ] Items grouped/sorted: high priority first, then by age
+- [ ] Each item shows: type label, title, subtitle, snooze button, dismiss button, action button
+- [ ] Click action button → navigates to relevant entity (invoice/quote/lead/job)
+- [ ] Click snooze (clock icon) → item hides for 24h, reappears after
+- [ ] Click dismiss (X) → item hidden until something changes about that entity
+- [ ] Refresh button reloads with current state
+- [ ] Empty state when caught up: "Your inbox is zero — take a break"
+
+### Dashboard widget
+- [ ] Top 5 briefing items shown on /dashboard
+- [ ] "See all" link appears when more than 5 items, navigates to /assistant
+- [ ] Refresh button works
+- [ ] Empty state when nothing is pending
+
+### Item types verified
+- [ ] **Overdue invoices** — appears for invoices past due_date with balance > 0
+- [ ] **Stale quotes** — appears for quotes sent > 7 days ago, no movement
+- [ ] **Draft quotes** — appears for drafts sitting > 3 days
+- [ ] **New leads** — appears for status=new (priority increases past 2 days)
+- [ ] **Stale leads** — appears for status=contacted, > 5 days no movement
+- [ ] **Today's jobs** — appears for jobs scheduled today, with assigned/unassigned variants
+- [ ] **Submitted work orders** — appears for status=submitted (waiting review)
+- [ ] **Completed unbilled** — appears for completed jobs in last 30d not yet invoiced
+
+### Snooze persistence
+- [ ] Snooze a high-priority item → item disappears
+- [ ] Refresh → item still hidden
+- [ ] After 24h (or DB-level update) → item reappears
+- [ ] Dismiss permanently → item stays hidden until underlying entity changes
+
+## 22. Email delivery tracking
 
 - [ ] Send any invoice/quote → DeliveryStatusCard appears on detail
 - [ ] Status starts at Sent (in transit)

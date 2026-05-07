@@ -9,6 +9,7 @@ import {
   DollarSign,
 } from "@/components/ui/icons";
 import { formatCurrency, getStatusColor } from "@/lib/utils";
+import { BriefingWidget } from "@/components/briefing/briefing-widget";
 import type { WorkOrderWithCustomer, WorkOrderStatus } from "@/types/database";
 
 const STATUS_TO_PILL: Record<WorkOrderStatus, string> = {
@@ -115,6 +116,11 @@ export function DashboardClient({ stats, currency = "GBP", todayJobs }: Dashboar
           </div>
         </Link>
       )}
+
+      {/* Briefing widget — top 5 things needing attention */}
+      <div className="mb-5">
+        <BriefingWidget compact />
+      </div>
 
       {/* KPI grid */}
       <motion.div
