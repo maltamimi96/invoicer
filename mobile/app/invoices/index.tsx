@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
-import { ArrowLeft } from "lucide-react-native";
+import { ArrowLeft, Plus } from "lucide-react-native";
 import { supabase } from "@/lib/supabase";
 import { useActiveBusiness } from "@/lib/active-business";
 import { colors, radius, space } from "@/lib/theme";
@@ -80,6 +80,10 @@ export default function InvoicesList() {
         <Text style={{ fontSize: 20, fontWeight: "700", color: colors.text }}>Invoices</Text>
         <View style={{ flex: 1 }} />
         <Text style={{ fontSize: 12, color: colors.muted }}>{invoices?.length ?? 0}</Text>
+        <Pressable onPress={() => router.push("/invoices/new" as never)} hitSlop={8}
+          style={({ pressed }) => ({ padding: 6, borderRadius: 999, backgroundColor: pressed ? colors.muted : colors.primary })}>
+          <Plus size={18} color="#fff" />
+        </Pressable>
       </View>
       <View style={{ flexDirection: "row", gap: 6, paddingHorizontal: space.lg, paddingBottom: space.sm, flexWrap: "wrap" }}>
         {TABS.map((t) => (
