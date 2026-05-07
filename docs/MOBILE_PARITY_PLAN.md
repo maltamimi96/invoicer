@@ -105,9 +105,10 @@ Status legend: ✅ done · 🟡 partial · ❌ missing · 🚫 not applicable on
 | **Service** |
 | Work orders list | 🟡 | 1 | Worker sees only theirs; owner sees all |
 | Work order detail (full portfolio) | 🟡 | 1 | Has basics; need: Workers picker, financials, share link |
-| Site reports list | ❌ | 3 | |
-| New site report (AI generated) | ❌ | 3 | Photos already work, wire AI gen |
-| Recurring jobs | ❌ | 3 | |
+| Site reports list | ✅ | 3 | |
+| Site report detail (sections, photos, PDF, share) | ✅ | 3 | |
+| New site report (AI generated) | ❌ | 3+ | Defer — AI generator is heavy lift |
+| Recurring jobs (list + activate toggle) | ✅ | 3 | |
 | **Contacts** |
 | Customers list (search + tap-to-call/email) | ✅ | 2a | |
 | Customer detail (counts, contact actions, address) | ✅ | 2a | |
@@ -119,9 +120,9 @@ Status legend: ✅ done · 🟡 partial · ❌ missing · 🚫 not applicable on
 | **Workforce** |
 | Team profiles list | ❌ | 4 | |
 | Add team member (sends invite) | ❌ | 4 | |
-| Agents on/off | ❌ | 4 | |
+| Agents on/off | ✅ | 4 | List + toggle per agent |
 | **Insights** |
-| Analytics page | ❌ | 4 | Charts via `victory-native` |
+| Analytics page (KPIs, range pills) | ✅ | 4 | Charts via victory-native — phase 4+ |
 | **Workspace** |
 | Tasks (kanban) | 🟡 | shipped (basic) | Polish: drag-drop on mobile, link to job |
 | Messages (SMS inbox) | ❌ | 4 | Inbound replies |
