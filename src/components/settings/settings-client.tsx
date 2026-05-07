@@ -81,6 +81,7 @@ const businessSchema = z.object({
   website: z.string().optional(),
   tax_number: z.string().optional(),
   license_number: z.string().optional(),
+  sms_sender_id: z.string().max(11, "Max 11 characters").regex(/^[A-Za-z0-9]*$/, "Letters and numbers only").optional(),
   currency: z.string().optional(),
 });
 
@@ -135,6 +136,7 @@ export function SettingsClient({ business: initial, members, apiKeys, emailConfi
       website: business.website ?? "",
       tax_number: business.tax_number ?? "",
       license_number: business.license_number ?? "",
+      sms_sender_id: business.sms_sender_id ?? "",
       currency: business.currency ?? "GBP",
     },
   });
@@ -328,6 +330,13 @@ export function SettingsClient({ business: initial, members, apiKeys, emailConfi
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5"><Label>VAT / Tax number</Label><Input {...businessForm.register("tax_number")} /></div>
                   <div className="space-y-1.5"><Label>Licence number</Label><Input placeholder="e.g. 471250C" {...businessForm.register("license_number")} /></div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>SMS Sender ID</Label>
+                  <Input maxLength={11} placeholder="CrownRoof" {...businessForm.register("sms_sender_id")} />
+                  <p className="text-[11px] text-muted-foreground">
+                    Up to 11 letters/numbers, no spaces. Customers see this as the sender on SMS. Leave blank to auto-derive from your business name.
+                  </p>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
