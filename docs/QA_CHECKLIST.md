@@ -44,6 +44,15 @@ Failing items: paste the section number + failing item into a comment on the QA 
 
 ## 4. Customers
 
+### Address fields (per-country format)
+- [ ] When the active business is set to **Australia**, address forms show: Street address, **Suburb**, **State (dropdown: ACT/NSW/NT/QLD/SA/TAS/VIC/WA)**, Postcode, Country — in that order
+- [ ] Address autocomplete (street line) populates suburb / state / postcode / country on selection
+- [ ] Other countries (US/UK) show appropriate labels (City, ZIP / County, Postcode)
+- [ ] Settings → Business → Address uses the same per-country layout
+- [ ] Customer detail → Add property → autocomplete works (was broken before)
+- [ ] Edit customer → Address card uses per-country layout + autocomplete
+
+### General customer flows
 - [ ] List shows customers with stats columns (invoice count, billed, outstanding)
 - [ ] Search filters live
 - [ ] Multi-select checkboxes → bulk archive works

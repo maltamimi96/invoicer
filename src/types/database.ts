@@ -42,6 +42,7 @@ export interface Business {
   phone: string | null;
   address: string | null;
   city: string | null;
+  state: string | null;
   postcode: string | null;
   country: string | null;
   website: string | null;
@@ -79,6 +80,7 @@ export interface Customer {
   phone: string | null;
   address: string | null;
   city: string | null;
+  state: string | null;
   postcode: string | null;
   country: string | null;
   company: string | null;
@@ -436,6 +438,7 @@ export interface CustomerProperty {
   label: string | null;
   address: string;
   city: string | null;
+  state: string | null;
   postcode: string | null;
   country: string | null;
   notes: string | null;
@@ -482,6 +485,7 @@ export interface Site {
   label: string | null;
   address: string | null;
   city: string | null;
+  state: string | null;
   postcode: string | null;
   country: string | null;
   lat: number | null;

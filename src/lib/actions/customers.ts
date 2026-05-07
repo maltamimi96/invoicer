@@ -46,8 +46,8 @@ export async function getCustomer(id: string): Promise<Customer> {
 }
 
 type CreateCustomerInput =
-  Omit<Customer, "id" | "created_at" | "updated_at" | "user_id" | "business_id" | "account_type" | "website" | "secondary_phone" | "contact_role" | "preferred_contact">
-  & Partial<Pick<Customer, "account_type" | "website" | "secondary_phone" | "contact_role" | "preferred_contact">>;
+  Omit<Customer, "id" | "created_at" | "updated_at" | "user_id" | "business_id" | "account_type" | "website" | "secondary_phone" | "contact_role" | "preferred_contact" | "state">
+  & Partial<Pick<Customer, "account_type" | "website" | "secondary_phone" | "contact_role" | "preferred_contact" | "state">>;
 
 export async function createCustomer(payload: CreateCustomerInput): Promise<Customer> {
   const supabase = await createClient();

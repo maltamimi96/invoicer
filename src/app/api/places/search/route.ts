@@ -57,6 +57,7 @@ export async function GET(req: NextRequest) {
         label: r.display_name,
         address: street || a.road || "",
         city,
+        state: a.state || "",
         postcode: a.postcode || "",
         country: a.country || "",
         lat: r.lat,

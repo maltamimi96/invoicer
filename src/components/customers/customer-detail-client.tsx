@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { BackButton } from "@/components/layout/back-button";
+import { AddressFields } from "@/components/addresses/address-fields";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -56,6 +57,8 @@ interface Props {
   notes: CustomerNote[];
   billingProfiles: BillingProfile[];
   currency?: string;
+  /** Country of the active business — drives address-field layout. */
+  businessCountry?: string | null;
 }
 
 // ── Property Modal ─────────────────────────────────────────────────────────────
@@ -63,18 +66,21 @@ interface Props {
 interface PropertyModalProps {
   customerId: string;
   property?: CustomerProperty;
+  /** Country of the active business — drives the address field layout. */
+  businessCountry?: string | null;
   onSave: (p: CustomerProperty) => void;
   onClose: () => void;
 }
 
-function PropertyModal({ customerId, property, onSave, onClose }: PropertyModalProps) {
+function PropertyModal({ customerId, property, businessCountry, onSave, onClose }: PropertyModalProps) {
   const [isPending, start] = useTransition();
   const [form, setForm] = useState({
     label: property?.label ?? "",
     address: property?.address ?? "",
     city: property?.city ?? "",
+    state: (property as { state?: string } | undefined)?.state ?? "",
     postcode: property?.postcode ?? "",
-    country: property?.country ?? "",
+    country: property?.country ?? (businessCountry ?? ""),
     notes: property?.notes ?? "",
   });
 
@@ -87,6 +93,7 @@ function PropertyModal({ customerId, property, onSave, onClose }: PropertyModalP
               label: form.label || null,
               address: form.address,
               city: form.city || null,
+              state: form.state || null,
               postcode: form.postcode || null,
               country: form.country || null,
               notes: form.notes || null,
@@ -95,6 +102,7 @@ function PropertyModal({ customerId, property, onSave, onClose }: PropertyModalP
               label: form.label || undefined,
               address: form.address,
               city: form.city || undefined,
+              state: form.state || undefined,
               postcode: form.postcode || undefined,
               country: form.country || undefined,
               notes: form.notes || undefined,
@@ -117,31 +125,25 @@ function PropertyModal({ customerId, property, onSave, onClose }: PropertyModalP
           <DialogTitle>{property ? "Edit property" : "Add property"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="col-span-2 space-y-1.5">
-              <Label>Label</Label>
-              <Input placeholder="e.g. Main Residence, Investment Property" value={form.label} onChange={f("label")} />
-            </div>
-            <div className="col-span-2 space-y-1.5">
-              <Label>Street address *</Label>
-              <Input placeholder="123 High Street" value={form.address} onChange={f("address")} autoFocus />
-            </div>
-            <div className="space-y-1.5">
-              <Label>City</Label>
-              <Input placeholder="Sydney" value={form.city} onChange={f("city")} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Postcode</Label>
-              <Input placeholder="2000" value={form.postcode} onChange={f("postcode")} />
-            </div>
-            <div className="col-span-2 space-y-1.5">
-              <Label>Country</Label>
-              <Input placeholder="Australia" value={form.country} onChange={f("country")} />
-            </div>
-            <div className="col-span-2 space-y-1.5">
-              <Label>Notes</Label>
-              <Textarea placeholder="Access info, site notes..." rows={2} value={form.notes} onChange={f("notes")} />
-            </div>
+          <div className="space-y-1.5">
+            <Label>Label</Label>
+            <Input placeholder="e.g. Main Residence, Investment Property" value={form.label} onChange={f("label")} />
+          </div>
+          <AddressFields
+            country={businessCountry}
+            values={{
+              address: form.address, city: form.city, state: form.state,
+              postcode: form.postcode, country: form.country,
+            }}
+            onChange={(next) => setForm((p) => ({
+              ...p,
+              address: next.address, city: next.city, state: next.state,
+              postcode: next.postcode, country: next.country,
+            }))}
+          />
+          <div className="space-y-1.5">
+            <Label>Notes</Label>
+            <Textarea placeholder="Access info, site notes..." rows={2} value={form.notes} onChange={f("notes")} />
           </div>
           <div className="flex gap-2 pt-1">
             <Button variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
@@ -454,6 +456,7 @@ export function CustomerDetailClient({
   notes: initialNotes,
   billingProfiles: initialBillingProfiles,
   currency = "AUD",
+  businessCountry = null,
 }: Props) {
   const [customer, setCustomer] = useState(initial);
   const [editing, setEditing] = useState(false);
@@ -539,7 +542,7 @@ export function CustomerDetailClient({
 
       {editing ? (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-          <CustomerForm customer={customer} onSuccess={(updated) => { setCustomer(updated); setEditing(false); }} />
+          <CustomerForm customer={customer} businessCountry={businessCountry} onSuccess={(updated) => { setCustomer(updated); setEditing(false); }} />
         </motion.div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -984,6 +987,7 @@ export function CustomerDetailClient({
         <PropertyModal
           customerId={customer.id}
           property={propertyModal.item}
+          businessCountry={businessCountry}
           onSave={(saved) => {
             setProperties((p) =>
               propertyModal.item ? p.map((x) => x.id === saved.id ? saved : x) : [...p, saved]

@@ -38,6 +38,7 @@ function siteToProperty(s: Site): CustomerProperty {
     label: s.label,
     address: s.address ?? '',
     city: s.city,
+    state: s.state,
     postcode: s.postcode,
     country: s.country,
     notes: s.access_notes,
@@ -70,12 +71,13 @@ export async function getCustomerProperties(customerId: string): Promise<Custome
 
 export async function createCustomerProperty(
   customerId: string,
-  payload: { label?: string; address: string; city?: string; postcode?: string; country?: string; notes?: string }
+  payload: { label?: string; address: string; city?: string; state?: string; postcode?: string; country?: string; notes?: string }
 ): Promise<CustomerProperty> {
   const site = await createSite(customerId, {
     label: payload.label ?? null,
     address: payload.address,
     city: payload.city ?? null,
+    state: payload.state ?? null,
     postcode: payload.postcode ?? null,
     country: payload.country ?? null,
     access_notes: payload.notes ?? null,
@@ -86,12 +88,13 @@ export async function createCustomerProperty(
 export async function updateCustomerProperty(
   id: string,
   customerId: string,
-  payload: Partial<Pick<CustomerProperty, "label" | "address" | "city" | "postcode" | "country" | "notes">>
+  payload: Partial<Pick<CustomerProperty, "label" | "address" | "city" | "postcode" | "country" | "notes"> & { state: string | null }>
 ): Promise<CustomerProperty> {
   const site = await updateSite(id, {
     ...(payload.label !== undefined ? { label: payload.label } : {}),
     ...(payload.address !== undefined ? { address: payload.address } : {}),
     ...(payload.city !== undefined ? { city: payload.city } : {}),
+    ...(payload.state !== undefined ? { state: payload.state } : {}),
     ...(payload.postcode !== undefined ? { postcode: payload.postcode } : {}),
     ...(payload.country !== undefined ? { country: payload.country } : {}),
     ...(payload.notes !== undefined ? { access_notes: payload.notes } : {}),

@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
+import { AddressFields } from "@/components/addresses/address-fields";
 import type { Customer } from "@/types/database";
 
 const ACCOUNT_TYPES: { value: Customer["account_type"]; label: string; hint?: string }[] = [
@@ -49,6 +49,7 @@ const schema = z.object({
   preferred_contact: z.string().optional(),
   address: z.string().optional(),
   city: z.string().optional(),
+  state: z.string().optional(),
   postcode: z.string().optional(),
   country: z.string().optional(),
   notes: z.string().optional(),
@@ -59,9 +60,11 @@ type FormData = z.infer<typeof schema>;
 interface CustomerFormProps {
   customer?: Customer;
   onSuccess?: (customer: Customer) => void;
+  /** Country of the active business — drives address-field labels + states. */
+  businessCountry?: string | null;
 }
 
-export function CustomerForm({ customer, onSuccess }: CustomerFormProps) {
+export function CustomerForm({ customer, onSuccess, businessCountry }: CustomerFormProps) {
   const router = useRouter();
   const { register, handleSubmit, control, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -78,6 +81,7 @@ export function CustomerForm({ customer, onSuccess }: CustomerFormProps) {
       preferred_contact: customer?.preferred_contact ?? "any",
       address: customer?.address ?? "",
       city: customer?.city ?? "",
+      state: customer?.state ?? "",
       postcode: customer?.postcode ?? "",
       country: customer?.country ?? "",
       notes: customer?.notes ?? "",
@@ -209,41 +213,24 @@ export function CustomerForm({ customer, onSuccess }: CustomerFormProps) {
       <Card>
         <CardContent className="p-5 space-y-4">
           <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Address</h3>
-          <div className="space-y-1.5">
-            <Label>Search address</Label>
-            <Controller
-              name="address"
-              control={control}
-              render={({ field }) => (
-                <AddressAutocomplete
-                  value={field.value || ""}
-                  onChange={field.onChange}
-                  onSelect={(s) => {
-                    setValue("address", s.address || s.label.split(",")[0]);
-                    if (s.city) setValue("city", s.city);
-                    if (s.postcode) setValue("postcode", s.postcode);
-                    if (s.country) setValue("country", s.country);
-                  }}
-                  placeholder="Start typing — 123 High Street, London..."
-                />
-              )}
-            />
-            <p className="text-xs text-muted-foreground">Pick a suggestion to auto-fill city, postcode, and country.</p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="space-y-1.5">
-              <Label>City</Label>
-              <Input placeholder="London" {...register("city")} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Postcode</Label>
-              <Input placeholder="SW1A 1AA" {...register("postcode")} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Country</Label>
-              <Input placeholder="United Kingdom" {...register("country")} />
-            </div>
-          </div>
+          <p className="text-xs text-muted-foreground">Start typing the street address to autofill city, state, postcode and country.</p>
+          <AddressFields
+            country={watch("country") || businessCountry}
+            values={{
+              address:  watch("address")  ?? "",
+              city:     watch("city")     ?? "",
+              state:    watch("state")    ?? "",
+              postcode: watch("postcode") ?? "",
+              country:  watch("country")  ?? "",
+            }}
+            onChange={(next) => {
+              setValue("address",  next.address);
+              setValue("city",     next.city);
+              setValue("state",    next.state);
+              setValue("postcode", next.postcode);
+              setValue("country",  next.country);
+            }}
+          />
         </CardContent>
       </Card>
 
