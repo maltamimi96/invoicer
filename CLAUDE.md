@@ -225,3 +225,13 @@ User's accumulated preferences:
 - **Visual feedback for everything** — loading states on field-level fetches (e.g. `<AddressSelect>` "Loading addresses…"), progress bar on Smart Organise, scrim during business switch
 - **Never trust empty input** — coerce, validate, soft-fail
 - Current accent name: **teal**; sidebar: **light**; canvas: warm off-white. Don't revert to flux lime unless explicitly asked.
+
+## Mobile parity policy (May 2026)
+Connected Hub mobile app (`mobile/`) is being levelled up to full feature parity with the web. See `docs/MOBILE_PARITY_PLAN.md` for the canonical matrix and phased rollout.
+
+**For every web change you make, you must:**
+1. Update the matrix in `docs/MOBILE_PARITY_PLAN.md` (flip status, add row).
+2. Open a paired mobile PR — or note in the web PR which mobile phase the change lands in.
+3. Mirror new shared types/permissions from `src/types/database.ts` and `src/lib/permissions.ts` into `mobile/lib`.
+
+QA checklist (`docs/QA_CHECKLIST.md`) gets matching mobile checkboxes as features roll out per phase.
