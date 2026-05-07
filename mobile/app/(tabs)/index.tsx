@@ -5,9 +5,38 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchMyWorkOrders } from "@/lib/jobs";
 import { scheduleJobReminders } from "@/lib/notifications";
 import { JobCard } from "@/components/JobCard";
+import { BusinessSwitcher } from "@/components/BusinessSwitcher";
+import { OwnerDashboard } from "@/components/OwnerDashboard";
+import { useActiveBusiness } from "@/lib/active-business";
+import { isWorker } from "@/lib/permissions";
 import { colors, space } from "@/lib/theme";
 
-export default function JobsScreen() {
+/** Tab 1 (index) — role-aware:
+ *  - Owners / admins / editors / viewers see the OwnerDashboard with KPIs.
+ *  - Workers see the existing 'My jobs' list.
+ *  Same tab, different content based on the active business + role. */
+export default function HomeTab() {
+  const { active, businesses, role, switchTo, loading } = useActiveBusiness();
+
+  if (loading || !active) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator color={colors.primary} />
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={["top", "left", "right"]}>
+      <View style={{ paddingHorizontal: space.lg, paddingTop: space.sm }}>
+        <BusinessSwitcher active={active} businesses={businesses} role={role} onSwitch={switchTo} />
+      </View>
+      {isWorker(role) ? <WorkerJobsList /> : <OwnerDashboard business={active} />}
+    </SafeAreaView>
+  );
+}
+
+function WorkerJobsList() {
   const { data: jobs, isLoading, isRefetching, refetch, error } = useQuery({
     queryKey: ["work-orders"],
     queryFn:  fetchMyWorkOrders,
@@ -33,14 +62,14 @@ export default function JobsScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas, alignItems: "center", justifyContent: "center" }}>
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
         <ActivityIndicator color={colors.primary} />
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={["top", "left", "right"]}>
+    <View style={{ flex: 1 }}>
       <FlatList
         contentContainerStyle={{ paddingHorizontal: space.lg, paddingBottom: space.xxl }}
         ListHeaderComponent={
@@ -73,7 +102,7 @@ export default function JobsScreen() {
           </View>
         }
       />
-    </SafeAreaView>
+    </View>
   );
 }
 

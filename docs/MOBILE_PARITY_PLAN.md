@@ -69,11 +69,14 @@ Status legend: ✅ done · 🟡 partial · ❌ missing · 🚫 not applicable on
 | Signup with invite code | ✅ | shipped | |
 | Forgot password | ❌ | 1 | Existing web flow — wire deep-link |
 | **Foundation** |
-| Multi-business switcher | ❌ | 1 | AsyncStorage-backed |
-| Active business sync | ❌ | 1 | Match web behaviour |
-| Role-aware navigation | 🟡 | 1 | Worker view exists; need owner view |
+| Multi-business switcher | ✅ | 1 | AsyncStorage-backed, sits above the index tab |
+| Active business sync | ✅ | 1 | useActiveBusiness hook |
+| Role-aware navigation | ✅ | 1 | Index tab branches: OwnerDashboard vs WorkerJobsList |
+| Mirrored permissions | ✅ | 1 | mobile/src/lib/permissions.ts |
 | **Dashboard** |
-| Owner dashboard (KPIs, briefing, todos, outlook, leads) | ❌ | 1 | Same widgets as web |
+| Owner dashboard (KPIs, overdue strip, leads strip) | ✅ | 1 | Phase 1 skeleton |
+| Owner dashboard (briefing widget) | ❌ | 1.5 | Coming |
+| Owner dashboard (tasks, outlook, full widgets) | ❌ | 1.5 | Coming |
 | Worker dashboard | ✅ | shipped | |
 | Briefing widget | ❌ | 1 | Mobile version of `/assistant` |
 | Header bell briefing | ❌ | 1 | Top-bar icon with unread count |
