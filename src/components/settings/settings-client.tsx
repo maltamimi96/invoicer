@@ -24,6 +24,7 @@ import { TeamSettings } from "@/components/settings/team-settings";
 import { ApiKeysSettings } from "@/components/settings/api-keys-settings";
 import { EmailSettings } from "@/components/settings/email-settings";
 import { WebhooksSettings } from "@/components/settings/webhooks-settings";
+import { AddressFields } from "@/components/addresses/address-fields";
 import type { Business, BusinessMember, BusinessApiKey, BusinessEmailConfig, BusinessWebhook } from "@/types/database";
 import type { Role } from "@/lib/permissions";
 
@@ -74,6 +75,7 @@ const businessSchema = z.object({
   phone: z.string().optional(),
   address: z.string().optional(),
   city: z.string().optional(),
+  state: z.string().optional(),
   postcode: z.string().optional(),
   country: z.string().optional(),
   website: z.string().optional(),
@@ -127,6 +129,7 @@ export function SettingsClient({ business: initial, members, apiKeys, emailConfi
       phone: business.phone ?? "",
       address: business.address ?? "",
       city: business.city ?? "",
+      state: business.state ?? "",
       postcode: business.postcode ?? "",
       country: business.country ?? "",
       website: business.website ?? "",
@@ -305,12 +308,23 @@ export function SettingsClient({ business: initial, members, apiKeys, emailConfi
                   <div className="space-y-1.5"><Label>Phone</Label><Input {...businessForm.register("phone")} /></div>
                 </div>
                 <div className="space-y-1.5"><Label>Website</Label><Input placeholder="https://..." {...businessForm.register("website")} /></div>
-                <div className="space-y-1.5"><Label>Address</Label><Input {...businessForm.register("address")} /></div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="space-y-1.5"><Label>City</Label><Input {...businessForm.register("city")} /></div>
-                  <div className="space-y-1.5"><Label>Postcode</Label><Input {...businessForm.register("postcode")} /></div>
-                  <div className="space-y-1.5"><Label>Country</Label><Input {...businessForm.register("country")} /></div>
-                </div>
+                <AddressFields
+                  country={businessForm.watch("country") || business.country}
+                  values={{
+                    address:  businessForm.watch("address")  ?? "",
+                    city:     businessForm.watch("city")     ?? "",
+                    state:    businessForm.watch("state")    ?? "",
+                    postcode: businessForm.watch("postcode") ?? "",
+                    country:  businessForm.watch("country")  ?? "",
+                  }}
+                  onChange={(next) => {
+                    businessForm.setValue("address",  next.address);
+                    businessForm.setValue("city",     next.city);
+                    businessForm.setValue("state",    next.state);
+                    businessForm.setValue("postcode", next.postcode);
+                    businessForm.setValue("country",  next.country);
+                  }}
+                />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5"><Label>VAT / Tax number</Label><Input {...businessForm.register("tax_number")} /></div>
                   <div className="space-y-1.5"><Label>Licence number</Label><Input placeholder="e.g. 471250C" {...businessForm.register("license_number")} /></div>

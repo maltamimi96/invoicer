@@ -8,6 +8,7 @@ export type AddressSuggestion = {
   label: string;
   address: string;
   city: string;
+  state: string;
   postcode: string;
   country: string;
 };
