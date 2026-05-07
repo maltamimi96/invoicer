@@ -42,6 +42,20 @@ const GENERIC: AddressFormat = {
   countryCode: "",
 };
 
+/** Nominatim returns 'New South Wales', our dropdown holds 'NSW'. Map both
+ *  full names and abbreviations to the canonical code so the picked
+ *  suggestion's state pre-selects the right option. */
+const AU_STATE_NORMALIZE: Record<string, string> = {
+  "australian capital territory": "ACT", "act": "ACT",
+  "new south wales": "NSW",              "nsw": "NSW",
+  "northern territory": "NT",            "nt": "NT",
+  "queensland": "QLD",                   "qld": "QLD",
+  "south australia": "SA",               "sa": "SA",
+  "tasmania": "TAS",                     "tas": "TAS",
+  "victoria": "VIC",                     "vic": "VIC",
+  "western australia": "WA",             "wa": "WA",
+};
+
 const AU: AddressFormat = {
   fields: ["address", "city", "state", "postcode", "country"],
   labels: {
@@ -121,11 +135,27 @@ const FORMATS: Record<string, AddressFormat> = {
   britain:          UK,
 };
 
-/** Resolve the format for a given country string (free-text or ISO-2). */
+/** Resolve the format for a given country string (free-text or ISO-2).
+ *  Defaults to Australia when the business hasn't set a country yet — the
+ *  app is currently AU-only and falling back to a generic 4-field layout
+ *  costs the user the State field. */
 export function getAddressFormat(country?: string | null): AddressFormat {
-  if (!country) return GENERIC;
+  if (!country) return AU;
   const key = country.trim().toLowerCase();
-  return FORMATS[key] ?? GENERIC;
+  return FORMATS[key] ?? AU;
+}
+
+/** Normalize a state value against the format's known states. Returns the
+ *  matched canonical value, or the input if no match. Used to convert
+ *  Nominatim's full state names into our short codes. */
+export function normalizeState(country: string | null | undefined, raw: string): string {
+  if (!raw) return raw;
+  const fmt = getAddressFormat(country);
+  if (fmt === AU) {
+    const code = AU_STATE_NORMALIZE[raw.trim().toLowerCase()];
+    if (code) return code;
+  }
+  return raw;
 }
 
 export const DEFAULT_AU_FORMAT = AU;
