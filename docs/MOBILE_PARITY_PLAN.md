@@ -128,7 +128,7 @@ Status legend: ✅ done · 🟡 partial · ❌ missing · 🚫 not applicable on
 | **Workspace** |
 | Tasks (kanban) | 🟡 | shipped (basic) | Polish: drag-drop on mobile, link to job |
 | Messages (SMS inbox) | ❌ | 4 | Inbound replies |
-| Assistant page | ❌ | 1 | Briefing list |
+| Assistant page | ✅ | 2g | Full briefing inbox with deep-links + pull-to-refresh |
 | AI agent chat | ❌ | 4 | Native voice |
 | **Settings** |
 | Business profile | ✅ | 2d | Name, contact, ABN, currency, address — owner/admin only |

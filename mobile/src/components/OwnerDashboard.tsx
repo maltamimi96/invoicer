@@ -158,7 +158,7 @@ export function OwnerDashboard({ business }: { business: MobileBusiness }) {
       )}
 
       {/* Briefing */}
-      <BriefingWidget businessId={business.id} />
+      <BriefingWidget businessId={business.id} onItemPress={() => router.push("/assistant" as never)} />
 
       {/* Tasks */}
       <TasksWidget businessId={business.id} />
