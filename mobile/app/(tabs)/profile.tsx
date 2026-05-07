@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Alert, Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { LogOut, Bell, Building2, ChevronRight } from "lucide-react-native";
+import { LogOut, Bell, Building2, ChevronRight, Users } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { ensureNotificationPermissions } from "@/lib/notifications";
@@ -70,6 +70,28 @@ export default function ProfileScreen() {
           >
             <Building2 size={18} color={colors.text} />
             <Text style={{ flex: 1, color: colors.text, fontWeight: "600", fontSize: 15 }}>Business profile</Text>
+            <ChevronRight size={16} color={colors.muted} />
+          </Pressable>
+        )}
+
+        {canEditBusiness && (
+          <Pressable
+            onPress={() => router.push("/settings/team" as never)}
+            style={({ pressed }) => ({
+              backgroundColor: colors.card,
+              borderRadius: radius.xl,
+              padding: space.lg,
+              marginTop: space.sm,
+              borderWidth: 1,
+              borderColor: colors.hairline,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: space.sm,
+              opacity: pressed ? 0.85 : 1,
+            })}
+          >
+            <Users size={18} color={colors.text} />
+            <Text style={{ flex: 1, color: colors.text, fontWeight: "600", fontSize: 15 }}>Team</Text>
             <ChevronRight size={16} color={colors.muted} />
           </Pressable>
         )}

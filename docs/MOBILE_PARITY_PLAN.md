@@ -121,7 +121,7 @@ Status legend: ✅ done · 🟡 partial · ❌ missing · 🚫 not applicable on
 | Products list + add/edit | ❌ | 3 | |
 | **Workforce** |
 | Team profiles list | ❌ | 4 | |
-| Add team member (sends invite) | ❌ | 4 | |
+| Add team member (sends invite) | ✅ | 2g | Modal in /settings/team |
 | Agents on/off | ✅ | 4 | List + toggle per agent |
 | **Insights** |
 | Analytics page (KPIs, range pills) | ✅ | 4 | Charts via victory-native — phase 4+ |
@@ -133,7 +133,7 @@ Status legend: ✅ done · 🟡 partial · ❌ missing · 🚫 not applicable on
 | **Settings** |
 | Business profile | ✅ | 2d | Name, contact, ABN, currency, address — owner/admin only |
 | Bank details | ❌ | 4 | |
-| Team management | ❌ | 4 | |
+| Team management | ✅ | 2g | List + add (email/role) + change role + remove; pending → active on first login |
 | API keys | ❌ | 5 | Power-user only |
 | Webhooks | ❌ | 5 | Power-user only |
 | Email config | ❌ | 5 | Power-user only |
