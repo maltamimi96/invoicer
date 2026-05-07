@@ -117,11 +117,6 @@ export function DashboardClient({ stats, currency = "GBP", todayJobs }: Dashboar
         </Link>
       )}
 
-      {/* Briefing widget — top 5 things needing attention */}
-      <div className="mb-5">
-        <BriefingWidget compact />
-      </div>
-
       {/* KPI grid */}
       <motion.div
         initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.05 }}
@@ -312,6 +307,12 @@ export function DashboardClient({ stats, currency = "GBP", todayJobs }: Dashboar
             </div>
           )}
         </div>
+      </div>
+
+      {/* Briefing widget — appears below the 2-col body so it doesn't crowd
+          the KPIs. The header bell + /assistant page give faster access. */}
+      <div className="mt-5">
+        <BriefingWidget compact />
       </div>
     </div>
   );

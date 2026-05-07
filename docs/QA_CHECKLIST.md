@@ -315,9 +315,21 @@ Failing items: paste the section number + failing item into a comment on the QA 
 - [ ] Refresh button reloads with current state
 - [ ] Empty state when caught up: "Your inbox is zero — take a break"
 
+### Header bell (NEW)
+- [ ] Sparkles icon in the top nav (left of dark mode toggle)
+- [ ] Badge shows count of items (rose-coloured if any are high priority)
+- [ ] Click opens a popover with the briefing list
+- [ ] Each row has Snooze / Done / action buttons
+- [ ] Click action button → closes popover + navigates
+- [ ] "Open full briefing" link at the bottom takes you to /assistant
+- [ ] Polls every 60s while open to stay current
+- [ ] Inbox-zero state shows green checkmark + friendly copy
+
 ### Dashboard widget
-- [ ] Top 5 briefing items shown on /dashboard
-- [ ] "See all" link appears when more than 5 items, navigates to /assistant
+- [ ] Briefing widget appears below the 2-col dashboard body (not above)
+- [ ] Shows top 5 items + "See all" link when more
+- [ ] Each row has Snooze / Done / action buttons (not just X)
+- [ ] "Done" button is emerald-coloured with checkmark icon
 - [ ] Refresh button works
 - [ ] Empty state when nothing is pending
 

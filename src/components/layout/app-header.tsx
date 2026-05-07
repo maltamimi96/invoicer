@@ -11,6 +11,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
+import { BriefingBell } from "@/components/briefing/briefing-bell";
 import type { Business } from "@/types/database";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import Link from "next/link";
@@ -53,6 +54,9 @@ export function AppHeader({ user, onMenuClick }: AppHeaderProps) {
       </Button>
 
       <div className="flex-1" />
+
+      {/* Briefing bell — what needs the user's attention right now */}
+      <BriefingBell />
 
       <Button
         variant="ghost"

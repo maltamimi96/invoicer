@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { Sparkles, AlertTriangle, ArrowRight, RotateCcw, X, Clock } from "@/components/ui/icons";
+import { Sparkles, AlertTriangle, ArrowRight, RotateCcw, Check, Clock } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { getMyBriefing, snoozeBriefingItem, type BriefingItem, type BriefingSummary } from "@/lib/actions/briefing";
@@ -48,7 +48,7 @@ export function BriefingWidget({ compact = false }: Props) {
   const snooze = async (item: BriefingItem, hours: number) => {
     try {
       await snoozeBriefingItem({ briefing_type: item.type, entity_id: item.entity_id, hours });
-      toast.success(hours === 0 ? "Dismissed" : `Snoozed for ${hours}h`);
+      toast.success(hours === 0 ? "Marked done" : `Snoozed for ${hours}h`);
       await refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Couldn't update");
@@ -126,21 +126,21 @@ function Row({ item, onSnooze }: { item: BriefingItem; onSnooze: (item: Briefing
       <div className="flex items-center gap-1 flex-shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
         <button
           onClick={() => onSnooze(item, 24)}
-          className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground"
+          className="inline-flex items-center gap-1 px-2 py-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground text-xs"
           title="Snooze 24h"
         >
-          <Clock className="w-3.5 h-3.5" />
+          <Clock className="w-3.5 h-3.5" /> Snooze
         </button>
         <button
           onClick={() => onSnooze(item, 0)}
-          className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground"
-          title="Dismiss"
+          className="inline-flex items-center gap-1 px-2 py-1.5 rounded-md hover:bg-emerald-50 text-emerald-700 text-xs"
+          title="Mark done — hide until something changes"
         >
-          <X className="w-3.5 h-3.5" />
+          <Check className="w-3.5 h-3.5" /> Done
         </button>
         <Link
           href={item.action_url}
-          className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 transition-opacity"
+          className="inline-flex items-center gap-1 px-2 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 transition-opacity"
         >
           {item.action_label} <ArrowRight className="w-3 h-3" />
         </Link>
