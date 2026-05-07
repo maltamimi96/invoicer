@@ -10,14 +10,21 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
   const site = await getSite(id);
   if (!site) notFound();
 
+  // Each child fetch is best-effort. If any single one throws (eg. customer
+  // was archived, contacts table empty, etc) we still want the page to
+  // render — show what we have, don't 500 on the user.
   const [account, siteContacts, assets, jobs, billingProfiles, siteBilling] = await Promise.all([
-    getCustomer(site.account_id),
-    getSiteContactsFull(id),
-    getSiteAssets(id),
-    getSiteJobs(id),
-    getBillingProfilesForAccount(site.account_id),
-    getSiteBilling(id),
+    getCustomer(site.account_id).catch(() => null),
+    getSiteContactsFull(id).catch(() => []),
+    getSiteAssets(id).catch(() => []),
+    getSiteJobs(id).catch(() => []),
+    getBillingProfilesForAccount(site.account_id).catch(() => []),
+    getSiteBilling(id).catch(() => null),
   ]);
+
+  // Without the parent customer the page loses its breadcrumb context.
+  // Cleaner to 404 than crash mid-render.
+  if (!account) notFound();
 
   return (
     <SiteDetailClient
