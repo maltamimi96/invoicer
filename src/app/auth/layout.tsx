@@ -8,11 +8,8 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       {/* Left panel */}
       <div className="hidden lg:flex flex-col bg-zinc-900 dark:bg-zinc-950 text-white p-12 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-blue-600/20 to-indigo-600/20" />
-        <div className="relative z-10 flex items-center gap-3 mb-auto">
-          <div className="w-12 h-12 rounded-xl bg-white p-1.5 flex items-center justify-center">
-            <Image src="/kirei-logo.png" alt="Kirei" width={36} height={36} className="object-contain" priority />
-          </div>
-          <span className="text-xl font-semibold tracking-tight">Kirei</span>
+        <div className="relative z-10 flex items-center mb-auto">
+          <Image src="/kirei-logo.png" alt="Kirei" width={72} height={72} className="object-contain" priority />
         </div>
         <div className="relative z-10 space-y-6">
           <blockquote className="text-2xl font-light leading-relaxed text-zinc-100">
@@ -33,9 +30,8 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       {/* Right panel */}
       <div className="flex items-center justify-center p-8 bg-background">
         <div className="w-full max-w-sm">
-          <div className="flex items-center gap-2 mb-8 lg:hidden">
-            <Image src="/kirei-logo.png" alt="Kirei" width={32} height={32} className="object-contain" priority />
-            <span className="text-lg font-semibold">Kirei</span>
+          <div className="flex items-center mb-8 lg:hidden">
+            <Image src="/kirei-logo.png" alt="Kirei" width={56} height={56} className="object-contain" priority />
           </div>
           {children}
         </div>

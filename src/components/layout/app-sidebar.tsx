@@ -89,9 +89,7 @@ export function AppSidebar({ business, businesses, userRole, open, onClose }: Ap
                 <Image src={business.logo_url} alt={business.name} width={40} height={40} className="object-contain w-full h-full" />
               </div>
             ) : (
-              <div className="w-10 h-10 rounded-xl bg-white p-1 ring-2 ring-sidebar-primary/30 shadow-lg shadow-sidebar-primary/10 flex items-center justify-center">
-                <Image src="/kirei-logo.png" alt="Kirei" width={36} height={36} className="object-contain" />
-              </div>
+              <Image src="/kirei-logo.png" alt="Kirei" width={48} height={48} className="object-contain w-12 h-12" />
             )}
             <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-sidebar" />
           </motion.div>
@@ -198,11 +196,8 @@ export function AppSidebar({ business, businesses, userRole, open, onClose }: Ap
           <span className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40">
             {ROLE_LABELS[userRole]}
           </span>
-          {/* Kirei platform attribution — always visible at the bottom of the sidebar */}
-          <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40">
-            <Image src="/kirei-logo.png" alt="Kirei" width={14} height={14} className="object-contain rounded-sm" />
-            Kirei
-          </span>
+          {/* Kirei platform attribution — logo only, no text, no border */}
+          <Image src="/kirei-logo.png" alt="Kirei" width={28} height={28} className="object-contain opacity-70" />
         </div>
       </div>
     </div>
