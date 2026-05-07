@@ -395,7 +395,15 @@ export type WorkOrderWithDetails = WorkOrder & {
 // ----------------------------------------------------------------
 
 export type LeadStatus = "new" | "contacted" | "quoted" | "won" | "lost";
-export type LeadSource = "landing-page" | "website" | "referral" | "telegram" | "email" | "phone" | "manual";
+/** Built-in lead source presets. The DB column is now free-text, so any
+ *  string is valid — these are just the suggestions the UI offers in the
+ *  source dropdown alongside whatever past values exist for the business. */
+export const BUILT_IN_LEAD_SOURCES = [
+  "manual", "website", "landing-page", "referral", "phone",
+  "email", "telegram", "hipages", "service-seeking", "google",
+  "facebook", "instagram", "word-of-mouth",
+] as const;
+export type LeadSource = string;
 
 export interface Lead {
   id: string;
