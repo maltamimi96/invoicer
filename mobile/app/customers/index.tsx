@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, TextInput, View, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
-import { ArrowLeft, Search, Phone, Mail } from "lucide-react-native";
+import { ArrowLeft, Search, Phone, Mail, Plus } from "lucide-react-native";
 import { supabase } from "@/lib/supabase";
 import { useActiveBusiness } from "@/lib/active-business";
 import { colors, radius, space } from "@/lib/theme";
@@ -57,6 +57,18 @@ export default function CustomersList() {
         <Text style={{ fontSize: 20, fontWeight: "700", color: colors.text }}>Customers</Text>
         <View style={{ flex: 1 }} />
         <Text style={{ fontSize: 12, color: colors.muted }}>{customers?.length ?? 0}</Text>
+        <Pressable
+          onPress={() => router.push("/customers/new" as never)}
+          hitSlop={8}
+          style={({ pressed }) => ({
+            marginLeft: 8, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999,
+            backgroundColor: pressed ? "#0d6e6a" : colors.primary,
+            flexDirection: "row", alignItems: "center", gap: 4,
+          })}
+        >
+          <Plus size={14} color="#fff" />
+          <Text style={{ fontSize: 12, fontWeight: "700", color: "#fff" }}>Add</Text>
+        </Pressable>
       </View>
 
       {/* Search bar */}
