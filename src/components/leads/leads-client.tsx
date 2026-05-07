@@ -31,6 +31,7 @@ import { useRouter } from "next/navigation";
 import { updateLeadStatus, deleteLead, createLead, updateLead, convertLeadToCustomer, convertLeadToQuote, convertLeadToWorkOrder } from "@/lib/actions/leads";
 import { addLeadAsContact } from "@/lib/actions/contacts";
 import type { Lead, LeadStatus, LeadSource } from "@/types/database";
+import { BUILT_IN_LEAD_SOURCES } from "@/types/database";
 
 const COLUMNS: { status: LeadStatus; label: string; color: string; dot: string }[] = [
   { status: "new",       label: "New",       color: "bg-blue-50 dark:bg-blue-950/30",   dot: "bg-blue-500" },
@@ -48,15 +49,26 @@ const STATUS_BADGE: Record<LeadStatus, string> = {
   lost:      "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
 };
 
-const SOURCE_LABELS: Record<LeadSource, string> = {
-  "landing-page": "Landing Page",
-  website:        "Website",
-  referral:       "Referral",
-  telegram:       "Telegram",
-  email:          "Email",
-  phone:          "Phone",
-  manual:         "Manual",
+/** Friendly labels for known sources. Anything not in here renders as-is. */
+const SOURCE_LABELS: Record<string, string> = {
+  "landing-page":   "Landing Page",
+  "website":        "Website",
+  "referral":       "Referral",
+  "telegram":       "Telegram",
+  "email":          "Email",
+  "phone":          "Phone",
+  "manual":         "Manual",
+  "hipages":        "HiPages",
+  "service-seeking":"ServiceSeeking",
+  "google":         "Google",
+  "facebook":       "Facebook",
+  "instagram":      "Instagram",
+  "word-of-mouth":  "Word of mouth",
 };
+
+function formatSourceLabel(s: string): string {
+  return SOURCE_LABELS[s] ?? s.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-AU", { day: "numeric", month: "short" });
@@ -361,14 +373,24 @@ export function LeadsClient({ leads: initial }: { leads: Lead[] }) {
             </div>
             <div className="space-y-1.5">
               <Label>Source</Label>
-              <Select value={form.source} onValueChange={(v) => setForm((f) => ({ ...f, source: v as LeadSource }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {(Object.entries(SOURCE_LABELS) as [LeadSource, string][]).map(([k, v]) => (
-                    <SelectItem key={k} value={k}>{v}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Input
+                list="lead-source-suggestions"
+                value={form.source}
+                onChange={(e) => setForm((f) => ({ ...f, source: e.target.value }))}
+                placeholder="e.g. HiPages, referral, walk-in"
+              />
+              <datalist id="lead-source-suggestions">
+                {/* Built-in presets */}
+                {BUILT_IN_LEAD_SOURCES.map((s) => (
+                  <option key={`builtin-${s}`} value={s}>{formatSourceLabel(s)}</option>
+                ))}
+                {/* Sources already used on this business's leads — keeps the
+                    list tidy and lets typing 'Hi…' autocomplete to a past value. */}
+                {Array.from(new Set(leads.map((l) => l.source).filter(Boolean) as string[]))
+                  .filter((s) => !(BUILT_IN_LEAD_SOURCES as readonly string[]).includes(s))
+                  .map((s) => <option key={`past-${s}`} value={s}>{formatSourceLabel(s)}</option>)}
+              </datalist>
+              <p className="text-[11px] text-muted-foreground">Pick a suggestion or type your own.</p>
             </div>
             <div className="col-span-2 space-y-1.5">
               <Label>Notes</Label>
@@ -577,7 +599,7 @@ function LeadCard({
       {lead.source && lead.source !== "manual" && (
         <div className="pt-0">
           <span className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded">
-            {SOURCE_LABELS[lead.source] ?? lead.source}
+            {formatSourceLabel(lead.source)}
           </span>
         </div>
       )}

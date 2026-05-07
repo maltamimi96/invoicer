@@ -12,6 +12,7 @@ import { formatCurrency, getStatusColor } from "@/lib/utils";
 import { BriefingWidget } from "@/components/briefing/briefing-widget";
 import { TasksWidget } from "@/components/tasks/tasks-widget";
 import { OutlookWidget } from "@/components/dashboard/outlook-widget";
+import { NewLeadsWidget } from "@/components/dashboard/new-leads-widget";
 import type { WorkOrderWithCustomer, WorkOrderStatus } from "@/types/database";
 
 const STATUS_TO_PILL: Record<WorkOrderStatus, string> = {
@@ -250,6 +251,9 @@ export function DashboardClient({ stats, currency = "GBP", todayJobs }: Dashboar
               </div>
             </div>
           </div>
+
+          {/* New leads — most recent unconverted */}
+          <NewLeadsWidget />
 
           {/* Your todos — open tasks from the kanban board */}
           <TasksWidget />

@@ -34,7 +34,8 @@ Failing items: paste the section number + failing item into a comment on the QA 
 - [ ] Recent invoices table — clicking a row navigates to that invoice
 - [ ] Quick actions tile on the right
 - [ ] **Your todos** widget under Quick actions — open tasks with one-click complete
-- [ ] **Operations widget** under Tasks — Team / Recurring jobs / Agents running, each clickable
+- [ ] **New leads widget** — most recent unconverted leads (status=new or contacted), shows source + suburb + age
+- [ ] **Operations widget** — Team / Recurring jobs / Agents running, each clickable
 - [ ] Today's jobs list shows scheduled jobs
 
 ## 3. Dashboard (worker view)
@@ -76,11 +77,14 @@ Failing items: paste the section number + failing item into a comment on the QA 
 
 - [ ] List view with status colour-tinted cards
 - [ ] Add lead manually
+- [ ] **Source field accepts custom values** (e.g. "HiPages", "ServiceSeeking", "word-of-mouth", or anything else)
+- [ ] Source dropdown shows: built-in presets + any sources used on this business's past leads + free-text input
 - [ ] Convert lead → customer
 - [ ] Convert lead → quote
 - [ ] Convert lead → work order
 - [ ] Lead status changes (new → contacted → quoted → won/lost)
 - [ ] Smart Organise on leads
+- [ ] **Source badge** on the lead card renders friendly label (e.g. "HiPages" not "hipages")
 
 ## 6. Quotes
 
