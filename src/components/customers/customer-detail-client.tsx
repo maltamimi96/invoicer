@@ -531,7 +531,7 @@ export function CustomerDetailClient({
           <Button variant="outline" size="sm" className="flex-1 sm:flex-initial" onClick={() => setEditing(!editing)}>
             <Edit className="w-3.5 h-3.5 mr-1.5" />{editing ? "Cancel" : "Edit"}
           </Button>
-          <PortalLinkButton customerId={customer.id} customerName={customer.name} />
+          <PortalLinkButton customerId={customer.id} customerName={customer.name} customerPhone={customer.phone ?? null} />
           <Link href={`/invoices/new?customer=${customer.id}`} className="flex-1 sm:flex-initial">
             <Button size="sm" className="gap-1.5 w-full sm:w-auto"><Plus className="w-3.5 h-3.5" />New invoice</Button>
           </Link>
