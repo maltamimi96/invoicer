@@ -307,7 +307,13 @@ export async function sendQuoteSms(id: string, opts: { to: string; body?: string
   }
 
   const { data: business } = await tbl(supabase, "businesses").select("name").eq("id", businessId).single();
-  const body = opts.body ?? `Hi${customer?.name ? " " + customer.name.split(" ")[0] : ""}, your quote ${quoteData.number} from ${business.name} is ready.${acceptUrl ? " Review & accept: " + acceptUrl : ""}`;
+  let body = opts.body ?? `Hi${customer?.name ? " " + customer.name.split(" ")[0] : ""}, your quote ${quoteData.number} from ${business.name} is ready.`;
+
+  // Always make sure the deep-link is in the SMS — append if the user
+  // edited the body and removed it (or it was never there from the prefill).
+  if (acceptUrl && !body.includes(acceptUrl)) {
+    body = `${body.replace(/\s+$/, "")} ${acceptUrl}`;
+  }
 
   const { sendSms } = await import("./sms");
   await sendSms({ to: opts.to, body, customerName: customer?.name ?? "Customer", customerId: customer?.id ?? null });
