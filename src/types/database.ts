@@ -49,6 +49,8 @@ export interface Business {
   tax_number: string | null;
   /** Trade licence / registration number — shown on PDFs (reports, invoices, quotes). */
   license_number: string | null;
+  /** Alphanumeric Sender ID (≤11 chars) shown to customers on SMS. */
+  sms_sender_id: string | null;
   logo_url: string | null;
   currency: string;
   locale: string;

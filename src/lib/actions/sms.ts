@@ -7,12 +7,48 @@ import { getActiveBizId } from "@/lib/active-business";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: any, name: string) => (sb as any).from(name);
 
-function getTwilioClient() {
-  const { Twilio } = require("twilio") as typeof import("twilio");
-  return new Twilio(
-    process.env.TWILIO_ACCOUNT_SID!,
-    process.env.TWILIO_AUTH_TOKEN!
-  );
+/** Sanitise a business name down to an 11-char alphanumeric Sender ID for AU SMS.
+ *  Strips non-alphanum, prefers PascalCase abbreviation.
+ *  e.g. "Crown Roofers" → "CrownRoof", "Bob's Plumbing & Gas" → "BobsPlumbng" */
+function deriveSenderId(name: string): string {
+  const cleaned = name.replace(/[^A-Za-z0-9]+/g, "");
+  return cleaned.slice(0, 11) || "Kirei";
+}
+
+interface ClickSendResponse {
+  http_code: number;
+  data?: { messages?: Array<{ message_id?: string; status?: string }> };
+  response_msg?: string;
+}
+
+/** POST a single SMS through ClickSend. Returns the provider message id +
+ *  status. Throws with the API's error message on failure. */
+async function clicksendSend(args: { from: string; to: string; body: string }): Promise<{ id: string; status: string }> {
+  const username = process.env.CLICKSEND_USERNAME;
+  const apiKey   = process.env.CLICKSEND_API_KEY;
+  if (!username || !apiKey) throw new Error("ClickSend credentials not configured");
+
+  const auth = Buffer.from(`${username}:${apiKey}`).toString("base64");
+  const res = await fetch("https://rest.clicksend.com/v3/sms/send", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Basic ${auth}`,
+    },
+    body: JSON.stringify({
+      messages: [{ from: args.from, to: args.to, body: args.body, source: "kirei" }],
+    }),
+  });
+
+  const json = (await res.json().catch(() => ({}))) as ClickSendResponse;
+  if (!res.ok || json.http_code !== 200) {
+    throw new Error(`SMS send failed: ${json.response_msg ?? res.statusText}`);
+  }
+  const msg = json.data?.messages?.[0];
+  return {
+    id:     msg?.message_id ?? "",
+    status: msg?.status     ?? "sent",
+  };
 }
 
 export interface SmsConversation {
@@ -79,8 +115,14 @@ export async function sendSms(payload: {
   if (!user) throw new Error("Unauthorized");
   const businessId = await getActiveBizId(supabase, user.id);
 
-  const fromNumber = process.env.TWILIO_PHONE_NUMBER;
-  if (!fromNumber) throw new Error("TWILIO_PHONE_NUMBER env var is not set");
+  // Resolve the Sender ID — use the business's saved sms_sender_id if set,
+  // otherwise derive an 11-char alpha tag from their name. Customers see this
+  // as the "from" on their phone instead of an unfamiliar number.
+  const { data: business } = await tbl(supabase, "businesses")
+    .select("name, sms_sender_id")
+    .eq("id", businessId)
+    .single();
+  const fromName = business?.sms_sender_id?.trim() || deriveSenderId(business?.name ?? "Kirei");
 
   // Get or create conversation
   let { data: conv } = await tbl(supabase, "sms_conversations")
@@ -104,25 +146,25 @@ export async function sendSms(payload: {
     conv = newConv;
   }
 
-  // Send via Twilio
-  const twilio = getTwilioClient();
-  const twilioMsg = await twilio.messages.create({
-    from: fromNumber,
-    to: payload.to,
+  // Send via ClickSend
+  const sent = await clicksendSend({
+    from: fromName,
+    to:   payload.to,
     body: payload.body,
   });
 
-  // Save message to DB
+  // Save message to DB. We reuse the existing twilio_sid column to store the
+  // ClickSend message id — schema-compat for now, can rename later.
   const { data: msg, error: msgErr } = await tbl(supabase, "sms_messages")
     .insert({
       conversation_id: conv.id,
       business_id: businessId,
       direction: "outbound",
       body: payload.body,
-      from_number: fromNumber,
+      from_number: fromName,
       to_number: payload.to,
-      twilio_sid: twilioMsg.sid,
-      status: twilioMsg.status ?? "sent",
+      twilio_sid: sent.id,
+      status: sent.status,
     })
     .select("id")
     .single();
