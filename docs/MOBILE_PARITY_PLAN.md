@@ -82,10 +82,12 @@ Status legend: ✅ done · 🟡 partial · ❌ missing · 🚫 not applicable on
 | Briefing widget | ❌ | 1 | Mobile version of `/assistant` |
 | Header bell briefing | ❌ | 1 | Top-bar icon with unread count |
 | New leads widget | ❌ | 2 | |
+| Sales tab (hub menu) | ✅ | 2a | Owner-only, 4 cards: Leads/Customers/Quotes/Invoices |
 | **Sales** |
-| Leads list + detail | ❌ | 2 | |
-| Add lead (with custom source) | ❌ | 2 | datalist-equivalent on mobile |
-| Convert lead → customer/quote/work-order | ❌ | 2 | |
+| Leads list (search + status filters + tap-to-call/email) | ✅ | 2a | |
+| Lead detail (status changer + quick contact) | ✅ | 2a | |
+| Add lead (with custom source) | ❌ | 2b | Coming |
+| Convert lead → customer/quote/work-order | ❌ | 2b | Coming |
 | Quotes list + detail | ❌ | 2 | |
 | New quote (with line items) | ❌ | 2 | Reuse line-items editor pattern |
 | Send quote email/SMS | ❌ | 2 | |
@@ -107,10 +109,11 @@ Status legend: ✅ done · 🟡 partial · ❌ missing · 🚫 not applicable on
 | New site report (AI generated) | ❌ | 3 | Photos already work, wire AI gen |
 | Recurring jobs | ❌ | 3 | |
 | **Contacts** |
-| Customers list + detail | ❌ | 2 | |
-| Add customer (with per-country addresses) | ❌ | 2 | Mirror AddressFields |
-| Customer hub link button | ❌ | 2 | Native share sheet |
-| Customer properties (sites) | ❌ | 2 | |
+| Customers list (search + tap-to-call/email) | ✅ | 2a | |
+| Customer detail (counts, contact actions, address) | ✅ | 2a | |
+| Add customer (with per-country addresses) | ❌ | 2b | Mirror AddressFields |
+| Customer hub link button | ❌ | 2b | Native share sheet |
+| Customer properties (sites) | ❌ | 2b | |
 | **Catalog** |
 | Products list + add/edit | ❌ | 3 | |
 | **Workforce** |

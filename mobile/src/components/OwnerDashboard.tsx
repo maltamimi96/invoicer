@@ -138,7 +138,7 @@ export function OwnerDashboard({ business }: { business: MobileBusiness }) {
       {/* New leads strip */}
       {stats.new_leads_7d > 0 && (
         <Pressable
-          onPress={() => {/* navigate to leads */}}
+          onPress={() => router.push("/leads" as never)}
           style={{
             flexDirection: "row", alignItems: "center", gap: space.md,
             padding: space.md, borderRadius: radius.lg,
