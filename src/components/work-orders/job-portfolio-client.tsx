@@ -33,6 +33,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { canEdit, isOwner, canManageTeam, type Role } from "@/lib/permissions";
+import { BackButton } from "@/components/layout/back-button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Check, ChevronDown, Pencil } from "@/components/ui/icons";
 import { updateWorkOrder, updateWorkOrderStatus, deleteWorkOrder, submitWorkOrder } from "@/lib/actions/work-orders";
@@ -363,7 +364,7 @@ function PortfolioHeader({
   return (
     <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
       <div className="flex items-center gap-3">
-        <Link href="/work-orders"><Button variant="ghost" size="icon" className="h-8 w-8"><ArrowLeft className="w-4 h-4" /></Button></Link>
+        <BackButton fallbackHref="/work-orders" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-mono text-muted-foreground">{workOrder.number}</span>

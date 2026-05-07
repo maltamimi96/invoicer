@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ClientSelect } from "@/components/customers/client-select";
 import { AddressSelect } from "@/components/addresses/address-select";
+import { BackButton } from "@/components/layout/back-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { createQuote, updateQuote, sendQuoteEmail, sendQuoteSms } from "@/lib/actions/quotes";
@@ -161,7 +162,7 @@ export function QuoteEditor({ customers, products, business, quote, defaultCusto
     <div className="space-y-6">
       <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
         <div className="flex items-center gap-4">
-          <Link href="/quotes"><Button variant="ghost" size="icon" className="h-8 w-8"><ArrowLeft className="w-4 h-4" /></Button></Link>
+          <BackButton fallbackHref="/quotes" />
           <div className="flex-1 min-w-0"><h1 className="text-2xl font-bold truncate">{quote ? `Edit ${quote.number}` : "New Quote"}</h1></div>
         </div>
         <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap sm:ml-auto">

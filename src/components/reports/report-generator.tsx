@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, ArrowRight, ImagePlus, X, Sparkles, Loader2, CheckCircle } from "@/components/ui/icons";
+import { BackButton } from "@/components/layout/back-button";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -276,7 +277,7 @@ export function ReportGenerator({ customers: initialCustomers, business, default
   return (
     <div className="space-y-6">
       <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-4">
-        <Link href="/reports"><Button variant="ghost" size="icon" className="h-8 w-8"><ArrowLeft className="w-4 h-4" /></Button></Link>
+        <BackButton fallbackHref="/reports" />
         <div>
           <h1 className="text-2xl font-bold tracking-tight">New site report</h1>
           <p className="text-sm text-muted-foreground">Step {step} of 2</p>

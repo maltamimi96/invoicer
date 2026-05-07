@@ -24,6 +24,7 @@ import type { SmartFillData } from "./smart-fill-modal";
 import { formatCurrency } from "@/lib/utils";
 import { ClientSelect } from "@/components/customers/client-select";
 import { AddressSelect } from "@/components/addresses/address-select";
+import { BackButton } from "@/components/layout/back-button";
 import { PdfSettingsPanel } from "@/components/pdf/pdf-settings-panel";
 import type { Business, Customer, Invoice, LineItem, Product } from "@/types/database";
 import { DEFAULT_PDF_SETTINGS } from "@/types/database";
@@ -174,9 +175,7 @@ export function InvoiceEditor({ customers, products, business, invoice, defaultC
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
         <div className="flex items-center gap-4">
-          <Link href="/invoices">
-            <Button variant="ghost" size="icon" className="h-8 w-8"><ArrowLeft className="w-4 h-4" /></Button>
-          </Link>
+          <BackButton fallbackHref="/invoices" />
           <div className="flex-1 min-w-0">
             <h1 className="text-2xl font-bold truncate">{invoice ? `Edit ${invoice.number}` : "New Invoice"}</h1>
           </div>

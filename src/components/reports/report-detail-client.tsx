@@ -13,6 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { updateReportSection, updateReportStatus, updateReportPhotos, deleteReport, duplicateReport } from "@/lib/actions/reports";
 import { ShareWithCustomerDialog } from "@/components/share/share-with-customer-dialog";
+import { BackButton } from "@/components/layout/back-button";
 import { ROOF_INSPECTION_SECTIONS, SECTION_MAP } from "@/lib/templates/roof-inspection";
 import type { Report, ReportPhoto, Customer, Business, RiskItem } from "@/types/database";
 import Link from "next/link";
@@ -116,7 +117,7 @@ export function ReportDetailClient({ report: initialReport, business }: ReportDe
     <div className="space-y-6">
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex items-start gap-4 flex-wrap">
-        <Link href="/reports"><Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0"><ArrowLeft className="w-4 h-4" /></Button></Link>
+        <BackButton fallbackHref="/reports" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-2xl font-bold tracking-tight truncate">{report.title}</h1>

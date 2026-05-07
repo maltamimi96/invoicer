@@ -25,6 +25,7 @@ import { DeliveryStatusCard } from "@/components/delivery/delivery-status-card";
 import { ScheduledSendsCard } from "@/components/delivery/scheduled-sends-card";
 import { scheduleSend } from "@/lib/actions/scheduled-sends";
 import { ShareWithCustomerDialog } from "@/components/share/share-with-customer-dialog";
+import { BackButton } from "@/components/layout/back-button";
 
 import { formatCurrency, formatDate, getStatusColor } from "@/lib/utils";
 import type { Business, Customer, Invoice, LineItem, Payment, Product } from "@/types/database";
@@ -150,9 +151,7 @@ export function InvoiceDetailClient({
     <div className="space-y-6">
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-center gap-4">
-        <Link href="/invoices">
-          <Button variant="ghost" size="icon" className="h-8 w-8"><ArrowLeft className="w-4 h-4" /></Button>
-        </Link>
+        <BackButton fallbackHref="/invoices" />
         <div className="flex-1">
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-2xl font-bold">{invoice.number}</h1>
