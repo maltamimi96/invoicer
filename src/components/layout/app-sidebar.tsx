@@ -194,9 +194,14 @@ export function AppSidebar({ business, businesses, userRole, open, onClose }: Ap
           </Link>
         )}
 
-        <div className="px-3 pt-2">
+        <div className="flex items-center justify-between px-3 pt-2">
           <span className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40">
             {ROLE_LABELS[userRole]}
+          </span>
+          {/* Kirei platform attribution — always visible at the bottom of the sidebar */}
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40">
+            <Image src="/kirei-logo.png" alt="Kirei" width={14} height={14} className="object-contain rounded-sm" />
+            Kirei
           </span>
         </div>
       </div>
