@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Linking, Pressable, ScrollView, Text, View, RefreshControl } from "react-native";
+import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Share, Text, View, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, Phone, Mail, MapPin, Building2, FileText, FileCheck, Wrench } from "lucide-react-native";
+import { ArrowLeft, Phone, Mail, MapPin, Building2, FileText, FileCheck, Wrench, Send } from "lucide-react-native";
 import { supabase } from "@/lib/supabase";
 import { useActiveBusiness } from "@/lib/active-business";
 import { colors, radius, space } from "@/lib/theme";
@@ -69,6 +69,44 @@ export default function CustomerDetail() {
   };
 
   useEffect(() => { load(); }, [id, active?.id]);
+
+  const [busy, setBusy] = useState(false);
+
+  /** Mint or reuse a 90-day portal token and share the customer hub URL. */
+  const shareHubLink = async () => {
+    if (!customer || !active) return;
+    setBusy(true);
+    try {
+      const { data: existing } = await supabase
+        .from("customer_portal_tokens")
+        .select("token")
+        .eq("business_id", active.id)
+        .eq("customer_id", customer.id)
+        .is("revoked_at", null)
+        .or("expires_at.is.null,expires_at.gt." + new Date().toISOString())
+        .limit(1)
+        .maybeSingle();
+      let token = (existing as { token?: string } | null)?.token;
+      if (!token) {
+        token = "cust_" + cryptoHex(48);
+        const { data: { user } } = await supabase.auth.getUser();
+        await supabase.from("customer_portal_tokens").insert({
+          token, business_id: active.id, customer_id: customer.id,
+          created_by: user?.id, expires_at: new Date(Date.now() + 90 * 86_400_000).toISOString(),
+        });
+      }
+      const base = process.env.EXPO_PUBLIC_APP_URL ?? "https://kireihq.com";
+      const url = `${base}/portal/${token}`;
+      await Share.share({
+        message: `Hi${customer.name ? " " + customer.name.split(" ")[0] : ""}, here's your customer hub: ${url}`,
+        url, title: `${customer.name} — Customer hub`,
+      });
+    } catch (e) {
+      Alert.alert("Couldn't share", e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   if (loading || !customer) {
     return (
@@ -140,6 +178,23 @@ export default function CustomerDetail() {
           )}
         </View>
 
+        {/* Hub share */}
+        <Pressable
+          onPress={shareHubLink}
+          disabled={busy}
+          style={({ pressed }) => ({
+            flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+            padding: space.md, borderRadius: radius.lg,
+            backgroundColor: pressed ? "#0d6e6a" : colors.primary,
+            opacity: busy ? 0.6 : 1,
+          })}
+        >
+          <Send size={18} color="#fff" />
+          <Text style={{ color: "#fff", fontSize: 15, fontWeight: "700" }}>
+            Share customer hub link
+          </Text>
+        </Pressable>
+
         {/* Outstanding strip */}
         {outstanding > 0 && (
           <View style={{ padding: space.md, borderRadius: radius.lg, backgroundColor: "#fef2f2", borderWidth: 1, borderColor: "#fecaca" }}>
@@ -196,12 +251,18 @@ export default function CustomerDetail() {
           </View>
         )}
 
-        <Text style={{ fontSize: 11, color: colors.muted, textAlign: "center", marginTop: space.md }}>
-          Edit / add property coming in next mobile phase
-        </Text>
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+/** RN doesn't have a stable randomBytes; use Math.random for the token. The
+ *  value isn't a security boundary on the client (RLS validates), it's just
+ *  an unguessable opaque id like the web mints. */
+function cryptoHex(byteLen: number): string {
+  let out = "";
+  for (let i = 0; i < byteLen * 2; i++) out += "0123456789abcdef"[Math.floor(Math.random() * 16)];
+  return out;
 }
 
 function ContactAction({ icon, label, bg, onPress }: { icon: React.ReactNode; label: string; bg: string; onPress: () => void }) {
