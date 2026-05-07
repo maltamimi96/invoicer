@@ -10,6 +10,7 @@ import {
   CreditCard,
 } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
+import { BackButton } from "@/components/layout/back-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -519,9 +520,7 @@ export function CustomerDetailClient({
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
         <div className="flex items-center gap-4 min-w-0">
-          <Link href="/customers">
-            <Button variant="ghost" size="icon" className="h-8 w-8"><ArrowLeft className="w-4 h-4" /></Button>
-          </Link>
+          <BackButton fallbackHref="/customers" />
           <div className="flex-1 min-w-0">
             <h1 className="text-2xl font-bold truncate">{customer.name}</h1>
             {customer.company && <p className="text-sm text-muted-foreground truncate">{customer.company}</p>}

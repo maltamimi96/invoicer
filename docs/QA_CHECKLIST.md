@@ -421,3 +421,10 @@ Try saying these and verify behaviour:
 - [ ] Worker access enforcement — try to hit `/customers` as worker → redirected
 - [ ] Business deletion / leaving — owner cannot leave their own business
 - [ ] All 200/300 API responses return JSON (no HTML error pages)
+
+### Smart back navigation
+- [ ] On any detail page (invoice / quote / customer / work order / report), the back arrow returns to the **previous page in your browser history**, not always the list
+- [ ] Quote → click customer → press back → returns to the quote (not /customers)
+- [ ] Invoice → click customer → press back → returns to the invoice (not /invoices)
+- [ ] Work order → click customer → back → returns to the work order
+- [ ] Bookmarked detail page (no history) → back falls back to the list view
