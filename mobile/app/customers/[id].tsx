@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Share, Text, View, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, Phone, Mail, MapPin, Building2, FileText, FileCheck, Wrench, Send } from "lucide-react-native";
+import { ArrowLeft, Phone, Mail, MapPin, Building2, FileText, FileCheck, Wrench, Send, Home } from "lucide-react-native";
 import { supabase } from "@/lib/supabase";
 import { useActiveBusiness } from "@/lib/active-business";
 import { colors, radius, space } from "@/lib/theme";
@@ -27,6 +27,14 @@ interface RelatedCounts {
   jobs:     number;
 }
 
+interface Site {
+  id:       string;
+  label:    string | null;
+  address:  string | null;
+  city:     string | null;
+  postcode: string | null;
+}
+
 const num = (v: unknown) => { const n = typeof v === "number" ? v : parseFloat(String(v ?? 0)); return Number.isFinite(n) ? n : 0; };
 
 function fmtCurrency(n: number, currency: string): string {
@@ -42,6 +50,7 @@ export default function CustomerDetail() {
   const [customer,    setCustomer]    = useState<Customer | null>(null);
   const [counts,      setCounts]      = useState<RelatedCounts>({ invoices: 0, quotes: 0, jobs: 0 });
   const [outstanding, setOutstanding] = useState(0);
+  const [sites,       setSites]       = useState<Site[]>([]);
   const [loading,     setLoading]     = useState(true);
   const [refreshing,  setRefreshing]  = useState(false);
 
@@ -49,13 +58,15 @@ export default function CustomerDetail() {
 
   const load = async () => {
     if (!id || !active) return;
-    const [{ data: c }, { data: invs }, { data: qts }, { data: wos }] = await Promise.all([
+    const [{ data: c }, { data: invs }, { data: qts }, { data: wos }, { data: ss }] = await Promise.all([
       supabase.from("customers").select("*").eq("id", id).eq("business_id", active.id).maybeSingle(),
       supabase.from("invoices").select("status, total, amount_paid").eq("customer_id", id).eq("business_id", active.id),
       supabase.from("quotes").select("id").eq("customer_id", id).eq("business_id", active.id),
       supabase.from("work_orders").select("id").eq("customer_id", id).eq("business_id", active.id),
+      supabase.from("sites").select("id, label, address, city, postcode").eq("account_id", id).eq("business_id", active.id).eq("archived", false).order("created_at", { ascending: true }),
     ]);
     setCustomer(c as Customer);
+    setSites((ss ?? []) as Site[]);
     setCounts({
       invoices: (invs ?? []).length,
       quotes:   (qts ?? []).length,
@@ -240,6 +251,29 @@ export default function CustomerDetail() {
                 </View>
               </View>
             )}
+          </View>
+        )}
+
+        {/* Properties / Sites */}
+        {sites.length > 0 && (
+          <View style={{ borderRadius: radius.lg, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.hairline, overflow: "hidden" }}>
+            <View style={{ paddingHorizontal: space.md, paddingTop: space.md, paddingBottom: 8, flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Home size={14} color={colors.muted} />
+              <Text style={{ flex: 1, fontSize: 11, color: colors.muted, textTransform: "uppercase", letterSpacing: 0.6, fontWeight: "700" }}>
+                Properties · {sites.length}
+              </Text>
+            </View>
+            {sites.map((s) => {
+              const addr = [s.address, s.city, s.postcode].filter(Boolean).join(", ");
+              return (
+                <View key={s.id} style={{ paddingHorizontal: space.md, paddingVertical: space.sm + 2, borderTopWidth: 1, borderTopColor: colors.hairline }}>
+                  <Text style={{ fontSize: 14, fontWeight: "600", color: colors.text }}>{s.label || addr || "Site"}</Text>
+                  {addr && s.label && (
+                    <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>{addr}</Text>
+                  )}
+                </View>
+              );
+            })}
           </View>
         )}
 

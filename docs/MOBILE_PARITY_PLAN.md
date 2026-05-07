@@ -116,7 +116,7 @@ Status legend: ✅ done · 🟡 partial · ❌ missing · 🚫 not applicable on
 | Customer detail (counts, contact actions, address) | ✅ | 2a | |
 | Add customer (with per-country addresses) | ❌ | 2b | Mirror AddressFields |
 | Customer hub link button | ✅ | 2d | Native share sheet — mints/reuses 90-day portal token |
-| Customer properties (sites) | ❌ | 2b | |
+| Customer properties (sites) | ✅ | 2g | Read-only list on customer detail; add coming with portfolio editor |
 | **Catalog** |
 | Products list + add/edit | ❌ | 3 | |
 | **Workforce** |
