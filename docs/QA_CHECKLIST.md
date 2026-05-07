@@ -26,11 +26,15 @@ Failing items: paste the section number + failing item into a comment on the QA 
 ## 2. Dashboard (owner)
 
 - [ ] Greeting matches time of day (morning/afternoon/evening)
+- [ ] Header has only **New invoice** button (no View Reports)
 - [ ] Overdue strip shows when there are overdue invoices, hidden when none
 - [ ] KPI cards: Revenue, Outstanding, Overdue, Paid this month — all use correct currency
+- [ ] **Briefing widget** sits at the top of the left column (above Revenue chart)
 - [ ] Revenue chart shows last 6 months
 - [ ] Recent invoices table — clicking a row navigates to that invoice
-- [ ] Quick actions tile (right sidebar) navigates correctly
+- [ ] Quick actions tile on the right
+- [ ] **Your todos** widget under Quick actions — open tasks with one-click complete
+- [ ] **Operations widget** under Tasks — Team / Recurring jobs / Agents running, each clickable
 - [ ] Today's jobs list shows scheduled jobs
 
 ## 3. Dashboard (worker view)
