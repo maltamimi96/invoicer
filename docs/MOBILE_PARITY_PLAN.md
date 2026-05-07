@@ -67,7 +67,7 @@ Status legend: ✅ done · 🟡 partial · ❌ missing · 🚫 not applicable on
 | **Auth** |
 | Login | ✅ | shipped | |
 | Signup with invite code | ✅ | shipped | |
-| Forgot password | ❌ | 1 | Existing web flow — wire deep-link |
+| Forgot password | ✅ | 2f | Sends Supabase recovery email; reset link opens on web |
 | **Foundation** |
 | Multi-business switcher | ✅ | 1 | AsyncStorage-backed, sits above the index tab |
 | Active business sync | ✅ | 1 | useActiveBusiness hook |
@@ -91,12 +91,12 @@ Status legend: ✅ done · 🟡 partial · ❌ missing · 🚫 not applicable on
 | Convert lead → quote/work-order | ❌ | 3 | Defer with quote/WO creators |
 | Convert quote → invoice | ✅ | 2d | FileCheck button on quote detail; mints invoice number, copies line items |
 | Quotes list + detail | ❌ | 2 | |
-| New quote (with line items) | ❌ | 2 | Reuse line-items editor pattern |
+| New quote (with line items) | ✅ | 2f | LineItemsEditor + CustomerPicker; mints number from prefix counter |
 | Send quote email/SMS | ❌ | 2 | |
 | Duplicate quote | ❌ | 2 | |
 | Convert quote → invoice (matrix anchor) | ✅ | 2d | See above |
 | Invoices list + detail | ❌ | 2 | |
-| New invoice | ❌ | 2 | |
+| New invoice | ✅ | 2f | LineItemsEditor + CustomerPicker; due defaults to issue + 14d |
 | Send invoice email/SMS | ❌ | 2 | |
 | Record payment | ❌ | 2 | |
 | Deposit / progress invoice | ❌ | 3 | More complex, defer |

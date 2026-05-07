@@ -108,7 +108,14 @@ export default function Login() {
             </Pressable>
           </View>
 
-          <View style={{ marginTop: space.xl, alignItems: "center", gap: 6 }}>
+          <View style={{ marginTop: space.xl, alignItems: "center", gap: 8 }}>
+            <Link href="/(auth)/forgot" asChild>
+              <Pressable hitSlop={10}>
+                <Text style={{ color: colors.muted, fontWeight: "600", fontSize: 13 }}>
+                  Forgot password?
+                </Text>
+              </Pressable>
+            </Link>
             <Link href="/(auth)/signup" asChild>
               <Pressable hitSlop={10}>
                 <Text style={{ color: colors.primary, fontWeight: "600", fontSize: 13 }}>
