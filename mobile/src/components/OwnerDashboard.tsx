@@ -5,6 +5,9 @@ import { AlertTriangle, Clock, DollarSign, FileCheck, Wrench, UserPlus } from "l
 import { supabase } from "@/lib/supabase";
 import { colors, radius, space } from "@/lib/theme";
 import type { MobileBusiness } from "@/lib/active-business";
+import { BriefingWidget } from "./BriefingWidget";
+import { TasksWidget } from "./TasksWidget";
+import { OutlookWidget } from "./OutlookWidget";
 
 interface Stats {
   outstanding: number;
@@ -154,10 +157,14 @@ export function OwnerDashboard({ business }: { business: MobileBusiness }) {
         </Pressable>
       )}
 
-      {/* Hint */}
-      <Text style={{ fontSize: 11, color: colors.muted, textAlign: "center", marginTop: space.md }}>
-        Phase 1 mobile dashboard · more coming
-      </Text>
+      {/* Briefing */}
+      <BriefingWidget businessId={business.id} />
+
+      {/* Tasks */}
+      <TasksWidget businessId={business.id} />
+
+      {/* Operations */}
+      <OutlookWidget businessId={business.id} />
     </ScrollView>
   );
 }

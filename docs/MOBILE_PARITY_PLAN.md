@@ -74,9 +74,10 @@ Status legend: ✅ done · 🟡 partial · ❌ missing · 🚫 not applicable on
 | Role-aware navigation | ✅ | 1 | Index tab branches: OwnerDashboard vs WorkerJobsList |
 | Mirrored permissions | ✅ | 1 | mobile/src/lib/permissions.ts |
 | **Dashboard** |
-| Owner dashboard (KPIs, overdue strip, leads strip) | ✅ | 1 | Phase 1 skeleton |
-| Owner dashboard (briefing widget) | ❌ | 1.5 | Coming |
-| Owner dashboard (tasks, outlook, full widgets) | ❌ | 1.5 | Coming |
+| Owner dashboard (KPIs, overdue strip, leads strip) | ✅ | 1 | |
+| Owner dashboard (briefing widget) | ✅ | 1.5 | Inline supabase queries; snooze deferred to phase 2 |
+| Owner dashboard (tasks widget) | ✅ | 1.5 | Top 6 open tasks, one-tap complete |
+| Owner dashboard (outlook widget) | ✅ | 1.5 | Team / recurring / agents counts |
 | Worker dashboard | ✅ | shipped | |
 | Briefing widget | ❌ | 1 | Mobile version of `/assistant` |
 | Header bell briefing | ❌ | 1 | Top-bar icon with unread count |
