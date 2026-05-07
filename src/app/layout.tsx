@@ -42,7 +42,8 @@ export const metadata: Metadata = {
     telephone: false,
   },
   icons: {
-    apple: "/icons/icon-192.svg",
+    icon:  "/kirei-logo.png",
+    apple: "/kirei-logo.png",
   },
 };
 
