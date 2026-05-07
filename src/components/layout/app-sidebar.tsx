@@ -89,8 +89,8 @@ export function AppSidebar({ business, businesses, userRole, open, onClose }: Ap
                 <Image src={business.logo_url} alt={business.name} width={40} height={40} className="object-contain w-full h-full" />
               </div>
             ) : (
-              <div className="w-10 h-10 rounded-xl bg-sidebar-primary/20 ring-2 ring-sidebar-primary/30 flex items-center justify-center">
-                <FileStack className="w-5 h-5 text-sidebar-primary" />
+              <div className="w-10 h-10 rounded-xl bg-white p-1 ring-2 ring-sidebar-primary/30 shadow-lg shadow-sidebar-primary/10 flex items-center justify-center">
+                <Image src="/kirei-logo.png" alt="Kirei" width={36} height={36} className="object-contain" />
               </div>
             )}
             <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-sidebar" />

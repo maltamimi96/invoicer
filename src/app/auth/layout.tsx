@@ -1,4 +1,4 @@
-import { FileText } from "@/components/ui/icons";
+import Image from "next/image";
 
 export const dynamic = "force-dynamic";
 
@@ -9,8 +9,8 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <div className="hidden lg:flex flex-col bg-zinc-900 dark:bg-zinc-950 text-white p-12 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-blue-600/20 to-indigo-600/20" />
         <div className="relative z-10 flex items-center gap-3 mb-auto">
-          <div className="w-10 h-10 rounded-xl bg-blue-500 flex items-center justify-center">
-            <FileText className="w-5 h-5 text-white" />
+          <div className="w-12 h-12 rounded-xl bg-white p-1.5 flex items-center justify-center">
+            <Image src="/kirei-logo.png" alt="Kirei" width={36} height={36} className="object-contain" priority />
           </div>
           <span className="text-xl font-semibold tracking-tight">Kirei</span>
         </div>
@@ -34,9 +34,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <div className="flex items-center justify-center p-8 bg-background">
         <div className="w-full max-w-sm">
           <div className="flex items-center gap-2 mb-8 lg:hidden">
-            <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center">
-              <FileText className="w-4 h-4 text-white" />
-            </div>
+            <Image src="/kirei-logo.png" alt="Kirei" width={32} height={32} className="object-contain" priority />
             <span className="text-lg font-semibold">Kirei</span>
           </div>
           {children}

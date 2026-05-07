@@ -1,3 +1,7 @@
+/** Public Kirei logo URL — must be absolute because emails render remotely. */
+const LOGO_URL =
+  (process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "https://kireihq.com") + "/kirei-logo.png";
+
 /** Shared wrapper so all emails look consistent. */
 export function emailBase(title: string, body: string, accentColor = "#3b82f6"): string {
   return `<!DOCTYPE html>
@@ -21,7 +25,14 @@ export function emailBase(title: string, body: string, accentColor = "#3b82f6"):
         </td></tr>
         <!-- Footer -->
         <tr><td style="padding:16px 32px;border-top:1px solid #e4e4e7;">
-          <p style="margin:0;font-size:12px;color:#71717a;">Sent via Kirei · Please do not reply to this email.</p>
+          <table cellpadding="0" cellspacing="0" style="width:100%;">
+            <tr>
+              <td style="vertical-align:middle;">
+                <img src="${LOGO_URL}" alt="Kirei" width="20" height="20" style="display:inline-block;vertical-align:middle;border-radius:4px;" />
+                <span style="font-size:12px;color:#71717a;margin-left:6px;vertical-align:middle;">Sent via Kirei · Please do not reply to this email.</span>
+              </td>
+            </tr>
+          </table>
         </td></tr>
       </table>
     </td></tr>
