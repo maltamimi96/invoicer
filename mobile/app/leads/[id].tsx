@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, ScrollView, Text, View, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, Phone, Mail, MapPin, Clock, MessageSquare } from "lucide-react-native";
+import { ArrowLeft, Phone, Mail, MapPin, Clock, MessageSquare, UserCheck } from "lucide-react-native";
 import { supabase } from "@/lib/supabase";
 import { useActiveBusiness } from "@/lib/active-business";
 import { colors, radius, space } from "@/lib/theme";
@@ -70,6 +70,38 @@ export default function LeadDetail() {
     await supabase.from("leads").update({ status }).eq("id", lead.id);
     setLead({ ...lead, status });
     setBusy(false);
+  };
+
+  /** Convert this lead into a customer, then open the customer detail page.
+   *  Marks the lead as 'won'. Mirrors the web convertLeadToCustomer action
+   *  (lib/actions/leads.ts) inline against supabase + RLS. */
+  const convertToCustomer = async () => {
+    if (!lead || !active) return;
+    setBusy(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: created, error } = await supabase
+        .from("customers")
+        .insert({
+          business_id: active.id, user_id: user?.id,
+          name: lead.name,
+          phone: lead.phone,
+          email: lead.email,
+          city: lead.suburb,
+          country: "Australia",
+          notes: lead.notes,
+          archived: false,
+        })
+        .select("id").single();
+      if (error) throw error;
+      await supabase.from("leads").update({ status: "won", converted_at: new Date().toISOString() }).eq("id", lead.id);
+      Alert.alert("Customer created", `${lead.name} added to your customer list.`);
+      router.replace(`/customers/${(created as { id: string }).id}` as never);
+    } catch (e) {
+      Alert.alert("Couldn't convert", e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setBusy(false);
+    }
   };
 
   if (!lead) {
@@ -161,9 +193,22 @@ export default function LeadDetail() {
           </View>
         )}
 
-        <Text style={{ fontSize: 11, color: colors.muted, textAlign: "center", marginTop: space.md }}>
-          Convert to customer / quote / job — coming in next mobile phase
-        </Text>
+        <Pressable
+          onPress={convertToCustomer}
+          disabled={busy || lead.status === "won"}
+          style={({ pressed }) => ({
+            flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+            padding: space.md, borderRadius: radius.lg,
+            backgroundColor: lead.status === "won" ? colors.muted : pressed ? "#0d6e6a" : colors.primary,
+            opacity: busy ? 0.6 : 1,
+            marginTop: space.sm,
+          })}
+        >
+          <UserCheck size={18} color="#fff" />
+          <Text style={{ color: "#fff", fontSize: 15, fontWeight: "700" }}>
+            {lead.status === "won" ? "Already converted" : "Convert to customer"}
+          </Text>
+        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );

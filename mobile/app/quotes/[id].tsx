@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View, Linking, Share } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, Send, Copy, MessageSquare, Mail, RotateCcw, ExternalLink } from "lucide-react-native";
+import { ArrowLeft, Send, Copy, MessageSquare, Mail, RotateCcw, FileCheck } from "lucide-react-native";
 import { supabase } from "@/lib/supabase";
 import { useActiveBusiness } from "@/lib/active-business";
 import { colors, radius, space } from "@/lib/theme";
@@ -25,6 +25,7 @@ interface QuoteFull {
   total: unknown;
   notes: string | null;
   terms: string | null;
+  invoice_id: string | null;
   customers: { id: string; name: string; email: string | null; phone: string | null } | null;
 }
 
@@ -107,6 +108,53 @@ export default function QuoteDetail() {
       router.replace(`/quotes/${(created as { id: string }).id}` as never);
     } catch (e) {
       Alert.alert("Couldn't duplicate", e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** Convert this accepted quote into a fresh invoice. Mints a new invoice
+   *  number, copies line items + totals + customer, links the two, and routes
+   *  to the new invoice. Mirrors web convertQuoteToInvoice. */
+  const convertToInvoice = async () => {
+    if (!quote || !active) return;
+    setBusy(true);
+    try {
+      const { data: biz } = await supabase
+        .from("businesses").select("invoice_prefix, invoice_next_number")
+        .eq("id", active.id).single();
+      const prefix = (biz as { invoice_prefix?: string; invoice_next_number?: number })?.invoice_prefix ?? "INV";
+      const nextNum = (biz as { invoice_prefix?: string; invoice_next_number?: number })?.invoice_next_number ?? 1;
+      const number = `${prefix}-${String(nextNum).padStart(4, "0")}`;
+      await supabase.from("businesses").update({ invoice_next_number: nextNum + 1 }).eq("id", active.id);
+
+      const { data: { user } } = await supabase.auth.getUser();
+      const today = new Date().toISOString().split("T")[0];
+      const due = new Date(Date.now() + 14 * 86_400_000).toISOString().split("T")[0];
+
+      const { data: created, error } = await supabase
+        .from("invoices")
+        .insert({
+          user_id: user?.id, business_id: active.id, number,
+          status: "draft",
+          customer_id: quote.customer_id,
+          issue_date: today, due_date: due,
+          line_items: quote.line_items,
+          subtotal: quote.subtotal, tax_total: quote.tax_total, total: quote.total,
+          amount_paid: 0, notes: quote.notes, terms: quote.terms,
+        })
+        .select("id").single();
+      if (error) throw error;
+
+      // Link the quote → invoice + mark accepted (idempotent if already)
+      await supabase.from("quotes")
+        .update({ invoice_id: (created as { id: string }).id, status: "accepted" })
+        .eq("id", quote.id);
+
+      Alert.alert("Invoice created", `Created ${number} from quote ${quote.number}`);
+      router.replace(`/invoices/${(created as { id: string }).id}` as never);
+    } catch (e) {
+      Alert.alert("Couldn't convert", e instanceof Error ? e.message : "Unknown error");
     } finally {
       setBusy(false);
     }
@@ -199,6 +247,23 @@ export default function QuoteDetail() {
           <SmallBtn icon={<RotateCcw size={14} color={colors.text} />} label="Reset to draft" onPress={() => setStatus("draft")} disabled={busy || quote.status === "draft"} />
           <SmallBtn icon={<Copy size={14} color={colors.text} />} label="Duplicate" onPress={duplicate} disabled={busy} />
         </View>
+
+        {/* Convert to invoice */}
+        <Pressable
+          onPress={convertToInvoice}
+          disabled={busy || !!quote.invoice_id}
+          style={({ pressed }) => ({
+            flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+            padding: space.md, borderRadius: radius.lg,
+            backgroundColor: quote.invoice_id ? colors.muted : pressed ? "#0d6e6a" : colors.primary,
+            opacity: busy ? 0.6 : 1,
+          })}
+        >
+          <FileCheck size={18} color="#fff" />
+          <Text style={{ color: "#fff", fontSize: 15, fontWeight: "700" }}>
+            {quote.invoice_id ? "Already converted" : "Convert to invoice"}
+          </Text>
+        </Pressable>
 
         {/* Status changer */}
         <View style={{ padding: space.md, borderRadius: radius.lg, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.hairline, gap: space.sm }}>

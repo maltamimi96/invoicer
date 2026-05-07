@@ -86,13 +86,15 @@ Status legend: ✅ done · 🟡 partial · ❌ missing · 🚫 not applicable on
 | **Sales** |
 | Leads list (search + status filters + tap-to-call/email) | ✅ | 2a | |
 | Lead detail (status changer + quick contact) | ✅ | 2a | |
-| Add lead (with custom source) | ❌ | 2b | Coming |
-| Convert lead → customer/quote/work-order | ❌ | 2b | Coming |
+| Add lead (with custom source) | ✅ | 2c | |
+| Convert lead → customer | ✅ | 2d | UserCheck button on lead detail; mints customer + marks lead won |
+| Convert lead → quote/work-order | ❌ | 3 | Defer with quote/WO creators |
+| Convert quote → invoice | ✅ | 2d | FileCheck button on quote detail; mints invoice number, copies line items |
 | Quotes list + detail | ❌ | 2 | |
 | New quote (with line items) | ❌ | 2 | Reuse line-items editor pattern |
 | Send quote email/SMS | ❌ | 2 | |
 | Duplicate quote | ❌ | 2 | |
-| Convert quote → invoice | ❌ | 2 | |
+| Convert quote → invoice (matrix anchor) | ✅ | 2d | See above |
 | Invoices list + detail | ❌ | 2 | |
 | New invoice | ❌ | 2 | |
 | Send invoice email/SMS | ❌ | 2 | |
