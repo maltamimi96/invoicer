@@ -115,7 +115,7 @@ Status legend: ✅ done · 🟡 partial · ❌ missing · 🚫 not applicable on
 | Customers list (search + tap-to-call/email) | ✅ | 2a | |
 | Customer detail (counts, contact actions, address) | ✅ | 2a | |
 | Add customer (with per-country addresses) | ❌ | 2b | Mirror AddressFields |
-| Customer hub link button | ❌ | 2b | Native share sheet |
+| Customer hub link button | ✅ | 2d | Native share sheet — mints/reuses 90-day portal token |
 | Customer properties (sites) | ❌ | 2b | |
 | **Catalog** |
 | Products list + add/edit | ❌ | 3 | |
@@ -131,7 +131,7 @@ Status legend: ✅ done · 🟡 partial · ❌ missing · 🚫 not applicable on
 | Assistant page | ❌ | 1 | Briefing list |
 | AI agent chat | ❌ | 4 | Native voice |
 | **Settings** |
-| Business profile | ❌ | 1 | Basic — name, contact, currency |
+| Business profile | ✅ | 2d | Name, contact, ABN, currency, address — owner/admin only |
 | Bank details | ❌ | 4 | |
 | Team management | ❌ | 4 | |
 | API keys | ❌ | 5 | Power-user only |

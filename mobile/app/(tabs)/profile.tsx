@@ -1,12 +1,17 @@
 import { useEffect, useState } from "react";
 import { Alert, Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { LogOut, Bell } from "lucide-react-native";
+import { LogOut, Bell, Building2, ChevronRight } from "lucide-react-native";
+import { useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { ensureNotificationPermissions } from "@/lib/notifications";
+import { useActiveBusiness } from "@/lib/active-business";
 import { colors, radius, space } from "@/lib/theme";
 
 export default function ProfileScreen() {
+  const router = useRouter();
+  const { role } = useActiveBusiness();
+  const canEditBusiness = role === "owner" || role === "admin";
   const [email, setEmail] = useState<string | null>(null);
   const [notifGranted, setNotifGranted] = useState<boolean | null>(null);
 
@@ -46,6 +51,28 @@ export default function ProfileScreen() {
             icon={<Bell size={16} color={colors.muted} />}
           />
         </View>
+
+        {canEditBusiness && (
+          <Pressable
+            onPress={() => router.push("/settings/business" as never)}
+            style={({ pressed }) => ({
+              backgroundColor: colors.card,
+              borderRadius: radius.xl,
+              padding: space.lg,
+              marginTop: space.md,
+              borderWidth: 1,
+              borderColor: colors.hairline,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: space.sm,
+              opacity: pressed ? 0.85 : 1,
+            })}
+          >
+            <Building2 size={18} color={colors.text} />
+            <Text style={{ flex: 1, color: colors.text, fontWeight: "600", fontSize: 15 }}>Business profile</Text>
+            <ChevronRight size={16} color={colors.muted} />
+          </Pressable>
+        )}
 
         <Pressable
           onPress={() =>
