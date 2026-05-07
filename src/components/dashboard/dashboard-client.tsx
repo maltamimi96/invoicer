@@ -10,6 +10,8 @@ import {
 } from "@/components/ui/icons";
 import { formatCurrency, getStatusColor } from "@/lib/utils";
 import { BriefingWidget } from "@/components/briefing/briefing-widget";
+import { TasksWidget } from "@/components/tasks/tasks-widget";
+import { OutlookWidget } from "@/components/dashboard/outlook-widget";
 import type { WorkOrderWithCustomer, WorkOrderStatus } from "@/types/database";
 
 const STATUS_TO_PILL: Record<WorkOrderStatus, string> = {
@@ -86,11 +88,6 @@ export function DashboardClient({ stats, currency = "GBP", todayJobs }: Dashboar
           <p className="ch-page-subtitle">Here&apos;s what&apos;s happening today.</p>
         </div>
         <div className="ch-page-actions">
-          <Link href="/reports">
-            <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-card text-sm font-medium text-foreground hover:bg-muted transition-colors">
-              <TrendingUp className="w-3.5 h-3.5" /> View reports
-            </button>
-          </Link>
           <Link href="/invoices/new">
             <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
               <Plus className="w-3.5 h-3.5" /> New invoice
@@ -154,6 +151,10 @@ export function DashboardClient({ stats, currency = "GBP", todayJobs }: Dashboar
       <div className="ch-grid-2">
         {/* LEFT */}
         <div className="flex flex-col gap-4">
+          {/* Briefing — sits above the revenue chart so the user always sees
+              what needs attention before the historical numbers. */}
+          <BriefingWidget compact />
+
           {/* Revenue, last 6 months */}
           <div className="rounded-xl border border-border bg-card shadow-sm">
             <div className="flex items-center justify-between px-4 py-3 border-b border-border">
@@ -250,6 +251,12 @@ export function DashboardClient({ stats, currency = "GBP", todayJobs }: Dashboar
             </div>
           </div>
 
+          {/* Your todos — open tasks from the kanban board */}
+          <TasksWidget />
+
+          {/* Operations outlook — team, recurring jobs, agents */}
+          <OutlookWidget />
+
           {/* Today's schedule */}
           <div className="rounded-xl border border-border bg-card shadow-sm">
             <div className="flex items-center justify-between px-4 py-3 border-b border-border">
@@ -309,11 +316,6 @@ export function DashboardClient({ stats, currency = "GBP", todayJobs }: Dashboar
         </div>
       </div>
 
-      {/* Briefing widget — appears below the 2-col body so it doesn't crowd
-          the KPIs. The header bell + /assistant page give faster access. */}
-      <div className="mt-5">
-        <BriefingWidget compact />
-      </div>
     </div>
   );
 }
