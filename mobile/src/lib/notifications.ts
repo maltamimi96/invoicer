@@ -81,6 +81,52 @@ export async function scheduleJobReminders(jobs: WorkOrderWithCustomer[]): Promi
   }
 }
 
+/** Schedule an owner morning briefing — once a day at 9am local, with the
+ *  count of overdue invoices, stale quotes, and new leads. Cheap, offline,
+ *  no server push needed. The actual numbers are looked up at the moment
+ *  the notification fires via the data the caller passes in here. */
+export async function scheduleOwnerBriefing(opts: {
+  overdueInvoices: number;
+  staleQuotes:     number;
+  newLeads:        number;
+  unassignedToday: number;
+}): Promise<void> {
+  const granted = await ensureNotificationPermissions();
+  if (!granted) return;
+
+  // Wipe previous briefing notifications
+  const existing = await Notifications.getAllScheduledNotificationsAsync();
+  await Promise.all(
+    existing
+      .filter((n) => n.identifier.startsWith("brief:"))
+      .map((n) => Notifications.cancelScheduledNotificationAsync(n.identifier))
+  );
+
+  const total = opts.overdueInvoices + opts.staleQuotes + opts.newLeads + opts.unassignedToday;
+  if (total === 0) return; // nothing to chase, don't bug the user
+
+  const parts: string[] = [];
+  if (opts.overdueInvoices > 0)  parts.push(`${opts.overdueInvoices} overdue`);
+  if (opts.unassignedToday > 0)  parts.push(`${opts.unassignedToday} unassigned today`);
+  if (opts.staleQuotes > 0)      parts.push(`${opts.staleQuotes} stale quote${opts.staleQuotes === 1 ? "" : "s"}`);
+  if (opts.newLeads > 0)         parts.push(`${opts.newLeads} new lead${opts.newLeads === 1 ? "" : "s"}`);
+
+  // Tomorrow at 9am
+  const next = new Date();
+  next.setDate(next.getDate() + 1);
+  next.setHours(9, 0, 0, 0);
+
+  await Notifications.scheduleNotificationAsync({
+    identifier: "brief:morning",
+    content: {
+      title: "Morning briefing",
+      body:  parts.join(" · "),
+      data:  { route: "/assistant" },
+    },
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: next },
+  });
+}
+
 function jobStart(job: WorkOrderWithCustomer): Date | null {
   if (!job.scheduled_date) return null;
   const time = job.start_time ?? "08:00";

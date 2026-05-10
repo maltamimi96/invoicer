@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Alert, Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { LogOut, Bell, Building2, ChevronRight, Users, Landmark } from "lucide-react-native";
+import { LogOut, Bell, Building2, ChevronRight, Users, Landmark, Palette, Sparkles } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { ensureNotificationPermissions } from "@/lib/notifications";
@@ -114,6 +114,50 @@ export default function ProfileScreen() {
           >
             <Landmark size={18} color={colors.text} />
             <Text style={{ flex: 1, color: colors.text, fontWeight: "600", fontSize: 15 }}>Bank details</Text>
+            <ChevronRight size={16} color={colors.muted} />
+          </Pressable>
+        )}
+
+        {canEditBusiness && (
+          <Pressable
+            onPress={() => router.push("/settings/appearance" as never)}
+            style={({ pressed }) => ({
+              backgroundColor: colors.card,
+              borderRadius: radius.xl,
+              padding: space.lg,
+              marginTop: space.sm,
+              borderWidth: 1,
+              borderColor: colors.hairline,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: space.sm,
+              opacity: pressed ? 0.85 : 1,
+            })}
+          >
+            <Palette size={18} color={colors.text} />
+            <Text style={{ flex: 1, color: colors.text, fontWeight: "600", fontSize: 15 }}>Appearance</Text>
+            <ChevronRight size={16} color={colors.muted} />
+          </Pressable>
+        )}
+
+        {canEditBusiness && (
+          <Pressable
+            onPress={() => router.push("/settings/advanced" as never)}
+            style={({ pressed }) => ({
+              backgroundColor: colors.card,
+              borderRadius: radius.xl,
+              padding: space.lg,
+              marginTop: space.sm,
+              borderWidth: 1,
+              borderColor: colors.hairline,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: space.sm,
+              opacity: pressed ? 0.85 : 1,
+            })}
+          >
+            <Sparkles size={18} color={colors.text} />
+            <Text style={{ flex: 1, color: colors.text, fontWeight: "600", fontSize: 15 }}>Advanced</Text>
             <ChevronRight size={16} color={colors.muted} />
           </Pressable>
         )}

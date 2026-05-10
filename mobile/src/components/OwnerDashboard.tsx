@@ -8,6 +8,8 @@ import type { MobileBusiness } from "@/lib/active-business";
 import { BriefingWidget } from "./BriefingWidget";
 import { TasksWidget } from "./TasksWidget";
 import { OutlookWidget } from "./OutlookWidget";
+import { scheduleOwnerBriefing } from "@/lib/notifications";
+import { loadBriefing } from "@/lib/briefing";
 
 interface Stats {
   outstanding: number;
@@ -84,6 +86,23 @@ export function OwnerDashboard({ business }: { business: MobileBusiness }) {
   };
 
   useEffect(() => { load(); }, [business.id]);
+
+  // Schedule the morning briefing notification once a day. Cheap local
+  // schedule — re-runs whenever the dashboard opens, which is fine.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const items = await loadBriefing(business.id);
+      if (cancelled) return;
+      await scheduleOwnerBriefing({
+        overdueInvoices: items.filter((i) => i.type === "overdue_invoice").length,
+        staleQuotes:     items.filter((i) => i.type === "stale_quote").length,
+        newLeads:        items.filter((i) => i.type === "new_lead").length,
+        unassignedToday: items.filter((i) => i.type === "today_job_unassigned").length,
+      });
+    })().catch(() => {});
+    return () => { cancelled = true; };
+  }, [business.id]);
 
   const onRefresh = async () => {
     setRefreshing(true);
