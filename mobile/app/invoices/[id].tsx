@@ -3,9 +3,14 @@ import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Text, TextInput
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, Send, Copy, MessageSquare, Mail, RotateCcw, DollarSign, CheckCircle, Wallet } from "lucide-react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { supabase } from "@/lib/supabase";
 import { useActiveBusiness } from "@/lib/active-business";
-import { colors, radius, space } from "@/lib/theme";
+import { colors, gradients, radius, space } from "@/lib/theme";
+import { StatusPill } from "@/components/StatusPill";
+import { FadeIn } from "@/components/FadeIn";
+import { PatternBackground } from "@/components/PatternBackground";
+import { Confetti } from "@/components/Confetti";
 
 interface LineItem {
   id: string; name: string; description?: string;
@@ -52,6 +57,7 @@ export default function InvoiceDetail() {
   const { active } = useActiveBusiness();
   const [invoice, setInvoice] = useState<InvoiceFull | null>(null);
   const [busy, setBusy] = useState(false);
+  const [confettiKey, setConfettiKey] = useState(0);
   const [paymentOpen, setPaymentOpen] = useState(false);
 
   const currency = active?.currency ?? "AUD";
@@ -71,9 +77,11 @@ export default function InvoiceDetail() {
 
   const setStatus = async (status: InvoiceFull["status"]) => {
     if (!invoice) return;
+    const wasPaid = invoice.status === "paid";
     setBusy(true);
     await supabase.from("invoices").update({ status }).eq("id", invoice.id);
     setInvoice({ ...invoice, status });
+    if (status === "paid" && !wasPaid) setConfettiKey((k) => k + 1);
     setBusy(false);
   };
 
@@ -91,6 +99,7 @@ export default function InvoiceDetail() {
       });
       await supabase.from("invoices").update({ amount_paid: newAmountPaid, status: newStatus }).eq("id", invoice.id);
 
+      if (newStatus === "paid" && invoice.status !== "paid") setConfettiKey((k) => k + 1);
       Alert.alert("Payment recorded", `${fmtMoney(amount, currency)} marked as ${method}`);
       setPaymentOpen(false);
       load();
@@ -259,36 +268,51 @@ export default function InvoiceDetail() {
   }
 
   const balance = Math.max(0, num(invoice.total) - num(invoice.amount_paid));
-  const c = STATUS_COLOUR[invoice.status];
   const items = invoice.line_items ?? [];
+  const heroPalette = invoice.status === "paid"      ? gradients.emerald
+                    : invoice.status === "overdue"   ? gradients.rose
+                    : invoice.status === "partial"   ? gradients.amber
+                    : invoice.status === "cancelled" ? gradients.softRose
+                    : invoice.status === "draft"     ? gradients.dusk
+                    :                                  gradients.primary;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={["top", "left", "right"]}>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: space.lg, paddingTop: space.sm, paddingBottom: space.sm, gap: space.sm }}>
         <Pressable onPress={() => router.back()} hitSlop={10}><ArrowLeft size={22} color={colors.text} /></Pressable>
-        <Text style={{ fontFamily: "monospace", fontSize: 14, color: colors.muted }}>{invoice.number}</Text>
-        <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, backgroundColor: c.bg }}>
-          <Text style={{ fontSize: 10, fontWeight: "700", color: c.fg, textTransform: "uppercase" }}>{invoice.status}</Text>
-        </View>
+        <Text style={{ fontSize: 14, color: colors.muted }}>Invoice</Text>
         <View style={{ flex: 1 }} />
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.md }}>
-        {/* Customer + total */}
-        <View style={{ padding: space.lg, borderRadius: radius.lg, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.hairline, gap: 6 }}>
-          <Text style={{ fontSize: 11, color: colors.muted, textTransform: "uppercase", letterSpacing: 0.6, fontWeight: "700" }}>Billed to</Text>
-          <Text style={{ fontSize: 18, fontWeight: "700", color: colors.text }}>{invoice.customers?.name ?? "No customer"}</Text>
-          <Text style={{ fontSize: 28, fontWeight: "700", color: colors.text, letterSpacing: -0.5, marginTop: 8 }}>{fmtMoney(num(invoice.total), currency)}</Text>
-          {num(invoice.amount_paid) > 0 && (
-            <View style={{ marginTop: 6 }}>
-              <Text style={{ fontSize: 13, color: "#16a34a" }}>Paid: {fmtMoney(num(invoice.amount_paid), currency)}</Text>
-              {balance > 0 && (
-                <Text style={{ fontSize: 14, fontWeight: "700", color: "#dc2626" }}>Balance: {fmtMoney(balance, currency)}</Text>
+      <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.md, paddingBottom: space.xxl }}>
+        {/* Hero — gradient billed-to + total */}
+        <FadeIn>
+          <View style={{ borderRadius: radius.xxl, overflow: "hidden" }}>
+            <LinearGradient
+              colors={heroPalette as unknown as readonly [string, string, ...string[]]}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              style={{ padding: space.lg + 4, gap: 6, minHeight: 150 }}
+            >
+              <PatternBackground variant="dots" color="#fff" opacity={0.13} />
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.sm }}>
+                <Text style={{ fontFamily: "monospace", fontSize: 12, color: "rgba(255,255,255,0.85)", letterSpacing: 1 }}>{invoice.number}</Text>
+                <StatusPill tone={invoice.status} />
+              </View>
+              <Text style={{ fontSize: 11, color: "rgba(255,255,255,0.85)", textTransform: "uppercase", letterSpacing: 1.4, fontWeight: "700", marginTop: 6 }}>Billed to</Text>
+              <Text style={{ fontSize: 18, fontWeight: "700", color: "#fff" }} numberOfLines={1}>{invoice.customers?.name ?? "No customer"}</Text>
+              <Text style={{ fontSize: 32, fontWeight: "800", color: "#fff", letterSpacing: -0.6, marginTop: 6 }}>{fmtMoney(num(invoice.total), currency)}</Text>
+              {num(invoice.amount_paid) > 0 && (
+                <View style={{ marginTop: 6, flexDirection: "row", gap: space.md, alignItems: "baseline" }}>
+                  <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.95)" }}>Paid {fmtMoney(num(invoice.amount_paid), currency)}</Text>
+                  {balance > 0 && (
+                    <Text style={{ fontSize: 14, fontWeight: "800", color: "#fff" }}>Due {fmtMoney(balance, currency)}</Text>
+                  )}
+                </View>
               )}
-            </View>
-          )}
-        </View>
+            </LinearGradient>
+          </View>
+        </FadeIn>
 
         {/* Quick actions */}
         <View style={{ flexDirection: "row", gap: space.sm, flexWrap: "wrap" }}>
@@ -391,6 +415,7 @@ export default function InvoiceDetail() {
         onSubmit={recordPayment}
         busy={busy}
       />
+      {confettiKey > 0 && <Confetti fireKey={confettiKey} />}
     </SafeAreaView>
   );
 }
