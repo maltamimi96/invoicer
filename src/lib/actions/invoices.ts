@@ -339,29 +339,51 @@ export async function addPayment(invoiceId: string, payment: { amount: number; d
     .single();
   if (!invoice) throw new Error("Invoice not found");
 
-  const newAmountPaid = (invoice.amount_paid ?? 0) + payment.amount;
-  const newStatus = newAmountPaid >= invoice.total ? "paid" : "partial";
-
   await tbl(supabase, "payments").insert({ ...payment, invoice_id: invoiceId, user_id: user.id, business_id: businessId });
+
+  // Recompute this invoice's amount_paid from truth (payments table + any
+  // children's collections if it's a parent of a progress-billed job). This
+  // handles direct-payment-on-parent-with-children correctly without
+  // double-counting prior rollups stored in amount_paid.
+  const { data: directPayments } = await tbl(supabase, "payments")
+    .select("amount")
+    .eq("invoice_id", invoiceId)
+    .eq("business_id", businessId);
+  const directSum = ((directPayments ?? []) as { amount: unknown }[])
+    .reduce((s, r) => s + Number(r.amount ?? 0), 0);
+  const { data: childCollections } = await tbl(supabase, "invoices")
+    .select("amount_paid")
+    .eq("parent_invoice_id", invoiceId)
+    .eq("business_id", businessId);
+  const childSum = ((childCollections ?? []) as { amount_paid: unknown }[])
+    .reduce((s, r) => s + Number(r.amount_paid ?? 0), 0);
+  const newAmountPaid = directSum + childSum;
+  const newStatus = newAmountPaid >= invoice.total - 0.01 ? "paid" : "partial";
+
   await tbl(supabase, "invoices").update({ amount_paid: newAmountPaid, status: newStatus }).eq("id", invoiceId);
 
   // If this invoice is a child of a progress-billed parent, roll the new
-  // payment up. Once the sum of all sibling collections plus the parent's own
-  // direct payments covers the parent's total, auto-mark the parent paid so
-  // it stops appearing in outstanding lists.
+  // payment up so the parent reflects everything collected toward the job.
+  // The parent's amount_paid is recomputed as: sum of direct payments against
+  // the parent + sum of amount_paid across all child invoices. Idempotent —
+  // safe to call repeatedly, no double-counting.
   const { data: childRow } = await tbl(supabase, "invoices")
     .select("parent_invoice_id")
     .eq("id", invoiceId)
     .maybeSingle();
   const parentId = childRow?.parent_invoice_id as string | null;
   if (parentId) {
-    const [{ data: siblings }, { data: parentRow }] = await Promise.all([
+    const [{ data: siblings }, { data: parentDirectPayments }, { data: parentRow }] = await Promise.all([
       tbl(supabase, "invoices")
         .select("amount_paid")
         .eq("parent_invoice_id", parentId)
         .eq("business_id", businessId),
+      tbl(supabase, "payments")
+        .select("amount")
+        .eq("invoice_id", parentId)
+        .eq("business_id", businessId),
       tbl(supabase, "invoices")
-        .select("total, amount_paid, status")
+        .select("total, status")
         .eq("id", parentId)
         .eq("business_id", businessId)
         .maybeSingle(),
@@ -369,11 +391,25 @@ export async function addPayment(invoiceId: string, payment: { amount: number; d
     if (parentRow) {
       const collectedFromChildren = ((siblings ?? []) as { amount_paid: unknown }[])
         .reduce((s, r) => s + Number(r.amount_paid ?? 0), 0);
-      const parentTotal     = Number(parentRow.total ?? 0);
-      const parentDirect    = Number(parentRow.amount_paid ?? 0);
-      const fullyCovered    = collectedFromChildren + parentDirect >= parentTotal - 0.01;
-      if (fullyCovered && parentRow.status !== "paid" && parentRow.status !== "cancelled") {
-        await tbl(supabase, "invoices").update({ status: "paid" }).eq("id", parentId);
+      const parentDirect = ((parentDirectPayments ?? []) as { amount: unknown }[])
+        .reduce((s, r) => s + Number(r.amount ?? 0), 0);
+      const totalCollected = parentDirect + collectedFromChildren;
+      const parentTotal    = Number(parentRow.total ?? 0);
+      const fullyCovered   = totalCollected >= parentTotal - 0.01;
+
+      // Decide the parent's new status. Don't fight cancelled or draft.
+      const currentStatus = parentRow.status as string;
+      let nextStatus = currentStatus;
+      if (currentStatus !== "cancelled" && currentStatus !== "draft") {
+        if (fullyCovered)               nextStatus = "paid";
+        else if (totalCollected > 0.01) nextStatus = "partial";
+      }
+
+      await tbl(supabase, "invoices")
+        .update({ amount_paid: totalCollected, status: nextStatus })
+        .eq("id", parentId);
+
+      if (nextStatus === "paid" && currentStatus !== "paid") {
         dispatchWebhook(businessId, "invoice.paid", { id: parentId, total: parentTotal, via_progress: true });
       }
       revalidatePath(`/invoices/${parentId}`);
