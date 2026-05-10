@@ -88,7 +88,8 @@ Status legend: ✅ done · 🟡 partial · ❌ missing · 🚫 not applicable on
 | Lead detail (status changer + quick contact) | ✅ | 2a | |
 | Add lead (with custom source) | ✅ | 2c | |
 | Convert lead → customer | ✅ | 2d | UserCheck button on lead detail; mints customer + marks lead won |
-| Convert lead → quote/work-order | ❌ | 3 | Defer with quote/WO creators |
+| Convert lead → quote | ✅ | 3a | Find/create customer + draft quote, mark lead 'quoted' |
+| Convert lead → work-order | ❌ | 3 | Needs work-order create flow |
 | Convert quote → invoice | ✅ | 2d | FileCheck button on quote detail; mints invoice number, copies line items |
 | Quotes list + detail | ❌ | 2 | |
 | New quote (with line items) | ✅ | 2f | LineItemsEditor + CustomerPicker; mints number from prefix counter |
@@ -103,7 +104,7 @@ Status legend: ✅ done · 🟡 partial · ❌ missing · 🚫 not applicable on
 | Send remainder | ❌ | 3 | |
 | Duplicate invoice | ❌ | 2 | |
 | Reset to draft | ❌ | 2 | |
-| Smart Fill (paste → form) | ❌ | 3 | Hits same `/api/ai` endpoint |
+| Smart Fill (paste → form) | ✅ | 3a | Modal on /quotes/new + /invoices/new; hits /api/ai smart_fill_document |
 | **Service** |
 | Work orders list | 🟡 | 1 | Worker sees only theirs; owner sees all |
 | Work order detail (full portfolio) | 🟡 | 1 | Has basics; need: Workers picker, financials, share link |
@@ -132,7 +133,7 @@ Status legend: ✅ done · 🟡 partial · ❌ missing · 🚫 not applicable on
 | AI agent chat | ❌ | 4 | Native voice |
 | **Settings** |
 | Business profile | ✅ | 2d | Name, contact, ABN, currency, address — owner/admin only |
-| Bank details | ❌ | 4 | |
+| Bank details | ✅ | 3a | /settings/bank — name, account name/number, BSB/sort, IBAN |
 | Team management | ✅ | 2g | List + add (email/role) + change role + remove; pending → active on first login |
 | API keys | ❌ | 5 | Power-user only |
 | Webhooks | ❌ | 5 | Power-user only |

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, ScrollView, Text, View, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, Phone, Mail, MapPin, Clock, MessageSquare, UserCheck } from "lucide-react-native";
+import { ArrowLeft, Phone, Mail, MapPin, Clock, MessageSquare, UserCheck, FileCheck } from "lucide-react-native";
 import { supabase } from "@/lib/supabase";
 import { useActiveBusiness } from "@/lib/active-business";
 import { colors, radius, space } from "@/lib/theme";
@@ -99,6 +99,75 @@ export default function LeadDetail() {
       router.replace(`/customers/${(created as { id: string }).id}` as never);
     } catch (e) {
       Alert.alert("Couldn't convert", e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** Convert this lead into a draft quote. Reuses an existing customer
+   *  matched by email or phone, otherwise mints a fresh one. Marks the
+   *  lead 'quoted' and routes to the new quote so the user can fill
+   *  line items. Mirrors web convertLeadToQuote. */
+  const convertToQuote = async () => {
+    if (!lead || !active) return;
+    setBusy(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      // Find or create a customer for this lead
+      let customerId: string | null = null;
+      if (lead.email || lead.phone) {
+        const filters = [lead.email && `email.eq.${lead.email}`, lead.phone && `phone.eq.${lead.phone}`].filter(Boolean).join(",");
+        const { data: existing } = await supabase
+          .from("customers").select("id")
+          .eq("business_id", active.id).eq("archived", false)
+          .or(filters).limit(1).maybeSingle();
+        customerId = (existing as { id: string } | null)?.id ?? null;
+      }
+      if (!customerId) {
+        const { data: created, error: cErr } = await supabase
+          .from("customers")
+          .insert({
+            business_id: active.id, user_id: user?.id,
+            name: lead.name, phone: lead.phone, email: lead.email,
+            city: lead.suburb, country: "Australia", notes: lead.notes,
+            archived: false,
+          })
+          .select("id").single();
+        if (cErr) throw cErr;
+        customerId = (created as { id: string }).id;
+      }
+
+      // Mint a fresh quote number
+      const { data: biz } = await supabase
+        .from("businesses").select("quote_prefix, quote_next_number")
+        .eq("id", active.id).single();
+      const prefix = (biz as { quote_prefix?: string; quote_next_number?: number })?.quote_prefix ?? "QT";
+      const nextNum = (biz as { quote_prefix?: string; quote_next_number?: number })?.quote_next_number ?? 1;
+      const number = `${prefix}-${String(nextNum).padStart(4, "0")}`;
+      await supabase.from("businesses").update({ quote_next_number: nextNum + 1 }).eq("id", active.id);
+
+      const today = new Date().toISOString().split("T")[0];
+      const expiry = new Date(Date.now() + 30 * 86_400_000).toISOString().split("T")[0];
+      const { data: quote, error: qErr } = await supabase
+        .from("quotes")
+        .insert({
+          user_id: user?.id, business_id: active.id, number,
+          status: "draft",
+          customer_id: customerId,
+          issue_date: today, expiry_date: expiry,
+          line_items: [],
+          subtotal: 0, tax_total: 0, total: 0,
+          notes: lead.notes ?? null, terms: null,
+        })
+        .select("id").single();
+      if (qErr) throw qErr;
+
+      await supabase.from("leads").update({ status: "quoted" }).eq("id", lead.id);
+      Alert.alert("Quote drafted", `${number} created — add line items next.`);
+      router.replace(`/quotes/${(quote as { id: string }).id}` as never);
+    } catch (e) {
+      Alert.alert("Couldn't create quote", e instanceof Error ? e.message : "Unknown error");
     } finally {
       setBusy(false);
     }
@@ -207,6 +276,24 @@ export default function LeadDetail() {
           <UserCheck size={18} color="#fff" />
           <Text style={{ color: "#fff", fontSize: 15, fontWeight: "700" }}>
             {lead.status === "won" ? "Already converted" : "Convert to customer"}
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={convertToQuote}
+          disabled={busy || lead.status === "quoted" || lead.status === "won"}
+          style={({ pressed }) => ({
+            flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+            padding: space.md, borderRadius: radius.lg,
+            backgroundColor: lead.status === "quoted" || lead.status === "won"
+              ? colors.muted
+              : pressed ? "#5b21b6" : "#7c3aed",
+            opacity: busy ? 0.6 : 1,
+          })}
+        >
+          <FileCheck size={18} color="#fff" />
+          <Text style={{ color: "#fff", fontSize: 15, fontWeight: "700" }}>
+            {lead.status === "quoted" ? "Already quoted" : "Convert to quote"}
           </Text>
         </Pressable>
       </ScrollView>
