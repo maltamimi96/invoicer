@@ -68,22 +68,22 @@ export default function NewCustomer() {
 
       <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.md }} keyboardShouldPersistTaps="handled">
         <Field label="Name *">
-          <TextInput value={name} onChangeText={setName} placeholder="Full name" placeholderTextColor={colors.muted} style={input} />
+          <TextInput value={name} onChangeText={setName} placeholder="Full name" placeholderTextColor={colors.muted} style={input()} />
         </Field>
         <Field label="Company">
-          <TextInput value={company} onChangeText={setCompany} placeholder="Optional" placeholderTextColor={colors.muted} style={input} />
+          <TextInput value={company} onChangeText={setCompany} placeholder="Optional" placeholderTextColor={colors.muted} style={input()} />
         </Field>
         <Field label="Phone">
-          <TextInput value={phone} onChangeText={setPhone} placeholder="+61 …" keyboardType="phone-pad" placeholderTextColor={colors.muted} style={input} />
+          <TextInput value={phone} onChangeText={setPhone} placeholder="+61 …" keyboardType="phone-pad" placeholderTextColor={colors.muted} style={input()} />
         </Field>
         <Field label="Email">
-          <TextInput value={email} onChangeText={setEmail} placeholder="name@example.com" keyboardType="email-address" autoCapitalize="none" placeholderTextColor={colors.muted} style={input} />
+          <TextInput value={email} onChangeText={setEmail} placeholder="name@example.com" keyboardType="email-address" autoCapitalize="none" placeholderTextColor={colors.muted} style={input()} />
         </Field>
 
         <AddressFields value={addr} onChange={setAddr} businessCountry={active?.country ?? null} />
 
         <Field label="Notes">
-          <TextInput value={notes} onChangeText={setNotes} placeholder="Internal notes…" multiline numberOfLines={3} placeholderTextColor={colors.muted} style={[input, { minHeight: 80, textAlignVertical: "top" }]} />
+          <TextInput value={notes} onChangeText={setNotes} placeholder="Internal notes…" multiline numberOfLines={3} placeholderTextColor={colors.muted} style={[input(), { minHeight: 80, textAlignVertical: "top" }]} />
         </Field>
 
         <Pressable
@@ -104,17 +104,17 @@ export default function NewCustomer() {
   );
 }
 
-const input = {
+const input = () => ({
   fontSize: 15, padding: space.md, borderRadius: radius.md,
   backgroundColor: colors.card, borderWidth: 1, borderColor: colors.hairline, color: colors.text,
-};
+});
 
-const fieldLabel = { fontSize: 11, color: colors.muted, fontWeight: "700" as const, textTransform: "uppercase" as const, letterSpacing: 0.5 };
+const fieldLabel = () => ({ fontSize: 11, color: colors.muted, fontWeight: "700" as const, textTransform: "uppercase" as const, letterSpacing: 0.5 });
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <View style={{ gap: 6 }}>
-      <Text style={fieldLabel}>{label}</Text>
+      <Text style={fieldLabel()}>{label}</Text>
       {children}
     </View>
   );

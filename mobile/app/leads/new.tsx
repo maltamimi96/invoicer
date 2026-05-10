@@ -77,22 +77,22 @@ export default function NewLead() {
 
       <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.md }}>
         <Field label="Name *">
-          <TextInput value={name} onChangeText={setName} placeholder="Full name" placeholderTextColor={colors.muted} style={input} />
+          <TextInput value={name} onChangeText={setName} placeholder="Full name" placeholderTextColor={colors.muted} style={input()} />
         </Field>
         <Field label="Phone">
-          <TextInput value={phone} onChangeText={setPhone} placeholder="+61 …" keyboardType="phone-pad" placeholderTextColor={colors.muted} style={input} />
+          <TextInput value={phone} onChangeText={setPhone} placeholder="+61 …" keyboardType="phone-pad" placeholderTextColor={colors.muted} style={input()} />
         </Field>
         <Field label="Email">
-          <TextInput value={email} onChangeText={setEmail} placeholder="name@example.com" keyboardType="email-address" autoCapitalize="none" placeholderTextColor={colors.muted} style={input} />
+          <TextInput value={email} onChangeText={setEmail} placeholder="name@example.com" keyboardType="email-address" autoCapitalize="none" placeholderTextColor={colors.muted} style={input()} />
         </Field>
         <Field label="Suburb">
-          <TextInput value={suburb} onChangeText={setSuburb} placeholder="Bondi" placeholderTextColor={colors.muted} style={input} />
+          <TextInput value={suburb} onChangeText={setSuburb} placeholder="Bondi" placeholderTextColor={colors.muted} style={input()} />
         </Field>
         <Field label="Service">
-          <TextInput value={service} onChangeText={setService} placeholder="What do they need?" placeholderTextColor={colors.muted} style={input} />
+          <TextInput value={service} onChangeText={setService} placeholder="What do they need?" placeholderTextColor={colors.muted} style={input()} />
         </Field>
         <Field label="Timing">
-          <TextInput value={timing} onChangeText={setTiming} placeholder="ASAP / next week / no rush" placeholderTextColor={colors.muted} style={input} />
+          <TextInput value={timing} onChangeText={setTiming} placeholder="ASAP / next week / no rush" placeholderTextColor={colors.muted} style={input()} />
         </Field>
 
         <Field label="Source">
@@ -102,7 +102,7 @@ export default function NewLead() {
             placeholder="hipages, referral, walk-in…"
             placeholderTextColor={colors.muted}
             autoCapitalize="none"
-            style={input}
+            style={input()}
           />
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
             {SOURCE_PRESETS.map((s) => (
@@ -119,7 +119,7 @@ export default function NewLead() {
         </Field>
 
         <Field label="Notes">
-          <TextInput value={notes} onChangeText={setNotes} placeholder="Any context…" multiline numberOfLines={3} placeholderTextColor={colors.muted} style={[input, { minHeight: 80, textAlignVertical: "top" }]} />
+          <TextInput value={notes} onChangeText={setNotes} placeholder="Any context…" multiline numberOfLines={3} placeholderTextColor={colors.muted} style={[input(), { minHeight: 80, textAlignVertical: "top" }]} />
         </Field>
 
         <Pressable
@@ -140,10 +140,10 @@ export default function NewLead() {
   );
 }
 
-const input = {
+const input = () => ({
   fontSize: 15, padding: space.md, borderRadius: radius.md,
   backgroundColor: colors.card, borderWidth: 1, borderColor: colors.hairline, color: colors.text,
-};
+});
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (

@@ -162,7 +162,7 @@ export default function NewReport() {
         </Text>
 
         <View style={{ gap: 6 }}>
-          <Text style={lbl}>Customer</Text>
+          <Text style={lbl()}>Customer</Text>
           {active && <CustomerPicker businessId={active.id} value={customer} onChange={setCustomer} />}
         </View>
 
@@ -180,7 +180,7 @@ export default function NewReport() {
 
         {/* Photos */}
         <View style={{ gap: 6 }}>
-          <Text style={lbl}>Photos · {photos.length}</Text>
+          <Text style={lbl()}>Photos · {photos.length}</Text>
           {photos.length > 0 && (
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
               {photos.map((p, idx) => (
@@ -238,10 +238,10 @@ export default function NewReport() {
   );
 }
 
-const lbl = {
+const lbl = () => ({
   fontSize: 11, color: colors.muted,
   textTransform: "uppercase" as const, letterSpacing: 0.6, fontWeight: "700" as const,
-};
+});
 
 function Field({ label, value, onChangeText, multiline, placeholder }: {
   label: string; value: string; onChangeText: (v: string) => void;
@@ -249,7 +249,7 @@ function Field({ label, value, onChangeText, multiline, placeholder }: {
 }) {
   return (
     <View style={{ gap: 6 }}>
-      <Text style={lbl}>{label}</Text>
+      <Text style={lbl()}>{label}</Text>
       <TextInput
         value={value}
         onChangeText={onChangeText}

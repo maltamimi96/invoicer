@@ -3,16 +3,26 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { colors } from "@/lib/theme";
+import { ThemeProvider, useThemeMode } from "@/lib/theme-provider";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
 });
 
 export default function RootLayout() {
+  return (
+    <ThemeProvider>
+      <Inner />
+    </ThemeProvider>
+  );
+}
+
+function Inner() {
+  const { resolved } = useThemeMode();
   const [session, setSession] = useState<Session | null>(null);
   const [loaded,  setLoaded]  = useState(false);
   const router   = useRouter();
@@ -49,7 +59,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.canvas }}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
-          <StatusBar style="dark" />
+          <StatusBar style={resolved === "dark" ? "light" : "dark"} />
           <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.canvas } }}>
             <Stack.Screen name="(auth)" />
             <Stack.Screen name="(tabs)" />
