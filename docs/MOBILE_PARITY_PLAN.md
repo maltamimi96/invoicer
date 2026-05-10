@@ -100,8 +100,8 @@ Status legend: ✅ done · 🟡 partial · ❌ missing · 🚫 not applicable on
 | New invoice | ✅ | 2f | LineItemsEditor + CustomerPicker; due defaults to issue + 14d |
 | Send invoice email/SMS | ❌ | 2 | |
 | Record payment | ❌ | 2 | |
-| Deposit / progress invoice | ❌ | 3 | More complex, defer |
-| Send remainder | ❌ | 3 | |
+| Deposit / progress invoice | ✅ | 3b | "Bill deposit" action mints a child invoice (25/30/50%); use 50% twice or 100% for final balance |
+| Send remainder | 🟡 | 3b | Implicit via Bill deposit 100% on the remaining; dedicated UI deferred |
 | Duplicate invoice | ❌ | 2 | |
 | Reset to draft | ❌ | 2 | |
 | Smart Fill (paste → form) | ✅ | 3a | Modal on /quotes/new + /invoices/new; hits /api/ai smart_fill_document |
@@ -115,7 +115,7 @@ Status legend: ✅ done · 🟡 partial · ❌ missing · 🚫 not applicable on
 | **Contacts** |
 | Customers list (search + tap-to-call/email) | ✅ | 2a | |
 | Customer detail (counts, contact actions, address) | ✅ | 2a | |
-| Add customer (with per-country addresses) | ❌ | 2b | Mirror AddressFields |
+| Add customer (with per-country addresses) | ✅ | 3b | AddressFields component mirrors web; AU/US/UK templates with state pickers |
 | Customer hub link button | ✅ | 2d | Native share sheet — mints/reuses 90-day portal token |
 | Customer properties (sites) | ✅ | 2g | Read-only list on customer detail; add coming with portfolio editor |
 | **Catalog** |
