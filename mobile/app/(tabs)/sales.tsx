@@ -1,7 +1,7 @@
 import { ScrollView, Text, View, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { Users, UserPlus, FileCheck, FileText, ChevronRight, ClipboardList, Repeat, TrendingUp, Bot, Sparkles, Package } from "lucide-react-native";
+import { Users, UserPlus, FileCheck, FileText, ChevronRight, ClipboardList, Repeat, TrendingUp, Bot, Sparkles, Package, Briefcase } from "lucide-react-native";
 import { colors, radius, space } from "@/lib/theme";
 import { BusinessSwitcher } from "@/components/BusinessSwitcher";
 import { useActiveBusiness } from "@/lib/active-business";
@@ -56,7 +56,8 @@ export default function SalesHub() {
     { href: "/invoices",  label: "Invoices",  hint: "Bill and collect",              icon: <FileText size={20} color="#16a34a" />, bg: "#dcfce7", fg: "#16a34a" },
   ];
   const ops: Section[] = [
-    { href: "/assistant", label: "Assistant",    hint: "Briefing — what needs you next",  icon: <Sparkles size={20} color={colors.primary} />, bg: colors.primarySoft, fg: colors.primary },
+    { href: "/assistant",    label: "Assistant",    hint: "Briefing — what needs you next",  icon: <Sparkles size={20} color={colors.primary} />, bg: colors.primarySoft, fg: colors.primary },
+    { href: "/work-orders",  label: "Jobs",         hint: "Workers, financials, share link", icon: <Briefcase size={20} color="#1d4ed8" />, bg: "#dbeafe", fg: "#1d4ed8" },
     { href: "/reports",   label: "Site reports", hint: "Inspection & condition reports", icon: <ClipboardList size={20} color="#b45309" />, bg: "#fef3c7", fg: "#b45309" },
     { href: "/recurring", label: "Recurring jobs", hint: "Auto-scheduled work",          icon: <Repeat size={20} color="#7c3aed" />, bg: "#ede9fe", fg: "#7c3aed" },
     { href: "/analytics", label: "Analytics",    hint: "Revenue, leads, quotes won",     icon: <TrendingUp size={20} color={colors.primary} />, bg: colors.primarySoft, fg: colors.primary },

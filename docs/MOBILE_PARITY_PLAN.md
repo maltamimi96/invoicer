@@ -106,8 +106,8 @@ Status legend: ✅ done · 🟡 partial · ❌ missing · 🚫 not applicable on
 | Reset to draft | ❌ | 2 | |
 | Smart Fill (paste → form) | ✅ | 3a | Modal on /quotes/new + /invoices/new; hits /api/ai smart_fill_document |
 | **Service** |
-| Work orders list | 🟡 | 1 | Worker sees only theirs; owner sees all |
-| Work order detail (full portfolio) | 🟡 | 1 | Has basics; need: Workers picker, financials, share link |
+| Work orders list | ✅ | 3d | Owner /work-orders/index; status filter pills; worker /jobs unchanged |
+| Work order detail (full portfolio) | ✅ | 3d | /work-orders/[id]: workers picker (multi-select), financials with link-out, share toggle, "create invoice" affordance |
 | Site reports list | ✅ | 3 | |
 | Site report detail (sections, photos, PDF, share) | ✅ | 3 | |
 | New site report (AI generated) | ❌ | 3+ | Defer — AI generator is heavy lift |
@@ -148,7 +148,7 @@ Status legend: ✅ done · 🟡 partial · ❌ missing · 🚫 not applicable on
 | **Mobile-native bonuses** |
 | Push notifications | ❌ | 4 | Briefing alerts, new leads |
 | Offline-first (jobs / photos) | ❌ | 5 | Power feature |
-| Camera direct-capture for invoices | ❌ | 3 | Tap → photo → AI line items |
+| Camera direct-capture for invoices | ✅ | 3d | Camera/library buttons in Smart Fill modal — runs describe_images then smart_fill_document |
 
 ---
 

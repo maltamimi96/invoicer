@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ActivityIndicator, Alert, Modal, Pressable, Text, TextInput, View } from "react-native";
-import { Sparkles, X } from "lucide-react-native";
+import * as ImagePicker from "expo-image-picker";
+import { Sparkles, X, Camera, ImagePlus } from "lucide-react-native";
 import { supabase } from "@/lib/supabase";
 import { LineItem, newLineItem } from "./LineItemsEditor";
 import { colors, radius, space } from "@/lib/theme";
@@ -40,6 +41,42 @@ export function SmartFillButton({
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
+
+  /** Take/pick a photo, run describe_images to get a scope of works, then
+   *  feed that scope text into the existing Smart Fill flow. */
+  const fillFromPhoto = async (source: "camera" | "library") => {
+    try {
+      const perm = source === "camera"
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert("Permission required", "Allow access to use this.");
+        return;
+      }
+      const picked = source === "camera"
+        ? await ImagePicker.launchCameraAsync({ base64: true, quality: 0.6, mediaTypes: ImagePicker.MediaTypeOptions.Images })
+        : await ImagePicker.launchImageLibraryAsync({ base64: true, quality: 0.6, mediaTypes: ImagePicker.MediaTypeOptions.Images });
+      if (picked.canceled || !picked.assets?.[0]?.base64) return;
+
+      setBusy(true);
+      const base = process.env.EXPO_PUBLIC_APP_URL ?? "https://kireihq.com";
+      const r1 = await fetch(`${base}/api/ai`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "describe_images",
+          images: [{ base64: picked.assets[0].base64, mediaType: picked.assets[0].mimeType ?? "image/jpeg" }],
+        }),
+      });
+      if (!r1.ok) throw new Error(`Describe images failed: ${r1.status}`);
+      const { result: scope } = await r1.json() as { result: string };
+      setText((prev) => (prev ? prev + "\n\n" : "") + (scope ?? ""));
+    } catch (e) {
+      Alert.alert("Couldn't read photo", e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const run = async () => {
     if (!text.trim()) { Alert.alert("Paste something first", "Drop in an email, scope of works, or rough notes."); return; }
@@ -149,8 +186,33 @@ export function SmartFillButton({
           </View>
 
           <Text style={{ fontSize: 12, color: colors.muted, marginBottom: space.sm, lineHeight: 18 }}>
-            Paste an email, scope of works, or rough notes — the AI extracts the customer, line items, and notes for this {mode}.
+            Paste an email, scope of works, or rough notes — the AI extracts the customer, line items, and notes for this {mode}. Or snap a job photo and let it write the scope for you.
           </Text>
+
+          <View style={{ flexDirection: "row", gap: space.sm, marginBottom: space.sm }}>
+            <Pressable onPress={() => fillFromPhoto("camera")} disabled={busy}
+              style={({ pressed }) => ({
+                flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
+                padding: space.sm + 2, borderRadius: radius.md,
+                backgroundColor: pressed ? colors.muted : colors.card,
+                borderWidth: 1, borderColor: colors.hairline,
+                opacity: busy ? 0.6 : 1,
+              })}>
+              <Camera size={14} color={colors.text} />
+              <Text style={{ fontSize: 12, fontWeight: "700", color: colors.text }}>From camera</Text>
+            </Pressable>
+            <Pressable onPress={() => fillFromPhoto("library")} disabled={busy}
+              style={({ pressed }) => ({
+                flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
+                padding: space.sm + 2, borderRadius: radius.md,
+                backgroundColor: pressed ? colors.muted : colors.card,
+                borderWidth: 1, borderColor: colors.hairline,
+                opacity: busy ? 0.6 : 1,
+              })}>
+              <ImagePlus size={14} color={colors.text} />
+              <Text style={{ fontSize: 12, fontWeight: "700", color: colors.text }}>From library</Text>
+            </Pressable>
+          </View>
 
           <TextInput
             value={text}
