@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Text, TextInput, View, Linking, Share } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, Send, Copy, MessageSquare, Mail, RotateCcw, DollarSign, CheckCircle } from "lucide-react-native";
+import { ArrowLeft, Send, Copy, MessageSquare, Mail, RotateCcw, DollarSign, CheckCircle, Wallet } from "lucide-react-native";
 import { supabase } from "@/lib/supabase";
 import { useActiveBusiness } from "@/lib/active-business";
 import { colors, radius, space } from "@/lib/theme";
@@ -137,6 +137,84 @@ export default function InvoiceDetail() {
     }
   };
 
+  /** Bill a deposit / progress payment — mints a child invoice for X%
+   *  of this parent's total, linked back via parent_invoice_id.
+   *  Mirrors web createProgressInvoice. */
+  const billProgress = async (percent: number) => {
+    if (!invoice || !active) return;
+    setBusy(true);
+    try {
+      // Children billed so far → compute remaining
+      const { data: children } = await supabase
+        .from("invoices").select("total")
+        .eq("parent_invoice_id", invoice.id)
+        .eq("business_id", active.id);
+      const billed = ((children ?? []) as Array<{ total: unknown }>)
+        .reduce((s, c) => s + num(c.total), 0);
+      const parentTotal = num(invoice.total);
+      const remaining = Math.max(0, parentTotal - billed);
+      const requested = Math.round((parentTotal * percent) / 100 * 100) / 100;
+      if (requested <= 0) { Alert.alert("Nothing to bill", "Pick a non-zero percentage."); return; }
+      if (requested > remaining + 0.01) {
+        Alert.alert("Too much", `Only ${fmtMoney(remaining, currency)} left to bill on ${invoice.number}.`);
+        return;
+      }
+
+      const { data: biz } = await supabase
+        .from("businesses").select("invoice_prefix, invoice_next_number")
+        .eq("id", active.id).single();
+      const prefix = (biz as { invoice_prefix?: string; invoice_next_number?: number })?.invoice_prefix ?? "INV";
+      const nextNum = (biz as { invoice_prefix?: string; invoice_next_number?: number })?.invoice_next_number ?? 1;
+      const number = `${prefix}-${String(nextNum).padStart(4, "0")}`;
+      await supabase.from("businesses").update({ invoice_next_number: nextNum + 1 }).eq("id", active.id);
+
+      const { data: { user } } = await supabase.auth.getUser();
+      const today = new Date().toISOString().split("T")[0];
+      const due = invoice.due_date ?? new Date(Date.now() + 14 * 86_400_000).toISOString().split("T")[0];
+      const description = Math.abs(requested - remaining) < 0.01
+        ? `Final balance for ${invoice.number}`
+        : `${percent}% progress payment on ${invoice.number}`;
+
+      const { data: created, error } = await supabase
+        .from("invoices")
+        .insert({
+          user_id: user?.id, business_id: active.id, number,
+          status: "draft",
+          customer_id: invoice.customer_id,
+          issue_date: today, due_date: due,
+          line_items: [{
+            id: Math.random().toString(36).slice(2),
+            name: description, description: "",
+            quantity: 1, unit_price: requested, tax_rate: 0,
+            total: requested,
+          }],
+          subtotal: requested, tax_total: 0, total: requested,
+          amount_paid: 0,
+          notes: null, terms: null,
+          parent_invoice_id: invoice.id,
+        })
+        .select("id").single();
+      if (error) throw error;
+      Alert.alert("Deposit invoice created", `${number} for ${fmtMoney(requested, currency)}`);
+      router.replace(`/invoices/${(created as { id: string }).id}` as never);
+    } catch (e) {
+      Alert.alert("Couldn't bill deposit", e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const askForDeposit = () => {
+    Alert.alert("Bill a deposit / progress payment",
+      "Mints a child invoice linked to this one.",
+      [
+        { text: "25%", onPress: () => billProgress(25) },
+        { text: "30%", onPress: () => billProgress(30) },
+        { text: "50%", onPress: () => billProgress(50) },
+        { text: "Cancel", style: "cancel" },
+      ]);
+  };
+
   const shareLink = async () => {
     if (!invoice || !active || !invoice.customer_id) return;
     setBusy(true);
@@ -228,10 +306,11 @@ export default function InvoiceDetail() {
           )}
         </View>
 
-        {/* Status + dup */}
-        <View style={{ flexDirection: "row", gap: space.sm }}>
+        {/* Status + dup + deposit */}
+        <View style={{ flexDirection: "row", gap: space.sm, flexWrap: "wrap" }}>
           <SmallBtn icon={<RotateCcw size={14} color={colors.text} />} label="Reset to draft" onPress={() => setStatus("draft")} disabled={busy || invoice.status === "draft"} />
           <SmallBtn icon={<Copy size={14} color={colors.text} />} label="Duplicate" onPress={duplicate} disabled={busy} />
+          <SmallBtn icon={<Wallet size={14} color={colors.text} />} label="Bill deposit" onPress={askForDeposit} disabled={busy} />
         </View>
 
         {/* Status changer */}

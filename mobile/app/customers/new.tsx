@@ -5,11 +5,10 @@ import { Stack, useRouter } from "expo-router";
 import { ArrowLeft, Check } from "lucide-react-native";
 import { supabase } from "@/lib/supabase";
 import { useActiveBusiness } from "@/lib/active-business";
+import { AddressFields, AddressValue } from "@/components/AddressFields";
 import { colors, radius, space } from "@/lib/theme";
 
-const AU_STATES = ["ACT", "NSW", "NT", "QLD", "SA", "TAS", "VIC", "WA"];
-
-/** New customer form — Australia-flavoured (suburb + state dropdown). */
+/** New customer form. Address fields adapt per-country (mirrors web). */
 export default function NewCustomer() {
   const router = useRouter();
   const { active } = useActiveBusiness();
@@ -19,10 +18,10 @@ export default function NewCustomer() {
   const [company, setCompany] = useState("");
   const [phone, setPhone]     = useState("");
   const [email, setEmail]     = useState("");
-  const [address, setAddress] = useState("");
-  const [suburb, setSuburb]   = useState("");
-  const [state, setState]     = useState("");
-  const [postcode, setPost]   = useState("");
+  const [addr, setAddr]       = useState<AddressValue>({
+    address: "", city: "", state: "", postcode: "",
+    country: active?.country ?? "Australia",
+  });
   const [notes, setNotes]     = useState("");
 
   const submit = async () => {
@@ -41,11 +40,11 @@ export default function NewCustomer() {
           company: company.trim() || null,
           phone: phone.trim() || null,
           email: email.trim() || null,
-          address: address.trim() || null,
-          city: suburb.trim() || null,
-          state: state || null,
-          postcode: postcode.trim() || null,
-          country: "Australia",
+          address: addr.address.trim() || null,
+          city: addr.city.trim() || null,
+          state: addr.state.trim() || null,
+          postcode: addr.postcode.trim() || null,
+          country: addr.country.trim() || "Australia",
           notes: notes.trim() || null,
           archived: false,
         })
@@ -67,7 +66,7 @@ export default function NewCustomer() {
         <Text style={{ fontSize: 20, fontWeight: "700", color: colors.text }}>New customer</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.md }}>
+      <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.md }} keyboardShouldPersistTaps="handled">
         <Field label="Name *">
           <TextInput value={name} onChangeText={setName} placeholder="Full name" placeholderTextColor={colors.muted} style={input} />
         </Field>
@@ -81,33 +80,7 @@ export default function NewCustomer() {
           <TextInput value={email} onChangeText={setEmail} placeholder="name@example.com" keyboardType="email-address" autoCapitalize="none" placeholderTextColor={colors.muted} style={input} />
         </Field>
 
-        <Field label="Street address">
-          <TextInput value={address} onChangeText={setAddress} placeholder="12 Smith Street" placeholderTextColor={colors.muted} style={input} />
-        </Field>
-        <View style={{ flexDirection: "row", gap: space.sm }}>
-          <View style={{ flex: 2, gap: 6 }}>
-            <Text style={fieldLabel}>Suburb</Text>
-            <TextInput value={suburb} onChangeText={setSuburb} placeholder="Bondi" placeholderTextColor={colors.muted} style={input} />
-          </View>
-          <View style={{ flex: 1, gap: 6 }}>
-            <Text style={fieldLabel}>Postcode</Text>
-            <TextInput value={postcode} onChangeText={setPost} placeholder="2026" keyboardType="numeric" placeholderTextColor={colors.muted} style={input} />
-          </View>
-        </View>
-        <Field label="State">
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-            {AU_STATES.map((s) => (
-              <Pressable key={s} onPress={() => setState(s)}
-                style={({ pressed }) => ({
-                  paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999,
-                  backgroundColor: state === s ? colors.primary : pressed ? colors.muted : "transparent",
-                  borderWidth: 1, borderColor: state === s ? colors.primary : colors.hairline,
-                })}>
-                <Text style={{ fontSize: 12, fontWeight: "700", color: state === s ? "#fff" : colors.text }}>{s}</Text>
-              </Pressable>
-            ))}
-          </View>
-        </Field>
+        <AddressFields value={addr} onChange={setAddr} businessCountry={active?.country ?? null} />
 
         <Field label="Notes">
           <TextInput value={notes} onChangeText={setNotes} placeholder="Internal notes…" multiline numberOfLines={3} placeholderTextColor={colors.muted} style={[input, { minHeight: 80, textAlignVertical: "top" }]} />

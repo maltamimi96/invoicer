@@ -8,6 +8,7 @@ export interface MobileBusiness {
   name: string;
   logo_url: string | null;
   currency: string | null;
+  country: string | null;
   user_id: string; // owner
 }
 
@@ -20,7 +21,7 @@ async function fetchAccessibleBusinesses(userId: string): Promise<MobileBusiness
   // Owned
   const { data: owned } = await supabase
     .from("businesses")
-    .select("id, name, logo_url, currency, user_id")
+    .select("id, name, logo_url, currency, country, user_id")
     .eq("user_id", userId);
 
   // Memberships
@@ -35,7 +36,7 @@ async function fetchAccessibleBusinesses(userId: string): Promise<MobileBusiness
   if (memberIds.length > 0) {
     const { data } = await supabase
       .from("businesses")
-      .select("id, name, logo_url, currency, user_id")
+      .select("id, name, logo_url, currency, country, user_id")
       .in("id", memberIds);
     memberBizzes = (data ?? []) as MobileBusiness[];
   }
