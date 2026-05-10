@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, Linking, Pressable, RefreshControl, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
-import { ArrowLeft, FileText, Download, MapPin } from "lucide-react-native";
+import { ArrowLeft, FileText, Download, MapPin, Plus } from "lucide-react-native";
 import { supabase } from "@/lib/supabase";
 import { useActiveBusiness } from "@/lib/active-business";
 import { colors, radius, space } from "@/lib/theme";
@@ -43,6 +43,10 @@ export default function ReportsList() {
         <Text style={{ fontSize: 20, fontWeight: "700", color: colors.text }}>Site reports</Text>
         <View style={{ flex: 1 }} />
         <Text style={{ fontSize: 12, color: colors.muted }}>{reports?.length ?? 0}</Text>
+        <Pressable onPress={() => router.push("/reports/new" as never)} hitSlop={8}
+          style={({ pressed }) => ({ padding: 6, borderRadius: 999, backgroundColor: pressed ? colors.muted : colors.primary })}>
+          <Plus size={18} color="#fff" />
+        </Pressable>
       </View>
       {reports === null ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}><ActivityIndicator color={colors.primary} /></View>
