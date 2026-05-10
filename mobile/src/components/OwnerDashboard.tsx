@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ScrollView, Text, View, RefreshControl } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { AlertTriangle, Clock, DollarSign, FileCheck, Wrench, UserPlus, ArrowRight } from "lucide-react-native";
@@ -12,6 +12,9 @@ import { OutlookWidget } from "./OutlookWidget";
 import { GradientCard } from "./GradientCard";
 import { FadeIn } from "./FadeIn";
 import { PatternBackground } from "./PatternBackground";
+import { AnimatedNumber } from "./AnimatedNumber";
+import { Skeleton } from "./Skeleton";
+import { BrandedRefresh } from "./BrandedRefresh";
 import { scheduleOwnerBriefing } from "@/lib/notifications";
 import { loadBriefing } from "@/lib/briefing";
 
@@ -120,7 +123,7 @@ export function OwnerDashboard({ business }: { business: MobileBusiness }) {
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.canvas }}
       contentContainerStyle={{ padding: space.lg, gap: space.md, paddingBottom: space.xxl }}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+      refreshControl={<BrandedRefresh refreshing={refreshing} onRefresh={onRefresh} />}
     >
       {/* Hero — gradient with subtle dot pattern */}
       <FadeIn>
@@ -172,7 +175,9 @@ export function OwnerDashboard({ business }: { business: MobileBusiness }) {
             gradient="softTeal"
             icon={<DollarSign size={16} color={colors.primaryDeep} />}
             label="Outstanding"
-            value={loading ? "…" : fmtMoney(stats.outstanding, currency)}
+            value={stats.outstanding}
+            format={(n) => fmtMoney(n, currency)}
+            loading={loading}
             valueColor={colors.primaryDeep}
             labelColor={colors.primary}
           />
@@ -182,7 +187,9 @@ export function OwnerDashboard({ business }: { business: MobileBusiness }) {
             gradient="softRose"
             icon={<Clock size={16} color={colors.coralDeep} />}
             label="Overdue"
-            value={loading ? "…" : fmtMoney(stats.overdue, currency)}
+            value={stats.overdue}
+            format={(n) => fmtMoney(n, currency)}
+            loading={loading}
             valueColor={colors.coralDeep}
             labelColor="#b91c1c"
           />
@@ -192,7 +199,8 @@ export function OwnerDashboard({ business }: { business: MobileBusiness }) {
             gradient="softBlue"
             icon={<Wrench size={16} color={colors.blueDeep} />}
             label="Jobs today"
-            value={loading ? "…" : String(stats.jobs_today)}
+            value={stats.jobs_today}
+            loading={loading}
             valueColor={colors.blueDeep}
             labelColor="#1d4ed8"
           />
@@ -202,7 +210,8 @@ export function OwnerDashboard({ business }: { business: MobileBusiness }) {
             gradient="softViolet"
             icon={<FileCheck size={16} color={colors.violetDeep} />}
             label="Draft quotes"
-            value={loading ? "…" : String(stats.draft_quotes)}
+            value={stats.draft_quotes}
+            loading={loading}
             valueColor={colors.violetDeep}
             labelColor="#7c3aed"
           />
@@ -250,11 +259,13 @@ export function OwnerDashboard({ business }: { business: MobileBusiness }) {
   );
 }
 
-function GradientStat({ gradient, icon, label, value, valueColor, labelColor }: {
+function GradientStat({ gradient, icon, label, value, format, loading, valueColor, labelColor }: {
   gradient: "softTeal" | "softRose" | "softBlue" | "softViolet" | "softAmber";
   icon: React.ReactNode;
   label: string;
-  value: string;
+  value: number;
+  format?: (n: number) => string;
+  loading?: boolean;
   valueColor: string;
   labelColor: string;
 }) {
@@ -273,7 +284,15 @@ function GradientStat({ gradient, icon, label, value, valueColor, labelColor }: 
         {icon}
         <Text style={{ fontSize: 11, fontWeight: "700", color: labelColor, textTransform: "uppercase", letterSpacing: 0.6 }}>{label}</Text>
       </View>
-      <Text style={{ fontSize: 22, fontWeight: "800", color: valueColor, letterSpacing: -0.5, marginTop: 2 }}>{value}</Text>
+      {loading ? (
+        <Skeleton width="70%" height={22} style={{ marginTop: 4 }} />
+      ) : (
+        <AnimatedNumber
+          value={value}
+          format={format}
+          style={{ fontSize: 22, fontWeight: "800", color: valueColor, letterSpacing: -0.5, marginTop: 2 }}
+        />
+      )}
     </LinearGradient>
   );
 }

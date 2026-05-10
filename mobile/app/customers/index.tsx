@@ -1,11 +1,16 @@
 import { useEffect, useState, useMemo } from "react";
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, TextInput, View, Linking } from "react-native";
+import { FlatList, Pressable, Text, TextInput, View, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
-import { ArrowLeft, Search, Phone, Mail, Plus } from "lucide-react-native";
+import { ArrowLeft, Search, Phone, Mail, Plus, Users } from "lucide-react-native";
 import { supabase } from "@/lib/supabase";
 import { useActiveBusiness } from "@/lib/active-business";
 import { colors, radius, space } from "@/lib/theme";
+import { Avatar } from "@/components/Avatar";
+import { EmptyState } from "@/components/EmptyState";
+import { SkeletonRow } from "@/components/Skeleton";
+import { BrandedRefresh } from "@/components/BrandedRefresh";
+import { FadeIn } from "@/components/FadeIn";
 
 interface CustomerRow {
   id: string;
@@ -93,23 +98,30 @@ export default function CustomersList() {
       </View>
 
       {customers === null ? (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-          <ActivityIndicator color={colors.primary} />
+        <View style={{ paddingHorizontal: space.lg, paddingTop: space.sm, gap: 4 }}>
+          {Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} avatar />)}
         </View>
       ) : filtered!.length === 0 ? (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: space.xl }}>
-          <Text style={{ fontSize: 14, color: colors.muted, textAlign: "center" }}>
-            {query ? "No matches" : "No customers yet"}
-          </Text>
-        </View>
+        <EmptyState
+          icon={<Users size={32} color="#fff" />}
+          title={query ? "No matches" : "No customers yet"}
+          subtitle={query ? "Try a different search." : "Add your first customer to start sending quotes and invoices."}
+          ctaLabel={query ? undefined : "Add customer"}
+          onPressCta={query ? undefined : () => router.push("/customers/new" as never)}
+          gradient="primary"
+        />
       ) : (
         <FlatList
           data={filtered!}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ paddingHorizontal: space.lg, paddingBottom: space.xxl }}
           ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} tintColor={colors.primary} />}
-          renderItem={({ item }) => <CustomerCard customer={item} onPress={() => router.push(`/customers/${item.id}` as never)} />}
+          refreshControl={<BrandedRefresh refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}
+          renderItem={({ item, index }) => (
+            <FadeIn delay={Math.min(index * 30, 240)}>
+              <CustomerCard customer={item} onPress={() => router.push(`/customers/${item.id}` as never)} />
+            </FadeIn>
+          )}
         />
       )}
     </SafeAreaView>
@@ -117,7 +129,6 @@ export default function CustomersList() {
 }
 
 function CustomerCard({ customer, onPress }: { customer: CustomerRow; onPress: () => void }) {
-  const initials = customer.name.split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("");
   return (
     <Pressable
       onPress={onPress}
@@ -128,9 +139,7 @@ function CustomerCard({ customer, onPress }: { customer: CustomerRow; onPress: (
         borderWidth: 1, borderColor: colors.hairline,
       })}
     >
-      <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" }}>
-        <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 13 }}>{initials || "?"}</Text>
-      </View>
+      <Avatar name={customer.name} size={42} />
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: "600", color: colors.text }}>{customer.name}</Text>
         {customer.company && <Text numberOfLines={1} style={{ fontSize: 12, color: colors.muted }}>{customer.company}</Text>}

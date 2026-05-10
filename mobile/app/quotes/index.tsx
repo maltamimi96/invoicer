@@ -1,11 +1,16 @@
 import { useEffect, useState, useMemo } from "react";
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from "react-native";
+import { FlatList, Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
-import { ArrowLeft, Plus } from "lucide-react-native";
+import { ArrowLeft, Plus, FileCheck } from "lucide-react-native";
 import { supabase } from "@/lib/supabase";
 import { useActiveBusiness } from "@/lib/active-business";
 import { colors, radius, space } from "@/lib/theme";
+import { StatusPill } from "@/components/StatusPill";
+import { EmptyState } from "@/components/EmptyState";
+import { SkeletonRow } from "@/components/Skeleton";
+import { BrandedRefresh } from "@/components/BrandedRefresh";
+import { FadeIn } from "@/components/FadeIn";
 
 interface QuoteRow {
   id: string;
@@ -91,43 +96,49 @@ export default function QuotesList() {
         ))}
       </View>
       {quotes === null ? (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}><ActivityIndicator color={colors.primary} /></View>
-      ) : filtered!.length === 0 ? (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: space.xl }}>
-          <Text style={{ fontSize: 14, color: colors.muted }}>No quotes in this view</Text>
+        <View style={{ paddingHorizontal: space.lg, paddingTop: space.sm, gap: 8 }}>
+          {Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)}
         </View>
+      ) : filtered!.length === 0 ? (
+        <EmptyState
+          icon={<FileCheck size={32} color="#fff" />}
+          title="No quotes in this view"
+          subtitle="Send your first estimate — pasted notes turn into a quote with Smart Fill."
+          ctaLabel="New quote"
+          onPressCta={() => router.push("/quotes/new" as never)}
+          gradient="violet"
+        />
       ) : (
         <FlatList
           data={filtered!}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ paddingHorizontal: space.lg, paddingBottom: space.xxl }}
           ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} tintColor={colors.primary} />}
-          renderItem={({ item }) => {
-            const c = STATUS_COLOUR[item.status];
+          refreshControl={<BrandedRefresh refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}
+          renderItem={({ item, index }) => {
             return (
-              <Pressable
-                onPress={() => router.push(`/quotes/${item.id}` as never)}
-                style={({ pressed }) => ({
-                  padding: space.md, borderRadius: radius.lg,
-                  backgroundColor: pressed ? colors.muted : colors.card,
-                  borderWidth: 1, borderColor: colors.hairline, gap: 6,
-                })}
-              >
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                  <Text style={{ fontFamily: "monospace", fontSize: 12, color: colors.muted }}>{item.number}</Text>
-                  <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, backgroundColor: c.bg }}>
-                    <Text style={{ fontSize: 10, fontWeight: "700", color: c.fg, textTransform: "uppercase" }}>{item.status}</Text>
+              <FadeIn delay={Math.min(index * 30, 240)}>
+                <Pressable
+                  onPress={() => router.push(`/quotes/${item.id}` as never)}
+                  style={({ pressed }) => ({
+                    padding: space.md, borderRadius: radius.lg,
+                    backgroundColor: pressed ? colors.muted : colors.card,
+                    borderWidth: 1, borderColor: colors.hairline, gap: 6,
+                  })}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <Text style={{ fontFamily: "monospace", fontSize: 12, color: colors.muted }}>{item.number}</Text>
+                    <StatusPill tone={item.status} />
                   </View>
-                </View>
-                <Text style={{ fontSize: 15, fontWeight: "600", color: colors.text }}>{item.customers?.name ?? "No customer"}</Text>
-                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                  <Text style={{ fontSize: 11, color: colors.muted }}>
-                    {item.issue_date ?? "Draft"}{item.expiry_date ? ` · expires ${item.expiry_date}` : ""}
-                  </Text>
-                  <Text style={{ fontSize: 16, fontWeight: "700", color: colors.text, letterSpacing: -0.4 }}>{fmtMoney(num(item.total), currency)}</Text>
-                </View>
-              </Pressable>
+                  <Text style={{ fontSize: 15, fontWeight: "700", color: colors.text }}>{item.customers?.name ?? "No customer"}</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                    <Text style={{ fontSize: 11, color: colors.muted }}>
+                      {item.issue_date ?? "Draft"}{item.expiry_date ? ` · expires ${item.expiry_date}` : ""}
+                    </Text>
+                    <Text style={{ fontSize: 16, fontWeight: "800", color: colors.text, letterSpacing: -0.4 }}>{fmtMoney(num(item.total), currency)}</Text>
+                  </View>
+                </Pressable>
+              </FadeIn>
             );
           }}
         />

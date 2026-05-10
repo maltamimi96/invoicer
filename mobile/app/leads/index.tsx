@@ -1,11 +1,17 @@
 import { useEffect, useState, useMemo } from "react";
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View, Linking } from "react-native";
+import { FlatList, Pressable, Text, View, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
-import { ArrowLeft, MapPin, Phone, Mail, Clock, Plus } from "lucide-react-native";
+import { ArrowLeft, MapPin, Phone, Mail, Clock, Plus, UserPlus } from "lucide-react-native";
 import { supabase } from "@/lib/supabase";
 import { useActiveBusiness } from "@/lib/active-business";
 import { colors, radius, space } from "@/lib/theme";
+import { Avatar } from "@/components/Avatar";
+import { StatusPill } from "@/components/StatusPill";
+import { EmptyState } from "@/components/EmptyState";
+import { SkeletonRow } from "@/components/Skeleton";
+import { BrandedRefresh } from "@/components/BrandedRefresh";
+import { FadeIn } from "@/components/FadeIn";
 
 interface LeadRow {
   id:         string;
@@ -137,21 +143,30 @@ export default function LeadsList() {
       </View>
 
       {leads === null ? (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-          <ActivityIndicator color={colors.primary} />
+        <View style={{ paddingHorizontal: space.lg, paddingTop: space.sm, gap: 4 }}>
+          {Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} avatar />)}
         </View>
       ) : filtered!.length === 0 ? (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: space.xl }}>
-          <Text style={{ fontSize: 14, color: colors.muted }}>No leads in this view</Text>
-        </View>
+        <EmptyState
+          icon={<UserPlus size={32} color="#fff" />}
+          title="No leads in this view"
+          subtitle="When new opportunities come in (manual, landing page, or integrations), they'll show up here."
+          ctaLabel="Add lead"
+          onPressCta={() => router.push("/leads/new" as never)}
+          gradient="blue"
+        />
       ) : (
         <FlatList
           data={filtered!}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ paddingHorizontal: space.lg, paddingBottom: space.xxl }}
           ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} tintColor={colors.primary} />}
-          renderItem={({ item }) => <LeadCard lead={item} onPress={() => router.push(`/leads/${item.id}` as never)} />}
+          refreshControl={<BrandedRefresh refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}
+          renderItem={({ item, index }) => (
+            <FadeIn delay={Math.min(index * 30, 240)}>
+              <LeadCard lead={item} onPress={() => router.push(`/leads/${item.id}` as never)} />
+            </FadeIn>
+          )}
         />
       )}
     </SafeAreaView>
@@ -159,7 +174,6 @@ export default function LeadsList() {
 }
 
 function LeadCard({ lead, onPress }: { lead: LeadRow; onPress: () => void }) {
-  const statusColour = STATUS_COLOUR[lead.status];
   return (
     <Pressable
       onPress={onPress}
@@ -171,10 +185,9 @@ function LeadCard({ lead, onPress }: { lead: LeadRow; onPress: () => void }) {
       })}
     >
       <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
-        <Text numberOfLines={1} style={{ flex: 1, fontSize: 15, fontWeight: "600", color: colors.text }}>{lead.name}</Text>
-        <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, backgroundColor: statusColour.bg }}>
-          <Text style={{ fontSize: 10, fontWeight: "700", color: statusColour.fg, textTransform: "uppercase" }}>{lead.status}</Text>
-        </View>
+        <Avatar name={lead.name} size={36} />
+        <Text numberOfLines={1} style={{ flex: 1, fontSize: 15, fontWeight: "700", color: colors.text }}>{lead.name}</Text>
+        <StatusPill tone={lead.status} />
       </View>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <Text style={{ fontSize: 11, color: colors.muted }}>{fmtSource(lead.source)}</Text>
