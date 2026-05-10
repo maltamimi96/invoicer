@@ -3,9 +3,13 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View, Linking, S
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, Send, Copy, MessageSquare, Mail, RotateCcw, FileCheck } from "lucide-react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { supabase } from "@/lib/supabase";
 import { useActiveBusiness } from "@/lib/active-business";
-import { colors, radius, space } from "@/lib/theme";
+import { colors, gradients, radius, space } from "@/lib/theme";
+import { StatusPill } from "@/components/StatusPill";
+import { FadeIn } from "@/components/FadeIn";
+import { PatternBackground } from "@/components/PatternBackground";
 
 interface LineItem {
   id: string; name: string; description?: string;
@@ -204,30 +208,44 @@ export default function QuoteDetail() {
     );
   }
 
-  const c = STATUS_COLOUR[quote.status];
   const items = quote.line_items ?? [];
+  const heroPalette = quote.status === "accepted" ? gradients.emerald
+                    : quote.status === "rejected" ? gradients.rose
+                    : quote.status === "expired"  ? gradients.softRose
+                    : quote.status === "draft"    ? gradients.dusk
+                    :                               gradients.violet;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={["top", "left", "right"]}>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: space.lg, paddingTop: space.sm, paddingBottom: space.sm, gap: space.sm }}>
         <Pressable onPress={() => router.back()} hitSlop={10}><ArrowLeft size={22} color={colors.text} /></Pressable>
-        <Text style={{ fontFamily: "monospace", fontSize: 14, color: colors.muted }}>{quote.number}</Text>
-        <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, backgroundColor: c.bg }}>
-          <Text style={{ fontSize: 10, fontWeight: "700", color: c.fg, textTransform: "uppercase" }}>{quote.status}</Text>
-        </View>
+        <Text style={{ fontSize: 14, color: colors.muted }}>Quote</Text>
         <View style={{ flex: 1 }} />
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.md }}>
-        {/* Customer + total */}
-        <View style={{ padding: space.lg, borderRadius: radius.lg, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.hairline, gap: 6 }}>
-          <Text style={{ fontSize: 11, color: colors.muted, textTransform: "uppercase", letterSpacing: 0.6, fontWeight: "700" }}>Quote for</Text>
-          <Text style={{ fontSize: 18, fontWeight: "700", color: colors.text }}>{quote.customers?.name ?? "No customer"}</Text>
-          <Text style={{ fontSize: 28, fontWeight: "700", color: colors.text, letterSpacing: -0.5, marginTop: 8 }}>
-            {fmtMoney(num(quote.total), currency)}
-          </Text>
-        </View>
+      <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.md, paddingBottom: space.xxl }}>
+        {/* Hero — gradient header */}
+        <FadeIn>
+          <View style={{ borderRadius: radius.xxl, overflow: "hidden" }}>
+            <LinearGradient
+              colors={heroPalette as unknown as readonly [string, string, ...string[]]}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              style={{ padding: space.lg + 4, gap: 6, minHeight: 140 }}
+            >
+              <PatternBackground variant="dots" color="#fff" opacity={0.13} />
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.sm }}>
+                <Text style={{ fontFamily: "monospace", fontSize: 12, color: "rgba(255,255,255,0.85)", letterSpacing: 1 }}>{quote.number}</Text>
+                <StatusPill tone={quote.status} />
+              </View>
+              <Text style={{ fontSize: 11, color: "rgba(255,255,255,0.85)", textTransform: "uppercase", letterSpacing: 1.4, fontWeight: "700", marginTop: 6 }}>Quote for</Text>
+              <Text style={{ fontSize: 18, fontWeight: "700", color: "#fff" }} numberOfLines={1}>{quote.customers?.name ?? "No customer"}</Text>
+              <Text style={{ fontSize: 32, fontWeight: "800", color: "#fff", letterSpacing: -0.6, marginTop: 6 }}>
+                {fmtMoney(num(quote.total), currency)}
+              </Text>
+            </LinearGradient>
+          </View>
+        </FadeIn>
 
         {/* Quick actions */}
         <View style={{ flexDirection: "row", gap: space.sm, flexWrap: "wrap" }}>

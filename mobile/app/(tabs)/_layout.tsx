@@ -3,6 +3,7 @@ import { Wrench, Calendar, User, CheckSquare, Briefcase, Home } from "lucide-rea
 import { colors } from "@/lib/theme";
 import { useActiveBusiness } from "@/lib/active-business";
 import { isWorker } from "@/lib/permissions";
+import { GradientTabBar } from "@/components/GradientTabBar";
 
 /** Role-aware tab bar.
  *  - Workers: Home (jobs) · Tasks · Schedule · Profile (4 tabs).
@@ -15,17 +16,9 @@ export default function TabsLayout() {
 
   return (
     <Tabs
+      tabBar={(props) => <GradientTabBar {...props} />}
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.text,
-        tabBarInactiveTintColor: colors.muted,
-        tabBarStyle: {
-          backgroundColor: colors.card,
-          borderTopColor: colors.hairline,
-          height: 64,
-          paddingTop: 6,
-        },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
         sceneStyle: { backgroundColor: colors.canvas },
       }}
     >
