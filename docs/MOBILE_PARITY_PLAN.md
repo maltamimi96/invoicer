@@ -130,7 +130,7 @@ Status legend: ✅ done · 🟡 partial · ❌ missing · 🚫 not applicable on
 | Tasks (kanban) | 🟡 | shipped (basic) | Polish: drag-drop on mobile, link to job |
 | Messages (SMS inbox) | ❌ | 4 | Inbound replies |
 | Assistant page | ✅ | 2g | Full briefing inbox with deep-links + pull-to-refresh |
-| AI agent chat | ❌ | 4 | Native voice |
+| AI agent chat | ✅ | 3e | /agent text chat hits new /api/mobile/agent (bearer auth, 9-tool surface). Native voice deferred. |
 | **Settings** |
 | Business profile | ✅ | 2d | Name, contact, ABN, currency, address — owner/admin only |
 | Bank details | ✅ | 3a | /settings/bank — name, account name/number, BSB/sort, IBAN |
