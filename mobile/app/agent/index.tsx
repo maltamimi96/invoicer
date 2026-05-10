@@ -5,7 +5,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
-import { ArrowLeft, Send, Sparkles } from "lucide-react-native";
+import { ArrowLeft, Send, Sparkles, Mic, Square } from "lucide-react-native";
+import { useAudioRecorder, AudioModule, RecordingPresets } from "expo-audio";
 import { supabase } from "@/lib/supabase";
 import { useActiveBusiness } from "@/lib/active-business";
 import { colors, radius, space } from "@/lib/theme";
@@ -32,11 +33,63 @@ export default function AgentChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput]       = useState("");
   const [busy, setBusy]         = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
   const scrollRef = useRef<ScrollView | null>(null);
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
 
   useEffect(() => {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
   }, [messages.length]);
+
+  /** Start/stop voice recording. On stop, upload to /api/ai/transcribe
+   *  with the user's bearer token and stuff the result into the input
+   *  field — user can review before sending. */
+  const toggleRecord = async () => {
+    if (recording) {
+      try {
+        await recorder.stop();
+        setRecording(false);
+        const uri = recorder.uri;
+        if (!uri) return;
+        setTranscribing(true);
+        const { data: { session } } = await supabase.auth.getSession();
+        const accessToken = session?.access_token;
+        if (!accessToken) throw new Error("Not signed in");
+
+        const form = new FormData();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        form.append("audio", { uri, name: "voice.m4a", type: "audio/m4a" } as any);
+
+        const base = process.env.EXPO_PUBLIC_APP_URL ?? "https://kireihq.com";
+        const res = await fetch(`${base}/api/ai/transcribe`, {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${accessToken}` },
+          body: form,
+        });
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}));
+          throw new Error(j.error || `Transcribe failed: ${res.status}`);
+        }
+        const { text } = await res.json() as { text: string };
+        if (text) setInput((prev) => (prev ? prev + " " : "") + text);
+      } catch (e) {
+        Alert.alert("Couldn't transcribe", e instanceof Error ? e.message : "Unknown error");
+      } finally {
+        setTranscribing(false);
+      }
+    } else {
+      try {
+        const status = await AudioModule.requestRecordingPermissionsAsync();
+        if (!status.granted) { Alert.alert("Mic permission required"); return; }
+        await recorder.prepareToRecordAsync();
+        recorder.record();
+        setRecording(true);
+      } catch (e) {
+        Alert.alert("Couldn't start recording", e instanceof Error ? e.message : "Unknown error");
+      }
+    }
+  };
 
   const send = async (text: string) => {
     if (!active || !text.trim() || busy) return;
@@ -143,10 +196,24 @@ export default function AgentChat() {
         </ScrollView>
 
         <View style={{ flexDirection: "row", padding: space.sm, gap: space.sm, borderTopWidth: 1, borderTopColor: colors.hairline, backgroundColor: colors.card }}>
+          <Pressable
+            onPress={toggleRecord}
+            disabled={busy || transcribing}
+            style={({ pressed }) => ({
+              padding: 12, borderRadius: radius.lg,
+              backgroundColor: recording ? "#dc2626" : pressed ? colors.muted : colors.canvas,
+              borderWidth: 1, borderColor: recording ? "#dc2626" : colors.hairline,
+              alignItems: "center", justifyContent: "center",
+              opacity: transcribing ? 0.6 : 1,
+            })}>
+            {transcribing ? <ActivityIndicator size="small" color={colors.text} />
+              : recording ? <Square size={18} color="#fff" fill="#fff" />
+              : <Mic size={18} color={colors.text} />}
+          </Pressable>
           <TextInput
             value={input}
             onChangeText={setInput}
-            placeholder="Ask anything…"
+            placeholder={recording ? "Recording…" : "Ask anything…"}
             placeholderTextColor={colors.muted}
             multiline
             onSubmitEditing={() => send(input)}

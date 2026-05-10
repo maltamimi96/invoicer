@@ -128,25 +128,26 @@ Status legend: ✅ done · 🟡 partial · ❌ missing · 🚫 not applicable on
 | Analytics page (KPIs, range pills) | ✅ | 4 | Charts via victory-native — phase 4+ |
 | **Workspace** |
 | Tasks (kanban) | 🟡 | shipped (basic) | Polish: drag-drop on mobile, link to job |
-| Messages (SMS inbox) | ❌ | 4 | Inbound replies |
+| Messages (SMS inbox) | ✅ | 3f | /messages — conversations list with unread badges; tap row to open native SMS |
 | Assistant page | ✅ | 2g | Full briefing inbox with deep-links + pull-to-refresh |
-| AI agent chat | ✅ | 3e | /agent text chat hits new /api/mobile/agent (bearer auth, 9-tool surface). Native voice deferred. |
+| AI agent chat | ✅ | 3e | /agent text chat hits new /api/mobile/agent (bearer auth, 9-tool surface) |
+| AI agent native voice | ✅ | 3f | Mic button records via expo-audio, posts to /api/ai/transcribe (bearer-auth fallback added), result fills the input field |
 | **Settings** |
 | Business profile | ✅ | 2d | Name, contact, ABN, currency, address — owner/admin only |
 | Bank details | ✅ | 3a | /settings/bank — name, account name/number, BSB/sort, IBAN |
 | Team management | ✅ | 2g | List + add (email/role) + change role + remove; pending → active on first login |
-| API keys | ❌ | 5 | Power-user only |
-| Webhooks | ❌ | 5 | Power-user only |
-| Email config | ❌ | 5 | Power-user only |
-| Appearance / personalisation | ❌ | 5 | |
+| API keys | 🟡 | 3f | /settings/advanced surfaces it with web deep-link (mint/revoke needs server endpoint) |
+| Webhooks | 🟡 | 3f | Same — /settings/advanced deep-links to web |
+| Email config | 🟡 | 3f | Same — IMAP creds belong on web |
+| Appearance / personalisation | ✅ | 3f | /settings/appearance — accent colour + bg pattern picker |
 | **Cross-cutting** |
-| Smart Organise (cleanup) | ❌ | 5 | |
+| Smart Organise (cleanup) | 🟡 | 3f | /settings/advanced deep-links to web (cross-entity dedupe lives there) |
 | Share links (WhatsApp/SMS/Email) | ❌ | 2 | Native share sheet |
 | Schedule send (later) | ❌ | 2 | |
 | Email delivery tracking | 🚫 | — | View-only on web is enough |
 | Customer portal | 🚫 | — | Customer-facing, not the tradie's app |
 | **Mobile-native bonuses** |
-| Push notifications | ❌ | 4 | Briefing alerts, new leads |
+| Push notifications | 🟡 | 3f | Local 9am morning briefing notification scheduled from dashboard. Server-push triggers (real-time new-lead pings) need EAS credentials + server cron — follow-up. |
 | Offline-first (jobs / photos) | ❌ | 5 | Power feature |
 | Camera direct-capture for invoices | ✅ | 3d | Camera/library buttons in Smart Fill modal — runs describe_images then smart_fill_document |
 

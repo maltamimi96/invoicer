@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createSupaClient } from "@supabase/supabase-js";
 
 /**
  * Audio transcription endpoint for voice prompts.
@@ -11,8 +12,23 @@ import { createClient } from "@/lib/supabase/server";
  * client can fall back to the browser's Web Speech API.
  */
 export async function POST(request: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  // Accept either cookie auth (web) or Bearer auth (mobile)
+  const auth = request.headers.get("authorization") ?? "";
+  const bearer = auth.startsWith("Bearer ") ? auth.slice(7) : null;
+  let user = null;
+  if (bearer) {
+    const supa = createSupaClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { auth: { persistSession: false, autoRefreshToken: false } }
+    );
+    const { data } = await supa.auth.getUser(bearer);
+    user = data.user;
+  } else {
+    const supabase = await createClient();
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  }
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const apiKey = process.env.OPENAI_API_KEY;
