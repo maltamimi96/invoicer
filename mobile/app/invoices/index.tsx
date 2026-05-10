@@ -1,11 +1,16 @@
 import { useEffect, useState, useMemo } from "react";
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from "react-native";
+import { FlatList, Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
-import { ArrowLeft, Plus } from "lucide-react-native";
+import { ArrowLeft, Plus, FileText } from "lucide-react-native";
 import { supabase } from "@/lib/supabase";
 import { useActiveBusiness } from "@/lib/active-business";
 import { colors, radius, space } from "@/lib/theme";
+import { StatusPill } from "@/components/StatusPill";
+import { EmptyState } from "@/components/EmptyState";
+import { SkeletonRow } from "@/components/Skeleton";
+import { BrandedRefresh } from "@/components/BrandedRefresh";
+import { FadeIn } from "@/components/FadeIn";
 
 interface InvoiceRow {
   id: string;
@@ -98,51 +103,58 @@ export default function InvoicesList() {
         ))}
       </View>
       {invoices === null ? (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}><ActivityIndicator color={colors.primary} /></View>
-      ) : filtered!.length === 0 ? (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: space.xl }}>
-          <Text style={{ fontSize: 14, color: colors.muted }}>No invoices in this view</Text>
+        <View style={{ paddingHorizontal: space.lg, paddingTop: space.sm, gap: 8 }}>
+          {Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)}
         </View>
+      ) : filtered!.length === 0 ? (
+        <EmptyState
+          icon={<FileText size={32} color="#fff" />}
+          title="No invoices in this view"
+          subtitle="Send your first one to start collecting payment."
+          ctaLabel="New invoice"
+          onPressCta={() => router.push("/invoices/new" as never)}
+          gradient="emerald"
+        />
       ) : (
         <FlatList
           data={filtered!}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ paddingHorizontal: space.lg, paddingBottom: space.xxl }}
           ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} tintColor={colors.primary} />}
-          renderItem={({ item }) => {
+          refreshControl={<BrandedRefresh refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}
+          renderItem={({ item, index }) => {
             const balance = Math.max(0, num(item.total) - num(item.amount_paid));
             const today = new Date().toISOString().split("T")[0];
             const isOverdue = ["sent", "partial"].includes(item.status) && item.due_date && item.due_date < today;
-            const c = STATUS_COLOUR[isOverdue ? "overdue" : item.status];
+            const tone = isOverdue ? "overdue" : item.status;
             return (
-              <Pressable
-                onPress={() => router.push(`/invoices/${item.id}` as never)}
-                style={({ pressed }) => ({
-                  padding: space.md, borderRadius: radius.lg,
-                  backgroundColor: pressed ? colors.muted : colors.card,
-                  borderWidth: 1, borderColor: colors.hairline, gap: 6,
-                })}
-              >
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                  <Text style={{ fontFamily: "monospace", fontSize: 12, color: colors.muted }}>{item.number}</Text>
-                  <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, backgroundColor: c.bg }}>
-                    <Text style={{ fontSize: 10, fontWeight: "700", color: c.fg, textTransform: "uppercase" }}>{isOverdue ? "overdue" : item.status}</Text>
+              <FadeIn delay={Math.min(index * 30, 240)}>
+                <Pressable
+                  onPress={() => router.push(`/invoices/${item.id}` as never)}
+                  style={({ pressed }) => ({
+                    padding: space.md, borderRadius: radius.lg,
+                    backgroundColor: pressed ? colors.muted : colors.card,
+                    borderWidth: 1, borderColor: colors.hairline, gap: 6,
+                  })}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <Text style={{ fontFamily: "monospace", fontSize: 12, color: colors.muted }}>{item.number}</Text>
+                    <StatusPill tone={tone} />
                   </View>
-                </View>
-                <Text style={{ fontSize: 15, fontWeight: "600", color: colors.text }}>{item.customers?.name ?? "No customer"}</Text>
-                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                  <Text style={{ fontSize: 11, color: colors.muted }}>
-                    {item.issue_date ?? "—"}{item.due_date ? ` · due ${item.due_date}` : ""}
-                  </Text>
-                  <View style={{ alignItems: "flex-end" }}>
-                    <Text style={{ fontSize: 16, fontWeight: "700", color: colors.text, letterSpacing: -0.4 }}>{fmtMoney(num(item.total), currency)}</Text>
-                    {balance > 0 && balance < num(item.total) && (
-                      <Text style={{ fontSize: 11, color: "#dc2626" }}>{fmtMoney(balance, currency)} due</Text>
-                    )}
+                  <Text style={{ fontSize: 15, fontWeight: "700", color: colors.text }}>{item.customers?.name ?? "No customer"}</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                    <Text style={{ fontSize: 11, color: colors.muted }}>
+                      {item.issue_date ?? "—"}{item.due_date ? ` · due ${item.due_date}` : ""}
+                    </Text>
+                    <View style={{ alignItems: "flex-end" }}>
+                      <Text style={{ fontSize: 16, fontWeight: "800", color: colors.text, letterSpacing: -0.4 }}>{fmtMoney(num(item.total), currency)}</Text>
+                      {balance > 0 && balance < num(item.total) && (
+                        <Text style={{ fontSize: 11, color: "#dc2626", fontWeight: "700" }}>{fmtMoney(balance, currency)} due</Text>
+                      )}
+                    </View>
                   </View>
-                </View>
-              </Pressable>
+                </Pressable>
+              </FadeIn>
             );
           }}
         />
