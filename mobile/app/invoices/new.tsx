@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { useActiveBusiness } from "@/lib/active-business";
 import { CustomerPicker } from "@/components/CustomerPicker";
 import { LineItemsEditor, LineItem, newLineItem, totalsFor } from "@/components/LineItemsEditor";
+import { SmartFillButton } from "@/components/SmartFillButton";
 import { colors, radius, space } from "@/lib/theme";
 
 /** Compose a new invoice — customer + line items + notes/terms.
@@ -76,6 +77,20 @@ export default function NewInvoice() {
       </View>
 
       <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.md }} keyboardShouldPersistTaps="handled">
+        {active && (
+          <SmartFillButton
+            businessId={active.id}
+            mode="invoice"
+            preselectedCustomer={customer}
+            onApply={({ customer: c, items: i, notes: n, terms: t }) => {
+              if (c) setCustomer(c);
+              setItems(i);
+              if (n) setNotes(n);
+              if (t) setTerms(t);
+            }}
+          />
+        )}
+
         <View style={{ gap: 6 }}>
           <Text style={{ fontSize: 11, color: colors.muted, textTransform: "uppercase", letterSpacing: 0.6, fontWeight: "700" }}>Customer *</Text>
           {active && <CustomerPicker businessId={active.id} value={customer} onChange={setCustomer} />}
