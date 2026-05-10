@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Modal, Pressable, ScrollView, Text, View, Image } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { ChevronDown, Check, Building2 } from "lucide-react-native";
-import { colors, radius, space } from "@/lib/theme";
+import { colors, gradients, radius, space } from "@/lib/theme";
 import type { MobileBusiness } from "@/lib/active-business";
 import { ROLE_LABELS, type Role } from "@/lib/permissions";
 
@@ -36,15 +37,18 @@ export function BusinessSwitcher({ active, businesses, role, onSwitch }: Props) 
         })}
       >
         {active.logo_url ? (
-          <Image source={{ uri: active.logo_url }} style={{ width: 32, height: 32, borderRadius: radius.md }} />
+          <Image source={{ uri: active.logo_url }} style={{ width: 34, height: 34, borderRadius: radius.md }} />
         ) : (
-          <View style={{
-            width: 32, height: 32, borderRadius: radius.md,
-            backgroundColor: colors.primarySoft,
-            alignItems: "center", justifyContent: "center",
-          }}>
-            <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 12 }}>{initials}</Text>
-          </View>
+          <LinearGradient
+            colors={gradients.primary as unknown as readonly [string, string, ...string[]]}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            style={{
+              width: 34, height: 34, borderRadius: radius.md,
+              alignItems: "center", justifyContent: "center",
+            }}
+          >
+            <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>{initials || "?"}</Text>
+          </LinearGradient>
         )}
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: "600", color: colors.text }}>{active.name}</Text>
@@ -74,15 +78,18 @@ export function BusinessSwitcher({ active, businesses, role, onSwitch }: Props) 
                     })}
                   >
                     {b.logo_url ? (
-                      <Image source={{ uri: b.logo_url }} style={{ width: 36, height: 36, borderRadius: radius.md }} />
+                      <Image source={{ uri: b.logo_url }} style={{ width: 38, height: 38, borderRadius: radius.md }} />
                     ) : (
-                      <View style={{
-                        width: 36, height: 36, borderRadius: radius.md,
-                        backgroundColor: colors.primarySoft,
-                        alignItems: "center", justifyContent: "center",
-                      }}>
-                        <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 13 }}>{init || "?"}</Text>
-                      </View>
+                      <LinearGradient
+                        colors={gradients.primary as unknown as readonly [string, string, ...string[]]}
+                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                        style={{
+                          width: 38, height: 38, borderRadius: radius.md,
+                          alignItems: "center", justifyContent: "center",
+                        }}
+                      >
+                        <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>{init || "?"}</Text>
+                      </LinearGradient>
                     )}
                     <View style={{ flex: 1, minWidth: 0 }}>
                       <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: "600", color: colors.text }}>{b.name}</Text>
