@@ -3,9 +3,12 @@ import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Share, Text, 
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, Phone, Mail, MapPin, Building2, FileText, FileCheck, Wrench, Send, Home } from "lucide-react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { supabase } from "@/lib/supabase";
 import { useActiveBusiness } from "@/lib/active-business";
-import { colors, radius, space } from "@/lib/theme";
+import { colors, gradients, radius, space } from "@/lib/theme";
+import { FadeIn } from "@/components/FadeIn";
+import { PatternBackground } from "@/components/PatternBackground";
 
 interface Customer {
   id:       string;
@@ -141,25 +144,41 @@ export default function CustomerDetail() {
         <Pressable onPress={() => router.back()} hitSlop={10}>
           <ArrowLeft size={22} color={colors.text} />
         </Pressable>
-        <Text style={{ fontSize: 18, fontWeight: "700", color: colors.text }} numberOfLines={1}>
-          {customer.name}
-        </Text>
+        <Text style={{ fontSize: 14, color: colors.muted }}>Customer</Text>
       </View>
 
       <ScrollView
-        contentContainerStyle={{ padding: space.lg, gap: space.md }}
+        contentContainerStyle={{ padding: space.lg, gap: space.md, paddingBottom: space.xxl }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} tintColor={colors.primary} />}
       >
-        {/* Identity card */}
-        <View style={{ padding: space.lg, borderRadius: radius.lg, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.hairline, gap: 8 }}>
-          <Text style={{ fontSize: 22, fontWeight: "700", color: colors.text, letterSpacing: -0.4 }}>{customer.name}</Text>
-          {customer.company && (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-              <Building2 size={13} color={colors.muted} />
-              <Text style={{ fontSize: 13, color: colors.muted }}>{customer.company}</Text>
-            </View>
-          )}
-        </View>
+        {/* Identity card — gradient hero */}
+        <FadeIn>
+          <View style={{ borderRadius: radius.xl, overflow: "hidden" }}>
+            <LinearGradient
+              colors={gradients.primary as unknown as readonly [string, string, ...string[]]}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              style={{ padding: space.lg + 4, gap: 8, minHeight: 110 }}
+            >
+              <PatternBackground variant="dots" color="#fff" opacity={0.13} />
+              <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+                <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: "rgba(255,255,255,0.22)", alignItems: "center", justifyContent: "center" }}>
+                  <Text style={{ fontSize: 22, fontWeight: "800", color: "#fff" }}>
+                    {customer.name.split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("") || "?"}
+                  </Text>
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={{ fontSize: 22, fontWeight: "800", color: "#fff", letterSpacing: -0.4 }} numberOfLines={1}>{customer.name}</Text>
+                  {customer.company && (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+                      <Building2 size={13} color="rgba(255,255,255,0.85)" />
+                      <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.9)" }}>{customer.company}</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            </LinearGradient>
+          </View>
+        </FadeIn>
 
         {/* Quick contact actions */}
         <View style={{ flexDirection: "row", gap: space.sm }}>

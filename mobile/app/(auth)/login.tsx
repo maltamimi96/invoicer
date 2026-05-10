@@ -5,8 +5,12 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Link, useRouter } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
+import { Sparkles } from "lucide-react-native";
 import { supabase } from "@/lib/supabase";
-import { colors, radius, space } from "@/lib/theme";
+import { colors, gradients, radius, space, timeOfDayGradient } from "@/lib/theme";
+import { FadeIn } from "@/components/FadeIn";
+import { PatternBackground } from "@/components/PatternBackground";
 
 export default function Login() {
   const router = useRouter();
@@ -42,73 +46,87 @@ export default function Login() {
         style={{ flex: 1 }}
       >
         <ScrollView
-          contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: space.xl }}
+          contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: space.xl, gap: space.lg }}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={{ marginBottom: space.xxl }}>
-            <Text style={{ fontSize: 36, fontWeight: "700", color: colors.text, letterSpacing: -0.5 }}>
-              Connected Hub
-            </Text>
-            <Text style={{ fontSize: 14, color: colors.muted, marginTop: 6 }}>
-              Sign in to see your assigned jobs.
-            </Text>
-          </View>
+          {/* Hero brand block */}
+          <FadeIn>
+            <View style={{ borderRadius: radius.xxl, overflow: "hidden" }}>
+              <LinearGradient
+                colors={timeOfDayGradient() as unknown as readonly [string, string, ...string[]]}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                style={{ padding: space.lg + 6, gap: space.sm, minHeight: 160 }}
+              >
+                <PatternBackground variant="dots" color="#fff" opacity={0.16} />
+                <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: "rgba(255,255,255,0.22)", alignItems: "center", justifyContent: "center", borderWidth: 1.5, borderColor: "rgba(255,255,255,0.35)" }}>
+                  <Sparkles size={24} color="#fff" />
+                </View>
+                <Text style={{ fontSize: 32, fontWeight: "800", color: "#fff", letterSpacing: -0.6, marginTop: space.sm }}>
+                  Connected Hub
+                </Text>
+                <Text style={{ fontSize: 14, color: "rgba(255,255,255,0.9)", marginTop: 2 }}>
+                  Run your trades business from your phone.
+                </Text>
+              </LinearGradient>
+            </View>
+          </FadeIn>
 
-          <View
-            style={{
-              backgroundColor: colors.card,
-              borderRadius: radius.xl,
-              padding: space.lg,
-              borderWidth: 1,
-              borderColor: colors.hairline,
-              gap: space.md,
-            }}
-          >
-            <Field label="Email">
-              <TextInput
-                value={email}
-                onChangeText={setEmail}
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="email-address"
-                placeholder="you@example.com"
-                placeholderTextColor={colors.muted}
-                style={inputStyle}
-              />
-            </Field>
-            <Field label="Password">
-              <TextInput
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                placeholder="••••••••"
-                placeholderTextColor={colors.muted}
-                style={inputStyle}
-                onSubmitEditing={submit}
-              />
-            </Field>
-
-            <Pressable
-              onPress={submit}
-              disabled={busy}
-              style={({ pressed }) => ({
-                backgroundColor: colors.primary,
-                borderRadius: radius.pill,
-                paddingVertical: 14,
-                alignItems: "center",
-                marginTop: space.sm,
-                opacity: pressed || busy ? 0.85 : 1,
-              })}
+          <FadeIn delay={120}>
+            <View
+              style={{
+                backgroundColor: colors.card,
+                borderRadius: radius.xl,
+                padding: space.lg,
+                borderWidth: 1,
+                borderColor: colors.hairline,
+                gap: space.md,
+              }}
             >
-              {busy ? (
-                <ActivityIndicator color={colors.white} />
-              ) : (
-                <Text style={{ color: colors.white, fontWeight: "700", fontSize: 15 }}>Sign in</Text>
-              )}
-            </Pressable>
-          </View>
+              <Field label="Email">
+                <TextInput
+                  value={email}
+                  onChangeText={setEmail}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="email-address"
+                  placeholder="you@example.com"
+                  placeholderTextColor={colors.muted}
+                  style={inputStyle}
+                />
+              </Field>
+              <Field label="Password">
+                <TextInput
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                  placeholder="••••••••"
+                  placeholderTextColor={colors.muted}
+                  style={inputStyle}
+                  onSubmitEditing={submit}
+                />
+              </Field>
 
-          <View style={{ marginTop: space.xl, alignItems: "center", gap: 8 }}>
+              <Pressable
+                onPress={submit}
+                disabled={busy}
+                style={{ borderRadius: radius.pill, overflow: "hidden", marginTop: space.sm, opacity: busy ? 0.7 : 1 }}
+              >
+                <LinearGradient
+                  colors={gradients.primaryLit as unknown as readonly [string, string, ...string[]]}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                  style={{ paddingVertical: 14, alignItems: "center" }}
+                >
+                  {busy ? (
+                    <ActivityIndicator color={colors.white} />
+                  ) : (
+                    <Text style={{ color: colors.white, fontWeight: "800", fontSize: 15, letterSpacing: 0.3 }}>Sign in</Text>
+                  )}
+                </LinearGradient>
+              </Pressable>
+            </View>
+          </FadeIn>
+
+          <View style={{ alignItems: "center", gap: 8 }}>
             <Link href="/(auth)/forgot" asChild>
               <Pressable hitSlop={10}>
                 <Text style={{ color: colors.muted, fontWeight: "600", fontSize: 13 }}>
