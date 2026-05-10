@@ -110,7 +110,7 @@ Status legend: ✅ done · 🟡 partial · ❌ missing · 🚫 not applicable on
 | Work order detail (full portfolio) | ✅ | 3d | /work-orders/[id]: workers picker (multi-select), financials with link-out, share toggle, "create invoice" affordance |
 | Site reports list | ✅ | 3 | |
 | Site report detail (sections, photos, PDF, share) | ✅ | 3 | |
-| New site report (AI generated) | ❌ | 3+ | Defer — AI generator is heavy lift |
+| New site report (AI generated) | ✅ | 3g | /reports/new — photos + notes → /api/ai generate_report → structured sections + meta + captions saved |
 | Recurring jobs (list + activate toggle) | ✅ | 3 | |
 | **Contacts** |
 | Customers list (search + tap-to-call/email) | ✅ | 2a | |
