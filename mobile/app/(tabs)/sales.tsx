@@ -1,7 +1,7 @@
 import { ScrollView, Text, View, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { Users, UserPlus, FileCheck, FileText, ChevronRight, ClipboardList, Repeat, TrendingUp, Bot, Sparkles } from "lucide-react-native";
+import { Users, UserPlus, FileCheck, FileText, ChevronRight, ClipboardList, Repeat, TrendingUp, Bot, Sparkles, Package } from "lucide-react-native";
 import { colors, radius, space } from "@/lib/theme";
 import { BusinessSwitcher } from "@/components/BusinessSwitcher";
 import { useActiveBusiness } from "@/lib/active-business";
@@ -60,6 +60,7 @@ export default function SalesHub() {
     { href: "/reports",   label: "Site reports", hint: "Inspection & condition reports", icon: <ClipboardList size={20} color="#b45309" />, bg: "#fef3c7", fg: "#b45309" },
     { href: "/recurring", label: "Recurring jobs", hint: "Auto-scheduled work",          icon: <Repeat size={20} color="#7c3aed" />, bg: "#ede9fe", fg: "#7c3aed" },
     { href: "/analytics", label: "Analytics",    hint: "Revenue, leads, quotes won",     icon: <TrendingUp size={20} color={colors.primary} />, bg: colors.primarySoft, fg: colors.primary },
+    { href: "/products",  label: "Products",     hint: "Saved line items catalog",       icon: <Package size={20} color="#0f766e" />, bg: "#ccfbf1", fg: "#0f766e" },
     { href: "/agents",    label: "Agents",       hint: "Toggle automations on/off",      icon: <Bot size={20} color="#16a34a" />, bg: "#dcfce7", fg: "#16a34a" },
   ];
 

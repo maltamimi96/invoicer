@@ -96,7 +96,7 @@ export default function NewInvoice() {
           {active && <CustomerPicker businessId={active.id} value={customer} onChange={setCustomer} />}
         </View>
 
-        <LineItemsEditor items={items} onChange={setItems} currency={currency} />
+        <LineItemsEditor items={items} onChange={setItems} currency={currency} businessId={active?.id} />
 
         <View style={{ padding: space.md, borderRadius: radius.lg, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.hairline, gap: 4 }}>
           <Row label="Subtotal" value={fmt(totals.subtotal, currency)} />

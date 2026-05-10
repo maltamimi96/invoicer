@@ -119,7 +119,7 @@ Status legend: ✅ done · 🟡 partial · ❌ missing · 🚫 not applicable on
 | Customer hub link button | ✅ | 2d | Native share sheet — mints/reuses 90-day portal token |
 | Customer properties (sites) | ✅ | 2g | Read-only list on customer detail; add coming with portfolio editor |
 | **Catalog** |
-| Products list + add/edit | ❌ | 3 | |
+| Products list + add/edit | ✅ | 3c | /products list + add modal; "Pick from products" affordance in LineItemsEditor inserts a line item |
 | **Workforce** |
 | Team profiles list | ❌ | 4 | |
 | Add team member (sends invite) | ✅ | 2g | Modal in /settings/team |
