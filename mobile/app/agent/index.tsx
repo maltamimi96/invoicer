@@ -6,10 +6,14 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
 import { ArrowLeft, Send, Sparkles, Mic, Square } from "lucide-react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useAudioRecorder, AudioModule, RecordingPresets } from "expo-audio";
 import { supabase } from "@/lib/supabase";
 import { useActiveBusiness } from "@/lib/active-business";
-import { colors, radius, space } from "@/lib/theme";
+import { colors, gradients, radius, space } from "@/lib/theme";
+import { FadeIn } from "@/components/FadeIn";
+import { AnimatedPress } from "@/components/AnimatedPress";
+import { PatternBackground } from "@/components/PatternBackground";
 
 interface Message {
   role: "user" | "assistant";
@@ -132,17 +136,24 @@ export default function AgentChat() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={["top", "left", "right"]}>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: space.lg, paddingTop: space.sm, paddingBottom: space.sm, gap: space.sm }}>
-        <Pressable onPress={() => router.back()} hitSlop={10}><ArrowLeft size={22} color={colors.text} /></Pressable>
-        <Sparkles size={18} color={colors.primary} />
-        <Text style={{ fontSize: 18, fontWeight: "700", color: colors.text }}>Assistant</Text>
-        <View style={{ flex: 1 }} />
-        {messages.length > 0 && (
-          <Pressable onPress={() => setMessages([])} hitSlop={8}>
-            <Text style={{ fontSize: 12, color: colors.muted }}>Clear</Text>
-          </Pressable>
-        )}
-      </View>
+      <LinearGradient
+        colors={gradients.dusk as unknown as readonly [string, string, ...string[]]}
+        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+        style={{ paddingHorizontal: space.lg, paddingTop: space.sm, paddingBottom: space.md }}
+      >
+        <PatternBackground variant="dots" color="#fff" opacity={0.13} />
+        <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
+          <Pressable onPress={() => router.back()} hitSlop={10}><ArrowLeft size={22} color="#fff" /></Pressable>
+          <Sparkles size={20} color="#fff" />
+          <Text style={{ fontSize: 20, fontWeight: "800", color: "#fff", letterSpacing: -0.4 }}>Assistant</Text>
+          <View style={{ flex: 1 }} />
+          {messages.length > 0 && (
+            <Pressable onPress={() => setMessages([])} hitSlop={8}>
+              <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.85)", fontWeight: "600" }}>Clear</Text>
+            </Pressable>
+          )}
+        </View>
+      </LinearGradient>
 
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView
@@ -151,41 +162,64 @@ export default function AgentChat() {
           keyboardShouldPersistTaps="handled"
         >
           {messages.length === 0 ? (
-            <View style={{ flex: 1, gap: space.md }}>
-              <View style={{ alignItems: "center", marginTop: space.xl, gap: 6 }}>
-                <Sparkles size={36} color={colors.primary} />
-                <Text style={{ fontSize: 18, fontWeight: "700", color: colors.text }}>Ask anything about your business</Text>
-                <Text style={{ fontSize: 13, color: colors.muted, textAlign: "center", maxWidth: 280 }}>
-                  I can look up customers, invoices, quotes, leads, today's schedule, and update statuses.
+            <FadeIn style={{ flex: 1, gap: space.md }}>
+              <View style={{ alignItems: "center", marginTop: space.xl, gap: 8 }}>
+                <LinearGradient
+                  colors={gradients.dusk as unknown as readonly [string, string, ...string[]]}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                  style={{ width: 64, height: 64, borderRadius: 32, alignItems: "center", justifyContent: "center" }}
+                >
+                  <Sparkles size={28} color="#fff" />
+                </LinearGradient>
+                <Text style={{ fontSize: 20, fontWeight: "800", color: colors.text, letterSpacing: -0.4 }}>Ask anything about your business</Text>
+                <Text style={{ fontSize: 13, color: colors.muted, textAlign: "center", maxWidth: 280, lineHeight: 19 }}>
+                  Look up customers, invoices, quotes, leads, today&apos;s schedule, and update statuses with your voice or thumbs.
                 </Text>
               </View>
               <View style={{ gap: space.sm, marginTop: space.md }}>
-                {SUGGESTIONS.map((s) => (
-                  <Pressable key={s} onPress={() => send(s)}
-                    style={({ pressed }) => ({
-                      padding: space.md, borderRadius: radius.lg,
-                      backgroundColor: pressed ? colors.muted : colors.card,
-                      borderWidth: 1, borderColor: colors.hairline,
-                    })}>
-                    <Text style={{ fontSize: 14, color: colors.text }}>{s}</Text>
-                  </Pressable>
+                {SUGGESTIONS.map((s, idx) => (
+                  <FadeIn key={s} delay={120 + idx * 50}>
+                    <AnimatedPress onPress={() => send(s)}
+                      style={{
+                        padding: space.md, borderRadius: radius.lg,
+                        backgroundColor: colors.card,
+                        borderWidth: 1, borderColor: colors.hairline,
+                      }}>
+                      <Text style={{ fontSize: 14, color: colors.text }}>{s}</Text>
+                    </AnimatedPress>
+                  </FadeIn>
                 ))}
               </View>
-            </View>
+            </FadeIn>
           ) : messages.map((m, i) => (
-            <View key={i} style={{
-              alignSelf: m.role === "user" ? "flex-end" : "flex-start",
-              maxWidth: "85%",
-              padding: space.md,
-              borderRadius: radius.lg,
-              backgroundColor: m.role === "user" ? colors.primary : colors.card,
-              borderWidth: m.role === "user" ? 0 : 1,
-              borderColor: colors.hairline,
-            }}>
-              <Text style={{ fontSize: 14, color: m.role === "user" ? "#fff" : colors.text, lineHeight: 20 }}>
-                {m.text}
-              </Text>
-            </View>
+            <FadeIn
+              key={i}
+              delay={i === messages.length - 1 ? 0 : 0}
+              distance={6}
+              duration={240}
+              style={{ alignSelf: m.role === "user" ? "flex-end" : "flex-start", maxWidth: "85%" }}
+            >
+              {m.role === "user" ? (
+                <LinearGradient
+                  colors={gradients.primaryLit as unknown as readonly [string, string, ...string[]]}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                  style={{ padding: space.md, borderRadius: radius.lg, borderBottomRightRadius: 4 }}
+                >
+                  <Text style={{ fontSize: 14, color: "#fff", lineHeight: 20 }}>{m.text}</Text>
+                </LinearGradient>
+              ) : (
+                <View style={{
+                  padding: space.md,
+                  borderRadius: radius.lg,
+                  borderBottomLeftRadius: 4,
+                  backgroundColor: colors.card,
+                  borderWidth: 1,
+                  borderColor: colors.hairline,
+                }}>
+                  <Text style={{ fontSize: 14, color: colors.text, lineHeight: 20 }}>{m.text}</Text>
+                </View>
+              )}
+            </FadeIn>
           ))}
           {busy && (
             <View style={{ alignSelf: "flex-start", padding: space.md, borderRadius: radius.lg, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.hairline, flexDirection: "row", gap: 8, alignItems: "center" }}>
@@ -229,12 +263,15 @@ export default function AgentChat() {
           <Pressable
             onPress={() => send(input)}
             disabled={busy || !input.trim()}
-            style={({ pressed }) => ({
-              padding: 12, borderRadius: radius.lg,
-              backgroundColor: !input.trim() || busy ? colors.muted : pressed ? "#0d6e6a" : colors.primary,
-              alignItems: "center", justifyContent: "center",
-            })}>
-            <Send size={18} color="#fff" />
+            style={{ borderRadius: radius.lg, overflow: "hidden", opacity: !input.trim() || busy ? 0.5 : 1 }}
+          >
+            <LinearGradient
+              colors={gradients.primaryLit as unknown as readonly [string, string, ...string[]]}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              style={{ padding: 12, alignItems: "center", justifyContent: "center" }}
+            >
+              <Send size={18} color="#fff" />
+            </LinearGradient>
           </Pressable>
         </View>
       </KeyboardAvoidingView>

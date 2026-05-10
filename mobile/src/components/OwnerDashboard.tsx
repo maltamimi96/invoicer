@@ -1,13 +1,17 @@
 import { useEffect, useState } from "react";
-import { ScrollView, Text, View, Pressable, RefreshControl } from "react-native";
+import { ScrollView, Text, View, RefreshControl } from "react-native";
 import { useRouter } from "expo-router";
-import { AlertTriangle, Clock, DollarSign, FileCheck, Wrench, UserPlus } from "lucide-react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { AlertTriangle, Clock, DollarSign, FileCheck, Wrench, UserPlus, ArrowRight } from "lucide-react-native";
 import { supabase } from "@/lib/supabase";
-import { colors, radius, space } from "@/lib/theme";
+import { colors, gradients, radius, space, timeOfDayGradient } from "@/lib/theme";
 import type { MobileBusiness } from "@/lib/active-business";
 import { BriefingWidget } from "./BriefingWidget";
 import { TasksWidget } from "./TasksWidget";
 import { OutlookWidget } from "./OutlookWidget";
+import { GradientCard } from "./GradientCard";
+import { FadeIn } from "./FadeIn";
+import { PatternBackground } from "./PatternBackground";
 import { scheduleOwnerBriefing } from "@/lib/notifications";
 import { loadBriefing } from "@/lib/briefing";
 
@@ -34,8 +38,8 @@ function fmtMoney(n: number, currency: string): string {
   }
 }
 
-/** Owner-flavored landing screen — KPI strip + headline counts + quick actions.
- *  Pulls live from Supabase using RLS, no server actions needed. */
+/** Owner-flavoured landing screen — gradient hero, KPI grid, briefing,
+ *  tasks, and ops outlook. Pulls live from Supabase using RLS. */
 export function OwnerDashboard({ business }: { business: MobileBusiness }) {
   const router = useRouter();
   const [stats, setStats] = useState<Stats>(ZERO);
@@ -87,8 +91,8 @@ export function OwnerDashboard({ business }: { business: MobileBusiness }) {
 
   useEffect(() => { load(); }, [business.id]);
 
-  // Schedule the morning briefing notification once a day. Cheap local
-  // schedule — re-runs whenever the dashboard opens, which is fine.
+  // Schedule the morning briefing once a day. Re-runs whenever the dashboard
+  // opens, which is fine — scheduling is idempotent.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -110,98 +114,167 @@ export function OwnerDashboard({ business }: { business: MobileBusiness }) {
     setRefreshing(false);
   };
 
+  const heroPalette = timeOfDayGradient();
+
   return (
     <ScrollView
-      style={{ flex: 1 }}
-      contentContainerStyle={{ padding: space.lg, gap: space.md }}
+      style={{ flex: 1, backgroundColor: colors.canvas }}
+      contentContainerStyle={{ padding: space.lg, gap: space.md, paddingBottom: space.xxl }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
     >
-      {/* Greeting */}
-      <View>
-        <Text style={{ fontSize: 22, fontWeight: "700", color: colors.text, letterSpacing: -0.4 }}>
-          {greeting()}.
-        </Text>
-        <Text style={{ fontSize: 13, color: colors.muted, marginTop: 4 }}>
-          Here&apos;s what&apos;s happening today.
-        </Text>
-      </View>
+      {/* Hero — gradient with subtle dot pattern */}
+      <FadeIn>
+        <View style={{ borderRadius: radius.xxl, overflow: "hidden" }}>
+          <LinearGradient
+            colors={heroPalette as unknown as readonly [string, string, ...string[]]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{ padding: space.lg + 4, minHeight: 130 }}
+          >
+            <PatternBackground variant="dots" color="#fff" opacity={0.18} />
+            <Text style={{ fontSize: 12, fontWeight: "700", color: "rgba(255,255,255,0.8)", letterSpacing: 1.4, textTransform: "uppercase" }}>
+              {greeting()}
+            </Text>
+            <Text style={{ fontSize: 26, fontWeight: "800", color: "#fff", letterSpacing: -0.6, marginTop: 4 }} numberOfLines={1}>
+              {business.name}
+            </Text>
+            <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.85)", marginTop: 6 }}>
+              {loading ? "Loading today…" : `${stats.jobs_today} job${stats.jobs_today === 1 ? "" : "s"} today · ${fmtMoney(stats.outstanding, currency)} outstanding`}
+            </Text>
+          </LinearGradient>
+        </View>
+      </FadeIn>
 
-      {/* Overdue strip */}
+      {/* Overdue strip — red gradient */}
       {stats.overdue > 0 && (
-        <Pressable
-          onPress={() => {/* Navigate to invoices filter overdue when that screen exists */}}
-          style={{
-            flexDirection: "row", alignItems: "center", gap: space.md,
-            padding: space.md, borderRadius: radius.lg,
-            backgroundColor: "#fef2f2", borderWidth: 1, borderColor: "#fecaca",
-          }}
-        >
-          <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "#fee2e2", alignItems: "center", justifyContent: "center" }}>
-            <AlertTriangle size={18} color="#b91c1c" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 14, fontWeight: "600", color: "#7f1d1d" }}>{fmtMoney(stats.overdue, currency)} overdue</Text>
-            <Text style={{ fontSize: 12, color: "#991b1b" }}>Send reminders to bring these in</Text>
-          </View>
-        </Pressable>
+        <FadeIn delay={60}>
+          <GradientCard
+            gradient="rose"
+            onPress={() => router.push("/invoices" as never)}
+            contentStyle={{ padding: space.md, flexDirection: "row", alignItems: "center", gap: space.md }}
+          >
+            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.25)", alignItems: "center", justifyContent: "center" }}>
+              <AlertTriangle size={20} color="#fff" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 15, fontWeight: "700", color: "#fff" }}>{fmtMoney(stats.overdue, currency)} overdue</Text>
+              <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.85)" }}>Tap to chase invoices</Text>
+            </View>
+            <ArrowRight size={18} color="rgba(255,255,255,0.85)" />
+          </GradientCard>
+        </FadeIn>
       )}
 
-      {/* KPI grid */}
+      {/* KPI grid — softly tinted gradient cards */}
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
-        <Stat icon={<DollarSign size={14} color={colors.muted} />} label="Outstanding" value={loading ? "…" : fmtMoney(stats.outstanding, currency)} />
-        <Stat icon={<Clock size={14} color="#b45309" />} label="Overdue" value={loading ? "…" : fmtMoney(stats.overdue, currency)} accent="#b45309" />
-        <Stat icon={<Wrench size={14} color={colors.muted} />} label="Jobs today" value={loading ? "…" : String(stats.jobs_today)} />
-        <Stat icon={<FileCheck size={14} color={colors.muted} />} label="Draft quotes" value={loading ? "…" : String(stats.draft_quotes)} />
+        <FadeIn delay={120} style={{ flexBasis: "48%", flexGrow: 1 }}>
+          <GradientStat
+            gradient="softTeal"
+            icon={<DollarSign size={16} color={colors.primaryDeep} />}
+            label="Outstanding"
+            value={loading ? "…" : fmtMoney(stats.outstanding, currency)}
+            valueColor={colors.primaryDeep}
+            labelColor={colors.primary}
+          />
+        </FadeIn>
+        <FadeIn delay={160} style={{ flexBasis: "48%", flexGrow: 1 }}>
+          <GradientStat
+            gradient="softRose"
+            icon={<Clock size={16} color={colors.coralDeep} />}
+            label="Overdue"
+            value={loading ? "…" : fmtMoney(stats.overdue, currency)}
+            valueColor={colors.coralDeep}
+            labelColor="#b91c1c"
+          />
+        </FadeIn>
+        <FadeIn delay={200} style={{ flexBasis: "48%", flexGrow: 1 }}>
+          <GradientStat
+            gradient="softBlue"
+            icon={<Wrench size={16} color={colors.blueDeep} />}
+            label="Jobs today"
+            value={loading ? "…" : String(stats.jobs_today)}
+            valueColor={colors.blueDeep}
+            labelColor="#1d4ed8"
+          />
+        </FadeIn>
+        <FadeIn delay={240} style={{ flexBasis: "48%", flexGrow: 1 }}>
+          <GradientStat
+            gradient="softViolet"
+            icon={<FileCheck size={16} color={colors.violetDeep} />}
+            label="Draft quotes"
+            value={loading ? "…" : String(stats.draft_quotes)}
+            valueColor={colors.violetDeep}
+            labelColor="#7c3aed"
+          />
+        </FadeIn>
       </View>
 
-      {/* New leads strip */}
+      {/* New leads strip — emerald gradient */}
       {stats.new_leads_7d > 0 && (
-        <Pressable
-          onPress={() => router.push("/leads" as never)}
-          style={{
-            flexDirection: "row", alignItems: "center", gap: space.md,
-            padding: space.md, borderRadius: radius.lg,
-            backgroundColor: colors.primarySoft,
-          }}
-        >
-          <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" }}>
-            <UserPlus size={18} color="#fff" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 14, fontWeight: "600", color: colors.primaryText }}>
-              {stats.new_leads_7d} new lead{stats.new_leads_7d === 1 ? "" : "s"} this week
-            </Text>
-            <Text style={{ fontSize: 12, color: colors.primaryText, opacity: 0.8 }}>Follow up before they go cold</Text>
-          </View>
-        </Pressable>
+        <FadeIn delay={280}>
+          <GradientCard
+            gradient="emerald"
+            onPress={() => router.push("/leads" as never)}
+            contentStyle={{ padding: space.md, flexDirection: "row", alignItems: "center", gap: space.md }}
+          >
+            <PatternBackground variant="diagonal" color="#fff" opacity={0.12} />
+            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.25)", alignItems: "center", justifyContent: "center" }}>
+              <UserPlus size={20} color="#fff" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 15, fontWeight: "700", color: "#fff" }}>
+                {stats.new_leads_7d} new lead{stats.new_leads_7d === 1 ? "" : "s"} this week
+              </Text>
+              <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.9)" }}>Follow up before they go cold</Text>
+            </View>
+            <ArrowRight size={18} color="rgba(255,255,255,0.9)" />
+          </GradientCard>
+        </FadeIn>
       )}
 
       {/* Briefing */}
-      <BriefingWidget businessId={business.id} onItemPress={() => router.push("/assistant" as never)} />
+      <FadeIn delay={320}>
+        <BriefingWidget businessId={business.id} onItemPress={() => router.push("/assistant" as never)} />
+      </FadeIn>
 
       {/* Tasks */}
-      <TasksWidget businessId={business.id} />
+      <FadeIn delay={360}>
+        <TasksWidget businessId={business.id} />
+      </FadeIn>
 
       {/* Operations */}
-      <OutlookWidget businessId={business.id} />
+      <FadeIn delay={400}>
+        <OutlookWidget businessId={business.id} />
+      </FadeIn>
     </ScrollView>
   );
 }
 
-function Stat({ icon, label, value, accent }: { icon: React.ReactNode; label: string; value: string; accent?: string }) {
+function GradientStat({ gradient, icon, label, value, valueColor, labelColor }: {
+  gradient: "softTeal" | "softRose" | "softBlue" | "softViolet" | "softAmber";
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  valueColor: string;
+  labelColor: string;
+}) {
   return (
-    <View style={{
-      flexBasis: "48%", flexGrow: 1,
-      padding: space.md, borderRadius: radius.lg,
-      backgroundColor: colors.card, borderWidth: 1, borderColor: colors.hairline,
-      gap: 4,
-    }}>
+    <LinearGradient
+      colors={gradients[gradient] as unknown as readonly [string, string, ...string[]]}
+      start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+      style={{
+        padding: space.md,
+        borderRadius: radius.lg,
+        gap: 6,
+        minHeight: 92,
+      }}
+    >
       <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
         {icon}
-        <Text style={{ fontSize: 11, fontWeight: "600", color: colors.muted, textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</Text>
+        <Text style={{ fontSize: 11, fontWeight: "700", color: labelColor, textTransform: "uppercase", letterSpacing: 0.6 }}>{label}</Text>
       </View>
-      <Text style={{ fontSize: 22, fontWeight: "700", color: accent ?? colors.text, letterSpacing: -0.5 }}>{value}</Text>
-    </View>
+      <Text style={{ fontSize: 22, fontWeight: "800", color: valueColor, letterSpacing: -0.5, marginTop: 2 }}>{value}</Text>
+    </LinearGradient>
   );
 }
 
@@ -212,3 +285,4 @@ function greeting(): string {
   if (h < 18) return "Good afternoon";
   return "Good evening";
 }
+
