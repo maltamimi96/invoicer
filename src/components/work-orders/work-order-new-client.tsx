@@ -102,6 +102,18 @@ export function WorkOrderNewClient({
 
         // Auto-select single site
         if (!siteId && s.length === 1) setSiteId(s[0].id);
+
+        // Prefill property address from the customer record itself if:
+        //  - no site has been auto-selected (the site effect below would overwrite this anyway)
+        //  - the address field is currently empty (don't stomp on user input)
+        if (s.length !== 1 && !propertyAddress.trim()) {
+          const cust = customers.find((x) => x.id === accountId);
+          if (cust) {
+            const composed = [cust.address, cust.city, cust.state, cust.postcode, cust.country]
+              .filter(Boolean).join(", ");
+            if (composed) setPropertyAddress(composed);
+          }
+        }
       } catch (e) {
         console.error("Failed to load account context", e);
       } finally {

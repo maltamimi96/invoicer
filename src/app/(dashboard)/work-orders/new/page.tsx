@@ -25,7 +25,12 @@ export default async function NewWorkOrderPage({ searchParams }: { searchParams:
   if (!canEdit(userRole)) redirect("/work-orders");
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: customersRaw } = await (supabase as any).from("customers").select("id, name, company, email").eq("business_id", businessId).eq("archived", false).order("name");
+  const { data: customersRaw } = await (supabase as any)
+    .from("customers")
+    .select("id, name, company, email, phone, address, city, state, postcode, country")
+    .eq("business_id", businessId)
+    .eq("archived", false)
+    .order("name");
   const customers = (customersRaw ?? []) as Customer[];
   const profiles = await getAssignableProfiles().catch(() => []) as Pick<MemberProfile, 'id' | 'name' | 'email' | 'avatar_url' | 'role_title'>[];
 
