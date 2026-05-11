@@ -28,7 +28,7 @@ export default function RecurringList() {
       .from("recurring_jobs")
       .select("id, title, cadence, active, next_due_date, customers(name)")
       .eq("business_id", active.id)
-      .order("next_due_date", { ascending: true, nullsFirst: false });
+      .order("next_due_date", { ascending: true, nullsFirst: false }).limit(100);
     setItems((data ?? []) as unknown as RecurringRow[]);
   };
 
@@ -57,6 +57,10 @@ export default function RecurringList() {
         </View>
       ) : (
         <FlatList
+          initialNumToRender={12}
+          maxToRenderPerBatch={12}
+          windowSize={7}
+          removeClippedSubviews
           data={items}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ paddingHorizontal: space.lg, paddingBottom: space.xxl }}

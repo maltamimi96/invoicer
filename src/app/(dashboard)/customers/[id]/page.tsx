@@ -36,6 +36,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
         notes={notes}
         billingProfiles={billingProfiles}
         currency={business.currency}
+        businessCountry={business.country ?? null}
       />
     );
   } catch {

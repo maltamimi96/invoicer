@@ -6,13 +6,13 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import type { Business } from "@/types/database";
 
+import { getUser } from "@/lib/auth";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (supabase: Awaited<ReturnType<typeof createClient>>, name: string) => (supabase as any).from(name);
 
 export async function getBusinesses(): Promise<Business[]> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const { data, error } = await tbl(supabase, "businesses")
     .select("*")
@@ -24,8 +24,7 @@ export async function getBusinesses(): Promise<Business[]> {
 
 export async function getBusiness(): Promise<Business> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
   const { data, error } = await tbl(supabase, "businesses").select("*").eq("id", businessId).single();
@@ -36,8 +35,7 @@ export async function getBusiness(): Promise<Business> {
 export async function setActiveBusiness(businessId: string): Promise<void> {
   // Verify the business belongs to the current user before setting cookie
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   // Allow if user owns the business OR is an active member
   const { data: owned } = await tbl(supabase, "businesses")
@@ -77,8 +75,7 @@ export async function createBusiness(payload: {
   currency?: string;
 }): Promise<Business> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const { data, error } = await tbl(supabase, "businesses")
     .insert({
@@ -112,8 +109,7 @@ export async function createBusiness(payload: {
 
 export async function updateBusiness(payload: Partial<Business>): Promise<Business> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -140,8 +136,7 @@ export async function savePdfSettings(
   }
 ): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -179,8 +174,7 @@ export async function savePdfSettings(
 
 export async function uploadLogo(formData: FormData): Promise<string> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 

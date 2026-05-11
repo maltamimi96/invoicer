@@ -9,13 +9,13 @@ import { createQuote } from "@/lib/actions/quotes";
 import { createWorkOrder } from "@/lib/actions/work-orders";
 import type { Lead, LeadStatus } from "@/types/database";
 
+import { getUser } from "@/lib/auth";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: any, name: string) => sb.from(name);
 
 export async function getLeads(filters?: { status?: LeadStatus }): Promise<Lead[]> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -33,8 +33,7 @@ export async function getLeads(filters?: { status?: LeadStatus }): Promise<Lead[
 
 export async function getLead(id: string): Promise<Lead> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -65,8 +64,7 @@ export async function createLead(payload: {
   utm_campaign?: string | null;
 }): Promise<Lead> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -108,8 +106,7 @@ export async function createLead(payload: {
 
 export async function updateLeadStatus(id: string, status: LeadStatus): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -125,8 +122,7 @@ export async function updateLeadStatus(id: string, status: LeadStatus): Promise<
 
 export async function updateLead(id: string, updates: Partial<Lead>): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -234,8 +230,7 @@ export async function convertLeadToWorkOrder(
 
 export async function deleteLead(id: string): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 

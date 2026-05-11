@@ -20,6 +20,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 
+import { getUser } from "@/lib/auth";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: any, name: string) => sb.from(name);
 
@@ -135,8 +136,7 @@ export async function proposeCleanup(entity: CleanupEntity): Promise<{
 
 async function proposeCustomerCleanup() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
   const { data: rows, error } = await tbl(supabase, "customers")
@@ -309,8 +309,7 @@ export async function applyCleanup(
   selected_ids: string[],
 ): Promise<{ run_id: string; applied: number }> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
   const selected = proposals.filter((p) => selected_ids.includes(p.change_id));
@@ -437,8 +436,7 @@ export async function applyCleanup(
 
 export async function undoCleanup(run_id: string): Promise<{ reverted: number }> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
   const { data: run, error: runErr } = await tbl(supabase, "cleanup_runs")
@@ -506,8 +504,7 @@ export async function undoCleanup(run_id: string): Promise<{ reverted: number }>
 
 async function pullRows(table: string, select: string = "*", filterArchived = true) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
   let q = tbl(supabase, table).select(select).eq("business_id", businessId);

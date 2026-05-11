@@ -1,6 +1,9 @@
 import type { Metadata, Viewport } from "next";
 
-export const dynamic = "force-dynamic";
+// Note: deliberately NOT setting `export const dynamic = "force-dynamic"` here.
+// Auth pages, dashboard, etc. become dynamic automatically via cookies()/headers()
+// inside their server components. Forcing it globally killed static/PPR caching
+// on every route (marketing, auth shells, etc.).
 
 export const viewport: Viewport = {
   themeColor: "#2563eb",

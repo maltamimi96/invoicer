@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 
+import { getUser } from "@/lib/auth";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: any, name: string) => sb.from(name);
 
@@ -49,8 +50,7 @@ const num = (v: unknown) => {
 
 export async function getBusinessAnalytics(range: AnalyticsRange = "90d"): Promise<AnalyticsPayload> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
   const { from, to, label } = rangeBounds(range);

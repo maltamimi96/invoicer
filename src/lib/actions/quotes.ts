@@ -10,20 +10,28 @@ import { quoteEmailHtml } from "@/lib/emails/quote";
 import { randomBytes } from "node:crypto";
 import type { Customer, Quote, QuoteWithCustomer, Invoice, LineItem } from "@/types/database";
 
+import { getUser } from "@/lib/auth";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: Awaited<ReturnType<typeof createClient>>, name: string) => (sb as any).from(name);
 
-export async function getQuotes(filters?: { status?: string; customer_id?: string }): Promise<QuoteWithCustomer[]> {
+export async function getQuotes(filters?: { status?: string; customer_id?: string; limit?: number }): Promise<QuoteWithCustomer[]> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
+  // Slim list columns — list pages don't need line_items/notes/terms; the
+  // JSONB line_items is the dominant payload cost.
   let query = tbl(supabase, "quotes")
-    .select("*, customers(id, name, email, company)")
+    .select(`
+      id, user_id, number, status, customer_id,
+      issue_date, expiry_date, total, invoice_id,
+      created_at, updated_at,
+      customers(id, name, email, company)
+    `)
     .eq("business_id", businessId)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(filters?.limit ?? 200);
 
   if (filters?.status) query = query.eq("status", filters.status);
   if (filters?.customer_id) query = query.eq("customer_id", filters.customer_id);
@@ -35,8 +43,7 @@ export async function getQuotes(filters?: { status?: string; customer_id?: strin
 
 export async function getQuote(id: string) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -51,20 +58,15 @@ export async function getQuote(id: string) {
 
 export async function createQuote(payload: Omit<Quote, "id" | "created_at" | "updated_at" | "user_id" | "number">): Promise<Quote> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
-  const { data: business } = await tbl(supabase, "businesses")
-    .select("quote_prefix, quote_next_number")
-    .eq("id", businessId)
-    .single();
-
-  const number = `${business?.quote_prefix ?? "QUO"}-${String(business?.quote_next_number ?? 1).padStart(4, "0")}`;
-  await tbl(supabase, "businesses")
-    .update({ quote_next_number: (business?.quote_next_number ?? 1) + 1 })
-    .eq("id", businessId);
+  // Atomic mint — one round-trip, race-safe
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: number, error: mintErr } = await (supabase as any)
+    .rpc("next_quote_number", { p_business_id: businessId });
+  if (mintErr || !number) throw mintErr ?? new Error("Couldn't mint quote number");
 
   const { data, error } = await tbl(supabase, "quotes")
     .insert({ ...payload, user_id: user.id, business_id: businessId, number })
@@ -79,8 +81,7 @@ export async function createQuote(payload: Omit<Quote, "id" | "created_at" | "up
 
 export async function updateQuote(id: string, payload: Partial<Quote>): Promise<Quote> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -98,8 +99,7 @@ export async function updateQuote(id: string, payload: Partial<Quote>): Promise<
 
 export async function deleteQuote(id: string): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -134,8 +134,7 @@ export async function duplicateQuote(id: string): Promise<Quote> {
 
 export async function convertQuoteToInvoice(quoteId: string): Promise<Invoice> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -193,8 +192,7 @@ export async function convertQuoteToInvoice(quoteId: string): Promise<Invoice> {
 
 export async function sendQuoteEmail(id: string, opts?: { recipients?: string[]; subject?: string }): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const [quoteData, businessData] = await Promise.all([
     getQuote(id),
@@ -275,8 +273,7 @@ export async function sendQuoteEmail(id: string, opts?: { recipients?: string[];
 
 export async function sendQuoteSms(id: string, opts: { to: string; body?: string }): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
   const quoteData = await getQuote(id);

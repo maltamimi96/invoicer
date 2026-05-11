@@ -45,7 +45,7 @@ export default function ProductsList() {
       .select("id, name, description, unit_price, tax_rate, unit")
       .eq("business_id", active.id)
       .eq("archived", false)
-      .order("name", { ascending: true });
+      .order("name", { ascending: true }).limit(100);
     setProducts((data ?? []) as Product[]);
   };
 
@@ -84,6 +84,10 @@ export default function ProductsList() {
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}><ActivityIndicator color={colors.primary} /></View>
       ) : (
         <FlatList
+          initialNumToRender={12}
+          maxToRenderPerBatch={12}
+          windowSize={7}
+          removeClippedSubviews
           data={products}
           keyExtractor={(p) => p.id}
           contentContainerStyle={{ padding: space.lg, gap: space.sm }}

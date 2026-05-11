@@ -25,6 +25,7 @@ import type {
   Site, AccountContact, AccountContactRole,
 } from "@/types/database";
 
+import { getUser } from "@/lib/auth";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: Awaited<ReturnType<typeof createClient>>, name: string) => (sb as any).from(name);
 
@@ -156,8 +157,7 @@ export async function deleteCustomerContact(id: string, customerId: string): Pro
 
 export async function getCustomerNotes(customerId: string): Promise<CustomerNote[]> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
   const { data, error } = await tbl(supabase, "customer_notes")
@@ -171,8 +171,7 @@ export async function getCustomerNotes(customerId: string): Promise<CustomerNote
 
 export async function createCustomerNote(customerId: string, content: string): Promise<CustomerNote> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
   const { data, error } = await tbl(supabase, "customer_notes")
@@ -186,8 +185,7 @@ export async function createCustomerNote(customerId: string, content: string): P
 
 export async function deleteCustomerNote(id: string, customerId: string): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
   const { error } = await tbl(supabase, "customer_notes")

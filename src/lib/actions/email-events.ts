@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import type { EmailDocType } from "@/lib/email";
 
+import { getUser } from "@/lib/auth";
 export interface EmailEvent {
   id: string;
   business_id: string;
@@ -30,8 +31,7 @@ export async function getDeliveryStatus(
   doc_id: string,
 ): Promise<EmailEvent[]> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

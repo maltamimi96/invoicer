@@ -6,13 +6,13 @@ import { getActiveBizId } from "@/lib/active-business";
 import { logJobEvent } from "./job-timeline";
 import type { JobDocument } from "@/types/database";
 
+import { getUser } from "@/lib/auth";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: Awaited<ReturnType<typeof createClient>>, name: string) => (sb as any).from(name);
 
 async function ctx() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
   return { supabase, user, businessId };
 }

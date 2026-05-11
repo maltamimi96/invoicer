@@ -85,7 +85,7 @@ export default function LeadsList() {
       .from("leads")
       .select("id, name, status, source, suburb, email, phone, service, created_at")
       .eq("business_id", active.id)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false }).limit(100);
     setLeads((data ?? []) as LeadRow[]);
   };
 
@@ -157,6 +157,10 @@ export default function LeadsList() {
         />
       ) : (
         <FlatList
+          initialNumToRender={12}
+          maxToRenderPerBatch={12}
+          windowSize={7}
+          removeClippedSubviews
           data={filtered!}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ paddingHorizontal: space.lg, paddingBottom: space.xxl }}

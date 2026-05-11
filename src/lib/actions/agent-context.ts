@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 
+import { getUser } from "@/lib/auth";
 export interface AgentContextPacket {
   business: { name: string; currency: string; phone: string | null; email: string | null; license_number: string | null };
   current_page: string;
@@ -30,8 +31,7 @@ const num = (v: unknown) => { const n = typeof v === "number" ? v : parseFloat(S
  *  Keep this lightweight — it runs on every chat turn. */
 export async function getAgentContext(currentPage = "/"): Promise<AgentContextPacket> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
   const today    = new Date().toISOString().split("T")[0];

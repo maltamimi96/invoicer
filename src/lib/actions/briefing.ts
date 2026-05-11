@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveBizId } from "@/lib/active-business";
 
+import { getUser } from "@/lib/auth";
 export type BriefingType =
   | "overdue_invoice"
   | "stale_quote"
@@ -67,8 +68,7 @@ async function loadDismissalKeys(
  *  and applies per-user dismissals/snoozes. */
 export async function getMyBriefing(): Promise<BriefingSummary> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
   return _buildBriefing(supabase, businessId, user.id);
@@ -299,8 +299,7 @@ export async function snoozeBriefingItem(input: {
   hours: number;
 }): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
   const snoozedUntil = input.hours > 0

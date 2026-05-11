@@ -5,6 +5,21 @@ const nextConfig: NextConfig = {
     root: __dirname,
   },
   compress: true,
+  // Barrel-import optimisation — without this, importing a single icon from
+  // @phosphor-icons/react drags ~140 icons into the client bundle of every
+  // route that touches @/components/ui/icons. Same story for framer-motion,
+  // lucide-react, date-fns, recharts. With Next's compiler optimisation,
+  // each named import resolves to its individual subpath so only what's
+  // used ships.
+  experimental: {
+    optimizePackageImports: [
+      "@phosphor-icons/react",
+      "lucide-react",
+      "framer-motion",
+      "date-fns",
+      "recharts",
+    ],
+  },
   images: {
     remotePatterns: [
       {
