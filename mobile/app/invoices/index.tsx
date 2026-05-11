@@ -61,7 +61,7 @@ export default function InvoicesList() {
       .from("invoices")
       .select("id, number, status, total, amount_paid, due_date, issue_date, customers(name)")
       .eq("business_id", active.id)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false }).limit(100);
     setInvoices((data ?? []) as unknown as InvoiceRow[]);
   };
 
@@ -117,6 +117,10 @@ export default function InvoicesList() {
         />
       ) : (
         <FlatList
+          initialNumToRender={12}
+          maxToRenderPerBatch={12}
+          windowSize={7}
+          removeClippedSubviews
           data={filtered!}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ paddingHorizontal: space.lg, paddingBottom: space.xxl }}

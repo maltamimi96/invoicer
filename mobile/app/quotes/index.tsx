@@ -58,7 +58,7 @@ export default function QuotesList() {
       .from("quotes")
       .select("id, number, status, total, issue_date, expiry_date, customers(name)")
       .eq("business_id", active.id)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false }).limit(100);
     setQuotes((data ?? []) as unknown as QuoteRow[]);
   };
 
@@ -110,6 +110,10 @@ export default function QuotesList() {
         />
       ) : (
         <FlatList
+          initialNumToRender={12}
+          maxToRenderPerBatch={12}
+          windowSize={7}
+          removeClippedSubviews
           data={filtered!}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ paddingHorizontal: space.lg, paddingBottom: space.xxl }}

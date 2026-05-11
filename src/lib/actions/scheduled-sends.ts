@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 
+import { getUser } from "@/lib/auth";
 export interface ScheduledSend {
   id: string;
   business_id: string;
@@ -39,8 +40,7 @@ export async function scheduleSend(input: {
   body?: string;
 }): Promise<ScheduledSend> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
   const sendAtDate = new Date(input.send_at);
@@ -81,8 +81,7 @@ export async function scheduleSend(input: {
 
 export async function getScheduledSends(doc_type: "invoice" | "quote", doc_id: string): Promise<ScheduledSend[]> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
   const { data, error } = await tbl(supabase, "scheduled_sends")
@@ -97,8 +96,7 @@ export async function getScheduledSends(doc_type: "invoice" | "quote", doc_id: s
 
 export async function cancelScheduledSend(id: string): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
   const { data: row } = await tbl(supabase, "scheduled_sends")

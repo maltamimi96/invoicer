@@ -10,20 +10,29 @@ import { appUrl } from "@/lib/app-url";
 import { randomBytes } from "node:crypto";
 import type { Customer, Invoice, InvoiceWithCustomer, LineItem, Payment } from "@/types/database";
 
+import { getUser } from "@/lib/auth";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: Awaited<ReturnType<typeof createClient>>, name: string) => (sb as any).from(name);
 
-export async function getInvoices(filters?: { status?: string; customer_id?: string }): Promise<InvoiceWithCustomer[]> {
+export async function getInvoices(filters?: { status?: string; customer_id?: string; limit?: number }): Promise<InvoiceWithCustomer[]> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
+  // Slim list-view columns only — list pages don't need line_items/notes/terms
+  // and pulling the JSONB line_items per row was the bulk of payload size.
+  // Includes the columns the Invoice type declares minus the heavy ones.
   let query = tbl(supabase, "invoices")
-    .select("*, customers(id, name, email, company)")
+    .select(`
+      id, user_id, number, status, customer_id,
+      issue_date, due_date, total, amount_paid,
+      parent_invoice_id, created_at, updated_at,
+      customers(id, name, email, company)
+    `)
     .eq("business_id", businessId)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(filters?.limit ?? 200);
 
   if (filters?.status) query = query.eq("status", filters.status);
   if (filters?.customer_id) query = query.eq("customer_id", filters.customer_id);
@@ -35,8 +44,7 @@ export async function getInvoices(filters?: { status?: string; customer_id?: str
 
 export async function getInvoice(id: string) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -51,20 +59,15 @@ export async function getInvoice(id: string) {
 
 export async function createInvoice(payload: Omit<Invoice, "id" | "created_at" | "updated_at" | "user_id" | "number">): Promise<Invoice> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
-  const { data: business } = await tbl(supabase, "businesses")
-    .select("invoice_prefix, invoice_next_number")
-    .eq("id", businessId)
-    .single();
-
-  const number = `${business?.invoice_prefix ?? "INV"}-${String(business?.invoice_next_number ?? 1).padStart(4, "0")}`;
-  await tbl(supabase, "businesses")
-    .update({ invoice_next_number: (business?.invoice_next_number ?? 1) + 1 })
-    .eq("id", businessId);
+  // Atomic mint: one round-trip, race-safe under concurrency.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: number, error: mintErr } = await (supabase as any)
+    .rpc("next_invoice_number", { p_business_id: businessId });
+  if (mintErr || !number) throw mintErr ?? new Error("Couldn't mint invoice number");
 
   const { data, error } = await tbl(supabase, "invoices")
     .insert({ ...payload, user_id: user.id, business_id: businessId, number })
@@ -79,8 +82,7 @@ export async function createInvoice(payload: Omit<Invoice, "id" | "created_at" |
 
 export async function updateInvoice(id: string, payload: Partial<Invoice>): Promise<Invoice> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -99,8 +101,7 @@ export async function updateInvoice(id: string, payload: Partial<Invoice>): Prom
 
 export async function deleteInvoice(id: string): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -141,8 +142,7 @@ export async function duplicateInvoice(id: string): Promise<Invoice> {
  */
 export async function getChildInvoices(parentId: string): Promise<Invoice[]> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
   const { data, error } = await tbl(supabase, "invoices")
@@ -177,8 +177,7 @@ export async function createProgressInvoice(input: {
   }
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
   // Pull parent + existing children to compute remaining
@@ -217,15 +216,11 @@ export async function createProgressInvoice(input: {
       : `${inferredPercent}% progress payment on ${parent.number}`
   );
 
-  // Pull issuing prefix + counter
-  const { data: business } = await tbl(supabase, "businesses")
-    .select("invoice_prefix, invoice_next_number")
-    .eq("id", businessId)
-    .single();
-  const number = `${business?.invoice_prefix ?? "INV"}-${String(business?.invoice_next_number ?? 1).padStart(4, "0")}`;
-  await tbl(supabase, "businesses")
-    .update({ invoice_next_number: (business?.invoice_next_number ?? 1) + 1 })
-    .eq("id", businessId);
+  // Atomic mint
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: number, error: mintErr } = await (supabase as any)
+    .rpc("next_invoice_number", { p_business_id: businessId });
+  if (mintErr || !number) throw mintErr ?? new Error("Couldn't mint invoice number");
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -328,8 +323,7 @@ export async function createProgressInvoice(input: {
 
 export async function addPayment(invoiceId: string, payment: { amount: number; date: string; method?: string; reference?: string; notes?: string }): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -437,8 +431,7 @@ export async function getPayments(invoiceId: string): Promise<Payment[]> {
 
 export async function getDashboardStats() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -479,8 +472,7 @@ export async function getDashboardStats() {
 
 export async function sendInvoiceEmail(id: string, opts?: { recipients?: string[]; subject?: string }): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const [invoiceData, businessData] = await Promise.all([
     getInvoice(id),
@@ -561,8 +553,7 @@ export async function sendInvoiceEmail(id: string, opts?: { recipients?: string[
 
 export async function sendInvoiceSms(id: string, opts: { to: string; body?: string }): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
   const invoiceData = await getInvoice(id);

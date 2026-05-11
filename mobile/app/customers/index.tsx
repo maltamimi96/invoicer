@@ -34,7 +34,7 @@ export default function CustomersList() {
       .select("id, name, company, email, phone")
       .eq("business_id", active.id)
       .eq("archived", false)
-      .order("name", { ascending: true });
+      .order("name", { ascending: true }).limit(100);
     setCustomers((data ?? []) as CustomerRow[]);
   };
 
@@ -112,6 +112,10 @@ export default function CustomersList() {
         />
       ) : (
         <FlatList
+          initialNumToRender={12}
+          maxToRenderPerBatch={12}
+          windowSize={7}
+          removeClippedSubviews
           data={filtered!}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ paddingHorizontal: space.lg, paddingBottom: space.xxl }}

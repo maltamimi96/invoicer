@@ -10,20 +10,30 @@ import { getRecipientsForRoles } from "@/lib/notifications/recipients";
 import { logJobEvent } from "./job-timeline";
 import type { WorkOrder, WorkOrderPhoto, WorkOrderStatus, WorkOrderWithCustomer } from "@/types/database";
 
+import { getUser } from "@/lib/auth";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: Awaited<ReturnType<typeof createClient>>, name: string) => (sb as any).from(name);
 
-export async function getWorkOrders(filters?: { status?: WorkOrderStatus; customer_id?: string }): Promise<WorkOrderWithCustomer[]> {
+export async function getWorkOrders(filters?: { status?: WorkOrderStatus; customer_id?: string; limit?: number }): Promise<WorkOrderWithCustomer[]> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
+  // Slim list columns — list pages don't need photos (huge JSONB), worker_notes,
+  // scope_of_work, etc. Default 200-row cap.
   let query = tbl(supabase, "work_orders")
-    .select("*, customers(id, name, email, company)")
+    .select(`
+      id, business_id, user_id, number, title, customer_id,
+      property_address, status, scheduled_date, start_time, end_time,
+      site_id, share_token, share_enabled_at, recurring_job_id,
+      assigned_to, assigned_to_email, assigned_to_profile_id,
+      created_at, updated_at,
+      customers(id, name, email, company)
+    `)
     .eq("business_id", businessId)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(filters?.limit ?? 200);
 
   if (filters?.status) query = query.eq("status", filters.status);
   if (filters?.customer_id) query = query.eq("customer_id", filters.customer_id);
@@ -35,8 +45,7 @@ export async function getWorkOrders(filters?: { status?: WorkOrderStatus; custom
 
 export async function getWorkOrder(id: string): Promise<WorkOrderWithCustomer> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -70,8 +79,7 @@ export async function createWorkOrder(payload: {
   reported_issue?: string | null;
 }): Promise<WorkOrder> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -161,8 +169,7 @@ export async function updateWorkOrder(id: string, payload: Partial<Pick<WorkOrde
   'scope_of_work' | 'worker_notes'
 >> & { member_profile_ids?: string[] }): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -220,8 +227,7 @@ export async function updateWorkOrder(id: string, payload: Partial<Pick<WorkOrde
 
 export async function updateWorkOrderStatus(id: string, status: WorkOrderStatus): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -255,8 +261,7 @@ export async function updateWorkOrderStatus(id: string, status: WorkOrderStatus)
 
 export async function updateWorkOrderPhotos(id: string, photos: WorkOrderPhoto[]): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -270,8 +275,7 @@ export async function updateWorkOrderPhotos(id: string, photos: WorkOrderPhoto[]
 
 export async function submitWorkOrder(id: string, workerNotes: string): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -323,8 +327,7 @@ export interface RelatedInvoice {
 /** Fetch quotes & invoices linked to a work order via work_order_id. */
 export async function getWorkOrderFinancials(workOrderId: string): Promise<{ quotes: RelatedQuote[]; invoices: RelatedInvoice[] }> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
   const [qRes, iRes] = await Promise.all([
@@ -353,8 +356,7 @@ export async function linkFinancialToWorkOrder(
   workOrderId: string | null,
 ): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
   const table = kind === "quote" ? "quotes" : "invoices";
@@ -368,8 +370,7 @@ export async function linkFinancialToWorkOrder(
 
 export async function getTodayWorkOrders(): Promise<WorkOrderWithCustomer[]> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
   const today = new Date().toISOString().split("T")[0];
@@ -389,8 +390,7 @@ export async function getTodayWorkOrders(): Promise<WorkOrderWithCustomer[]> {
 
 export async function deleteWorkOrder(id: string): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -426,8 +426,7 @@ export async function deleteWorkOrder(id: string): Promise<void> {
 
 export async function enableWorkOrderShareLink(id: string): Promise<{ token: string }> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
   const { data: existing } = await tbl(supabase, "work_orders")
@@ -447,8 +446,7 @@ export async function enableWorkOrderShareLink(id: string): Promise<{ token: str
 
 export async function disableWorkOrderShareLink(id: string): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
   const { error } = await tbl(supabase, "work_orders")
     .update({ share_token: null, share_enabled_at: null })
@@ -465,8 +463,7 @@ export async function invoiceUnbilledForWorkOrder(
   options: { hourly_rate?: number; include_travel?: boolean; due_in_days?: number } = {},
 ): Promise<{ invoice_id: string; invoice_number: string; subtotal: number }> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
   const hourlyRate = Math.max(0, options.hourly_rate ?? 0);

@@ -48,7 +48,7 @@ export default function WorkOrdersList() {
       .from("work_orders")
       .select("id, number, title, status, scheduled_date, customers(name)")
       .eq("business_id", active.id)
-      .order("scheduled_date", { ascending: false, nullsFirst: false });
+      .order("scheduled_date", { ascending: false, nullsFirst: false }).limit(100);
     setRows((data ?? []) as unknown as Row[]);
   };
 
@@ -88,6 +88,10 @@ export default function WorkOrdersList() {
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}><ActivityIndicator color={colors.primary} /></View>
       ) : (
         <FlatList
+          initialNumToRender={12}
+          maxToRenderPerBatch={12}
+          windowSize={7}
+          removeClippedSubviews
           data={filtered ?? []}
           keyExtractor={(r) => r.id}
           contentContainerStyle={{ padding: space.lg, gap: space.sm }}

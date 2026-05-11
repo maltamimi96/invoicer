@@ -8,6 +8,7 @@ import { sendEmail } from "@/lib/email";
 import { teamInviteEmailHtml } from "@/lib/emails/team-invite";
 import type { MemberProfile, MemberRole } from "@/types/database";
 
+import { getUser } from "@/lib/auth";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: Awaited<ReturnType<typeof createClient>>, name: string) => (sb as any).from(name);
 
@@ -21,8 +22,7 @@ async function getCallerRole(supabase: Awaited<ReturnType<typeof createClient>>,
 
 export async function getMemberProfiles(): Promise<MemberProfile[]> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
   const { data, error } = await tbl(supabase, "member_profiles")
@@ -35,8 +35,7 @@ export async function getMemberProfiles(): Promise<MemberProfile[]> {
 
 export async function getAssignableProfiles(): Promise<Pick<MemberProfile, 'id' | 'name' | 'email' | 'avatar_url' | 'role_title'>[]> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
   const { data, error } = await tbl(supabase, "member_profiles")
@@ -71,8 +70,7 @@ export async function createMemberProfile(payload: {
   role?: MemberRole;
 }): Promise<MemberProfile> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
   const callerRole = await getCallerRole(supabase, user.id, businessId);
@@ -162,8 +160,7 @@ export async function updateMemberProfile(
   payload: Partial<Pick<MemberProfile, 'name' | 'phone' | 'avatar_url' | 'role_title' | 'skills' | 'bio' | 'is_active'>>
 ): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
   const callerRole = await getCallerRole(supabase, user.id, businessId);
@@ -187,8 +184,7 @@ export async function updateMemberProfile(
 
 export async function deleteMemberProfile(profileId: string): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
   const callerRole = await getCallerRole(supabase, user.id, businessId);
@@ -206,8 +202,7 @@ export async function deleteMemberProfile(profileId: string): Promise<void> {
 
 export async function uploadMemberAvatar(profileId: string, formData: FormData): Promise<string> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 

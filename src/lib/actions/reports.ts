@@ -6,13 +6,13 @@ import { getActiveBizId } from "@/lib/active-business";
 import type { Report, ReportWithCustomer, ReportSection, ReportPhoto, Customer } from "@/types/database";
 import { getDefaultSections } from "@/lib/templates/roof-inspection";
 
+import { getUser } from "@/lib/auth";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: Awaited<ReturnType<typeof createClient>>, name: string) => (sb as any).from(name);
 
 export async function getReports(filters?: { customer_id?: string }): Promise<ReportWithCustomer[]> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -30,8 +30,7 @@ export async function getReports(filters?: { customer_id?: string }): Promise<Re
 
 export async function getReport(id: string): Promise<Report & { customers: Customer | null }> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -54,8 +53,7 @@ export async function createReport(payload: {
   meta?: Partial<Report["meta"]>;
 }): Promise<Report> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -93,8 +91,7 @@ export async function createReport(payload: {
  *  The new report appends "(copy)" to the title and gets today's report_date. */
 export async function duplicateReport(id: string): Promise<Report> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
   const { data: src, error: srcErr } = await tbl(supabase, "reports")
@@ -124,8 +121,7 @@ export async function duplicateReport(id: string): Promise<Report> {
 
 export async function updateReport(id: string, payload: Partial<Omit<Report, "id" | "user_id" | "created_at" | "updated_at">>): Promise<Report> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -143,8 +139,7 @@ export async function updateReport(id: string, payload: Partial<Omit<Report, "id
 
 export async function updateReportSection(reportId: string, sectionId: string, content: string): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -172,8 +167,7 @@ export async function updateReportSection(reportId: string, sectionId: string, c
 
 export async function updateReportPhotos(reportId: string, photos: ReportPhoto[]): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -188,8 +182,7 @@ export async function updateReportPhotos(reportId: string, photos: ReportPhoto[]
 
 export async function updateReportMeta(reportId: string, meta: Partial<Report["meta"]>): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -212,8 +205,7 @@ export async function updateReportMeta(reportId: string, meta: Partial<Report["m
 
 export async function updateReportStatus(id: string, status: Report["status"]): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -229,8 +221,7 @@ export async function updateReportStatus(id: string, status: Report["status"]): 
 
 export async function deleteReport(id: string): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 

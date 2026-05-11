@@ -8,6 +8,7 @@ import { sendEmail } from "@/lib/email";
 import { teamInviteEmailHtml } from "@/lib/emails/team-invite";
 import type { BusinessMember, MemberRole } from "@/types/database";
 
+import { getUser } from "@/lib/auth";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: Awaited<ReturnType<typeof createClient>>, name: string) => (sb as any).from(name);
 
@@ -25,8 +26,7 @@ async function getCallerRole(supabase: Awaited<ReturnType<typeof createClient>>,
 
 export async function getMembers(): Promise<BusinessMember[]> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -40,8 +40,7 @@ export async function getMembers(): Promise<BusinessMember[]> {
 
 export async function addMember(email: string, role: MemberRole): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
   const callerRole = await getCallerRole(supabase, user.id, businessId);
@@ -105,8 +104,7 @@ function generateInviteCode(): string {
  *  Settings UI can show "Copy code" next to a pending member. */
 export async function getMemberInviteCode(memberId: string): Promise<string | null> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
   const callerRole = await getCallerRole(supabase, user.id, businessId);
   if (!canManageTeam(callerRole)) throw new Error("Only owners and admins can view invite codes");
@@ -131,8 +129,7 @@ export async function getMemberInviteCode(memberId: string): Promise<string | nu
 
 export async function updateMemberRole(memberId: string, newRole: MemberRole): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
   const callerRole = await getCallerRole(supabase, user.id, businessId);
@@ -160,8 +157,7 @@ export async function updateMemberRole(memberId: string, newRole: MemberRole): P
 
 export async function removeMember(memberId: string): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
   const callerRole = await getCallerRole(supabase, user.id, businessId);

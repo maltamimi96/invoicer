@@ -1,13 +1,14 @@
 import { redirect } from "next/navigation";
 import { cookies, headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { getUserOrNull } from "@/lib/auth";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { isWorker, isPathAllowedForWorker, type Role } from "@/lib/permissions";
 import type { Business } from "@/types/database";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserOrNull();
 
   if (!user) redirect("/auth/login");
 
@@ -45,12 +46,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
     userRole = (membership?.role ?? "viewer") as Role;
   }
 
-  // Idempotent profile link: if a member_profile exists for this user's email
-  // in the active business, point its user_id at the auth user.
-  // Best-effort — the function is SECURITY DEFINER and a no-op if nothing matches.
-  // (Supabase's PostgrestFilterBuilder is thenable but doesn't expose .catch,
-  //  so we wrap in try/catch instead.)
-  try { await sb.rpc("link_my_member_profile"); } catch { /* non-fatal */ }
+  // Idempotent profile link — fire-and-forget so it doesn't block render.
+  // The function is SECURITY DEFINER and a no-op if nothing matches, so
+  // we don't care about its completion timing.
+  void sb.rpc("link_my_member_profile").then(() => undefined, () => undefined);
 
   // Redirect workers away from pages they shouldn't see
   if (isWorker(userRole)) {

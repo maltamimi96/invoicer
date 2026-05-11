@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import type { ScheduledJob, WorkOrderStatus } from "@/types/database";
 
+import { getUser } from "@/lib/auth";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: any, name: string) => sb.from(name);
 
@@ -21,8 +22,7 @@ const JOB_SELECT = `
 
 export async function getScheduledJobs(startDate: string, endDate: string): Promise<ScheduledJob[]> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
   const { data, error } = await tbl(supabase, "work_orders")
@@ -50,8 +50,7 @@ export async function createScheduledJob(payload: {
   member_profile_ids?: string[];
 }): Promise<ScheduledJob> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
   // Get next work order number
@@ -112,8 +111,7 @@ export async function updateScheduledJob(id: string, updates: {
   member_profile_ids?: string[];
 }): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
   const { member_profile_ids, ...fields } = updates;
@@ -137,8 +135,7 @@ export async function updateScheduledJob(id: string, updates: {
 
 export async function deleteScheduledJob(id: string): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
   const { error } = await tbl(supabase, "work_orders")
@@ -156,8 +153,7 @@ export async function rescheduleJob(
   payload: { scheduled_date: string; start_time?: string | null; end_time?: string | null; assignee_profile_ids?: string[] }
 ): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
   const fields: Record<string, unknown> = { scheduled_date: payload.scheduled_date };

@@ -8,13 +8,13 @@ import { canManageSettings, type Role } from "@/lib/permissions";
 import { testImapConnection } from "@/lib/email-reader";
 import type { BusinessEmailConfig, EmailProvider } from "@/types/database";
 
+import { getUser } from "@/lib/auth";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: any, name: string) => sb.from(name);
 
 async function getCallerContext() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 

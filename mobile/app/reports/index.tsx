@@ -29,7 +29,7 @@ export default function ReportsList() {
       .from("reports")
       .select("id, title, status, property_address, inspection_date, report_date, customers(name)")
       .eq("business_id", active.id)
-      .order("report_date", { ascending: false });
+      .order("report_date", { ascending: false }).limit(100);
     setReports((data ?? []) as unknown as ReportRow[]);
   };
 
@@ -57,6 +57,10 @@ export default function ReportsList() {
         </View>
       ) : (
         <FlatList
+          initialNumToRender={12}
+          maxToRenderPerBatch={12}
+          windowSize={7}
+          removeClippedSubviews
           data={reports}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ paddingHorizontal: space.lg, paddingBottom: space.xxl }}

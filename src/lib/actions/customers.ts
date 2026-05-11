@@ -6,13 +6,13 @@ import { getActiveBizId } from "@/lib/active-business";
 import { dispatchWebhook } from "@/lib/webhooks";
 import type { Customer } from "@/types/database";
 
+import { getUser } from "@/lib/auth";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: Awaited<ReturnType<typeof createClient>>, name: string) => (sb as any).from(name);
 
 export async function getCustomers(includeArchived = false): Promise<Customer[]> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -31,8 +31,7 @@ export async function getCustomers(includeArchived = false): Promise<Customer[]>
 
 export async function getCustomer(id: string): Promise<Customer> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -51,8 +50,7 @@ type CreateCustomerInput =
 
 export async function createCustomer(payload: CreateCustomerInput): Promise<Customer> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -69,8 +67,7 @@ export async function createCustomer(payload: CreateCustomerInput): Promise<Cust
 
 export async function updateCustomer(id: string, payload: Partial<Customer>): Promise<Customer> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -90,8 +87,7 @@ export async function updateCustomer(id: string, payload: Partial<Customer>): Pr
 
 export async function deleteCustomer(id: string): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -115,8 +111,7 @@ export async function bulkArchiveCustomers(
 ): Promise<{ ok: number }> {
   if (!ids.length) return { ok: 0 };
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
   if (mode === "hard") {
@@ -149,8 +144,7 @@ export async function getCustomerStats(): Promise<Record<string, {
   outstanding: number;
 }>> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
   const { data: invoices, error } = await tbl(supabase, "invoices")
@@ -178,25 +172,39 @@ export async function bulkImportCustomers(
   rows: Array<Omit<Customer, "id" | "created_at" | "updated_at" | "user_id" | "business_id" | "archived">>
 ): Promise<{ imported: number; errors: string[] }> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
   const errors: string[] = [];
   let imported = 0;
 
+  // Validate up-front, then bulk-insert in chunks of 500. One round-trip per
+  // chunk instead of one per row — 100-row CSV used to be 100 sequential
+  // INSERTs, now it's 1.
+  const validRows: Array<Record<string, unknown>> = [];
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
-    if (!row.name?.trim()) { errors.push(`Row ${i + 1}: name is required`); continue; }
-    const { error } = await tbl(supabase, "customers").insert({
+    if (!row.name?.trim()) {
+      errors.push(`Row ${i + 1}: name is required`);
+      continue;
+    }
+    validRows.push({
       ...row,
       name: row.name.trim(),
       user_id: user.id,
       business_id: businessId,
       archived: false,
     });
-    if (error) { errors.push(`Row ${i + 1} (${row.name}): ${error.message}`); continue; }
-    imported++;
+  }
+
+  for (let start = 0; start < validRows.length; start += 500) {
+    const chunk = validRows.slice(start, start + 500);
+    const { error } = await tbl(supabase, "customers").insert(chunk);
+    if (error) {
+      errors.push(`Rows ${start + 1}-${start + chunk.length}: ${error.message}`);
+      continue;
+    }
+    imported += chunk.length;
   }
 
   revalidateTag(`customers-${businessId}`, {});

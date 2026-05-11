@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 
+import { getUser } from "@/lib/auth";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: any, name: string) => (sb as any).from(name);
 
@@ -77,8 +78,7 @@ export interface SmsMessage {
 
 export async function getConversations(): Promise<SmsConversation[]> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
   const { data, error } = await tbl(supabase, "sms_conversations")
@@ -91,8 +91,7 @@ export async function getConversations(): Promise<SmsConversation[]> {
 
 export async function getMessages(conversationId: string): Promise<SmsMessage[]> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
   const { data, error } = await tbl(supabase, "sms_messages")
@@ -111,8 +110,7 @@ export async function sendSms(payload: {
   customerId?: string | null;
 }): Promise<{ conversationId: string; messageId: string }> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
   // Resolve the Sender ID — use the business's saved sms_sender_id if set,
@@ -181,8 +179,7 @@ export async function sendSms(payload: {
 
 export async function markConversationRead(conversationId: string): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
   await tbl(supabase, "sms_conversations")
@@ -197,8 +194,7 @@ export async function startConversation(payload: {
   customerId?: string | null;
 }): Promise<string> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
   // Check if conversation already exists

@@ -5,13 +5,13 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import type { Product } from "@/types/database";
 
+import { getUser } from "@/lib/auth";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: Awaited<ReturnType<typeof createClient>>, name: string) => (sb as any).from(name);
 
 export async function getProducts(includeArchived = false): Promise<Product[]> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -25,8 +25,7 @@ export async function getProducts(includeArchived = false): Promise<Product[]> {
 
 export async function createProduct(payload: Omit<Product, "id" | "created_at" | "updated_at" | "user_id">): Promise<Product> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -41,8 +40,7 @@ export async function createProduct(payload: Omit<Product, "id" | "created_at" |
 
 export async function updateProduct(id: string, payload: Partial<Product>): Promise<Product> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -59,8 +57,7 @@ export async function updateProduct(id: string, payload: Partial<Product>): Prom
 
 export async function deleteProduct(id: string): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
 
@@ -76,8 +73,7 @@ export async function bulkImportProducts(
   rows: Array<Omit<Product, "id" | "created_at" | "updated_at" | "user_id" | "business_id" | "archived">>
 ): Promise<{ imported: number; errors: string[] }> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
   const errors: string[] = [];

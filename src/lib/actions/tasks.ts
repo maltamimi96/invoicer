@@ -10,6 +10,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
+import { getUser } from "@/lib/auth";
 
 export type TaskStatus = "todo" | "in_progress" | "in_review" | "done";
 export type TaskPriority = "low" | "normal" | "high" | "urgent";
@@ -39,10 +40,7 @@ const PRIORITIES = ["low", "normal", "high", "urgent"] as const;
 
 async function ctx() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const user = await getUser();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const businessId = await getActiveBizId(supabase as any, user.id);
   return { supabase, user, businessId };
