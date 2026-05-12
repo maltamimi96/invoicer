@@ -60,8 +60,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
     }
   }
 
+  // Feature flags — kept cheap (single lookup). Used to gate sidebar items.
+  const { data: quotingSettings } = await sb.from("quoting_agent_settings")
+    .select("enabled").eq("business_id", business.id).maybeSingle();
+  const features = {
+    quotingAgent: !!quotingSettings?.enabled,
+  };
+
   return (
-    <DashboardShell business={business} businesses={allBusinesses} user={user} userRole={userRole}>
+    <DashboardShell business={business} businesses={allBusinesses} user={user} userRole={userRole} features={features}>
       {children}
     </DashboardShell>
   );
