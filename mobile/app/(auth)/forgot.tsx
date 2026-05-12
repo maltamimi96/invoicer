@@ -82,7 +82,7 @@ export default function ForgotPassword() {
                   placeholderTextColor={colors.muted}
                   onSubmitEditing={submit}
                   style={{
-                    backgroundColor: "#fafaf3", borderRadius: radius.lg,
+                    backgroundColor: colors.surface2, borderRadius: radius.lg,
                     paddingHorizontal: 14, paddingVertical: 12,
                     fontSize: 15, color: colors.text,
                     borderWidth: 1, borderColor: colors.hairline,

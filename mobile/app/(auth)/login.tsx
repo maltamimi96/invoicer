@@ -91,7 +91,7 @@ export default function Login() {
                   keyboardType="email-address"
                   placeholder="you@example.com"
                   placeholderTextColor={colors.muted}
-                  style={inputStyle}
+                  style={inputStyle()}
                 />
               </Field>
               <Field label="Password">
@@ -101,7 +101,7 @@ export default function Login() {
                   secureTextEntry
                   placeholder="••••••••"
                   placeholderTextColor={colors.muted}
-                  style={inputStyle}
+                  style={inputStyle()}
                   onSubmitEditing={submit}
                 />
               </Field>
@@ -151,8 +151,8 @@ export default function Login() {
   );
 }
 
-const inputStyle = {
-  backgroundColor: "#fafaf3",
+const inputStyle = () => ({
+  backgroundColor: colors.surface2,
   borderRadius: radius.lg,
   paddingHorizontal: 14,
   paddingVertical: 12,
@@ -160,7 +160,7 @@ const inputStyle = {
   color: colors.text,
   borderWidth: 1,
   borderColor: colors.hairline,
-};
+});
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (

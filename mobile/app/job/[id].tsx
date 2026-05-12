@@ -334,7 +334,7 @@ export default function JobDetail() {
               minHeight: 100,
               textAlignVertical: "top",
               borderRadius: radius.md,
-              backgroundColor: "#fafaf3",
+              backgroundColor: colors.surface2,
               padding: 12,
               fontSize: 14,
               color: colors.text,
@@ -351,11 +351,11 @@ export default function JobDetail() {
               paddingHorizontal: 14,
               paddingVertical: 8,
               borderRadius: radius.pill,
-              backgroundColor: colors.text,
+              backgroundColor: colors.primary,
               opacity: pressed || savingNotes || !notes.trim() ? 0.5 : 1,
             })}
           >
-            <Text style={{ color: colors.white, fontWeight: "600", fontSize: 13 }}>
+            <Text style={{ color: "#fff", fontWeight: "700", fontSize: 13 }}>
               {savingNotes ? "Saving…" : "Save notes"}
             </Text>
           </Pressable>
@@ -454,7 +454,7 @@ const center = {
 const backBtn = {
   marginTop: 12,
   paddingHorizontal: 16, paddingVertical: 10,
-  backgroundColor: colors.text, borderRadius: 999,
+  backgroundColor: colors.primary, borderRadius: 999,
 };
 const openMapsBtn = {
   marginTop: 12,
@@ -534,7 +534,7 @@ function PhotoButton({ icon, label, onPress, disabled }: { icon: React.ReactNode
         borderRadius: radius.pill,
         borderWidth: 1,
         borderColor: colors.hairline,
-        backgroundColor: "#fafaf3",
+        backgroundColor: colors.surface2,
         opacity: pressed || disabled ? 0.6 : 1,
       })}
     >

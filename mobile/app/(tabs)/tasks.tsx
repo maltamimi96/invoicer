@@ -215,13 +215,13 @@ function TabPill({ active, label, onPress }: { active: boolean; label: string; o
       style={({ pressed }) => ({
         paddingHorizontal: 12, paddingVertical: 6,
         borderRadius: radius.pill,
-        backgroundColor: active ? colors.text : colors.card,
+        backgroundColor: active ? colors.primary : colors.card,
         borderWidth: 1,
-        borderColor: active ? colors.text : colors.hairline,
+        borderColor: active ? colors.primary : colors.hairline,
         opacity: pressed ? 0.85 : 1,
       })}
     >
-      <Text style={{ fontSize: 12, fontWeight: "700", color: active ? colors.white : colors.muted }}>
+      <Text style={{ fontSize: 12, fontWeight: "700", color: active ? "#fff" : colors.muted }}>
         {label}
       </Text>
     </Pressable>

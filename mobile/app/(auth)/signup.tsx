@@ -158,7 +158,7 @@ export default function SignUp() {
                 autoCorrect={false}
                 placeholder="A1B2C3D4"
                 placeholderTextColor={colors.muted}
-                style={{ ...inputStyle, fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace", letterSpacing: 4, fontSize: 18 }}
+                style={{ ...inputStyle(), fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace", letterSpacing: 4, fontSize: 18 }}
                 maxLength={12}
               />
               {/* Live preview pill */}
@@ -200,7 +200,7 @@ export default function SignUp() {
                 keyboardType="email-address"
                 placeholder={preview?.email ?? "you@example.com"}
                 placeholderTextColor={colors.muted}
-                style={inputStyle}
+                style={inputStyle()}
               />
             </Field>
 
@@ -211,7 +211,7 @@ export default function SignUp() {
                 secureTextEntry
                 placeholder="At least 6 characters"
                 placeholderTextColor={colors.muted}
-                style={inputStyle}
+                style={inputStyle()}
                 onSubmitEditing={submit}
               />
             </Field>
@@ -249,8 +249,8 @@ export default function SignUp() {
   );
 }
 
-const inputStyle = {
-  backgroundColor: "#fafaf3",
+const inputStyle = () => ({
+  backgroundColor: colors.surface2,
   borderRadius: radius.lg,
   paddingHorizontal: 14,
   paddingVertical: 12,
@@ -258,7 +258,7 @@ const inputStyle = {
   color: colors.text,
   borderWidth: 1,
   borderColor: colors.hairline,
-};
+});
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
