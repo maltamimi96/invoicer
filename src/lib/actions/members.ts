@@ -89,7 +89,7 @@ export async function addMember(email: string, role: MemberRole): Promise<void> 
     // Email failure is non-fatal — the invite link can still be copied manually
   }
 
-  revalidatePath("/settings");
+  revalidatePath("/team"); revalidatePath("/settings");
 }
 
 /** 8-char readable code, no ambiguous chars (no 0/O, 1/I/l). */
@@ -152,7 +152,7 @@ export async function updateMemberRole(memberId: string, newRole: MemberRole): P
     .eq("business_id", businessId);
   if (error) throw error;
 
-  revalidatePath("/settings");
+  revalidatePath("/team"); revalidatePath("/settings");
 }
 
 export async function removeMember(memberId: string): Promise<void> {
@@ -178,5 +178,5 @@ export async function removeMember(memberId: string): Promise<void> {
     .eq("business_id", businessId);
   if (error) throw error;
 
-  revalidatePath("/settings");
+  revalidatePath("/team"); revalidatePath("/settings");
 }

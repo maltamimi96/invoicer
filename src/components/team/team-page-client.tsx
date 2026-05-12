@@ -16,6 +16,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { createMemberProfile, updateMemberProfile, deleteMemberProfile } from "@/lib/actions/member-profiles";
 import { canManageTeam, isOwner, type Role } from "@/lib/permissions";
 import type { MemberProfile, BusinessMember } from "@/types/database";
+import { TeamSettings } from "@/components/settings/team-settings";
 
 interface TeamPageClientProps {
   profiles: MemberProfile[];
@@ -23,6 +24,7 @@ interface TeamPageClientProps {
   userRole: Role;
   currentUserId: string;
   currentUserEmail: string;
+  ownerEmail: string;
 }
 
 // ── Avatar initials ───────────────────────────────────────────────────────────
@@ -266,7 +268,7 @@ function ProfileCard({
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function TeamPageClient({ profiles: initialProfiles, members, userRole, currentUserEmail }: TeamPageClientProps) {
+export function TeamPageClient({ profiles: initialProfiles, members, userRole, currentUserEmail, ownerEmail }: TeamPageClientProps) {
   const [profiles, setProfiles] = useState(initialProfiles);
   const [showAddForm, setShowAddForm] = useState(false);
   const [addSaving, setAddSaving] = useState(false);
@@ -300,10 +302,10 @@ export function TeamPageClient({ profiles: initialProfiles, members, userRole, c
   };
 
   return (
-    <div>
+    <div className="space-y-8">
       <PageHeader
         title="Team"
-        subtitle="Manage team member profiles and skills"
+        subtitle="Invite members, set access levels, and manage profiles"
         actions={canManage && (
           <>
             <CleanupButton entity="team_profiles" entityLabel="team profiles" />
@@ -364,6 +366,25 @@ export function TeamPageClient({ profiles: initialProfiles, members, userRole, c
         </Card>
       )}
 
+      {/* Access levels — invite, change role, remove. Lives here now so all
+          team management is in one place; used to be buried in /settings. */}
+      <section className="space-y-2">
+        <h2 className="text-base font-semibold">Access levels</h2>
+        <p className="text-sm text-muted-foreground">
+          Add or remove people who can sign in, and change what they can see and do.
+        </p>
+        <TeamSettings members={members} ownerEmail={ownerEmail} userRole={userRole} />
+      </section>
+
+      {/* Detailed profiles section */}
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-base font-semibold">Profiles</h2>
+          <p className="text-sm text-muted-foreground">
+            Workforce details — names, phone numbers, skills, bios. These appear when assigning workers to jobs.
+          </p>
+        </div>
+
       {/* Profile grid */}
       {profiles.length === 0 && !showAddForm ? (
         <div className="text-center py-16 text-muted-foreground">
@@ -384,6 +405,7 @@ export function TeamPageClient({ profiles: initialProfiles, members, userRole, c
           ))}
         </div>
       )}
+      </section>
     </div>
   );
 }
