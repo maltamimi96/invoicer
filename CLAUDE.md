@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Invoicer is a multi-business field-services SaaS — a hybrid of ServiceM8 (jobs, scheduling, photo-driven submissions) and GoHighLevel (CRM, leads, automations). Production runs at `invoicer.crownroofers.com.au` for Crown Roofers. A companion React Native app (`mobile/`, "Connected Hub") gives field workers a stripped-down view of just their assigned jobs.
+Invoicer / **Kirei** is a multi-business field-services SaaS — a hybrid of ServiceM8 (jobs, scheduling, photo-driven submissions) and GoHighLevel (CRM, leads, automations). Production runs at `kireihq.com` (with `invoicer.crownroofers.com.au` as a backwards-compat alias). The companion React Native app at `mobile/` — also called **Kirei** — is no longer the worker-only "Connected Hub" of earlier docs: it now has full feature parity with the web (sales pipeline, AI agent, quoting, settings, etc.) plus a worker-specific mode for crews. See `mobile/DEPLOY.md` for the TestFlight / Play Internal Testing pipeline (EAS Build / Submit).
 
 Pile of docs / scope artifacts:
 - `SCOPE.md` (on the `claude/dreamy-robinson-9fcc52` branch in PR #162) — authoritative ServiceM8+GHL scope
@@ -99,9 +99,26 @@ Conventions:
 
 ### Mobile app talks to the same Postgres
 
-`mobile/` is Expo SDK 54 + expo-router using `@supabase/supabase-js` directly with the worker's session — RLS does the filtering, no separate API. Photos go to the `work-order-photos` Supabase Storage bucket; bucket policy requires the path's first segment to equal `auth.uid()::text`.
+`mobile/` is Expo SDK 54 + expo-router using `@supabase/supabase-js` directly — RLS does the filtering, no separate API. Photos go to the `work-order-photos` Supabase Storage bucket; bucket policy requires the path's first segment to equal `auth.uid()::text`. `babel.config.js` uses `react-native-worklets/plugin` (Reanimated 4 dropped its in-tree plugin).
 
-`babel.config.js` uses `react-native-worklets/plugin` (Reanimated 4 dropped its in-tree plugin). Required Reanimated 4+ since SDK 54.
+**Theme system** — `mobile/src/lib/theme.ts` exports mutable `colors` + `gradients` singletons swapped in-place by `applyTheme("light"|"dark")`. `mobile/src/lib/theme-provider.tsx` wraps the app, reads OS color scheme + AsyncStorage override, force-renders on swap. Three modes: System / Light / Dark, picker on `/settings/appearance`.
+
+**Module-scope style consts are frozen across theme swaps.** Anywhere we do `const input = { backgroundColor: colors.card, ... }` at module level, the value is captured once and never updates. Convert to a function: `const input = () => ({ ... })` and call `style={input()}` so it re-reads on every render. This bit auth screens (login/forgot/signup) and customer/lead/report `/new` forms.
+
+**Responsive layouts** — `mobile/src/lib/responsive.ts` exports `useResponsive()` returning `{ isTablet, isLandscape, isWide, gridColumns, gridBasis: "%", containerStyle }`. Tablet threshold is 768px on smallest dimension. Dashboard KPI grid switches 2/3/4 columns; detail screens cap at `maxWidth: 820`. `app.json` orientation is `"default"` so landscape works.
+
+**Bearer-auth API routes** — mobile uses bearer tokens (not cookies). The middleware (`src/lib/supabase/middleware.ts`) is cookie-only and would redirect bearer requests to `/auth/login` (resulting in HTML responses → "JSON parse error: unexpected <"). Routes that handle their own bearer auth (`/api/mobile/*`, `/api/ai/transcribe`) are whitelisted when the request carries `Authorization: Bearer …`. To add another bearer-auth endpoint, add it to `isBearerAuthRoute` in the middleware.
+
+**Design-system components** under `mobile/src/components/` are the visual primitives — every new screen should compose them rather than inventing styles:
+- `Avatar` — hashes name → gradient pool, consistent per-name colour across the app
+- `EmptyState` — gradient halo + optional CTA
+- `Skeleton` / `SkeletonRow` / `SkeletonCard` — shimmer placeholders for first-load
+- `AnimatedNumber` — count-up via Reanimated shared value
+- `BrandedRefresh` — RefreshControl with brand tints
+- `GradientCard`, `AnimatedPress`, `FadeIn`, `PatternBackground` — primitives
+- `Confetti` — fires when invoice flips to paid (one-shot via `<Confetti fireKey={n} />`)
+- `StatusPill` — single gradient pill covering invoice/quote/lead/job tones; pass `tone={statusString}`
+- `GradientTabBar` — custom bottom tab bar with active gradient pill + haptics
 
 ### Web routing & layout
 
@@ -136,15 +153,18 @@ The active theme is set via `<html data-theme="console">` in `src/app/layout.tsx
 ### Sidebar & nav structure
 
 `src/components/layout/app-sidebar.tsx` groups nav into 7 sections:
-- **Workspace** — Dashboard · Messages · Tasks
-- **Sales** — Leads · Quotes · Invoices · **Site Reports** · Recurring  *(Site Reports = client-facing inspection / scope-of-work PDFs, NOT analytics)*
+- **Workspace** — Dashboard · Assistant · Messages · Tasks
+- **Sales** — Leads · **Quoting Agent** (feature-flagged) · Quotes · Invoices · **Site Reports** · Recurring  *(Site Reports = client-facing inspection / scope-of-work PDFs, NOT analytics)*
 - **Service** — Work Orders · Schedule
 - **Contacts** — Customers · Contacts
 - **Catalog** — Products
-- **Workforce** — Team · Agents
+- **Workforce** — Team · Agents  *(team access-level management lives at `/team`, not `/settings`)*
+- **Insights** — Analytics
 - **Account** — Help · Settings (footer)
 
-Active state is a subtle bg + 2px teal left-rail (spring-animated via `layoutId="sidebar-active-rail"`). Worker role hides nav items via the `worker?: boolean` flag on each item.
+Active state is a subtle bg + 2px teal left-rail (spring-animated via `layoutId="sidebar-active-rail"`). Worker role hides items via the `worker?: boolean` flag.
+
+**Conditional nav items** — `NavItem.feature?: "quotingAgent"` is gated on the `features` prop threaded through `DashboardShell`. `(dashboard)/layout.tsx` fetches `quoting_agent_settings.enabled` and passes the result down. To add another conditional item: add the feature key, server-fetch the flag, plumb it through.
 
 ### Loaders & route progress
 
@@ -155,6 +175,33 @@ Active state is a subtle bg + 2px teal left-rail (spring-animated via `layoutId=
 `src/components/ui/spinner.tsx` — `<Spinner size="xs|sm|md|lg" />`, `<LoadingRow />`, `<FetchingPill />` for inline use.
 
 `src/app/(dashboard)/loading.tsx` — route skeleton mirroring the prototype's PageHeader + KPI strip + table shape so the canvas doesn't reflow when content streams in. Per-segment `loading.tsx` re-exports this for products / tasks / contacts / reports / recurring / team / agents / settings.
+
+### AI assistants — three of them
+
+**Web `/api/agent`** (the dashboard-floating panel) — cookie-auth, streams, 65 tools across every entity (customers / sites / contacts / billing / workers / work-orders / photos / time / materials / quotes / invoices / leads / recurring / portals). Multi-turn tool chain up to 15 iterations. Live context snapshot built by `getAgentContext(pathname)` in `src/lib/actions/agent-context.ts` — business info, current page, stats, recent customers/invoices/quotes/jobs/leads with IDs — sent with every turn so the model resolves pronouns ("this invoice", "today's jobs") without re-searching.
+
+**Mobile `/api/mobile/agent`** — bearer-auth, smaller surface (9 tools, read-mostly: search customers/invoices/quotes/leads, get_briefing, get_today, mark_invoice_paid, mark_quote_status, set_lead_status). Multi-turn (10 iterations). Critically, the mobile chat client keeps a full Anthropic `apiHistory` (including tool_use + tool_result blocks) and sends it back each turn. Server returns the updated history; client persists it. **This is how the agent remembers tool calls across turns** — if turn 1 it ran `search_customers` and got Sarah's ID, turn 5 still has it. Plus `mobile/src/lib/agent-context.ts` builds a fresh business snapshot (stats + recent records) on every send. **Don't change the message-shape contract** — sending plain `{role, content: string}` instead of the full block-array would amputate the cross-turn memory.
+
+**Quoting Agent `/api/quoting-agent`** — see dedicated section below.
+
+### Quoting Agent
+
+A specialised AI agent for generating quotes using a per-business pricing knowledge bank. Lives at `/quoting-agent` with its own onboarding, settings, chat surface, and conditional sidebar tab.
+
+**Tables:**
+- `quoting_agent_settings` (one row per business) — `enabled`, `onboarded_at`, `industries[]`, baseline rates (hourly, margin %, tax %, call-out fee, emergency multiplier), `estimation_mode` (`manual` | `ai_estimate` | `skip`), `business_notes` (free-form context the agent always sees).
+- `quoting_agent_knowledge` — the agent's long-term memory. Rows keyed by `(business_id, kind, key)` unique. `kind` ∈ `material | labour | margin | scope_template | rate | note`. `source` ∈ `user | ai_estimate | imported`. `confirmed` flag — AI estimates default to `false` so the UI can flag them.
+
+**Server actions** (`src/lib/actions/quoting-agent.ts`): `getQuotingAgentSettings` (lazy-creates), `setQuotingAgentEnabled`, `updateQuotingAgentSettings`, `completeQuotingAgentOnboarding`, knowledge CRUD + `bulkAddKnowledge` for the onboarding seed.
+
+**Endpoint** (`src/app/api/quoting-agent/route.ts`) — cookie-auth, 12-iteration multi-turn loop. Tools: `lookup_knowledge`, `list_knowledge`, `save_knowledge` (the agent writes its own memory), `update_knowledge`, `delete_knowledge`, `search_customers`, `create_customer`, `create_quote`. System prompt is generated per request from the business's settings so the agent has all defaults inline. When estimation_mode = `ai_estimate` and a price is missing, the agent saves it with `source='ai_estimate'`, `confirmed=false` and flags it in the reply.
+
+**Pages**:
+- `/quoting-agent` — enable card → onboarding redirect → chat surface
+- `/quoting-agent/onboarding` — 4-step wizard (industries → rates → estimation mode → seed knowledge)
+- `/quoting-agent/settings` — disable toggle, baseline rates editor, full knowledge-bank manager (grouped by kind, inline edit/delete, "Unconfirmed estimate" badge for AI rows)
+
+**To extend**: adding a new tool means a JSON-schema entry in the `TOOLS` array + a branch in `runTool()`. The agent's memory persists across the conversation (server returns `messages` history; client sends back) — same shape contract as the mobile agent.
 
 ### Smart Organise (the cleanup agent)
 
@@ -193,6 +240,18 @@ The `customer_portal_tokens` table has `business_id`, `customer_id`, `expires_at
 
 `leads.identity_key` is a stored generated column from `lead_identity_key(email, phone, name, address)`. Unique index on `(business_id, identity_key)` makes the database physically refuse duplicates. The `upsert_lead(...)` SQL function is the single ingest entry point — `createLead`, `/api/v1/leads`, and the email-leads cron all call it. It computes the key, finds an existing match, and either inserts or merges (filling nulls, never overwriting user edits, appending the new source).
 
+### Performance & caching
+
+The big perf overhaul landed in May 2026 — context for anyone tempted to revert it:
+
+- **No global `force-dynamic`** on the root layout. Dashboard pages become dynamic via `cookies()`/`headers()` automatically; don't add a blanket `export const dynamic = "force-dynamic"`.
+- **`getUser()` is the cached helper** (`src/lib/auth.ts`). Every server action + page should use it, NOT raw `supabase.auth.getUser()` — the raw call hits GoTrue over the network and was the dominant TTFB cost before this fix (10× duplicated per request on chained-action pages like `/customers/[id]`).
+- **List-fetch selects are slim** — `getInvoices` / `getQuotes` / `getWorkOrders` no longer `select("*")`. They pull only the columns list cards render and apply a default `.limit(200)`. Don't add `line_items`/`notes`/`terms`/`photos` to those queries; if a caller needs them, write a separate getter.
+- **`next.config.ts` `experimental.optimizePackageImports`** lists `@phosphor-icons/react`, `lucide-react`, `framer-motion`, `date-fns`, `recharts`. New heavy barrels should join the list.
+- **Atomic number-mint RPCs** — `next_invoice_number(uuid)` and `next_quote_number(uuid)` (migration `20260511020100_perf_atomic_number_mint.sql`). Replace any read-modify-write counter logic with these — they're race-safe and one round-trip.
+- **Hot-path indexes** — `20260511020000_perf_indexes.sql` adds `(business_id, created_at DESC)` / `(business_id, status)` / FK indexes across all big tables. Adding a new business-data table? Mirror this index set or queries will seq-scan.
+- **Fire-and-forget RPCs in layouts** — `link_my_member_profile()` is now `void sb.rpc(...).then(...)` rather than `await`-blocking. Anything similarly idempotent + best-effort should follow the same pattern.
+
 ### Excluded paths
 
 `tsconfig.json` excludes `mobile/` from the Next typecheck and `.vercelignore` excludes it from the Vercel upload. Without that exclusion the prod build fails because `expo-router` etc. aren't in the root `node_modules`.
@@ -217,6 +276,12 @@ The `customer_portal_tokens` table has `business_id`, `customer_id`, `expires_at
 - **Resend domain verification** — `crownroofers.com.au` is verified. If you change `RESEND_FROM_EMAIL`, the new domain must also be verified or every send fails silently.
 - **Vercel build runs tsc across the whole repo** — keep `mobile/` in `tsconfig.exclude` and `.vercelignore`.
 - **Migration tracking drifts** — `supabase db push` often complains about missing local files for remote-only migrations. Use `supabase db query --linked --file` and manually `INSERT INTO supabase_migrations.schema_migrations`.
+- **Auth middleware vs bearer tokens** — `src/lib/supabase/middleware.ts` only reads cookies. Mobile + voice-mic requests use `Authorization: Bearer …`. Routes that handle their own bearer auth (`/api/mobile/*`, `/api/ai/transcribe`) must be in `isBearerAuthRoute`; otherwise they get 307'd to `/auth/login` and the client sees "JSON parse error: unexpected <" parsing the HTML login page.
+- **Whisper hallucinations** — the `/api/ai/transcribe` endpoint has three layers of defence (`src/app/api/ai/transcribe/route.ts`): segment-level filter (drop `no_speech_prob > 0.6` or `avg_logprob < -1.0`), `collapseRepeats()` adjacent-n-gram dedup, and an `isLikelyHallucination()` hard guard. Don't add a vocabulary-stuffing `prompt` parameter to the Whisper call — it makes the model repeat those exact words. Keep the prompt short + stylistic only.
+- **Mobile module-scope style consts freeze across dark-mode swap** — see Mobile section above. If you write a `const xStyle = { backgroundColor: colors.card, ... }` at module level, convert to `const xStyle = () => ({ ... })` and call `style={xStyle()}`.
+- **Mobile color tokens are mutated, not replaced** — `applyTheme()` does `Object.assign(colors, palette)` in place so existing imports keep working. Don't replace `colors` with a new object or downstream consumers will hold a stale reference. For new gradient pairs, mutate `gradients[name][0]` / `[1]` element-wise.
+- **Progress invoice rollup** — `addPayment()` in `src/lib/actions/invoices.ts` recomputes `amount_paid` from truth (direct payments + sum of children's `amount_paid`) — both for the child being paid AND its parent. If you touch that function, preserve the recompute logic or paid deposits stop reflecting on parent invoices. Migration `20260510232842_progress_invoice_parent_rollup_backfill.sql` reconciles historical data.
+- **Workers can read job customer rows** — `customers_no_workers` RLS hard-blocks workers from `customers`, but `workers_can_see_job_customers` is a permissive SELECT-only policy that lets a worker read the customer attached to a work order they're assigned to. Don't tighten the no-workers policy without re-checking this hole — workers need the customer's phone/email on their job-detail screen.
 
 ## Memory aids
 
@@ -225,6 +290,40 @@ User's accumulated preferences:
 - **Visual feedback for everything** — loading states on field-level fetches (e.g. `<AddressSelect>` "Loading addresses…"), progress bar on Smart Organise, scrim during business switch
 - **Never trust empty input** — coerce, validate, soft-fail
 - Current accent name: **teal**; sidebar: **light**; canvas: warm off-white. Don't revert to flux lime unless explicitly asked.
+
+## Recent session log (May 2026)
+
+What landed in the most recent multi-day push, grouped so the next session can pick up where this left off:
+
+### Mobile
+- **Rebrand to Kirei** — app name, scheme (`kirei://`), login title, logo (stylised K with diagonal slash on teal gradient, generated via the script at `/tmp/kirei-icons.js` using `sharp` from root deps). Bundle IDs unchanged (`com.crownroofers.connectedhub`) so TestFlight credentials don't reset.
+- **Tablet + landscape** — `mobile/src/lib/responsive.ts` `useResponsive()`; dashboard grid 2/3/4 cols; detail screens capped at 820px; orientation `default`.
+- **Dark mode** — full theme system in `mobile/src/lib/theme.ts` + `theme-provider.tsx`. System / Light / Dark picker on `/settings/appearance`. Dark palette: canvas `#0c0d0f`, card `#181a1d`, primary lifted to `#4ea69e`.
+- **Visual refresh** — gradient palette, animated press feedback, fade-in stagger, confetti on invoice→paid, branded refresh control, gradient tab bar with haptics, skeleton placeholders, animated KPI counters, gradient empty states. All under `mobile/src/components/`.
+- **Performance** — FlatList windowing + `.limit(100)` across all mobile lists.
+- **EAS Build / Submit set up** — `mobile/app.json` + `mobile/eas.json` + `mobile/DEPLOY.md` walkthrough. Icons in `mobile/assets/`.
+
+### Web
+- **Performance overhaul** — see "Performance & caching" section above.
+- **Team management moved off Settings** — `/team` page now hosts both the workforce profiles (skills/bio/avatar) AND the access-level management (add member by email, change role, copy invite link, remove). `TeamSettings` component reused from settings. Settings → Team tab removed.
+- **Quoting Agent** — see dedicated section above. Migration `20260512030000_quoting_agent.sql` applied to remote.
+- **Lead detail page** at `/leads/[id]` (was 404 from the dashboard New Leads widget).
+- **Work-order new form** prefills property address from selected customer if customer has no sites (fetches the address columns now, falls back from sites to customer.address chain).
+- **AI agent live context** + **cross-turn memory** with persisted tool history — both web and mobile.
+
+### Database migrations applied this session (remote up-to-date)
+- `20260510232842_progress_invoice_parent_rollup_backfill.sql`
+- `20260511020000_perf_indexes.sql`
+- `20260511020100_perf_atomic_number_mint.sql`
+- `20260512000001_workers_can_see_job_customers.sql`
+- `20260512030000_quoting_agent.sql`
+
+### Open / deferred (next session candidates)
+- **TestFlight / Play store actual submission** — config is done but the user hit Apple Developer enrolment friction. EAS commands ready in `mobile/DEPLOY.md`.
+- **Push notification triggers** — local 9am morning briefing works; server-side push (Expo Push API) needs EAS credentials + cron wiring.
+- **Mobile parity** — see matrix in `docs/MOBILE_PARITY_PLAN.md`. Remaining: offline-first cache, native voice TTS for agent replies, work-order portfolio editor is in place but the customer-properties (sites) editor is read-only.
+- **Quoting Agent tool surface could grow** — currently 9 tools, mostly knowledge-bank + quote-creation. Adding image inputs (scan a tradie's hand-written estimate, build a quote from it) is the obvious next step.
+- **Agent could read photos / attachments** — both web and quoting agents are text-only on the input side.
 
 ## Mobile parity policy (May 2026)
 Connected Hub mobile app (`mobile/`) is being levelled up to full feature parity with the web. See `docs/MOBILE_PARITY_PLAN.md` for the canonical matrix and phased rollout.
