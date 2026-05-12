@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Loader2, Upload, X, Building2, CreditCard, FileText, Palette, Check, Users, Key, Mail, Webhook } from "@/components/ui/icons";
+import { Loader2, Upload, X, Building2, CreditCard, FileText, Palette, Check, Key, Mail, Webhook } from "@/components/ui/icons";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,12 +20,11 @@ import { Controller } from "react-hook-form";
 import { updateBusiness, uploadLogo } from "@/lib/actions/business";
 import { useAppearance, ACCENT_PRESETS, PATTERN_PRESETS, SIDEBAR_THEMES } from "@/components/layout/appearance-provider";
 import { PageHeader } from "@/components/layout/page-header";
-import { TeamSettings } from "@/components/settings/team-settings";
 import { ApiKeysSettings } from "@/components/settings/api-keys-settings";
 import { EmailSettings } from "@/components/settings/email-settings";
 import { WebhooksSettings } from "@/components/settings/webhooks-settings";
 import { AddressFields } from "@/components/addresses/address-fields";
-import type { Business, BusinessMember, BusinessApiKey, BusinessEmailConfig, BusinessWebhook } from "@/types/database";
+import type { Business, BusinessApiKey, BusinessEmailConfig, BusinessWebhook } from "@/types/database";
 import type { Role } from "@/lib/permissions";
 
 const CURRENCIES = [
@@ -108,15 +107,13 @@ type InvoiceData = z.infer<typeof invoiceSchema>;
 
 interface SettingsClientProps {
   business: Business;
-  members: BusinessMember[];
   apiKeys: Omit<BusinessApiKey, "key_hash">[];
   emailConfig: (Omit<BusinessEmailConfig, "imap_pass"> & { imap_pass_masked: string }) | null;
   webhooks: BusinessWebhook[];
-  ownerEmail: string;
   userRole: Role;
 }
 
-export function SettingsClient({ business: initial, members, apiKeys, emailConfig, webhooks, ownerEmail, userRole }: SettingsClientProps) {
+export function SettingsClient({ business: initial, apiKeys, emailConfig, webhooks, userRole }: SettingsClientProps) {
   const [business, setBusiness] = useState(initial);
   const [logoPreview, setLogoPreview] = useState<string | null>(initial.logo_url);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -247,7 +244,6 @@ export function SettingsClient({ business: initial, members, apiKeys, emailConfi
             { id: "payment",    icon: CreditCard, label: "Payment"    },
             { id: "documents",  icon: FileText,   label: "Documents"  },
             { id: "appearance", icon: Palette,    label: "Appearance" },
-            { id: "team",       icon: Users,      label: "Team"       },
             { id: "api",        icon: Key,        label: "API"        },
             { id: "email",      icon: Mail,       label: "Email"      },
             { id: "webhooks",   icon: Webhook,    label: "Webhooks"   },
@@ -563,14 +559,7 @@ export function SettingsClient({ business: initial, members, apiKeys, emailConfi
           </Card>
         </TabsContent>
 
-        {/* ── Team tab ── */}
-        <TabsContent value="team" className="mt-6">
-          <TeamSettings
-            members={members}
-            ownerEmail={ownerEmail}
-            userRole={userRole}
-          />
-        </TabsContent>
+        {/* Team management lives on /team now — not here. */}
 
         {/* ── API tab ── */}
         <TabsContent value="api" className="mt-6">

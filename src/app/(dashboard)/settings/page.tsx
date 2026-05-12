@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getBusiness } from "@/lib/actions/business";
-import { getMembers } from "@/lib/actions/members";
 import { listApiKeys } from "@/lib/actions/api-keys";
 import { getEmailConfig } from "@/lib/actions/email-config";
 import { listWebhooks } from "@/lib/actions/webhooks";
@@ -34,9 +33,8 @@ export default async function SettingsPage() {
 
   if (!canManageSettings(userRole)) redirect("/dashboard");
 
-  const [business, members, apiKeys, emailConfig, webhooks] = await Promise.all([
+  const [business, apiKeys, emailConfig, webhooks] = await Promise.all([
     getBusiness(),
-    getMembers(),
     listApiKeys(),
     getEmailConfig(),
     listWebhooks(),
@@ -45,11 +43,9 @@ export default async function SettingsPage() {
   return (
     <SettingsClient
       business={business}
-      members={members}
       apiKeys={apiKeys}
       emailConfig={emailConfig}
       webhooks={webhooks}
-      ownerEmail={user.email ?? ""}
       userRole={userRole}
     />
   );

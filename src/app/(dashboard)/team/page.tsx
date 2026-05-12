@@ -14,7 +14,7 @@ export default async function TeamPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const businessId = await getActiveBizId(supabase as any, user.id);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: biz } = await (supabase as any).from("businesses").select("user_id, email").eq("id", businessId).single();
+  const { data: biz } = await (supabase as any).from("businesses").select("user_id").eq("id", businessId).single();
 
   let userRole: Role = "owner";
   if (biz?.user_id !== user.id) {
@@ -22,6 +22,10 @@ export default async function TeamPage() {
     const { data: m } = await (supabase as any).from("business_members").select("role").eq("business_id", businessId).eq("user_id", user.id).eq("status", "active").maybeSingle();
     userRole = (m?.role ?? "viewer") as Role;
   }
+
+  // Owner email — use the caller's email when they ARE the owner, otherwise
+  // fall back to the businesses row (best-effort; the owner row is a header).
+  const ownerEmail = biz?.user_id === user.id ? (user.email ?? "") : "";
 
   const [profiles, members] = await Promise.all([
     getMemberProfiles().catch(() => []),
@@ -35,6 +39,7 @@ export default async function TeamPage() {
       userRole={userRole}
       currentUserId={user.id}
       currentUserEmail={user.email ?? ""}
+      ownerEmail={ownerEmail}
     />
   );
 }
