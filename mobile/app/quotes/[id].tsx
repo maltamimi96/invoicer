@@ -7,6 +7,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { supabase } from "@/lib/supabase";
 import { useActiveBusiness } from "@/lib/active-business";
 import { colors, gradients, radius, space } from "@/lib/theme";
+import { useResponsive } from "@/lib/responsive";
 import { StatusPill } from "@/components/StatusPill";
 import { FadeIn } from "@/components/FadeIn";
 import { PatternBackground } from "@/components/PatternBackground";
@@ -48,6 +49,7 @@ function fmtMoney(n: number, currency: string): string {
 
 export default function QuoteDetail() {
   const router = useRouter();
+  const r = useResponsive();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { active } = useActiveBusiness();
   const [quote, setQuote] = useState<QuoteFull | null>(null);
@@ -224,7 +226,7 @@ export default function QuoteDetail() {
         <View style={{ flex: 1 }} />
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.md, paddingBottom: space.xxl }}>
+      <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.md, paddingBottom: space.xxl , ...r.containerStyle }}>
         {/* Hero — gradient header */}
         <FadeIn>
           <View style={{ borderRadius: radius.xxl, overflow: "hidden" }}>

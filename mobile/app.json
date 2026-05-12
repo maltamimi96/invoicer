@@ -3,7 +3,7 @@
     "name": "Kirei",
     "slug": "kirei",
     "version": "0.1.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "scheme": "kirei",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,

@@ -6,6 +6,7 @@ import { ArrowLeft, Phone, Mail, MapPin, Clock, MessageSquare, UserCheck, FileCh
 import { supabase } from "@/lib/supabase";
 import { useActiveBusiness } from "@/lib/active-business";
 import { colors, radius, space } from "@/lib/theme";
+import { useResponsive } from "@/lib/responsive";
 
 interface Lead {
   id:            string;
@@ -46,6 +47,7 @@ function fmtSource(s: string | null): string {
 
 export default function LeadDetail() {
   const router = useRouter();
+  const r = useResponsive();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { active } = useActiveBusiness();
   const [lead, setLead] = useState<Lead | null>(null);
@@ -198,7 +200,7 @@ export default function LeadDetail() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.md }}>
+      <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.md , ...r.containerStyle }}>
         {/* Quick actions */}
         <View style={{ flexDirection: "row", gap: space.sm }}>
           {lead.phone && (

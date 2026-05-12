@@ -8,6 +8,7 @@ import { BusinessSwitcher } from "@/components/BusinessSwitcher";
 import { useActiveBusiness } from "@/lib/active-business";
 import { AnimatedPress } from "@/components/AnimatedPress";
 import { FadeIn } from "@/components/FadeIn";
+import { useResponsive } from "@/lib/responsive";
 
 interface Section {
   href:     string;
@@ -18,10 +19,15 @@ interface Section {
 }
 
 function SectionList({ sections, onPress, baseDelay = 0 }: { sections: Section[]; onPress: (href: string) => void; baseDelay?: number }) {
+  const r = useResponsive();
+  // On tablet/landscape, lay out as a grid so we use the extra width.
+  const multiCol = r.isWide;
   return (
-    <View style={{ gap: space.sm }}>
+    <View style={{ flexDirection: multiCol ? "row" : "column", flexWrap: "wrap", gap: space.sm }}>
       {sections.map((s, idx) => (
-        <FadeIn key={s.href} delay={baseDelay + idx * 50}>
+        <FadeIn key={s.href} delay={baseDelay + idx * 50}
+          style={multiCol ? { flexBasis: r.isTablet ? "48%" : "100%", flexGrow: 1 } : undefined}
+        >
           <AnimatedPress
             onPress={() => onPress(s.href)}
             style={{
@@ -58,6 +64,7 @@ function SectionList({ sections, onPress, baseDelay = 0 }: { sections: Section[]
 export default function SalesHub() {
   const router = useRouter();
   const { active, businesses, role, switchTo } = useActiveBusiness();
+  const r = useResponsive();
 
   const sales: Section[] = [
     { href: "/leads",     label: "Leads",     hint: "Track new opportunities",        icon: <UserPlus  size={22} color="#fff" />, gradient: "blue"   },
@@ -84,7 +91,7 @@ export default function SalesHub() {
         {active && <BusinessSwitcher active={active} businesses={businesses} role={role} onSwitch={switchTo} />}
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.md, paddingBottom: space.xxl }}>
+      <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.md, paddingBottom: space.xxl, ...r.containerStyle }}>
         <FadeIn>
           <View>
             <Text style={{ fontSize: 28, fontWeight: "800", color: colors.text, letterSpacing: -0.6 }}>Sales</Text>

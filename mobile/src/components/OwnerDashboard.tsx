@@ -15,6 +15,7 @@ import { PatternBackground } from "./PatternBackground";
 import { AnimatedNumber } from "./AnimatedNumber";
 import { Skeleton } from "./Skeleton";
 import { BrandedRefresh } from "./BrandedRefresh";
+import { useResponsive } from "@/lib/responsive";
 import { scheduleOwnerBriefing } from "@/lib/notifications";
 import { loadBriefing } from "@/lib/briefing";
 
@@ -45,6 +46,7 @@ function fmtMoney(n: number, currency: string): string {
  *  tasks, and ops outlook. Pulls live from Supabase using RLS. */
 export function OwnerDashboard({ business }: { business: MobileBusiness }) {
   const router = useRouter();
+  const r = useResponsive();
   const [stats, setStats] = useState<Stats>(ZERO);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -122,7 +124,12 @@ export function OwnerDashboard({ business }: { business: MobileBusiness }) {
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.canvas }}
-      contentContainerStyle={{ padding: space.lg, gap: space.md, paddingBottom: space.xxl }}
+      contentContainerStyle={{
+        padding: space.lg, gap: space.md, paddingBottom: space.xxl,
+        // Cap width on tablet/landscape so the dashboard doesn't stretch
+        // edge-to-edge and become uncomfortable to scan.
+        ...r.containerStyle,
+      }}
       refreshControl={<BrandedRefresh refreshing={refreshing} onRefresh={onRefresh} />}
     >
       {/* Hero — gradient with subtle dot pattern */}
@@ -168,51 +175,53 @@ export function OwnerDashboard({ business }: { business: MobileBusiness }) {
         </FadeIn>
       )}
 
-      {/* KPI grid — softly tinted gradient cards */}
+      {/* KPI grid — clean cards with a small coloured icon chip + a bold,
+          max-contrast value (colors.text). The previous "dark teal on pale
+          teal" combo read as muddy on light mode and washed out on dark. */}
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
-        <FadeIn delay={120} style={{ flexBasis: "48%", flexGrow: 1 }}>
+        <FadeIn delay={120} style={{ flexBasis: r.gridBasis, flexGrow: 1 }}>
           <GradientStat
             gradient="softTeal"
-            icon={<DollarSign size={16} color={colors.primaryDeep} />}
+            icon={<DollarSign size={16} color={colors.primary} />}
             label="Outstanding"
             value={stats.outstanding}
             format={(n) => fmtMoney(n, currency)}
             loading={loading}
-            valueColor={colors.primaryDeep}
+            valueColor={colors.text}
             labelColor={colors.primary}
           />
         </FadeIn>
-        <FadeIn delay={160} style={{ flexBasis: "48%", flexGrow: 1 }}>
+        <FadeIn delay={160} style={{ flexBasis: r.gridBasis, flexGrow: 1 }}>
           <GradientStat
             gradient="softRose"
-            icon={<Clock size={16} color={colors.coralDeep} />}
+            icon={<Clock size={16} color="#dc2626" />}
             label="Overdue"
             value={stats.overdue}
             format={(n) => fmtMoney(n, currency)}
             loading={loading}
-            valueColor={colors.coralDeep}
-            labelColor="#b91c1c"
+            valueColor={colors.text}
+            labelColor="#dc2626"
           />
         </FadeIn>
-        <FadeIn delay={200} style={{ flexBasis: "48%", flexGrow: 1 }}>
+        <FadeIn delay={200} style={{ flexBasis: r.gridBasis, flexGrow: 1 }}>
           <GradientStat
             gradient="softBlue"
-            icon={<Wrench size={16} color={colors.blueDeep} />}
+            icon={<Wrench size={16} color="#1d4ed8" />}
             label="Jobs today"
             value={stats.jobs_today}
             loading={loading}
-            valueColor={colors.blueDeep}
+            valueColor={colors.text}
             labelColor="#1d4ed8"
           />
         </FadeIn>
-        <FadeIn delay={240} style={{ flexBasis: "48%", flexGrow: 1 }}>
+        <FadeIn delay={240} style={{ flexBasis: r.gridBasis, flexGrow: 1 }}>
           <GradientStat
             gradient="softViolet"
-            icon={<FileCheck size={16} color={colors.violetDeep} />}
+            icon={<FileCheck size={16} color="#7c3aed" />}
             label="Draft quotes"
             value={stats.draft_quotes}
             loading={loading}
-            valueColor={colors.violetDeep}
+            valueColor={colors.text}
             labelColor="#7c3aed"
           />
         </FadeIn>

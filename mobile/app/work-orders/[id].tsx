@@ -12,6 +12,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { useActiveBusiness } from "@/lib/active-business";
 import { colors, radius, space } from "@/lib/theme";
+import { useResponsive } from "@/lib/responsive";
 
 interface WorkOrderFull {
   id:               string;
@@ -48,6 +49,7 @@ function fmt(n: number, currency: string): string {
  *  stays as the field UI; this is the ops view. */
 export default function WorkOrderPortfolio() {
   const router = useRouter();
+  const r = useResponsive();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { active, role } = useActiveBusiness();
   const canEdit = role === "owner" || role === "admin" || role === "editor";
@@ -169,7 +171,7 @@ export default function WorkOrderPortfolio() {
       </View>
 
       <ScrollView
-        contentContainerStyle={{ padding: space.lg, gap: space.md }}
+        contentContainerStyle={{ padding: space.lg, gap: space.md , ...r.containerStyle }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} tintColor={colors.primary} />}
       >
         {/* Header card */}
