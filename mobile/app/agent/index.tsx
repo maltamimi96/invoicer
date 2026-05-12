@@ -40,7 +40,11 @@ export default function AgentChat() {
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const scrollRef = useRef<ScrollView | null>(null);
-  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  // Speech-grade preset — 22kHz mono is more than enough for Whisper and
+  // produces dramatically smaller uploads + fewer compression artifacts than
+  // HIGH_QUALITY (44kHz stereo 320kbps).
+  const recorder = useAudioRecorder(RecordingPresets.LOW_QUALITY);
+  const recordStartedAtRef = useRef<number>(0);
 
   useEffect(() => {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
@@ -56,6 +60,16 @@ export default function AgentChat() {
         setRecording(false);
         const uri = recorder.uri;
         if (!uri) return;
+
+        // Skip very short recordings — Whisper hallucinates on < 0.6s clips
+        // ("you you you", repeated word patterns, etc.) which costs a round
+        // trip and confuses the user.
+        const ms = Date.now() - recordStartedAtRef.current;
+        if (ms < 600) {
+          Alert.alert("Too short", "Hold the mic for at least a second.");
+          return;
+        }
+
         setTranscribing(true);
         const { data: { session } } = await supabase.auth.getSession();
         const accessToken = session?.access_token;
@@ -88,6 +102,7 @@ export default function AgentChat() {
         if (!status.granted) { Alert.alert("Mic permission required"); return; }
         await recorder.prepareToRecordAsync();
         recorder.record();
+        recordStartedAtRef.current = Date.now();
         setRecording(true);
       } catch (e) {
         Alert.alert("Couldn't start recording", e instanceof Error ? e.message : "Unknown error");
