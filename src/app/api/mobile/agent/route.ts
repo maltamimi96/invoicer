@@ -268,7 +268,11 @@ export async function POST(request: NextRequest) {
   const { data: { user }, error: userErr } = await supa.auth.getUser(token);
   if (userErr || !user) return NextResponse.json({ error: "Invalid token" }, { status: 401 });
 
-  const { messages, business_id } = await request.json() as { messages: Anthropic.MessageParam[]; business_id: string };
+  const { messages, business_id, context } = await request.json() as {
+    messages: Anthropic.MessageParam[];
+    business_id: string;
+    context?: AgentSnapshot;
+  };
   if (!business_id) return NextResponse.json({ error: "business_id required" }, { status: 400 });
 
   // Confirm membership — RLS will also reject but cleanest to fail fast
@@ -286,7 +290,14 @@ Today is ${today}. The user is the owner or admin running ops from their phone.
 Use the tools to look up customers, invoices, quotes, leads, briefings, today's schedule.
 Be brief — phone screens are small. Lead with the answer, then key supporting numbers.
 If asked to update something, confirm before calling write tools.
-Money is in AUD unless otherwise specified.`;
+Money is in ${context?.business.currency ?? "AUD"} unless otherwise specified.
+
+CONTINUITY: This conversation may continue across many turns. The full
+prior message history (including your earlier tool calls and their
+results) is provided to you. Use it. When the user says "that customer",
+"the invoice we just made", "schedule it" — match the pronoun to
+what you/they already worked on in earlier turns. Don't re-search
+for something you already have an ID for from a previous tool call.${renderContext(context)}`;
 
   const allMessages: Anthropic.MessageParam[] = [...messages];
   let iterations = 0;
@@ -306,7 +317,9 @@ Money is in AUD unless otherwise specified.`;
         .filter((b): b is Anthropic.TextBlock => b.type === "text")
         .map((b) => b.text)
         .join("\n");
-      return NextResponse.json({ text });
+      // Append final assistant turn so the client can persist + send back.
+      allMessages.push({ role: "assistant", content: response.content });
+      return NextResponse.json({ text, messages: allMessages });
     }
 
     // Execute tool calls and feed results back
@@ -324,5 +337,71 @@ Money is in AUD unless otherwise specified.`;
     allMessages.push({ role: "user", content: toolResults });
   }
 
-  return NextResponse.json({ text: "I ran out of steps. Try a simpler question." });
+  return NextResponse.json({ text: "I ran out of steps. Try a simpler question.", messages: allMessages });
+}
+
+// ── Live context snapshot rendered into the system prompt ──────────────────
+
+interface AgentSnapshot {
+  business: { id: string; name: string; currency: string };
+  stats:    {
+    outstanding: number; overdue: number; jobs_today: number;
+    draft_quotes: number; new_leads_7d: number;
+  };
+  recent_customers: Array<{ id: string; name: string; company: string | null }>;
+  recent_invoices:  Array<{ id: string; number: string; status: string; total: number; balance: number; customer_name: string | null }>;
+  recent_quotes:    Array<{ id: string; number: string; status: string; total: number; customer_name: string | null }>;
+  todays_jobs:      Array<{ id: string; number: string; title: string; status: string; customer_name: string | null }>;
+  open_leads:       Array<{ id: string; name: string; status: string; created_at: string }>;
+}
+
+function fmtMoney(n: number, currency: string): string {
+  try { return new Intl.NumberFormat("en-AU", { style: "currency", currency, maximumFractionDigits: 0 }).format(n); }
+  catch { return `${currency} ${n.toFixed(0)}`; }
+}
+
+function renderContext(ctx: AgentSnapshot | undefined): string {
+  if (!ctx) return "";
+  const c = ctx.business.currency;
+  const lines: string[] = ["", "", "── LIVE BUSINESS CONTEXT ──",
+    `Stats right now:`,
+    `  • Outstanding: ${fmtMoney(ctx.stats.outstanding, c)}`,
+    `  • Overdue: ${fmtMoney(ctx.stats.overdue, c)}`,
+    `  • Jobs scheduled today: ${ctx.stats.jobs_today}`,
+    `  • Draft quotes waiting to send: ${ctx.stats.draft_quotes}`,
+    `  • New leads (last 7d): ${ctx.stats.new_leads_7d}`,
+  ];
+
+  if (ctx.recent_customers.length) {
+    lines.push("", "Recent customers (use these IDs if the user means one of them):");
+    for (const r of ctx.recent_customers) lines.push(`  • ${r.name}${r.company ? ` (${r.company})` : ""} — id ${r.id}`);
+  }
+  if (ctx.recent_invoices.length) {
+    lines.push("", "Recent invoices:");
+    for (const i of ctx.recent_invoices) {
+      lines.push(`  • ${i.number} ${i.status} ${fmtMoney(i.total, c)}${i.balance > 0 ? ` (${fmtMoney(i.balance, c)} due)` : ""}${i.customer_name ? ` — ${i.customer_name}` : ""} — id ${i.id}`);
+    }
+  }
+  if (ctx.recent_quotes.length) {
+    lines.push("", "Recent quotes:");
+    for (const q of ctx.recent_quotes) {
+      lines.push(`  • ${q.number} ${q.status} ${fmtMoney(q.total, c)}${q.customer_name ? ` — ${q.customer_name}` : ""} — id ${q.id}`);
+    }
+  }
+  if (ctx.todays_jobs.length) {
+    lines.push("", "Today's jobs:");
+    for (const w of ctx.todays_jobs) {
+      lines.push(`  • ${w.number} ${w.status} — ${w.title}${w.customer_name ? ` (${w.customer_name})` : ""} — id ${w.id}`);
+    }
+  }
+  if (ctx.open_leads.length) {
+    lines.push("", "New leads:");
+    for (const l of ctx.open_leads) lines.push(`  • ${l.name} (${l.status}) — id ${l.id}`);
+  }
+
+  lines.push("", "When the user says 'that customer', 'the invoice we just made',",
+    "'today's jobs', 'this lead' — match to entries above first. Only run a",
+    "search tool if nothing here matches.",
+    "──────────────────────────────────");
+  return lines.join("\n");
 }

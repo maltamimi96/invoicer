@@ -15,10 +15,24 @@ import { useResponsive } from "@/lib/responsive";
 import { FadeIn } from "@/components/FadeIn";
 import { AnimatedPress } from "@/components/AnimatedPress";
 import { PatternBackground } from "@/components/PatternBackground";
+import { fetchAgentSnapshot } from "@/lib/agent-context";
 
 interface Message {
   role: "user" | "assistant";
   text: string;
+}
+
+/** Anthropic content blocks — either plain string (simple text), or an
+ *  array containing a mix of text / tool_use / tool_result blocks. We
+ *  forward this opaquely between client and server so cross-turn tool
+ *  context is preserved (the agent remembers what it already looked up). */
+type AnthropicContent =
+  | string
+  | Array<{ type: string; [key: string]: unknown }>;
+
+interface ApiMessage {
+  role: "user" | "assistant";
+  content: AnthropicContent;
 }
 
 const SUGGESTIONS = [
@@ -36,9 +50,14 @@ export default function AgentChat() {
   const r = useResponsive();
   const { active } = useActiveBusiness();
 
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput]       = useState("");
-  const [busy, setBusy]         = useState(false);
+  // `messages` drives the UI bubbles. `apiHistory` is the canonical
+  // Anthropic-shaped conversation including tool_use + tool_result blocks
+  // from earlier turns — sending it back lets the agent remember what it
+  // already looked up and chain commands across the whole chat.
+  const [messages, setMessages]       = useState<Message[]>([]);
+  const [apiHistory, setApiHistory]   = useState<ApiMessage[]>([]);
+  const [input, setInput]             = useState("");
+  const [busy, setBusy]               = useState(false);
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const scrollRef = useRef<ScrollView | null>(null);
@@ -114,14 +133,24 @@ export default function AgentChat() {
 
   const send = async (text: string) => {
     if (!active || !text.trim() || busy) return;
-    const next: Message[] = [...messages, { role: "user", text }];
-    setMessages(next);
+
+    // Append to both views: the displayed bubble list AND the canonical
+    // Anthropic-shaped history we'll send to the server.
+    const nextDisplay: Message[]   = [...messages, { role: "user", text }];
+    const nextHistory: ApiMessage[] = [...apiHistory, { role: "user", content: text }];
+    setMessages(nextDisplay);
     setInput("");
     setBusy(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const accessToken = session?.access_token;
       if (!accessToken) throw new Error("Not signed in");
+
+      // Fresh snapshot of business state so the agent can resolve "this
+      // invoice / that customer / today's jobs" without searching.
+      // Non-fatal if it fails.
+      let context = undefined;
+      try { context = await fetchAgentSnapshot(active.id, active.name, active.currency ?? "AUD"); } catch { /* skip */ }
 
       const base = process.env.EXPO_PUBLIC_APP_URL ?? "https://kireihq.com";
       const res = await fetch(`${base}/api/mobile/agent`, {
@@ -132,16 +161,23 @@ export default function AgentChat() {
         },
         body: JSON.stringify({
           business_id: active.id,
-          // Only send simplified text history; the server doesn't need our tool round-trips
-          messages: next.map((m) => ({ role: m.role, content: m.text })),
+          messages: nextHistory,
+          context,
         }),
       });
       if (!res.ok) {
         const txt = await res.text();
         throw new Error(txt || `Server returned ${res.status}`);
       }
-      const { text: reply } = await res.json() as { text: string };
-      setMessages([...next, { role: "assistant", text: reply ?? "(no reply)" }]);
+      const { text: reply, messages: updatedHistory } = await res.json() as {
+        text: string;
+        messages?: ApiMessage[];
+      };
+      setMessages([...nextDisplay, { role: "assistant", text: reply ?? "(no reply)" }]);
+      // Store the server's view of the full conversation (incl. tool
+      // round-trips) so the next turn carries memory of what was done.
+      if (Array.isArray(updatedHistory)) setApiHistory(updatedHistory);
+      else setApiHistory([...nextHistory, { role: "assistant", content: reply ?? "" }]);
     } catch (e) {
       Alert.alert("Couldn't reach assistant", e instanceof Error ? e.message : "Unknown error");
       setMessages(messages); // rollback so user can retry
@@ -165,7 +201,7 @@ export default function AgentChat() {
           <Text style={{ fontSize: 20, fontWeight: "800", color: "#fff", letterSpacing: -0.4 }}>Assistant</Text>
           <View style={{ flex: 1 }} />
           {messages.length > 0 && (
-            <Pressable onPress={() => setMessages([])} hitSlop={8}>
+            <Pressable onPress={() => { setMessages([]); setApiHistory([]); }} hitSlop={8}>
               <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.85)", fontWeight: "600" }}>Clear</Text>
             </Pressable>
           )}
