@@ -31,7 +31,7 @@ function Inner() {
   useEffect(() => {
     // Idempotent: if a member_profile exists for this email in any business
     // the worker is in, point its user_id at the auth user. Lets a worker who
-    // ONLY uses Connected Hub (never the web) still light up assigned jobs.
+    // ONLY uses Kirei (the mobile app) (never the web) still light up assigned jobs.
     const linkProfile = () => {
       supabase.rpc("link_my_member_profile").then(() => undefined, () => undefined);
     };

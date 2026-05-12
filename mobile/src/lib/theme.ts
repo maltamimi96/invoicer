@@ -1,5 +1,5 @@
 /**
- * Connected Hub design tokens — light + dark palettes that share the same
+ * Kirei (the mobile app) design tokens — light + dark palettes that share the same
  * keys. The exported `colors` and `gradients` objects are mutated in place
  * by `applyTheme(mode)` so existing imports continue to work; components
  * subscribe to changes via the ThemeProvider context which forces a

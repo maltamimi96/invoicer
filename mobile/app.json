@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "Connected Hub",
-    "slug": "connected-hub",
+    "name": "Kirei",
+    "slug": "kirei",
     "version": "0.1.0",
     "orientation": "portrait",
-    "scheme": "connectedhub",
+    "scheme": "kirei",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "icon": "./assets/icon.png",
@@ -19,10 +19,10 @@
       "bundleIdentifier": "com.crownroofers.connectedhub",
       "buildNumber": "1",
       "infoPlist": {
-        "NSCameraUsageDescription": "Connected Hub needs camera access so you can attach photos to jobs and capture site shots for invoices.",
-        "NSPhotoLibraryUsageDescription": "Connected Hub needs photo library access so you can attach existing photos to jobs.",
-        "NSLocationWhenInUseUsageDescription": "Connected Hub uses your location to confirm you're on site for a job.",
-        "NSMicrophoneUsageDescription": "Connected Hub needs microphone access so you can dictate prompts to the AI assistant.",
+        "NSCameraUsageDescription": "Kirei needs camera access so you can attach photos to jobs and capture site shots for invoices.",
+        "NSPhotoLibraryUsageDescription": "Kirei needs photo library access so you can attach existing photos to jobs.",
+        "NSLocationWhenInUseUsageDescription": "Kirei uses your location to confirm you're on site for a job.",
+        "NSMicrophoneUsageDescription": "Kirei needs microphone access so you can dictate prompts to the AI assistant.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -52,14 +52,14 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Connected Hub needs photo library access so you can attach photos to jobs.",
-          "cameraPermission": "Connected Hub needs camera access so you can take photos for jobs."
+          "photosPermission": "Kirei needs photo library access so you can attach photos to jobs.",
+          "cameraPermission": "Kirei needs camera access so you can take photos for jobs."
         }
       ],
       [
         "expo-audio",
         {
-          "microphonePermission": "Connected Hub needs microphone access so you can dictate prompts to the AI assistant."
+          "microphonePermission": "Kirei needs microphone access so you can dictate prompts to the AI assistant."
         }
       ],
       "expo-notifications",
