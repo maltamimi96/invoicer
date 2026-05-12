@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Alert, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { LogOut, Bell, Building2, ChevronRight, Users, Landmark, Palette, Sparkles } from "lucide-react-native";
+import { LogOut, Bell, Building2, ChevronRight, Landmark, Palette, Sparkles } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
@@ -35,7 +35,6 @@ export default function ProfileScreen() {
     href: string; label: string; icon: React.ReactNode; gradient: keyof typeof gradients;
   }> = canEditBusiness ? [
     { href: "/settings/business",   label: "Business profile", icon: <Building2 size={18} color="#fff" />, gradient: "primary" },
-    { href: "/settings/team",       label: "Team",             icon: <Users     size={18} color="#fff" />, gradient: "blue" },
     { href: "/settings/bank",       label: "Bank details",     icon: <Landmark  size={18} color="#fff" />, gradient: "emerald" },
     { href: "/settings/appearance", label: "Appearance",       icon: <Palette   size={18} color="#fff" />, gradient: "violet" },
     { href: "/settings/advanced",   label: "Advanced",         icon: <Sparkles  size={18} color="#fff" />, gradient: "dusk" },

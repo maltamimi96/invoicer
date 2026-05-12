@@ -2,7 +2,7 @@ import { ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-import { Users, UserPlus, FileCheck, FileText, ChevronRight, ClipboardList, Repeat, TrendingUp, Bot, Sparkles, Package, Briefcase, MessageSquare } from "lucide-react-native";
+import { Users, UserPlus, FileCheck, FileText, ChevronRight, ClipboardList, Repeat, TrendingUp, Bot, Sparkles, Package, Briefcase, MessageSquare, Users2 } from "lucide-react-native";
 import { colors, gradients, GradientName, radius, space } from "@/lib/theme";
 import { BusinessSwitcher } from "@/components/BusinessSwitcher";
 import { useActiveBusiness } from "@/lib/active-business";
@@ -74,6 +74,7 @@ export default function SalesHub() {
     { href: "/recurring",    label: "Recurring",    hint: "Auto-scheduled work",             icon: <Repeat        size={22} color="#fff" />, gradient: "violet"    },
     { href: "/analytics",    label: "Analytics",    hint: "Revenue, leads, quotes won",      icon: <TrendingUp    size={22} color="#fff" />, gradient: "primary"   },
     { href: "/products",     label: "Products",     hint: "Saved line items catalog",        icon: <Package       size={22} color="#fff" />, gradient: "emerald"   },
+    { href: "/team",         label: "Team",         hint: "Invite + manage access levels",    icon: <Users2        size={22} color="#fff" />, gradient: "blue"      },
     { href: "/agents",       label: "Agents",       hint: "Toggle automations on/off",       icon: <Bot           size={22} color="#fff" />, gradient: "coral"     },
   ];
 
