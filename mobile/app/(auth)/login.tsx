@@ -62,7 +62,7 @@ export default function Login() {
                   <Sparkles size={24} color="#fff" />
                 </View>
                 <Text style={{ fontSize: 32, fontWeight: "800", color: "#fff", letterSpacing: -0.6, marginTop: space.sm }}>
-                  Connected Hub
+                  Kirei
                 </Text>
                 <Text style={{ fontSize: 14, color: "rgba(255,255,255,0.9)", marginTop: 2 }}>
                   Run your trades business from your phone.

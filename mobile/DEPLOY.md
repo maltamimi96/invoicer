@@ -1,4 +1,4 @@
-# Deploying Connected Hub to TestFlight + Play Internal Testing
+# Deploying Kirei to TestFlight + Play Internal Testing
 
 End-to-end guide for getting a build into your team's hands.
 
@@ -189,9 +189,9 @@ Users get the update on next app open — no app-store review.
 ## What to send your team
 
 **iOS testers:**
-> "Install **TestFlight** from the App Store. You'll get an email invite — accept it, then open TestFlight to install Connected Hub."
+> "Install **TestFlight** from the App Store. You'll get an email invite — accept it, then open TestFlight to install Kirei."
 
 **Android testers:**
-> "Open this opt-in URL on your phone: `<URL from Play Console>`. After joining, search for **Connected Hub** in the Play Store and install normally."
+> "Open this opt-in URL on your phone: `<URL from Play Console>`. After joining, search for **Kirei** in the Play Store and install normally."
 
 That's it. New builds appear automatically inside TestFlight / Play Internal as soon as `eas submit` finishes.

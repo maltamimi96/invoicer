@@ -1,4 +1,4 @@
-# Connected Hub
+# Kirei
 
 The companion mobile app for Invoicer. Field workers sign in, see only the work
 orders assigned to them, attach photos, update status, and get local push
@@ -58,7 +58,7 @@ you're shipping under a different org.
 2. The worker registers using that email at `/auth/register` on the web. The
    web's dashboard layout calls `link_my_member_profile()` which connects
    their existing `member_profiles` row to their auth user.
-3. They sign in to Connected Hub with the same email + password — every job
+3. They sign in to Kirei with the same email + password — every job
    you've assigned to that profile shows up immediately.
 
 ## Files
