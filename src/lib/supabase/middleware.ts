@@ -34,6 +34,16 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
   const isAuthRoute = pathname.startsWith("/auth");
+
+  // Endpoints that authenticate themselves via an Authorization: Bearer
+  // header (mobile clients) — let the route handler do its own auth check
+  // instead of cookie-redirecting them to the login page (which produces
+  // an HTML response and breaks the mobile JSON parser).
+  const hasBearer = request.headers.get("authorization")?.startsWith("Bearer ") ?? false;
+  const isBearerAuthRoute =
+    pathname.startsWith("/api/mobile/") ||
+    pathname === "/api/ai/transcribe";
+
   const isPublicRoute =
     pathname.startsWith("/invoice/") ||
     pathname.startsWith("/quote/") ||
@@ -43,6 +53,7 @@ export async function updateSession(request: NextRequest) {
     pathname === "/api/auth/signup" ||
     pathname.startsWith("/api/v1/") ||
     pathname.startsWith("/api/cron/") ||
+    (isBearerAuthRoute && hasBearer) ||
     (pathname.startsWith("/api/pdf/") && new URL(request.url).searchParams.get("token") !== null);
 
   if (!user && !isAuthRoute && !isPublicRoute) {
