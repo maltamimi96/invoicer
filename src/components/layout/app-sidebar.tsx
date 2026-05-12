@@ -14,7 +14,15 @@ import { canManageSettings, isWorker, ROLE_LABELS } from "@/lib/permissions";
 import Image from "next/image";
 import { BusinessSwitcher } from "@/components/business/business-switcher";
 
-type NavItem = { label: string; href: string; icon: typeof LayoutDashboard; worker?: boolean };
+type FeatureFlag = "quotingAgent";
+type NavItem = {
+  label: string;
+  href: string;
+  icon: typeof LayoutDashboard;
+  worker?: boolean;
+  /** Only show when this feature is enabled for the business. */
+  feature?: FeatureFlag;
+};
 type NavSection = { section: string; items: NavItem[] };
 
 const navSections: NavSection[] = [
@@ -25,11 +33,12 @@ const navSections: NavSection[] = [
     { label: "Tasks",      href: "/tasks",      icon: Columns3                      },
   ]},
   { section: "Sales", items: [
-    { label: "Leads",         href: "/leads",      icon: UserPlus                      },
-    { label: "Quotes",        href: "/quotes",     icon: FileCheck                     },
-    { label: "Invoices",      href: "/invoices",   icon: FileText                      },
-    { label: "Site Reports",  href: "/reports",    icon: ClipboardList                 },
-    { label: "Recurring",     href: "/recurring",  icon: Repeat                        },
+    { label: "Leads",         href: "/leads",         icon: UserPlus                                       },
+    { label: "Quoting Agent", href: "/quoting-agent", icon: Sparkles,    feature: "quotingAgent"          },
+    { label: "Quotes",        href: "/quotes",        icon: FileCheck                                      },
+    { label: "Invoices",      href: "/invoices",      icon: FileText                                       },
+    { label: "Site Reports",  href: "/reports",       icon: ClipboardList                                  },
+    { label: "Recurring",     href: "/recurring",     icon: Repeat                                         },
   ]},
   { section: "Service", items: [
     { label: "Work Orders", href: "/work-orders", icon: Wrench,        worker: true },
@@ -58,15 +67,24 @@ interface AppSidebarProps {
   business: Business;
   businesses: Business[];
   userRole: Role;
+  /** Server-fetched flags driving conditional nav items. */
+  features?: { quotingAgent?: boolean };
   open: boolean;
   onClose: () => void;
 }
 
-export function AppSidebar({ business, businesses, userRole, open, onClose }: AppSidebarProps) {
+export function AppSidebar({ business, businesses, userRole, features, open, onClose }: AppSidebarProps) {
   const pathname = usePathname();
   const workerView = isWorker(userRole);
   const visibleSections = navSections
-    .map((s) => ({ ...s, items: workerView ? s.items.filter((i) => i.worker) : s.items }))
+    .map((s) => ({
+      ...s,
+      items: s.items.filter((i) => {
+        if (workerView && !i.worker) return false;
+        if (i.feature === "quotingAgent" && !features?.quotingAgent) return false;
+        return true;
+      }),
+    }))
     .filter((s) => s.items.length > 0);
 
   const isActive = (href: string) =>
