@@ -7,6 +7,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { supabase } from "@/lib/supabase";
 import { useActiveBusiness } from "@/lib/active-business";
 import { colors, gradients, radius, space } from "@/lib/theme";
+import { useResponsive } from "@/lib/responsive";
 import { FadeIn } from "@/components/FadeIn";
 import { PatternBackground } from "@/components/PatternBackground";
 
@@ -47,6 +48,7 @@ function fmtCurrency(n: number, currency: string): string {
 
 export default function CustomerDetail() {
   const router = useRouter();
+  const r = useResponsive();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { active } = useActiveBusiness();
 
@@ -148,7 +150,7 @@ export default function CustomerDetail() {
       </View>
 
       <ScrollView
-        contentContainerStyle={{ padding: space.lg, gap: space.md, paddingBottom: space.xxl }}
+        contentContainerStyle={{ padding: space.lg, gap: space.md, paddingBottom: space.xxl , ...r.containerStyle }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} tintColor={colors.primary} />}
       >
         {/* Identity card — gradient hero */}

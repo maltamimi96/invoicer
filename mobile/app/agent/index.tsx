@@ -11,6 +11,7 @@ import { useAudioRecorder, AudioModule, RecordingPresets } from "expo-audio";
 import { supabase } from "@/lib/supabase";
 import { useActiveBusiness } from "@/lib/active-business";
 import { colors, gradients, radius, space } from "@/lib/theme";
+import { useResponsive } from "@/lib/responsive";
 import { FadeIn } from "@/components/FadeIn";
 import { AnimatedPress } from "@/components/AnimatedPress";
 import { PatternBackground } from "@/components/PatternBackground";
@@ -32,6 +33,7 @@ const SUGGESTIONS = [
  *  small read-mostly tool surface (search, briefing, schedule, status updates). */
 export default function AgentChat() {
   const router = useRouter();
+  const r = useResponsive();
   const { active } = useActiveBusiness();
 
   const [messages, setMessages] = useState<Message[]>([]);
@@ -173,7 +175,7 @@ export default function AgentChat() {
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView
           ref={scrollRef}
-          contentContainerStyle={{ padding: space.lg, gap: space.md, flexGrow: 1 }}
+          contentContainerStyle={{ padding: space.lg, gap: space.md, flexGrow: 1 , ...r.containerStyle }}
           keyboardShouldPersistTaps="handled"
         >
           {messages.length === 0 ? (
