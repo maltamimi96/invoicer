@@ -75,10 +75,29 @@ export async function POST(request: NextRequest) {
     }
     type Segment = { text: string; no_speech_prob?: number; avg_logprob?: number };
     const data = (await res.json()) as { text?: string; segments?: Segment[]; duration?: number };
-    let text = (data.text ?? "").trim();
 
-    // Repetition guard — Whisper's classic failure mode on silence is to
-    // output the same word/phrase 10+ times. Detect and blank it.
+    // Drop low-confidence + silent segments BEFORE concatenation. Whisper
+    // sometimes emits a few silent/hallucinated segments alongside good
+    // speech — by filtering at segment level we preserve the real speech
+    // and drop the garbage.
+    let text = "";
+    if (data.segments && data.segments.length > 0) {
+      const clean = data.segments.filter((s) => {
+        const noSpeech = s.no_speech_prob ?? 0;
+        const logProb  = s.avg_logprob   ?? 0;
+        return noSpeech < 0.6 && logProb > -1.0;
+      });
+      text = clean.map((s) => s.text).join(" ").trim();
+    } else {
+      text = (data.text ?? "").trim();
+    }
+
+    // De-duplicate adjacent repeated phrases — Whisper sometimes emits the
+    // same n-gram back-to-back even when there's real speech around it.
+    text = collapseRepeats(text);
+
+    // Hard repetition guard — if the result is still mostly the same word/
+    // phrase, blank it out.
     if (text && isLikelyHallucination(text, data.segments)) {
       text = "";
     }
@@ -92,10 +111,40 @@ export async function POST(request: NextRequest) {
   }
 }
 
+/** Collapse adjacent duplicate n-grams. "tomorrow tomorrow at 9" → "tomorrow at 9".
+ *  Checks n-grams up to 5 words long. */
+function collapseRepeats(text: string): string {
+  let words = text.split(/\s+/).filter(Boolean);
+  for (let n = 5; n >= 1; n--) {
+    const out: string[] = [];
+    let i = 0;
+    while (i < words.length) {
+      out.push(words[i]);
+      // Look ahead: are the next n words equal to the previous n?
+      if (out.length >= n) {
+        const prev = out.slice(out.length - n).map((w) => w.toLowerCase()).join(" ");
+        let runs = 1;
+        while (i + 1 + runs * n - 1 < words.length) {
+          const next = words.slice(i + 1 + (runs - 1) * n, i + 1 + runs * n)
+            .map((w) => w.toLowerCase()).join(" ");
+          if (next === prev) runs++;
+          else break;
+        }
+        if (runs > 1) {
+          i += (runs - 1) * n; // skip the duplicates
+        }
+      }
+      i++;
+    }
+    words = out;
+  }
+  return words.join(" ").trim();
+}
+
 /** Returns true if the transcript looks like a Whisper repetition artefact:
- *  - The same short word/phrase repeated > 4×
- *  - Or every segment is mostly silence (no_speech_prob > 0.8)
- *  - Or fewer than 2 unique tokens for a long-ish transcript */
+ *  - Same 1-3 word phrase repeated ≥ 3× consecutively
+ *  - Most segments flagged as silence
+ *  - Very low unique-word ratio over a long transcript */
 function isLikelyHallucination(text: string, segments?: Array<{ no_speech_prob?: number }>): boolean {
   const lower = text.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, "").trim();
   const words = lower.split(/\s+/).filter(Boolean);
@@ -103,25 +152,27 @@ function isLikelyHallucination(text: string, segments?: Array<{ no_speech_prob?:
 
   // All segments flagged as silence
   if (segments && segments.length > 0) {
-    const silent = segments.filter((s) => (s.no_speech_prob ?? 0) > 0.8).length;
-    if (silent / segments.length > 0.7) return true;
+    const silent = segments.filter((s) => (s.no_speech_prob ?? 0) > 0.7).length;
+    if (silent / segments.length > 0.6) return true;
   }
 
-  // Same 1-3-word phrase ≥ 4× in a row
-  for (const span of [1, 2, 3]) {
-    if (words.length < span * 4) continue;
-    const first = words.slice(0, span).join(" ");
-    let repeats = 1;
-    for (let i = span; i + span <= words.length; i += span) {
-      if (words.slice(i, i + span).join(" ") !== first) break;
-      repeats++;
+  // Same 1-4-word phrase ≥ 3× anywhere in the transcript
+  for (const span of [1, 2, 3, 4]) {
+    if (words.length < span * 3) continue;
+    for (let start = 0; start + span * 3 <= words.length; start++) {
+      const first = words.slice(start, start + span).join(" ");
+      let repeats = 1;
+      for (let i = start + span; i + span <= words.length; i += span) {
+        if (words.slice(i, i + span).join(" ") !== first) break;
+        repeats++;
+      }
+      if (repeats >= 3) return true;
     }
-    if (repeats >= 4) return true;
   }
 
   // Very low unique-token ratio over a long transcript = repetition spam
   const unique = new Set(words);
-  if (words.length > 10 && unique.size / words.length < 0.25) return true;
+  if (words.length > 8 && unique.size / words.length < 0.4) return true;
 
   return false;
 }
