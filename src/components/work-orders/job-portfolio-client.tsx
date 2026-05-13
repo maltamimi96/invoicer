@@ -349,9 +349,12 @@ function PortfolioHeader({
   onDelete: () => void;
 }) {
   const [assignOpen, setAssignOpen] = useState(false);
+  const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const status = (workOrder.status ?? "draft") as WorkOrderStatus;
+  // Owners + admins can reschedule (same gate as delete/assign).
+  const canReschedule = deletable;
   const addr = site
     ? [site.address, site.city, site.postcode].filter(Boolean).join(", ")
     : workOrder.property_address ?? "";
@@ -417,7 +420,12 @@ function PortfolioHeader({
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <FactCard icon={User} label="Customer" value={workOrder.customers?.name ?? "—"} href={workOrder.customer_id ? `/customers/${workOrder.customer_id}` : undefined} />
         <FactCard icon={MapPin} label="Site" value={addr || "No address"} href={site ? `/sites/${site.id}` : undefined} />
-        <FactCard icon={Calendar} label="Scheduled" value={workOrder.scheduled_date ? `${fmtDate(workOrder.scheduled_date)}${workOrder.start_time ? ` · ${workOrder.start_time}` : ""}` : "Unscheduled"} />
+        <FactCard
+          icon={Calendar}
+          label="Scheduled"
+          value={workOrder.scheduled_date ? `${fmtDate(workOrder.scheduled_date)}${workOrder.start_time ? ` · ${workOrder.start_time}` : ""}` : "Unscheduled"}
+          onClick={canReschedule ? () => setRescheduleOpen(true) : undefined}
+        />
         <FactCard
           icon={User}
           label="Workers"
@@ -442,7 +450,103 @@ function PortfolioHeader({
         initialSelected={assignedWorkers.map((w) => w.id)}
         onSaved={() => router.refresh()}
       />
+
+      <RescheduleDialog
+        open={rescheduleOpen}
+        onOpenChange={setRescheduleOpen}
+        workOrderId={workOrder.id}
+        initialDate={workOrder.scheduled_date}
+        initialStart={workOrder.start_time}
+        initialEnd={workOrder.end_time}
+        onSaved={() => router.refresh()}
+      />
     </motion.div>
+  );
+}
+
+// ── Reschedule dialog ────────────────────────────────────────────────────────
+
+function RescheduleDialog({
+  open, onOpenChange, workOrderId, initialDate, initialStart, initialEnd, onSaved,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  workOrderId: string;
+  initialDate: string | null;
+  initialStart: string | null;
+  initialEnd: string | null;
+  onSaved: () => void;
+}) {
+  const [date, setDate] = useState(initialDate ?? "");
+  const [start, setStart] = useState(initialStart ?? "");
+  const [end, setEnd] = useState(initialEnd ?? "");
+  const [saving, setSaving] = useState(false);
+
+  // Reset when reopening with fresh values.
+  useEffect(() => {
+    if (open) {
+      setDate(initialDate ?? "");
+      setStart(initialStart ?? "");
+      setEnd(initialEnd ?? "");
+    }
+  }, [open, initialDate, initialStart, initialEnd]);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await updateWorkOrder(workOrderId, {
+        scheduled_date: date || null,
+        start_time: start || null,
+        end_time: end || null,
+      });
+      toast.success(date ? "Job rescheduled" : "Schedule cleared");
+      onSaved();
+      onOpenChange(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't reschedule");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const clear = () => { setDate(""); setStart(""); setEnd(""); };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Reschedule job</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label className="text-xs">Date</Label>
+            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Start time</Label>
+              <Input type="time" value={start} onChange={(e) => setStart(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs">End time</Label>
+              <Input type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
+            </div>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Changes are logged to the job timeline. Leave the date blank to mark the job unscheduled.
+          </p>
+        </div>
+        <div className="flex items-center justify-between pt-2">
+          <Button variant="ghost" size="sm" onClick={clear} disabled={saving}>Clear</Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
+            <Button size="sm" onClick={save} disabled={saving}>
+              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Save"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
