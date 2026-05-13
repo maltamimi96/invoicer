@@ -20,13 +20,24 @@ interface Section {
 
 function SectionList({ sections, onPress, baseDelay = 0 }: { sections: Section[]; onPress: (href: string) => void; baseDelay?: number }) {
   const r = useResponsive();
-  // On tablet/landscape, lay out as a grid so we use the extra width.
-  const multiCol = r.isWide;
+  // sectionColumns is derived from width directly: 1 col on portrait phones,
+  // 2 on landscape phones / tablet portrait, 3 on tablet landscape. No more
+  // flexBasis 100% inside flexDirection: row which collapsed cards on some
+  // portrait phones.
+  const isGrid = r.sectionColumns > 1;
   return (
-    <View style={{ flexDirection: multiCol ? "row" : "column", flexWrap: "wrap", gap: space.sm }}>
+    <View style={{
+      flexDirection: isGrid ? "row" : "column",
+      flexWrap: isGrid ? "wrap" : "nowrap",
+      gap: space.sm,
+    }}>
       {sections.map((s, idx) => (
-        <FadeIn key={s.href} delay={baseDelay + idx * 50}
-          style={multiCol ? { flexBasis: r.isTablet ? "48%" : "100%", flexGrow: 1 } : undefined}
+        <FadeIn
+          key={s.href}
+          delay={baseDelay + idx * 50}
+          style={isGrid
+            ? { flexBasis: r.sectionBasis, flexGrow: 1, minWidth: 0 }
+            : { width: "100%" }}
         >
           <AnimatedPress
             onPress={() => onPress(s.href)}
@@ -35,23 +46,35 @@ function SectionList({ sections, onPress, baseDelay = 0 }: { sections: Section[]
               padding: space.md, borderRadius: radius.lg,
               backgroundColor: colors.card,
               borderWidth: 1, borderColor: colors.hairline,
+              width: "100%",
             }}
           >
             <LinearGradient
               colors={gradients[s.gradient] as unknown as readonly [string, string, ...string[]]}
               start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
               style={{
-                width: 46, height: 46, borderRadius: radius.lg,
+                width: 48, height: 48, borderRadius: radius.lg,
                 alignItems: "center", justifyContent: "center",
+                flexShrink: 0,
               }}
             >
               {s.icon}
             </LinearGradient>
             <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={{ fontSize: 16, fontWeight: "700", color: colors.text }}>{s.label}</Text>
-              <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>{s.hint}</Text>
+              <Text
+                numberOfLines={1}
+                style={{ fontSize: 16, fontWeight: "700", color: colors.text }}
+              >
+                {s.label}
+              </Text>
+              <Text
+                numberOfLines={2}
+                style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}
+              >
+                {s.hint}
+              </Text>
             </View>
-            <ChevronRight size={18} color={colors.muted} />
+            <ChevronRight size={18} color={colors.muted} style={{ flexShrink: 0 }} />
           </AnimatedPress>
         </FadeIn>
       ))}

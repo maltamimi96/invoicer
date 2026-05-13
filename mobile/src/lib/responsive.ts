@@ -22,7 +22,18 @@ export interface Responsive {
   gridColumns:  2 | 3 | 4;
   /** flexBasis percentage to pair with `gridColumns` and `flexWrap: "wrap"`. */
   gridBasis:    `${number}%`;
-  /** Common container style: caps width on wide screens, centres horizontally. */
+  /** Columns for the Sales/Operations card grid. Deterministic by width so
+   *  the layout never collapses on portrait phones:
+   *    < 600px  → 1 (phone portrait)
+   *    600–900  → 2 (phone landscape, tablet portrait)
+   *    ≥ 900px  → 3 (tablet landscape) */
+  sectionColumns: 1 | 2 | 3;
+  /** flexBasis paired with sectionColumns + `flexWrap: "wrap"`. Includes a
+   *  small gap allowance so cards wrap cleanly. */
+  sectionBasis:   `${number}%`;
+  /** Common container style: caps width on tablets / landscape, centres
+   *  horizontally. On phone portrait this is a no-op (width is already
+   *  below CONTENT_MAX_WIDTH). */
   containerStyle: { maxWidth: number; width: "100%"; alignSelf: "center" };
 }
 
@@ -36,16 +47,23 @@ export function useResponsive(): Responsive {
   const isTablet    = smallest >= TABLET_MIN_DIMENSION;
   const isWide      = isTablet || isLandscape;
 
-  // Grid sizing — 4 columns on tablet, 3 on landscape phone, 2 elsewhere.
-  // flexBasis values include small gaps so the columns wrap cleanly.
+  // KPI grid — 4 cols on tablet, 3 on landscape phone, 2 elsewhere.
   let gridColumns: 2 | 3 | 4 = 2;
   let gridBasis: `${number}%` = "48%";
   if (isTablet)             { gridColumns = 4; gridBasis = "23%"; }
   else if (isLandscape)     { gridColumns = 3; gridBasis = "31%"; }
 
+  // Section card grid — derived from width directly so portrait phones
+  // never end up in the "wide" two-column path.
+  let sectionColumns: 1 | 2 | 3 = 1;
+  let sectionBasis: `${number}%` = "100%";
+  if (width >= 900)        { sectionColumns = 3; sectionBasis = "31%"; }
+  else if (width >= 600)   { sectionColumns = 2; sectionBasis = "48%"; }
+
   return {
     width, height, isLandscape, isTablet, isWide,
     gridColumns, gridBasis,
+    sectionColumns, sectionBasis,
     containerStyle: { maxWidth: CONTENT_MAX_WIDTH, width: "100%", alignSelf: "center" },
   };
 }
