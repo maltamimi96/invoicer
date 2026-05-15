@@ -162,17 +162,24 @@ export function AgentsStore({ installs: initialInstalls }: AgentsStoreProps) {
     <>
       {/* Header */}
       <div className="mb-8">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Agents</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Add AI agents to automate tasks for your business.
-            </p>
+        <div className="flex items-end justify-between gap-3 flex-wrap mb-2">
+          <div className="flex items-stretch gap-3 min-w-0">
+            <div
+              className="w-1 rounded-full shrink-0"
+              style={{ backgroundImage: "linear-gradient(180deg, #fb923c 0%, #c2410c 100%)" }}
+              aria-hidden
+            />
+            <div className="min-w-0">
+              <h1 className="text-3xl font-bold tracking-tight">Agents</h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                Add AI agents to automate tasks for your business
+              </p>
+            </div>
           </div>
           {installedCount > 0 && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">{activeCount}</span> of{" "}
-              <span className="font-medium text-foreground">{installedCount}</span> active
+            <div className="inline-flex items-center gap-1.5 text-sm text-muted-foreground px-3 py-1.5 rounded-xl bg-muted/60 border border-border">
+              <span className="font-semibold text-foreground tabular-nums">{activeCount}</span> of{" "}
+              <span className="font-semibold text-foreground tabular-nums">{installedCount}</span> active
             </div>
           )}
         </div>

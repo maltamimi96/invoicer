@@ -73,10 +73,13 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
           <div className="flex items-center gap-4 min-w-0">
             {business?.logo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={business.logo_url} alt={business.name} className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-contain bg-white border border-border p-1" />
+              <img src={business.logo_url} alt={business.name} className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-contain bg-white border border-border p-1 shadow-sm" />
             ) : (
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-primary/10 flex items-center justify-center">
-                <Building2 className="w-8 h-8 text-primary" />
+              <div
+                className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl flex items-center justify-center text-white shadow-sm"
+                style={{ backgroundImage: "linear-gradient(135deg, #3a847e 0%, #1f4f4a 100%)" }}
+              >
+                <Building2 className="w-8 h-8" />
               </div>
             )}
             <div className="min-w-0">
@@ -260,19 +263,23 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
 }
 
 function SummaryCard({ icon: Icon, label, count, accent }: { icon: React.ComponentType<{ className?: string }>; label: string; count: number; accent: string }) {
-  const colors: Record<string, string> = {
-    emerald: "text-emerald-500 bg-emerald-500/10",
-    violet:  "text-violet-500 bg-violet-500/10",
-    blue:    "text-blue-500 bg-blue-500/10",
+  const gradient: Record<string, [string, string]> = {
+    emerald: ["#34d399", "#047857"],
+    violet:  ["#a78bfa", "#6d28d9"],
+    blue:    ["#60a5fa", "#1d4ed8"],
   };
+  const [from, to] = gradient[accent] ?? gradient.emerald;
   return (
-    <Card className="p-4 flex items-center gap-3">
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${colors[accent]}`}>
+    <Card className="rounded-xl p-4 flex items-center gap-3 border-border">
+      <div
+        className="w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-sm shrink-0"
+        style={{ backgroundImage: `linear-gradient(135deg, ${from} 0%, ${to} 100%)` }}
+      >
         <Icon className="w-5 h-5" />
       </div>
       <div>
-        <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="text-xl font-bold">{count}</p>
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+        <p className="text-2xl font-bold tabular-nums">{count}</p>
       </div>
     </Card>
   );
