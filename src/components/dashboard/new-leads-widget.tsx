@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { UserPlus, ArrowRight, MapPin } from "@/components/ui/icons";
 import { getLeads } from "@/lib/actions/leads";
+import { GradientTile, KireiAvatar, AnimatedPress, EmptyState, SkeletonRow } from "@/components/ui/kirei";
 import type { Lead } from "@/types/database";
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -37,16 +38,13 @@ function fmtAge(iso: string): string {
   return `${days}d ago`;
 }
 
-/** Dashboard widget — most recent leads with status=new + status=contacted.
- *  Surfaces leads that haven't been actioned yet so the owner sees them
- *  immediately on landing. Clicking a row jumps to the lead. */
+/** Dashboard widget — most recent unconverted leads. */
 export function NewLeadsWidget() {
   const [leads, setLeads] = useState<Lead[] | null>(null);
 
   const refresh = useCallback(async () => {
     try {
       const all = await getLeads();
-      // Most recent unconverted leads first.
       const filtered = all
         .filter((l) => l.status === "new" || l.status === "contacted")
         .slice(0, 5);
@@ -57,40 +55,51 @@ export function NewLeadsWidget() {
   useEffect(() => { refresh(); }, [refresh]);
 
   return (
-    <div className="rounded-xl border border-border bg-card shadow-sm">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <h3 className="text-sm font-semibold flex items-center gap-2">
-          <UserPlus className="w-3.5 h-3.5 text-muted-foreground" />
-          New leads
-          {leads && leads.length > 0 && (
-            <span className="ch-pill in-progress">{leads.length}</span>
-          )}
-        </h3>
+    <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+        <div className="flex items-center gap-2.5">
+          <GradientTile gradient="blue" size={32} radius={8}>
+            <UserPlus className="w-4 h-4" />
+          </GradientTile>
+          <div>
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              New leads
+              {leads && leads.length > 0 && (
+                <span className="text-[10px] uppercase tracking-wide font-bold bg-blue-100 text-blue-900 dark:bg-blue-900/40 dark:text-blue-200 px-1.5 py-0.5 rounded-full">
+                  {leads.length}
+                </span>
+              )}
+            </h3>
+            <p className="text-xs text-muted-foreground">Unconverted opportunities</p>
+          </div>
+        </div>
         <Link href="/leads" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
           All leads <ArrowRight className="w-3 h-3" />
         </Link>
       </div>
 
       {leads === null ? (
-        <div className="p-4 text-xs text-muted-foreground">Loading…</div>
-      ) : leads.length === 0 ? (
-        <div className="ch-empty">
-          <h4>No new leads</h4>
-          <p>Once a lead comes in (manual or via a landing page), it&apos;ll appear here.</p>
+        <div className="p-2 space-y-1.5">
+          <SkeletonRow /><SkeletonRow /><SkeletonRow />
         </div>
+      ) : leads.length === 0 ? (
+        <EmptyState
+          icon={<UserPlus className="w-7 h-7" />}
+          gradient="blue"
+          title="No new leads"
+          hint="Once a lead comes in (manual or via a landing page), it'll appear here."
+        />
       ) : (
-        <ul className="divide-y divide-border">
+        <div className="p-2 space-y-1.5">
           {leads.map((lead) => (
-            <li key={lead.id} className="px-4 py-3 hover:bg-muted/40 transition-colors">
-              <Link href={`/leads/${lead.id}`} className="flex items-center gap-3 group">
-                <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-semibold flex-shrink-0">
-                  {lead.name?.split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("") || "?"}
-                </div>
+            <Link key={lead.id} href={`/leads/${lead.id}`} className="block">
+              <AnimatedPress className="flex items-center gap-3 p-3 rounded-lg bg-card border border-border/70 hover:border-primary/30 transition-colors">
+                <KireiAvatar name={lead.name ?? "?"} size={40} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-medium truncate">{lead.name}</p>
+                    <p className="text-sm font-semibold truncate">{lead.name}</p>
                     {lead.status === "contacted" && (
-                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">contacted</span>
+                      <span className="text-[10px] uppercase tracking-wide font-bold text-muted-foreground">contacted</span>
                     )}
                   </div>
                   <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
@@ -101,11 +110,11 @@ export function NewLeadsWidget() {
                     <span>· {fmtAge(lead.created_at)}</span>
                   </div>
                 </div>
-                <ArrowRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-foreground group-hover:translate-x-0.5 transition-all flex-shrink-0" />
-              </Link>
-            </li>
+                <ArrowRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-foreground transition-colors shrink-0" />
+              </AnimatedPress>
+            </Link>
           ))}
-        </ul>
+        </div>
       )}
     </div>
   );
