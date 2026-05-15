@@ -50,7 +50,7 @@ export async function getWorkOrder(id: string): Promise<WorkOrderWithCustomer> {
   const businessId = await getActiveBizId(supabase, user.id);
 
   const { data, error } = await tbl(supabase, "work_orders")
-    .select("*, customers(id, name, email, company)")
+    .select("*, customers(id, name, email, company, phone, address, city, postcode)")
     .eq("id", id)
     .eq("business_id", businessId)
     .single();

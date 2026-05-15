@@ -382,11 +382,11 @@ export type ScheduledJob = WorkOrder & {
 };
 
 export type WorkOrderWithCustomer = WorkOrder & {
-  customers: Pick<Customer, 'id' | 'name' | 'email' | 'company'> | null;
+  customers: Pick<Customer, 'id' | 'name' | 'email' | 'company' | 'phone' | 'address' | 'city' | 'postcode'> | null;
 };
 
 export type WorkOrderWithDetails = WorkOrder & {
-  customers: Pick<Customer, 'id' | 'name' | 'email' | 'company'> | null;
+  customers: Pick<Customer, 'id' | 'name' | 'email' | 'company' | 'phone'> | null;
   assigned_profile: Pick<MemberProfile, 'id' | 'name' | 'email' | 'avatar_url' | 'role_title'> | null;
 };
 

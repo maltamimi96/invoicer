@@ -179,11 +179,25 @@ export default function WorkOrderPortfolio() {
           <Text style={{ fontSize: 11, color: colors.muted, textTransform: "uppercase", letterSpacing: 0.6, fontWeight: "700" }}>{wo.status}</Text>
           <Text style={{ fontSize: 18, fontWeight: "700", color: colors.text }}>{wo.title ?? "Untitled"}</Text>
           {wo.customers && (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 }}>
-              <MapPin size={13} color={colors.muted} />
-              <Pressable onPress={() => router.push(`/customers/${wo.customers!.id}` as never)}>
-                <Text style={{ fontSize: 13, color: colors.primary }}>{wo.customers.name}</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
+              <Pressable onPress={() => router.push(`/customers/${wo.customers!.id}` as never)}
+                style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <MapPin size={13} color={colors.muted} />
+                <Text style={{ fontSize: 13, color: colors.primary, fontWeight: "600" }}>{wo.customers.name}</Text>
               </Pressable>
+              {wo.customers.phone && (
+                <Pressable onPress={() => Linking.openURL(`tel:${wo.customers!.phone!.replace(/\s/g, "")}`)}
+                  hitSlop={6}
+                  style={({ pressed }) => ({
+                    flexDirection: "row", alignItems: "center", gap: 4,
+                    paddingHorizontal: 8, paddingVertical: 3,
+                    borderRadius: radius.pill,
+                    backgroundColor: pressed ? colors.muted + "33" : colors.primarySoft,
+                  })}>
+                  <Phone size={11} color={colors.primaryText} />
+                  <Text style={{ fontSize: 12, color: colors.primaryText, fontWeight: "600" }}>{wo.customers.phone}</Text>
+                </Pressable>
+              )}
             </View>
           )}
           {wo.scheduled_date && (
