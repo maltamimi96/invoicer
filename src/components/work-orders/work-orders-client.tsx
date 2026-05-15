@@ -3,31 +3,39 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
-import { Plus, Wrench, Trash2, MoreHorizontal, MapPin, User, Calendar } from "@/components/ui/icons";
+import { Plus, Wrench, Trash2, MoreHorizontal, MapPin, Calendar, Camera, Briefcase } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { PageHeader } from "@/components/layout/page-header";
 import { CleanupButton } from "@/components/cleanup/cleanup-button";
 import { deleteWorkOrder } from "@/lib/actions/work-orders";
+import {
+  StatTile, KireiTabs, KireiPill, EmptyState, AnimatedPress, FadeIn, GradientTile,
+} from "@/components/ui/kirei";
+import type { GradientName as KireiGradient } from "@/components/ui/kirei";
 import type { WorkOrderWithCustomer, WorkOrderStatus, BusinessMember } from "@/types/database";
 import type { Role } from "@/lib/permissions";
 import { canManageTeam } from "@/lib/permissions";
 
-const TABS: { id: WorkOrderStatus | "all"; label: string }[] = [
-  { id: "all",         label: "All"         },
-  { id: "draft",       label: "Draft"       },
-  { id: "assigned",    label: "Assigned"    },
-  { id: "in_progress", label: "In Progress" },
-  { id: "submitted",   label: "Submitted"   },
-  { id: "reviewed",    label: "Reviewed"    },
-  { id: "completed",   label: "Completed"   },
+const TABS: { value: WorkOrderStatus | "all"; label: string }[] = [
+  { value: "all",         label: "All"         },
+  { value: "draft",       label: "Draft"       },
+  { value: "assigned",    label: "Assigned"    },
+  { value: "in_progress", label: "In progress" },
+  { value: "submitted",   label: "Submitted"   },
+  { value: "reviewed",    label: "Reviewed"    },
+  { value: "completed",   label: "Completed"   },
 ];
 
-const STATUS_TO_PILL: Record<WorkOrderStatus, string> = {
-  draft: "draft", assigned: "scheduled", in_progress: "in-progress",
-  submitted: "pending", reviewed: "pending", completed: "completed", cancelled: "cancelled",
+const STATUS_GRADIENT: Record<WorkOrderStatus, KireiGradient> = {
+  draft:       "primary",
+  assigned:    "blue",
+  in_progress: "amber",
+  submitted:   "violet",
+  reviewed:    "violet",
+  completed:   "emerald",
+  cancelled:   "rose",
 };
 
 interface WorkOrdersClientProps {
@@ -37,9 +45,9 @@ interface WorkOrdersClientProps {
 }
 
 export function WorkOrdersClient({ workOrders, userRole }: WorkOrdersClientProps) {
-  const canDelete = canManageTeam(userRole); // owners + admins only
+  const canDelete = canManageTeam(userRole);
   const router = useRouter();
-  const [tab, setTab] = useState<typeof TABS[number]["id"]>("all");
+  const [tab, setTab] = useState<typeof TABS[number]["value"]>("all");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -50,7 +58,7 @@ export function WorkOrdersClient({ workOrders, userRole }: WorkOrdersClientProps
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: workOrders.length };
-    for (const t of TABS) c[t.id] = workOrders.filter((w) => t.id === "all" || w.status === t.id).length;
+    for (const t of TABS) c[t.value] = workOrders.filter((w) => t.value === "all" || w.status === t.value).length;
     return c;
   }, [workOrders]);
 
@@ -75,119 +83,112 @@ export function WorkOrdersClient({ workOrders, userRole }: WorkOrdersClientProps
   };
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
         title="Work Orders"
         subtitle={`${workOrders.length} total · ${stats.onSite} on site now`}
+        accent="linear-gradient(180deg, #fbbf24 0%, #b45309 100%)"
         actions={
           <>
             <CleanupButton entity="work_orders" entityLabel="work orders" />
             <Link href="/work-orders/new">
-              <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
-                <Plus className="w-3.5 h-3.5" /> New work order
-              </button>
+              <AnimatedPress className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-sm">
+                <Plus className="w-4 h-4" /> New work order
+              </AnimatedPress>
             </Link>
           </>
         }
       />
 
-      <div className="ch-stat-grid">
-        <Stat icon={<Calendar className="w-3.5 h-3.5" />} label="Today" value={stats.todayCount} sub={stats.todayCount === 1 ? "scheduled job" : "scheduled jobs"} />
-        <Stat icon={<Wrench className="w-3.5 h-3.5" />} label="On site now" value={stats.onSite} sub="in progress" />
-        <Stat icon={<Wrench className="w-3.5 h-3.5" />} label="Needs review" value={stats.needsReview} sub="submitted by workers" />
-        <Stat icon={<Wrench className="w-3.5 h-3.5" />} label="Completed" value={stats.completed} sub="all time" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <FadeIn delay={60}><StatTile gradient="softAmber" toneColor="#78350f" icon={<Calendar className="w-3.5 h-3.5" />} label="Today"        value={String(stats.todayCount)}  sub={stats.todayCount === 1 ? "scheduled job" : "scheduled jobs"} /></FadeIn>
+        <FadeIn delay={110}><StatTile gradient="softBlue"  toneColor="#1e3a8a" icon={<Wrench   className="w-3.5 h-3.5" />} label="On site now"  value={String(stats.onSite)}      sub="in progress" /></FadeIn>
+        <FadeIn delay={160}><StatTile gradient="softViolet"toneColor="#3b1d6b" icon={<Wrench   className="w-3.5 h-3.5" />} label="Needs review" value={String(stats.needsReview)} sub="submitted by workers" /></FadeIn>
+        <FadeIn delay={210}><StatTile gradient="softTeal"  toneColor="#064e3b" icon={<Wrench   className="w-3.5 h-3.5" />} label="Completed"    value={String(stats.completed)}   sub="all time" /></FadeIn>
       </div>
 
-      <div className="ch-tabs">
-        {TABS.map((t) => (
-          <button key={t.id} className={`ch-tab ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}>
-            {t.label}<span className="count">{counts[t.id] ?? 0}</span>
-          </button>
-        ))}
-      </div>
+      <KireiTabs
+        value={tab}
+        onChange={setTab}
+        tabs={TABS.map((t) => ({ value: t.value, label: t.label, count: counts[t.value] ?? 0 }))}
+      />
 
       {filtered.length === 0 ? (
-        <div className="ch-empty">
-          <Wrench className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
-          <h4>No work orders</h4>
-          <p>Send workers on-site to capture photos. AI generates a scope of work from what they find.</p>
-          <Link href="/work-orders/new">
-            <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium">
-              <Plus className="w-3 h-3" /> Create work order
-            </button>
-          </Link>
-        </div>
+        <EmptyState
+          icon={<Wrench className="w-7 h-7" />}
+          gradient="amber"
+          title="No work orders"
+          hint="Send workers on-site to capture photos. AI generates a scope of work from what they find."
+          cta={{ label: "New work order", href: "/work-orders/new", icon: <Plus className="w-4 h-4" /> }}
+        />
       ) : (
-        <motion.div
-          initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}
-          className="ch-table-wrap"
-        >
-          <table className="ch-table">
-            <thead>
-              <tr>
-                <th>Job</th>
-                <th>Customer</th>
-                <th>Address</th>
-                <th>Assigned</th>
-                <th>Scheduled</th>
-                <th>Status</th>
-                <th>Photos</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((wo) => (
-                <tr key={wo.id} onClick={() => router.push(`/work-orders/${wo.id}`)}>
-                  <td>
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-7 h-7 rounded-md bg-amber-50 dark:bg-amber-950/30 flex items-center justify-center flex-shrink-0">
-                        <Wrench className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="font-semibold truncate">{wo.title}</div>
-                        <div className="ref">{wo.number}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td>{wo.customers?.name ?? "—"}</td>
-                  <td className="text-muted-foreground">
-                    {wo.property_address ? (
-                      <span className="inline-flex items-center gap-1.5"><MapPin className="w-3 h-3" />{wo.property_address}</span>
-                    ) : "—"}
-                  </td>
-                  <td className="text-muted-foreground">
-                    {wo.assigned_to_email ? (
-                      <span className="inline-flex items-center gap-1.5"><User className="w-3 h-3" />{wo.assigned_to_email}</span>
-                    ) : "—"}
-                  </td>
-                  <td className="text-muted-foreground">{wo.scheduled_date ?? "—"}</td>
-                  <td><span className={`ch-pill ${STATUS_TO_PILL[wo.status]}`}>{wo.status.replace("_", " ")}</span></td>
-                  <td className="num">{wo.photos?.length ?? 0}</td>
-                  <td className="text-right" onClick={(e) => e.stopPropagation()}>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button className="inline-flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:bg-muted">
-                          <MoreHorizontal className="w-4 h-4" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem asChild><Link href={`/work-orders/${wo.id}`}>View</Link></DropdownMenuItem>
-                        {canDelete && (
-                          <>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => setDeleteId(wo.id)} className="text-destructive gap-2">
-                              <Trash2 className="w-3.5 h-3.5" />Delete
-                            </DropdownMenuItem>
-                          </>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </motion.div>
+        <div className="rounded-xl border border-border bg-card overflow-hidden">
+          <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border bg-muted/40 text-[10px] uppercase tracking-wide font-bold text-muted-foreground">
+            <span className="flex-1">Job</span>
+            <span className="hidden lg:block w-44">Customer</span>
+            <span className="hidden md:block w-44">Address</span>
+            <span className="hidden md:block w-28">Scheduled</span>
+            <span className="hidden md:block w-12 text-center">Photos</span>
+            <span className="w-24 text-right">Status</span>
+            <span className="w-8" />
+          </div>
+          <div className="divide-y divide-border/60">
+            {filtered.map((wo) => (
+              <div
+                key={wo.id}
+                onClick={() => router.push(`/work-orders/${wo.id}`)}
+                className="group flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-muted/40"
+              >
+                <GradientTile gradient={STATUS_GRADIENT[wo.status] ?? "primary"} size={40} radius={10}>
+                  <Briefcase className="w-4 h-4" />
+                </GradientTile>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold truncate">{wo.title}</div>
+                  <div className="font-mono text-xs text-muted-foreground">{wo.number}</div>
+                </div>
+                <div className="hidden lg:block w-44 text-xs text-muted-foreground truncate">{wo.customers?.name ?? "—"}</div>
+                <div className="hidden md:block w-44 text-xs text-muted-foreground truncate">
+                  {wo.property_address ? (
+                    <span className="inline-flex items-center gap-1"><MapPin className="w-3 h-3 shrink-0" />{wo.property_address}</span>
+                  ) : "—"}
+                </div>
+                <div className="hidden md:block w-28 text-xs text-muted-foreground">
+                  {wo.scheduled_date ? (
+                    <span className="inline-flex items-center gap-1"><Calendar className="w-3 h-3" />{wo.scheduled_date}</span>
+                  ) : "—"}
+                </div>
+                <div className="hidden md:block w-12 text-center text-xs text-muted-foreground">
+                  {(wo.photos?.length ?? 0) > 0 ? (
+                    <span className="inline-flex items-center gap-0.5"><Camera className="w-3 h-3" />{wo.photos?.length}</span>
+                  ) : "—"}
+                </div>
+                <div className="w-24 text-right">
+                  <KireiPill tone={wo.status} />
+                </div>
+                <div className="w-8 text-right shrink-0" onClick={(e) => e.stopPropagation()}>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="inline-flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
+                        <MoreHorizontal className="w-4 h-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem asChild><Link href={`/work-orders/${wo.id}`}>View</Link></DropdownMenuItem>
+                      {canDelete && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => setDeleteId(wo.id)} className="text-destructive gap-2">
+                            <Trash2 className="w-3.5 h-3.5" />Delete
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
@@ -204,16 +205,6 @@ export function WorkOrdersClient({ workOrders, userRole }: WorkOrdersClientProps
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
-  );
-}
-
-function Stat({ icon, label, value, sub }: { icon: React.ReactNode; label: string; value: number; sub: string }) {
-  return (
-    <div className="ch-stat">
-      <div className="ch-stat-label">{icon}<span>{label}</span></div>
-      <div className="ch-stat-value">{value}</div>
-      <div className="ch-stat-meta">{sub}</div>
     </div>
   );
 }
