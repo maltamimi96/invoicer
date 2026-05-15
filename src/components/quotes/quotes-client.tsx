@@ -3,8 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
-import { Plus, Search, FileCheck, MoreHorizontal, Trash2, Eye, ArrowRight, Download, Send, CheckCircle, XCircle } from "@/components/ui/icons";
+import { Plus, Search, FileCheck, MoreHorizontal, Trash2, Eye, ArrowRight, Download, Send, CheckCircle, XCircle, TrendingUp, Briefcase } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -13,22 +12,36 @@ import { PageHeader } from "@/components/layout/page-header";
 import { CleanupButton } from "@/components/cleanup/cleanup-button";
 import { deleteQuote, convertQuoteToInvoice, updateQuote } from "@/lib/actions/quotes";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import {
+  StatTile, KireiTabs, KireiPill, EmptyState, AnimatedPress, FadeIn, GradientTile,
+} from "@/components/ui/kirei";
 import type { Customer, QuoteWithCustomer } from "@/types/database";
+import type { GradientName as KireiGradient } from "@/components/ui/kirei";
 
 const TABS = [
-  { id: "all",      label: "All"      },
-  { id: "draft",    label: "Draft"    },
-  { id: "sent",     label: "Sent"     },
-  { id: "accepted", label: "Accepted" },
-  { id: "rejected", label: "Rejected" },
-  { id: "expired",  label: "Expired"  },
-] as const;
+  { value: "all" as const,      label: "All"      },
+  { value: "draft" as const,    label: "Draft"    },
+  { value: "sent" as const,     label: "Sent"     },
+  { value: "accepted" as const, label: "Accepted" },
+  { value: "rejected" as const, label: "Rejected" },
+  { value: "expired" as const,  label: "Expired"  },
+];
+
+type TabId = typeof TABS[number]["value"];
+
+const STATUS_GRADIENT: Record<string, KireiGradient> = {
+  accepted: "emerald",
+  sent:     "blue",
+  rejected: "rose",
+  expired:  "rose",
+  draft:    "violet",
+};
 
 export function QuotesClient({ quotes: initial, currency = "GBP" }: { quotes: QuoteWithCustomer[]; customers: Customer[]; currency?: string }) {
   const router = useRouter();
   const [quotes, setQuotes] = useState(initial);
   const [search, setSearch] = useState("");
-  const [tab, setTab] = useState<typeof TABS[number]["id"]>("all");
+  const [tab, setTab] = useState<TabId>("all");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [converting, setConverting] = useState<string | null>(null);
 
@@ -40,18 +53,12 @@ export function QuotesClient({ quotes: initial, currency = "GBP" }: { quotes: Qu
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: quotes.length };
-    for (const t of TABS) c[t.id] = quotes.filter((q) => t.id === "all" || q.status === t.id).length;
+    for (const t of TABS) c[t.value] = quotes.filter((q) => t.value === "all" || q.status === t.value).length;
     return c;
   }, [quotes]);
 
-  const totalPipeline = useMemo(
-    () => quotes.filter((q) => q.status === "sent").reduce((s, q) => s + q.total, 0),
-    [quotes]
-  );
-  const totalAccepted = useMemo(
-    () => quotes.filter((q) => q.status === "accepted").reduce((s, q) => s + q.total, 0),
-    [quotes]
-  );
+  const totalPipeline = useMemo(() => quotes.filter((q) => q.status === "sent").reduce((s, q) => s + q.total, 0), [quotes]);
+  const totalAccepted = useMemo(() => quotes.filter((q) => q.status === "accepted").reduce((s, q) => s + q.total, 0), [quotes]);
   const acceptanceRate = quotes.length === 0
     ? 0
     : Math.round((counts.accepted / Math.max(counts.accepted + counts.rejected + counts.expired, 1)) * 100);
@@ -78,9 +85,7 @@ export function QuotesClient({ quotes: initial, currency = "GBP" }: { quotes: Qu
     }
   };
 
-  const downloadPdf = (quote: { id: string }) => {
-    window.open(`/api/pdf/quote/${quote.id}`, "_blank");
-  };
+  const downloadPdf = (quote: { id: string }) => window.open(`/api/pdf/quote/${quote.id}`, "_blank");
 
   const handleConvert = async (id: string) => {
     setConverting(id);
@@ -92,147 +97,132 @@ export function QuotesClient({ quotes: initial, currency = "GBP" }: { quotes: Qu
   };
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
         title="Quotes"
         subtitle={`${quotes.length} total · ${formatCurrency(totalPipeline, currency)} in pipeline`}
+        accent="linear-gradient(180deg, #a78bfa 0%, #6d28d9 100%)"
         actions={
           <>
             <CleanupButton entity="quotes" entityLabel="quotes" />
             <Link href="/quotes/new">
-              <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
-                <Plus className="w-3.5 h-3.5" /> New quote
-              </button>
+              <AnimatedPress className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-sm">
+                <Plus className="w-4 h-4" /> New quote
+              </AnimatedPress>
             </Link>
           </>
         }
       />
 
-      <div className="ch-stat-grid">
-        <div className="ch-stat">
-          <div className="ch-stat-label"><FileCheck className="w-3.5 h-3.5" /><span>Total</span></div>
-          <div className="ch-stat-value">{quotes.length}</div>
-          <div className="ch-stat-meta">all time</div>
-        </div>
-        <div className="ch-stat">
-          <div className="ch-stat-label"><FileCheck className="w-3.5 h-3.5" /><span>Open pipeline</span></div>
-          <div className="ch-stat-value">{formatCurrency(totalPipeline, currency)}</div>
-          <div className="ch-stat-meta">awaiting decision</div>
-        </div>
-        <div className="ch-stat">
-          <div className="ch-stat-label"><FileCheck className="w-3.5 h-3.5" /><span>Accepted</span></div>
-          <div className="ch-stat-value">{formatCurrency(totalAccepted, currency)}</div>
-          <div className="ch-stat-meta">won deals</div>
-        </div>
-        <div className="ch-stat">
-          <div className="ch-stat-label"><FileCheck className="w-3.5 h-3.5" /><span>Acceptance rate</span></div>
-          <div className="ch-stat-value">{acceptanceRate}%</div>
-          <div className="ch-stat-meta">of decided quotes</div>
-        </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <FadeIn delay={60}>
+          <StatTile gradient="softTeal"   toneColor="#1f4f4a" icon={<FileCheck  className="w-3.5 h-3.5" />} label="Total"          value={String(quotes.length)}            sub="all time" />
+        </FadeIn>
+        <FadeIn delay={110}>
+          <StatTile gradient="softBlue"   toneColor="#1e3a8a" icon={<Briefcase  className="w-3.5 h-3.5" />} label="Open pipeline"  value={formatCurrency(totalPipeline, currency)} sub="awaiting decision" />
+        </FadeIn>
+        <FadeIn delay={160}>
+          <StatTile gradient="softTeal"   toneColor="#064e3b" icon={<CheckCircle className="w-3.5 h-3.5" />} label="Accepted"      value={formatCurrency(totalAccepted, currency)} sub="won deals" />
+        </FadeIn>
+        <FadeIn delay={210}>
+          <StatTile gradient="softViolet" toneColor="#3b1d6b" icon={<TrendingUp  className="w-3.5 h-3.5" />} label="Acceptance"    value={`${acceptanceRate}%`}              sub="of decided quotes" />
+        </FadeIn>
       </div>
 
-      <div className="ch-tabs">
-        {TABS.map((t) => (
-          <button key={t.id} className={`ch-tab ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}>
-            {t.label}
-            <span className="count">{counts[t.id] ?? 0}</span>
-          </button>
-        ))}
-      </div>
-
-      <div className="ch-filter-bar">
+      <div className="flex items-center gap-3 flex-wrap">
+        <KireiTabs
+          value={tab}
+          onChange={setTab}
+          tabs={TABS.map((t) => ({ value: t.value, label: t.label, count: counts[t.value] ?? 0 }))}
+        />
         <div className="relative flex-1 min-w-[240px] max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-          <Input placeholder="Search quotes..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-9" />
+          <Input placeholder="Search quotes…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-10 rounded-xl" />
         </div>
       </div>
 
       {filtered.length === 0 ? (
-        <div className="ch-empty">
-          <FileCheck className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
-          <h4>No quotes found</h4>
-          <p>{search || tab !== "all" ? "Try different filters." : "Create your first quote."}</p>
-          {!search && tab === "all" && (
-            <Link href="/quotes/new">
-              <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium">
-                <Plus className="w-3 h-3" /> Create quote
-              </button>
-            </Link>
-          )}
-        </div>
+        <EmptyState
+          icon={<FileCheck className="w-7 h-7" />}
+          gradient="violet"
+          title={search || tab !== "all" ? "No matches" : "No quotes yet"}
+          hint={search || tab !== "all" ? "Try different filters." : "Send your first quote to get started."}
+          cta={!search && tab === "all" ? { label: "New quote", href: "/quotes/new", icon: <Plus className="w-4 h-4" /> } : undefined}
+        />
       ) : (
-        <motion.div
-          initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}
-          className="ch-table-wrap"
-        >
-          <table className="ch-table">
-            <thead>
-              <tr>
-                <th>Quote</th>
-                <th>Customer</th>
-                <th>Issued</th>
-                <th>Expires</th>
-                <th>Status</th>
-                <th className="num">Total</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((quote) => (
-                <tr key={quote.id} onClick={() => router.push(`/quotes/${quote.id}`)}>
-                  <td><span className="ref">{quote.number}</span></td>
-                  <td className="font-medium">{quote.customers?.name ?? "No client"}</td>
-                  <td className="text-muted-foreground">{formatDate(quote.issue_date)}</td>
-                  <td className="text-muted-foreground">{formatDate(quote.expiry_date)}</td>
-                  <td><span className={`ch-pill ${quote.status}`}>{quote.status}</span></td>
-                  <td className="num font-semibold">{formatCurrency(quote.total, currency)}</td>
-                  <td className="text-right" onClick={(e) => e.stopPropagation()}>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button className="inline-flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:bg-muted">
-                          <MoreHorizontal className="w-4 h-4" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuItem asChild>
-                          <Link href={`/quotes/${quote.id}`} className="flex items-center gap-2"><Eye className="w-3.5 h-3.5" />View</Link>
+        <div className="rounded-xl border border-border bg-card overflow-hidden">
+          <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border bg-muted/40 text-[10px] uppercase tracking-wide font-bold text-muted-foreground">
+            <span className="flex-1">Quote</span>
+            <span className="hidden md:block w-32">Issued</span>
+            <span className="hidden md:block w-32">Expires</span>
+            <span className="w-24 text-right">Status</span>
+            <span className="w-28 text-right">Total</span>
+            <span className="w-8" />
+          </div>
+          <div className="divide-y divide-border/60">
+            {filtered.map((quote) => (
+              <div
+                key={quote.id}
+                onClick={() => router.push(`/quotes/${quote.id}`)}
+                className="group flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-muted/40"
+              >
+                <GradientTile gradient={STATUS_GRADIENT[quote.status] ?? "primary"} size={40} radius={10}>
+                  <FileCheck className="w-4 h-4" />
+                </GradientTile>
+                <div className="flex-1 min-w-0">
+                  <div className="font-mono text-xs text-muted-foreground">{quote.number}</div>
+                  <div className="text-sm font-semibold truncate">{quote.customers?.name ?? "No client"}</div>
+                </div>
+                <div className="hidden md:block w-32 text-xs text-muted-foreground">{formatDate(quote.issue_date)}</div>
+                <div className="hidden md:block w-32 text-xs text-muted-foreground">{formatDate(quote.expiry_date)}</div>
+                <div className="w-24 text-right">
+                  <KireiPill tone={quote.status} />
+                </div>
+                <div className="w-28 text-right text-sm font-semibold tabular-nums">{formatCurrency(quote.total, currency)}</div>
+                <div className="w-8 text-right shrink-0" onClick={(e) => e.stopPropagation()}>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="inline-flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
+                        <MoreHorizontal className="w-4 h-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem asChild>
+                        <Link href={`/quotes/${quote.id}`} className="flex items-center gap-2"><Eye className="w-3.5 h-3.5" />View</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => downloadPdf(quote)} className="gap-2">
+                        <Download className="w-3.5 h-3.5" />Download PDF
+                      </DropdownMenuItem>
+                      {!quote.invoice_id && (
+                        <DropdownMenuItem onClick={() => handleConvert(quote.id)} disabled={converting === quote.id} className="gap-2">
+                          <ArrowRight className="w-3.5 h-3.5" />Convert to invoice
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => downloadPdf(quote)} className="gap-2">
-                          <Download className="w-3.5 h-3.5" />Download PDF
-                        </DropdownMenuItem>
-                        {!quote.invoice_id && (
-                          <DropdownMenuItem onClick={() => handleConvert(quote.id)} disabled={converting === quote.id} className="gap-2">
-                            <ArrowRight className="w-3.5 h-3.5" />Convert to invoice
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuLabel className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground py-1">
-                          Mark as
-                        </DropdownMenuLabel>
-                        <DropdownMenuItem onClick={() => handleStatusChange(quote.id, "sent")} className="gap-2" disabled={quote.status === "sent"}>
-                          <Send className="w-3.5 h-3.5" />Sent
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleStatusChange(quote.id, "accepted")} className="gap-2" disabled={quote.status === "accepted"}>
-                          <CheckCircle className="w-3.5 h-3.5" />Accepted
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleStatusChange(quote.id, "rejected")} className="gap-2" disabled={quote.status === "rejected"}>
-                          <XCircle className="w-3.5 h-3.5" />Rejected
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleStatusChange(quote.id, "expired")} className="gap-2" disabled={quote.status === "expired"}>
-                          <XCircle className="w-3.5 h-3.5" />Expired
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => setDeleteId(quote.id)} className="text-destructive gap-2">
-                          <Trash2 className="w-3.5 h-3.5" />Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </motion.div>
+                      )}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuLabel className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground py-1">Mark as</DropdownMenuLabel>
+                      <DropdownMenuItem onClick={() => handleStatusChange(quote.id, "sent")} className="gap-2" disabled={quote.status === "sent"}>
+                        <Send className="w-3.5 h-3.5" />Sent
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleStatusChange(quote.id, "accepted")} className="gap-2" disabled={quote.status === "accepted"}>
+                        <CheckCircle className="w-3.5 h-3.5" />Accepted
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleStatusChange(quote.id, "rejected")} className="gap-2" disabled={quote.status === "rejected"}>
+                        <XCircle className="w-3.5 h-3.5" />Rejected
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleStatusChange(quote.id, "expired")} className="gap-2" disabled={quote.status === "expired"}>
+                        <XCircle className="w-3.5 h-3.5" />Expired
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => setDeleteId(quote.id)} className="text-destructive gap-2">
+                        <Trash2 className="w-3.5 h-3.5" />Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>

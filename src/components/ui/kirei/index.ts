@@ -13,5 +13,8 @@ export { CardListRow }   from "./card-list-row";
 export { KireiPill }     from "./pill";
 export { EmptyState }    from "./empty-state";
 export { Skeleton, SkeletonRow, SkeletonTile, SkeletonList } from "./skeleton";
+export { KireiTabs } from "./tabs";
+export type { KireiTab } from "./tabs";
+export { KireiAvatar } from "./avatar";
 export { GRADIENTS, GRADIENTS_DARK, gradientCss, gradientVars } from "./gradient-tokens";
 export type { GradientName } from "./gradient-tokens";

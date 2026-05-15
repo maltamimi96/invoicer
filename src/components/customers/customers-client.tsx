@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Plus, Search, Users, Mail, Phone, Building2, MoreHorizontal, Archive, Trash2, Upload } from "@/components/ui/icons";
+import { Plus, Search, Users, Mail, Phone, Building2, MoreHorizontal, Archive, Trash2, Upload, ChevronRight } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -14,6 +14,9 @@ import { CleanupButton } from "@/components/cleanup/cleanup-button";
 import { deleteCustomer, updateCustomer, bulkImportCustomers, bulkArchiveCustomers } from "@/lib/actions/customers";
 import { formatCurrency } from "@/lib/utils";
 import { BulkImportModal } from "@/components/shared/bulk-import-modal";
+import {
+  StatTile, KireiTabs, KireiAvatar, KireiPill, EmptyState, AnimatedPress, FadeIn,
+} from "@/components/ui/kirei";
 import type { Customer } from "@/types/database";
 
 const CUSTOMER_COLUMNS = [
@@ -27,10 +30,6 @@ const CUSTOMER_COLUMNS = [
   { key: "country",  label: "Country" },
   { key: "notes",    label: "Notes" },
 ] as const;
-
-function initials(name: string) {
-  return name.split(/\s+/).map((p) => p[0]).filter(Boolean).join("").toUpperCase().slice(0, 2);
-}
 
 type CustomerStats = Record<string, {
   invoice_count: number;
@@ -91,7 +90,7 @@ export function CustomersClient({
   };
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
         title="Customers"
         subtitle={`${counts.active} active · ${counts.archived} archived`}
@@ -99,59 +98,50 @@ export function CustomersClient({
           <>
             <CleanupButton entity="customers" entityLabel="customers" />
             <button
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-card text-sm font-medium hover:bg-muted transition-colors"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border bg-card text-sm font-medium hover:bg-muted transition-colors"
               onClick={() => setShowImport(true)}
             >
-              <Upload className="w-3.5 h-3.5" /> Import CSV
+              <Upload className="w-4 h-4" /> Import CSV
             </button>
             <Link href="/customers/new">
-              <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
-                <Plus className="w-3.5 h-3.5" /> Add customer
-              </button>
+              <AnimatedPress className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-sm">
+                <Plus className="w-4 h-4" /> Add customer
+              </AnimatedPress>
             </Link>
           </>
         }
       />
 
-      <div className="ch-stat-grid">
-        <div className="ch-stat">
-          <div className="ch-stat-label"><Users className="w-3.5 h-3.5" /><span>Total</span></div>
-          <div className="ch-stat-value">{counts.all}</div>
-          <div className="ch-stat-meta">{counts.active} active</div>
-        </div>
-        <div className="ch-stat">
-          <div className="ch-stat-label"><Mail className="w-3.5 h-3.5" /><span>With email</span></div>
-          <div className="ch-stat-value">{counts.withEmail}</div>
-          <div className="ch-stat-meta">reachable</div>
-        </div>
-        <div className="ch-stat">
-          <div className="ch-stat-label"><Building2 className="w-3.5 h-3.5" /><span>Companies</span></div>
-          <div className="ch-stat-value">{counts.withCompany}</div>
-          <div className="ch-stat-meta">B2B accounts</div>
-        </div>
-        <div className="ch-stat">
-          <div className="ch-stat-label"><Archive className="w-3.5 h-3.5" /><span>Archived</span></div>
-          <div className="ch-stat-value">{counts.archived}</div>
-          <div className="ch-stat-meta">hidden by default</div>
-        </div>
+      {/* KPI tiles */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <FadeIn delay={60}>
+          <StatTile gradient="softTeal"   toneColor="#1f4f4a" icon={<Users      className="w-3.5 h-3.5" />} label="Total"      value={String(counts.all)}        sub={`${counts.active} active`} />
+        </FadeIn>
+        <FadeIn delay={110}>
+          <StatTile gradient="softBlue"   toneColor="#1e3a8a" icon={<Mail       className="w-3.5 h-3.5" />} label="With email" value={String(counts.withEmail)}  sub="reachable" />
+        </FadeIn>
+        <FadeIn delay={160}>
+          <StatTile gradient="softViolet" toneColor="#3b1d6b" icon={<Building2  className="w-3.5 h-3.5" />} label="Companies"  value={String(counts.withCompany)} sub="B2B accounts" />
+        </FadeIn>
+        <FadeIn delay={210}>
+          <StatTile gradient="softAmber"  toneColor="#78350f" icon={<Archive    className="w-3.5 h-3.5" />} label="Archived"   value={String(counts.archived)}   sub="hidden by default" />
+        </FadeIn>
       </div>
 
-      <div className="ch-tabs">
-        <button className={`ch-tab ${tab === "active"   ? "active" : ""}`} onClick={() => setTab("active")}>
-          Active <span className="count">{counts.active}</span>
-        </button>
-        <button className={`ch-tab ${tab === "archived" ? "active" : ""}`} onClick={() => setTab("archived")}>
-          Archived <span className="count">{counts.archived}</span>
-        </button>
-        <button className={`ch-tab ${tab === "all"      ? "active" : ""}`} onClick={() => setTab("all")}>
-          All <span className="count">{counts.all}</span>
-        </button>
-      </div>
-
-      <div className="ch-filter-bar">
+      {/* Filter row */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <KireiTabs
+          value={tab}
+          onChange={setTab}
+          tabs={[
+            { value: "active",   label: "Active",   count: counts.active },
+            { value: "archived", label: "Archived", count: counts.archived },
+            { value: "all",      label: "All",      count: counts.all },
+          ]}
+        />
         <div className="relative flex-1 min-w-[240px] max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-          <Input placeholder="Search customers..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-9" />
+          <Input placeholder="Search customers…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-10 rounded-xl" />
         </div>
       </div>
 
@@ -159,25 +149,20 @@ export function CustomersClient({
       {selected.size > 0 && (
         <motion.div
           initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between gap-2 px-3 py-2 mb-2 rounded-md border border-primary/30 bg-[hsl(var(--primary)/0.08)]"
+          className="flex items-center justify-between gap-2 px-4 py-3 rounded-xl border border-primary/30 bg-[hsl(var(--primary)/0.08)]"
         >
-          <span className="text-sm font-medium text-primary">
-            {selected.size} selected
-          </span>
+          <span className="text-sm font-semibold text-primary">{selected.size} selected</span>
           <div className="flex items-center gap-2">
-            <button
-              className="text-xs text-muted-foreground hover:text-foreground"
-              onClick={() => setSelected(new Set())}
-            >Clear</button>
+            <button className="text-xs text-muted-foreground hover:text-foreground" onClick={() => setSelected(new Set())}>Clear</button>
             <button
               onClick={() => setBulkAction("archive")}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-card text-sm font-medium hover:bg-muted transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border bg-card text-sm font-medium hover:bg-muted transition-colors"
             >
               <Archive className="w-3.5 h-3.5" /> Archive
             </button>
             <button
               onClick={() => setBulkAction("delete")}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-destructive text-destructive-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-destructive text-destructive-foreground text-sm font-medium hover:opacity-90 transition-opacity"
             >
               <Trash2 className="w-3.5 h-3.5" /> Delete
             </button>
@@ -185,114 +170,92 @@ export function CustomersClient({
         </motion.div>
       )}
 
+      {/* Card list */}
       {filtered.length === 0 ? (
-        <div className="ch-empty">
-          <Users className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
-          <h4>No customers found</h4>
-          <p>{search ? "Try a different search." : "Add your first customer to get started."}</p>
-          {!search && (
-            <Link href="/customers/new">
-              <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium">
-                <Plus className="w-3 h-3" /> Add customer
-              </button>
-            </Link>
-          )}
-        </div>
+        <EmptyState
+          icon={<Users className="w-7 h-7" />}
+          gradient="primary"
+          title={search ? "No matches" : "No customers yet"}
+          hint={search ? "Try a different search term." : "Add your first customer to get started."}
+          cta={!search ? { label: "Add customer", href: "/customers/new", icon: <Plus className="w-4 h-4" /> } : undefined}
+        />
       ) : (
-        <motion.div
-          initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}
-          className="ch-table-wrap"
-        >
-          <table className="ch-table">
-            <thead>
-              <tr>
-                <th style={{ width: 32 }} onClick={(e) => e.stopPropagation()}>
+        <div className="rounded-xl border border-border bg-card overflow-hidden">
+          {/* Header row */}
+          <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border bg-muted/40 text-[10px] uppercase tracking-wide font-bold text-muted-foreground">
+            <input
+              type="checkbox"
+              aria-label="Select all"
+              checked={filtered.length > 0 && filtered.every((c) => selected.has(c.id))}
+              onChange={(e) => {
+                const next = new Set(selected);
+                if (e.target.checked) filtered.forEach((c) => next.add(c.id));
+                else filtered.forEach((c) => next.delete(c.id));
+                setSelected(next);
+              }}
+              className="w-4 h-4 rounded border-border accent-primary cursor-pointer"
+            />
+            <span className="flex-1">Customer</span>
+            <span className="hidden md:block w-44">Contact</span>
+            <span className="hidden md:block w-20 text-right">Billed</span>
+            <span className="hidden md:block w-24 text-right">Outstanding</span>
+            <span className="w-16 text-right">Status</span>
+            <span className="w-8" />
+          </div>
+
+          <div className="divide-y divide-border/60">
+            {filtered.map((customer) => {
+              const s = stats[customer.id];
+              const checked = selected.has(customer.id);
+              return (
+                <div
+                  key={customer.id}
+                  onClick={() => router.push(`/customers/${customer.id}`)}
+                  className="group flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-muted/40"
+                >
                   <input
                     type="checkbox"
-                    aria-label="Select all"
-                    checked={filtered.length > 0 && filtered.every((c) => selected.has(c.id))}
-                    onChange={(e) => {
+                    aria-label={`Select ${customer.name}`}
+                    checked={checked}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={() => {
                       const next = new Set(selected);
-                      if (e.target.checked) filtered.forEach((c) => next.add(c.id));
-                      else filtered.forEach((c) => next.delete(c.id));
+                      if (checked) next.delete(customer.id);
+                      else next.add(customer.id);
                       setSelected(next);
                     }}
                     className="w-4 h-4 rounded border-border accent-primary cursor-pointer"
                   />
-                </th>
-                <th>Customer</th>
-                <th>Email</th>
-                <th>Phone</th>
-                <th className="num">Invoices</th>
-                <th className="num">Billed</th>
-                <th className="num">Outstanding</th>
-                <th>Status</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((customer) => {
-                const s = stats[customer.id];
-                const checked = selected.has(customer.id);
-                return (
-                <tr key={customer.id} onClick={() => router.push(`/customers/${customer.id}`)}>
-                  <td onClick={(e) => e.stopPropagation()}>
-                    <input
-                      type="checkbox"
-                      aria-label={`Select ${customer.name}`}
-                      checked={checked}
-                      onChange={() => {
-                        const next = new Set(selected);
-                        if (checked) next.delete(customer.id);
-                        else next.add(customer.id);
-                        setSelected(next);
-                      }}
-                      className="w-4 h-4 rounded border-border accent-primary cursor-pointer"
-                    />
-                  </td>
-                  <td>
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-7 h-7 rounded-full bg-[hsl(var(--primary)/0.12)] text-[hsl(var(--primary))] flex items-center justify-center font-semibold text-[11px] flex-shrink-0">
-                        {initials(customer.name)}
+                  <KireiAvatar name={customer.name} size={40} />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold truncate">{customer.name}</div>
+                    {customer.company && (
+                      <div className="text-xs text-muted-foreground truncate inline-flex items-center gap-1 mt-0.5">
+                        <Building2 className="w-3 h-3" /> {customer.company}
                       </div>
-                      <div className="min-w-0">
-                        <div className="font-semibold truncate">{customer.name}</div>
-                        {customer.company && (
-                          <div className="text-[11.5px] text-muted-foreground truncate inline-flex items-center gap-1">
-                            <Building2 className="w-3 h-3" /> {customer.company}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="text-muted-foreground">
-                    {customer.email ? (
-                      <span className="inline-flex items-center gap-1.5"><Mail className="w-3 h-3" /> {customer.email}</span>
-                    ) : "—"}
-                  </td>
-                  <td className="text-muted-foreground">
-                    {customer.phone ? (
-                      <span className="inline-flex items-center gap-1.5"><Phone className="w-3 h-3" /> {customer.phone}</span>
-                    ) : "—"}
-                  </td>
-                  <td className="num">
-                    {s?.invoice_count ? <span className="font-medium">{s.invoice_count}</span> : <span className="text-muted-foreground">—</span>}
-                  </td>
-                  <td className="num">
+                    )}
+                  </div>
+                  <div className="hidden md:block w-44 min-w-0 text-xs text-muted-foreground space-y-0.5">
+                    {customer.email && (
+                      <div className="truncate inline-flex items-center gap-1.5"><Mail className="w-3 h-3 shrink-0" /> {customer.email}</div>
+                    )}
+                    {customer.phone && (
+                      <div className="truncate inline-flex items-center gap-1.5"><Phone className="w-3 h-3 shrink-0" /> {customer.phone}</div>
+                    )}
+                  </div>
+                  <div className="hidden md:block w-20 text-right text-sm tabular-nums">
                     {s?.total_billed ? formatCurrency(s.total_billed, currency) : <span className="text-muted-foreground">—</span>}
-                  </td>
-                  <td className="num">
+                  </div>
+                  <div className="hidden md:block w-24 text-right text-sm tabular-nums">
                     {s?.outstanding ? <span className="font-semibold text-amber-700 dark:text-amber-400">{formatCurrency(s.outstanding, currency)}</span> : <span className="text-muted-foreground">—</span>}
-                  </td>
-                  <td>
-                    <span className={`ch-pill ${customer.archived ? "archived" : "active"}`}>
-                      {customer.archived ? "archived" : "active"}
-                    </span>
-                  </td>
-                  <td className="text-right" onClick={(e) => e.stopPropagation()}>
+                  </div>
+                  <div className="w-16 text-right">
+                    <KireiPill tone={customer.archived ? "archived" : "active"} />
+                  </div>
+                  <div className="w-8 text-right shrink-0" onClick={(e) => e.stopPropagation()}>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <button className="inline-flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:bg-muted">
+                        <button className="inline-flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
                           <MoreHorizontal className="w-4 h-4" />
                         </button>
                       </DropdownMenuTrigger>
@@ -311,13 +274,13 @@ export function CustomersClient({
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                  </td>
-                </tr>
+                    <ChevronRight className="hidden md:inline-block w-4 h-4 text-muted-foreground/40 ml-1 group-hover:text-muted-foreground" />
+                  </div>
+                </div>
               );
-              })}
-            </tbody>
-          </table>
-        </motion.div>
+            })}
+          </div>
+        </div>
       )}
 
       <BulkImportModal
