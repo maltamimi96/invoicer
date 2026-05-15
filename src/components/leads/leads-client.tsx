@@ -13,6 +13,7 @@ import { CleanupButton } from "@/components/cleanup/cleanup-button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { StatTile, AnimatedPress, FadeIn } from "@/components/ui/kirei";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -215,61 +216,72 @@ export function LeadsClient({ leads: initial }: { leads: Lead[] }) {
     lost: leads.filter((l) => l.status === "lost").length,
   };
 
+  // Map kanban-column → soft gradient + tone for the new stat tiles
+  const STAT_STYLE = [
+    { gradient: "softBlue"   as const, tone: "#1e3a8a" },
+    { gradient: "softAmber"  as const, tone: "#78350f" },
+    { gradient: "softViolet" as const, tone: "#3b1d6b" },
+    { gradient: "softTeal"   as const, tone: "#064e3b" },
+    { gradient: "softRose"   as const, tone: "#9f1239" },
+  ];
+
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
         title="Leads"
         subtitle={`${stats.total} total · ${stats.new} new · ${stats.won} won · ${stats.lost} lost`}
+        accent="linear-gradient(180deg, #60a5fa 0%, #1d4ed8 100%)"
         actions={
           <>
             <CleanupButton entity="leads" entityLabel="leads" />
-            <button
+            <AnimatedPress
               onClick={() => setShowAdd(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-sm cursor-pointer"
             >
-              <Plus className="w-3.5 h-3.5" /> Add lead
-            </button>
+              <Plus className="w-4 h-4" /> Add lead
+            </AnimatedPress>
           </>
         }
       />
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {COLUMNS.map((col) => {
+      {/* Stat tiles per stage + conversion rate */}
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+        {COLUMNS.map((col, i) => {
           const count = byStatus(col.status).length;
+          const style = STAT_STYLE[i] ?? STAT_STYLE[0];
           return (
-            <Card key={col.status} className="py-3">
-              <CardContent className="px-4 py-0">
-                <div className="flex items-center gap-2">
-                  <span className={`h-2.5 w-2.5 rounded-full ${col.dot}`} />
-                  <span className="text-sm font-medium capitalize">{col.label}</span>
-                </div>
-                <p className="text-2xl font-bold mt-1">{count}</p>
-              </CardContent>
-            </Card>
+            <FadeIn key={col.status} delay={60 + i * 40}>
+              <StatTile
+                gradient={style.gradient}
+                toneColor={style.tone}
+                icon={<span className={`block w-2.5 h-2.5 rounded-full ${col.dot}`} />}
+                label={col.label}
+                value={String(count)}
+                sub=" "
+              />
+            </FadeIn>
           );
         })}
-        <Card className="py-3">
-          <CardContent className="px-4 py-0">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-3 w-3 text-muted-foreground" />
-              <span className="text-sm font-medium">Conv. Rate</span>
-            </div>
-            <p className="text-2xl font-bold mt-1">
-              {stats.total > 0 ? Math.round((stats.won / stats.total) * 100) : 0}%
-            </p>
-          </CardContent>
-        </Card>
+        <FadeIn delay={260}>
+          <StatTile
+            gradient="softTeal"
+            toneColor="#064e3b"
+            icon={<TrendingUp className="w-3.5 h-3.5" />}
+            label="Conv. rate"
+            value={`${stats.total > 0 ? Math.round((stats.won / stats.total) * 100) : 0}%`}
+            sub="won / total"
+          />
+        </FadeIn>
       </div>
 
       {/* Search */}
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Search leads..."
+          placeholder="Search leads…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="pl-9"
+          className="pl-9 h-10 rounded-xl"
         />
       </div>
 

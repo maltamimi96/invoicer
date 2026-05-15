@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Search, Package, Edit, Trash2, Upload } from "@/components/ui/icons";
+import { Plus, Search, Package, Edit, Trash2, Upload, DollarSign, CheckCircle } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/layout/page-header";
@@ -13,6 +12,9 @@ import { createProduct, updateProduct, deleteProduct, bulkImportProducts } from 
 import { BulkImportModal } from "@/components/shared/bulk-import-modal";
 import { ProductForm } from "./product-form";
 import { formatCurrency } from "@/lib/utils";
+import {
+  StatTile, KireiPill, EmptyState, AnimatedPress, FadeIn, GradientTile,
+} from "@/components/ui/kirei";
 import type { Product } from "@/types/database";
 
 const PRODUCT_COLUMNS = [
@@ -77,127 +79,100 @@ export function ProductsClient({ products: initial, currency = "GBP" }: { produc
 
   const totalCatalogValue = products.reduce((s, p) => s + (p.unit_price ?? 0), 0);
   const archivedCount = products.filter((p) => p.archived).length;
+  const activeCount = products.length - archivedCount;
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
         title="Products & Services"
-        subtitle={`${products.length - archivedCount} active · ${archivedCount} archived`}
+        subtitle={`${activeCount} active · ${archivedCount} archived`}
+        accent="linear-gradient(180deg, #34d399 0%, #047857 100%)"
         actions={
           <>
             <CleanupButton entity="products" entityLabel="products" />
             <button
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-card text-sm font-medium hover:bg-muted transition-colors"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border bg-card text-sm font-medium hover:bg-muted transition-colors"
               onClick={() => setShowImport(true)}
             >
-              <Upload className="w-3.5 h-3.5" /> Import CSV
+              <Upload className="w-4 h-4" /> Import CSV
             </button>
-            <button
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+            <AnimatedPress
               onClick={() => setShowNew(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-sm cursor-pointer"
             >
-              <Plus className="w-3.5 h-3.5" /> Add product
-            </button>
+              <Plus className="w-4 h-4" /> Add product
+            </AnimatedPress>
           </>
         }
       />
 
-      <div className="ch-stat-grid">
-        <div className="ch-stat">
-          <div className="ch-stat-label"><Package className="w-3.5 h-3.5" /><span>Total items</span></div>
-          <div className="ch-stat-value">{products.length}</div>
-          <div className="ch-stat-meta">in catalog</div>
-        </div>
-        <div className="ch-stat">
-          <div className="ch-stat-label"><Package className="w-3.5 h-3.5" /><span>Catalog value</span></div>
-          <div className="ch-stat-value">{formatCurrency(totalCatalogValue, currency)}</div>
-          <div className="ch-stat-meta">sum of unit prices</div>
-        </div>
-        <div className="ch-stat">
-          <div className="ch-stat-label"><Package className="w-3.5 h-3.5" /><span>Active</span></div>
-          <div className="ch-stat-value">{products.length - archivedCount}</div>
-          <div className="ch-stat-meta">available to invoice</div>
-        </div>
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+        <FadeIn delay={60}><StatTile gradient="softTeal"  toneColor="#1f4f4a" icon={<Package      className="w-3.5 h-3.5" />} label="Total items"   value={String(products.length)}                  sub="in catalog" /></FadeIn>
+        <FadeIn delay={110}><StatTile gradient="softAmber" toneColor="#78350f" icon={<DollarSign   className="w-3.5 h-3.5" />} label="Catalog value" value={formatCurrency(totalCatalogValue, currency)} sub="sum of unit prices" /></FadeIn>
+        <FadeIn delay={160}><StatTile gradient="softTeal"  toneColor="#064e3b" icon={<CheckCircle  className="w-3.5 h-3.5" />} label="Active"        value={String(activeCount)}                       sub="available to invoice" /></FadeIn>
       </div>
 
-      <div className="ch-filter-bar">
+      <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[240px] max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-          <Input className="pl-9 h-9" placeholder="Search products..." value={search} onChange={(e) => setSearch(e.target.value)} />
+          <Input className="pl-9 h-10 rounded-xl" placeholder="Search products…" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
       </div>
 
       {filtered.length === 0 ? (
-        <div className="ch-empty">
-          <Package className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
-          <h4>No products found</h4>
-          <p>{search ? "Try a different search." : "Add your products and services to quickly fill line items."}</p>
-          {!search && (
-            <button
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium"
-              onClick={() => setShowNew(true)}
-            >
-              <Plus className="w-3 h-3" /> Add product
-            </button>
-          )}
-        </div>
+        <EmptyState
+          icon={<Package className="w-7 h-7" />}
+          gradient="emerald"
+          title={search ? "No matches" : "No products yet"}
+          hint={search ? "Try a different search." : "Add your products and services to quickly fill line items."}
+          cta={!search ? { label: "Add product", href: "#", icon: <Plus className="w-4 h-4" /> } : undefined}
+        />
       ) : (
-        <motion.div
-          initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}
-          className="ch-table-wrap"
-        >
-          <table className="ch-table">
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th>Unit</th>
-                <th>Tax</th>
-                <th>Status</th>
-                <th className="num">Unit price</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <AnimatePresence>
-                {filtered.map((product) => (
-                  <tr key={product.id} onClick={() => setEditProduct(product)}>
-                    <td>
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-7 h-7 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
-                          <Package className="w-3.5 h-3.5 text-muted-foreground" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="font-semibold truncate">{product.name}</div>
-                          {product.description && (
-                            <div className="text-[11.5px] text-muted-foreground truncate max-w-md">{product.description}</div>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="text-muted-foreground">{product.unit ?? "—"}</td>
-                    <td className="text-muted-foreground">{product.tax_rate}%</td>
-                    <td>
-                      <span className={`ch-pill ${product.archived ? "archived" : "active"}`}>
-                        {product.archived ? "archived" : "active"}
-                      </span>
-                    </td>
-                    <td className="num font-semibold">{formatCurrency(product.unit_price, currency)}</td>
-                    <td className="text-right" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-end gap-1">
-                        <button className="inline-flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:bg-muted" onClick={() => setEditProduct(product)}>
-                          <Edit className="w-3.5 h-3.5" />
-                        </button>
-                        <button className="inline-flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:bg-muted hover:text-destructive" onClick={() => setDeleteId(product.id)}>
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </AnimatePresence>
-            </tbody>
-          </table>
-        </motion.div>
+        <div className="rounded-xl border border-border bg-card overflow-hidden">
+          <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border bg-muted/40 text-[10px] uppercase tracking-wide font-bold text-muted-foreground">
+            <span className="flex-1">Product</span>
+            <span className="hidden md:block w-20">Unit</span>
+            <span className="hidden md:block w-16 text-right">Tax</span>
+            <span className="w-24 text-right">Status</span>
+            <span className="w-28 text-right">Unit price</span>
+            <span className="w-16" />
+          </div>
+          <div className="divide-y divide-border/60">
+            {filtered.map((product) => (
+              <div
+                key={product.id}
+                onClick={() => setEditProduct(product)}
+                className="group flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-muted/40"
+              >
+                <GradientTile gradient="emerald" size={40} radius={10}>
+                  <Package className="w-4 h-4" />
+                </GradientTile>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold truncate">{product.name}</div>
+                  {product.description && (
+                    <div className="text-xs text-muted-foreground truncate max-w-md">{product.description}</div>
+                  )}
+                </div>
+                <div className="hidden md:block w-20 text-xs text-muted-foreground truncate">{product.unit ?? "—"}</div>
+                <div className="hidden md:block w-16 text-right text-xs text-muted-foreground">{product.tax_rate}%</div>
+                <div className="w-24 text-right">
+                  <KireiPill tone={product.archived ? "archived" : "active"} />
+                </div>
+                <div className="w-28 text-right text-sm font-semibold tabular-nums">{formatCurrency(product.unit_price, currency)}</div>
+                <div className="w-16 text-right shrink-0" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center justify-end gap-1">
+                    <button className="inline-flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setEditProduct(product)}>
+                      <Edit className="w-3.5 h-3.5" />
+                    </button>
+                    <button className="inline-flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:bg-muted hover:text-destructive" onClick={() => setDeleteId(product.id)}>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       {/* New product sheet */}
