@@ -46,7 +46,7 @@ export default async function WorkOrderDetailPage({ params }: { params: Promise<
       financials,
     ] = await Promise.all([
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase as any).from("customers").select("id, name, company, email").eq("business_id", businessId).eq("archived", false).order("name").then((r: { data: unknown[] | null }) => r.data ?? []),
+      (supabase as any).from("customers").select("id, name, company, email, phone").eq("business_id", businessId).eq("archived", false).order("name").then((r: { data: unknown[] | null }) => r.data ?? []),
       // All worker profiles in this business — populates the assignment picker.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase as any).from("member_profiles")

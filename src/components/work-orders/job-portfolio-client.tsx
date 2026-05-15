@@ -20,7 +20,7 @@ import {
   ArrowLeft, Camera, Clock, Package, FileText, PenLine, Receipt, History,
   Play, Square, Plus, Trash2, ExternalLink, MapPin, User, Calendar,
   CheckCircle2, Loader2, Image as ImageIcon, Upload, Eye, EyeOff, X, RotateCcw,
-  Share2, FileDown, Copy, Link2Off,
+  Share2, FileDown, Copy, Link2Off, Phone,
 } from "@/components/ui/icons";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -367,16 +367,16 @@ function PortfolioHeader({
 
   return (
     <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-start gap-3">
         <BackButton fallbackHref="/work-orders" />
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-[180px]">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-mono text-muted-foreground">{workOrder.number}</span>
             <Badge className={`${STATUS_COLORS[status]} border-0`}>{STATUS_LABELS[status]}</Badge>
           </div>
           <h1 className="text-2xl font-bold truncate">{workOrder.title}</h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
           <a href={`/api/pdf/work-order/${workOrder.id}`} target="_blank" rel="noopener noreferrer">
             <Button variant="outline" size="sm" className="gap-1.5"><FileDown className="w-3.5 h-3.5" />PDF</Button>
           </a>
@@ -384,7 +384,7 @@ function PortfolioHeader({
             <>
               <ShareControl workOrderId={workOrder.id} initialToken={workOrder.share_token} />
               <Select value={status} onValueChange={(v) => setStatus(v as WorkOrderStatus)} disabled={isPending}>
-                <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-[130px] sm:w-[150px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {STATUS_ORDER.map((s) => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
                   <SelectItem value="cancelled">Cancelled</SelectItem>
@@ -418,8 +418,15 @@ function PortfolioHeader({
       </div>
 
       {/* Quick facts grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <FactCard icon={User} label="Customer" value={workOrder.customers?.name ?? "—"} href={workOrder.customer_id ? `/customers/${workOrder.customer_id}` : undefined} />
+        {workOrder.customers?.phone ? (
+          <a href={`tel:${workOrder.customers.phone.replace(/\s/g, "")}`} className="block">
+            <FactCard icon={Phone} label="Phone" value={workOrder.customers.phone} />
+          </a>
+        ) : (
+          <FactCard icon={Phone} label="Phone" value={<span className="text-muted-foreground">No phone</span>} />
+        )}
         <FactCard icon={MapPin} label="Site" value={addr || "No address"} href={site ? `/sites/${site.id}` : undefined} />
         <FactCard
           icon={Calendar}
@@ -638,15 +645,15 @@ function AssignWorkersDialog({
 }
 
 function FactCard({ icon: Icon, label, value, href, onClick }: {
-  icon: React.ComponentType<{ className?: string }>; label: string; value: string; href?: string;
+  icon: React.ComponentType<{ className?: string }>; label: string; value: React.ReactNode; href?: string;
   onClick?: () => void;
 }) {
   const inner = (
     <div className={`flex items-start gap-2.5 p-3 rounded-lg border bg-card hover:bg-muted/40 transition-colors h-full ${onClick ? "cursor-pointer hover:border-primary/40" : ""}`}>
       <Icon className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <p className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium">{label}</p>
-        <p className="text-sm font-medium truncate">{value}</p>
+        <div className="text-sm font-medium truncate">{value}</div>
       </div>
       {onClick && <Pencil className="w-3 h-3 text-muted-foreground/60 ml-auto flex-shrink-0" />}
     </div>
@@ -660,13 +667,13 @@ function FactCard({ icon: Icon, label, value, href, onClick }: {
 
 function StickyTOC({ active }: { active: string }) {
   return (
-    <div className="sticky top-0 z-20 -mx-4 px-4 bg-background/95 backdrop-blur border-b">
-      <div className="flex items-center gap-1 overflow-x-auto py-2">
+    <div className="sticky top-0 z-20 -mx-6 px-6 bg-background/95 backdrop-blur border-b">
+      <div className="flex items-center gap-1 overflow-x-auto py-2 scrollbar-thin">
         {SECTIONS.map(({ id, label, icon: Icon }) => (
           <a
             key={id}
             href={`#${id}`}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
               active === id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
             }`}
           >
