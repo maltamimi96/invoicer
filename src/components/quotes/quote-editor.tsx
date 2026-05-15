@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ClientSelect } from "@/components/customers/client-select";
 import { AddressSelect } from "@/components/addresses/address-select";
-import { BackButton } from "@/components/layout/back-button";
+import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { createQuote, updateQuote, sendQuoteEmail, sendQuoteSms } from "@/lib/actions/quotes";
@@ -160,24 +160,23 @@ export function QuoteEditor({ customers, products, business, quote, defaultCusto
 
   return (
     <div className="space-y-6">
-      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-        <div className="flex items-center gap-4">
-          <BackButton fallbackHref="/quotes" />
-          <div className="flex-1 min-w-0"><h1 className="text-2xl font-bold truncate">{quote ? `Edit ${quote.number}` : "New Quote"}</h1></div>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap sm:ml-auto">
-          <Button variant="outline" size="sm" className="gap-1.5 flex-1 sm:flex-initial" onClick={() => setSmartFillOpen(true)}>
-            <Sparkles className="w-3.5 h-3.5 text-purple-500" />Smart fill
-          </Button>
-          <PdfSettingsPanel settings={pdfSettings} business={business} mode="quote" onSettingsChange={setPdfSettings} />
-          <Button variant="outline" size="sm" className="flex-1 sm:flex-initial" disabled={saving} onClick={handleSaveDraft}>
-            {saving ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-1.5" />}Save draft
-          </Button>
-          <Button size="sm" className="flex-1 sm:flex-initial" disabled={saving} onClick={handleSaveAndSend}>
-            {saving ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Send className="w-3.5 h-3.5 mr-1.5" />}Save & send
-          </Button>
-        </div>
-      </motion.div>
+      <PageHeader
+        title={quote ? `Edit ${quote.number}` : "New quote"}
+        subtitle={quote ? "Update line items, dates, and totals" : "Send an estimate to a customer"}
+        accent="linear-gradient(180deg, #a78bfa 0%, #6d28d9 100%)"
+      />
+      <div className="flex items-center gap-2 flex-wrap">
+        <Button variant="outline" size="sm" className="gap-1.5 rounded-xl h-10" onClick={() => setSmartFillOpen(true)}>
+          <Sparkles className="w-3.5 h-3.5 text-purple-500" />Smart fill
+        </Button>
+        <PdfSettingsPanel settings={pdfSettings} business={business} mode="quote" onSettingsChange={setPdfSettings} />
+        <Button variant="outline" size="sm" className="rounded-xl h-10" disabled={saving} onClick={handleSaveDraft}>
+          {saving ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-1.5" />}Save draft
+        </Button>
+        <Button size="sm" className="rounded-xl h-10" disabled={saving} onClick={handleSaveAndSend}>
+          {saving ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Send className="w-3.5 h-3.5 mr-1.5" />}Save & send
+        </Button>
+      </div>
 
       <form className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
