@@ -26,7 +26,7 @@ import { ShareWithCustomerDialog } from "@/components/share/share-with-customer-
 
 import { formatCurrency, formatDate } from "@/lib/utils";
 import {
-  DetailHero, FactCard, AnimatedPress, FadeIn, GradientTile, KireiPill,
+  DetailHero, FactCard, AnimatedPress, FadeIn, GradientTile, KireiPill, Confetti,
 } from "@/components/ui/kirei";
 import type { GradientName } from "@/components/ui/kirei";
 import type { Business, Customer, Invoice, LineItem, Payment, Product } from "@/types/database";
@@ -68,6 +68,9 @@ export function InvoiceDetailClient({
   const [sendOpen, setSendOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [progressOpen, setProgressOpen] = useState(false);
+  // Confetti — bump this counter whenever the invoice flips to paid so the
+  // <Confetti /> at the bottom of the tree fires a new burst.
+  const [confettiKey, setConfettiKey] = useState(0);
 
   const lineItems = (invoice.line_items ?? []) as LineItem[];
   const customer = customers.find((c) => c.id === invoice.customer_id);
@@ -83,10 +86,12 @@ export function InvoiceDetailClient({
   const balanceAfterDeposits = Math.max(0, Number(invoice.total) - Number(invoice.amount_paid ?? 0) - depositsReceived);
 
   const handleStatusChange = async (status: Invoice["status"]) => {
+    const wasPaid = invoice.status === "paid";
     try {
       const updated = await updateInvoice(invoice.id, { status });
       setInvoice((prev) => ({ ...prev, ...updated }));
       toast.success(`Invoice marked as ${status}`);
+      if (status === "paid" && !wasPaid) setConfettiKey((k) => k + 1);
     } catch { toast.error("Failed to update status"); }
   };
 
@@ -125,15 +130,21 @@ export function InvoiceDetailClient({
 
   const handleAddPayment = async () => {
     setSaving(true);
+    const wasPaid = invoice.status === "paid";
     try {
+      const paid = parseFloat(paymentAmount);
       await addPayment(invoice.id, {
-        amount: parseFloat(paymentAmount),
+        amount: paid,
         date: paymentDate,
         method: paymentMethod,
         reference: paymentRef || undefined,
       });
       toast.success("Payment recorded");
       setShowPayment(false);
+      // If this payment closes the invoice, celebrate.
+      if (!wasPaid && (invoice.amount_paid + paid + 0.005) >= Number(invoice.total)) {
+        setConfettiKey((k) => k + 1);
+      }
       router.refresh();
     } catch { toast.error("Failed to record payment"); }
     setSaving(false);
@@ -605,6 +616,9 @@ export function InvoiceDetailClient({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Fires on every status flip to 'paid'. */}
+      <Confetti fireKey={confettiKey} />
     </div>
   );
 }

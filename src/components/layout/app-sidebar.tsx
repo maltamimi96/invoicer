@@ -156,22 +156,23 @@ export function AppSidebar({ business, businesses, userRole, features, open, onC
                     href={item.href}
                     onClick={onClose}
                     className={cn(
-                      "relative flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-[13px] transition-colors duration-150",
+                      "relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] transition-all duration-150",
                       active
-                        ? "bg-sidebar-accent text-sidebar-foreground font-semibold"
-                        : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60 font-medium"
+                        ? "bg-sidebar-accent text-sidebar-foreground font-semibold shadow-sm"
+                        : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 font-medium"
                     )}
                   >
                     {active && (
                       <motion.span
                         layoutId="sidebar-active-rail"
-                        className="absolute -left-2 top-1.5 bottom-1.5 w-0.5 rounded-full bg-sidebar-primary"
+                        className="absolute -left-3 top-1.5 bottom-1.5 w-1 rounded-full"
+                        style={{ backgroundImage: "linear-gradient(180deg, hsl(var(--sidebar-primary)) 0%, hsl(var(--sidebar-primary) / 0.6) 100%)" }}
                         transition={{ type: "spring", stiffness: 380, damping: 30 }}
                       />
                     )}
                     <item.icon className={cn(
-                      "w-4 h-4 flex-shrink-0",
-                      active ? "text-sidebar-foreground" : "text-sidebar-foreground/55"
+                      "w-4 h-4 flex-shrink-0 transition-colors",
+                      active ? "text-sidebar-primary" : "text-sidebar-foreground/55 group-hover:text-sidebar-foreground"
                     )} />
                     <span>{item.label}</span>
                   </Link>
@@ -189,22 +190,23 @@ export function AppSidebar({ business, businesses, userRole, features, open, onC
             href="/settings"
             onClick={onClose}
             className={cn(
-              "relative flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-[13px] transition-colors duration-150",
+              "relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] transition-all duration-150",
               pathname.startsWith("/settings")
-                ? "bg-sidebar-accent text-sidebar-foreground font-semibold"
-                : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60 font-medium"
+                ? "bg-sidebar-accent text-sidebar-foreground font-semibold shadow-sm"
+                : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 font-medium"
             )}
           >
             {pathname.startsWith("/settings") && (
               <motion.span
                 layoutId="sidebar-active-rail"
-                className="absolute -left-2 top-1.5 bottom-1.5 w-0.5 rounded-full bg-sidebar-primary"
+                className="absolute -left-3 top-1.5 bottom-1.5 w-1 rounded-full"
+                style={{ backgroundImage: "linear-gradient(180deg, hsl(var(--sidebar-primary)) 0%, hsl(var(--sidebar-primary) / 0.6) 100%)" }}
                 transition={{ type: "spring", stiffness: 380, damping: 30 }}
               />
             )}
             <Settings className={cn(
               "w-4 h-4 relative z-10",
-              pathname.startsWith("/settings") ? "text-sidebar-foreground" : "text-sidebar-foreground/50"
+              pathname.startsWith("/settings") ? "text-sidebar-primary" : "text-sidebar-foreground/50"
             )} />
             <span className="relative z-10">Settings</span>
           </Link>
