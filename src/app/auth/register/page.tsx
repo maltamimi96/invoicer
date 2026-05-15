@@ -10,9 +10,9 @@ import { z } from "zod";
 import { toast } from "sonner";
 import { Eye, EyeOff, Loader2, UserCheck } from "@/components/ui/icons";
 import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AnimatedPress } from "@/components/ui/kirei";
 
 const schema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -140,16 +140,16 @@ export default function RegisterPage() {
       )}
 
       <div className="mb-8">
-        <h1 className="text-2xl font-bold tracking-tight">Create an account</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Create an account</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          {inviteEmail ? "Set a password to join your team" : "Start invoicing professionally today"}
+          {inviteEmail ? "Set a password to join your team" : "Start running your trade business with Kirei"}
         </p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="space-y-1.5">
           <Label htmlFor="name">Full name</Label>
-          <Input id="name" placeholder="John Smith" {...register("name")} />
+          <Input id="name" placeholder="John Smith" className="h-11 rounded-xl" {...register("name")} />
           {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
         </div>
         <div className="space-y-1.5">
@@ -159,7 +159,7 @@ export default function RegisterPage() {
             type="email"
             placeholder="you@example.com"
             readOnly={!!inviteEmail}
-            className={inviteEmail ? "bg-muted text-muted-foreground cursor-not-allowed" : ""}
+            className={`h-11 rounded-xl ${inviteEmail ? "bg-muted text-muted-foreground cursor-not-allowed" : ""}`}
             {...register("email")}
           />
           {inviteEmail && <p className="text-xs text-muted-foreground">Use this email — it&apos;s the one your team owner added</p>}
@@ -172,6 +172,7 @@ export default function RegisterPage() {
               id="password"
               type={showPassword ? "text" : "password"}
               placeholder="Min. 8 characters"
+              className="h-11 rounded-xl pr-10"
               {...register("password")}
             />
             <button
@@ -184,10 +185,13 @@ export default function RegisterPage() {
           </div>
           {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
         </div>
-        <Button type="submit" className="w-full" disabled={isSubmitting}>
-          {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+        <AnimatedPress
+          onClick={handleSubmit(onSubmit) as unknown as () => void}
+          className={`w-full inline-flex items-center justify-center gap-2 h-11 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-sm cursor-pointer ${isSubmitting ? "opacity-70" : ""}`}
+        >
+          {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
           {inviteEmail ? "Join team" : "Create account"}
-        </Button>
+        </AnimatedPress>
       </form>
 
       <p className="text-center text-sm text-muted-foreground mt-6">

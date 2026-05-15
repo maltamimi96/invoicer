@@ -10,9 +10,9 @@ import { z } from "zod";
 import { toast } from "sonner";
 import { Eye, EyeOff, Loader2, UserCheck } from "@/components/ui/icons";
 import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AnimatedPress } from "@/components/ui/kirei";
 
 const schema = z.object({
   email: z.string().email("Enter a valid email"),
@@ -78,8 +78,8 @@ export default function LoginPage() {
       )}
 
       <div className="mb-8">
-        <h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>
-        <p className="text-sm text-muted-foreground mt-1">Sign in to your account</p>
+        <h1 className="text-3xl font-bold tracking-tight">Welcome back</h1>
+        <p className="text-sm text-muted-foreground mt-1">Sign in to your Kirei account</p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -90,7 +90,7 @@ export default function LoginPage() {
             type="email"
             placeholder="you@example.com"
             readOnly={!!inviteEmail}
-            className={inviteEmail ? "bg-muted text-muted-foreground cursor-not-allowed" : ""}
+            className={`h-11 rounded-xl ${inviteEmail ? "bg-muted text-muted-foreground cursor-not-allowed" : ""}`}
             {...register("email")}
           />
           {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
@@ -107,6 +107,7 @@ export default function LoginPage() {
               id="password"
               type={showPassword ? "text" : "password"}
               placeholder="••••••••"
+              className="h-11 rounded-xl pr-10"
               {...register("password")}
             />
             <button
@@ -119,10 +120,13 @@ export default function LoginPage() {
           </div>
           {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
         </div>
-        <Button type="submit" className="w-full" disabled={isSubmitting}>
-          {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+        <AnimatedPress
+          onClick={handleSubmit(onSubmit) as unknown as () => void}
+          className={`w-full inline-flex items-center justify-center gap-2 h-11 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-sm cursor-pointer ${isSubmitting ? "opacity-70" : ""}`}
+        >
+          {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
           Sign in
-        </Button>
+        </AnimatedPress>
       </form>
 
       <p className="text-center text-sm text-muted-foreground mt-6">
