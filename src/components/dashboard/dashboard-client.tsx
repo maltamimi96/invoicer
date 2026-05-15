@@ -1,28 +1,35 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
 import {
   TrendingUp, Clock, AlertTriangle, CheckCircle, Plus, FileText,
   Wrench, MapPin, User, ArrowRight, FileCheck, UserPlus, ChevronRight,
-  DollarSign,
+  DollarSign, Calendar, Briefcase,
 } from "@/components/ui/icons";
-import { formatCurrency, getStatusColor } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 import { BriefingWidget } from "@/components/briefing/briefing-widget";
 import { TasksWidget } from "@/components/tasks/tasks-widget";
 import { OutlookWidget } from "@/components/dashboard/outlook-widget";
 import { NewLeadsWidget } from "@/components/dashboard/new-leads-widget";
+import {
+  FadeIn, HubTile, StatTile, CardListRow, AnimatedPress, GradientTile,
+} from "@/components/ui/kirei";
 import type { WorkOrderWithCustomer, WorkOrderStatus } from "@/types/database";
+import type { GradientName } from "@/components/ui/kirei";
 
-const STATUS_TO_PILL: Record<WorkOrderStatus, string> = {
-  draft:       "draft",
-  assigned:    "scheduled",
-  in_progress: "in-progress",
-  submitted:   "pending",
-  reviewed:    "pending",
-  completed:   "completed",
-  cancelled:   "cancelled",
+const STATUS_PILL_TEXT: Record<WorkOrderStatus, string> = {
+  draft: "Draft", assigned: "Assigned", in_progress: "In progress",
+  submitted: "Submitted", reviewed: "Reviewed", completed: "Completed", cancelled: "Cancelled",
+};
+
+const STATUS_PILL_TONE: Record<WorkOrderStatus, string> = {
+  draft:       "bg-muted text-muted-foreground",
+  assigned:    "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200",
+  in_progress: "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200",
+  submitted:   "bg-violet-100 text-violet-900 dark:bg-violet-900/40 dark:text-violet-200",
+  reviewed:    "bg-yellow-100 text-yellow-900 dark:bg-yellow-900/40 dark:text-yellow-200",
+  completed:   "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-200",
+  cancelled:   "bg-rose-100 text-rose-900 dark:bg-rose-900/40 dark:text-rose-200",
 };
 
 interface DashboardClientProps {
@@ -54,7 +61,6 @@ function fmtShort(n: number, currency: string) {
 }
 
 export function DashboardClient({ stats, currency = "GBP", todayJobs }: DashboardClientProps) {
-  const router = useRouter();
   const todayStr = new Date().toISOString().split("T")[0];
   const now = new Date();
   const hour = now.getHours();
@@ -63,7 +69,6 @@ export function DashboardClient({ stats, currency = "GBP", todayJobs }: Dashboar
   const monthly = stats.monthlyData.slice(-6);
   const maxBar  = Math.max(...monthly.map((m) => m.revenue), 1);
   const totalBilled = monthly.reduce((s, m) => s + m.revenue, 0);
-  const sparkData = monthly.map((m) => m.revenue);
 
   const scheduledToday = todayJobs.filter((j) => j.scheduled_date === todayStr);
   const tomorrowStr = (() => {
@@ -72,360 +77,254 @@ export function DashboardClient({ stats, currency = "GBP", todayJobs }: Dashboar
   })();
   const tomorrow = todayJobs.filter((j) => j.scheduled_date === tomorrowStr);
 
-  // Compute deltas vs the prior month for the headline KPI
   const lastMonth = monthly[monthly.length - 2]?.revenue ?? 0;
   const thisMonth = monthly[monthly.length - 1]?.revenue ?? 0;
   const monthDelta = lastMonth > 0 ? ((thisMonth - lastMonth) / lastMonth) * 100 : 0;
 
   return (
-    <div>
-      {/* Page header */}
-      <motion.div
-        initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
-        className="ch-page-header"
-      >
-        <div>
-          <h1 className="ch-page-title">{greeting}.</h1>
-          <p className="ch-page-subtitle">Here&apos;s what&apos;s happening today.</p>
-        </div>
-        <div className="ch-page-actions">
+    <div className="space-y-6">
+      {/* ── Greeting + primary CTA ─────────────────────────────────────────── */}
+      <FadeIn>
+        <div className="flex items-end justify-between gap-3 flex-wrap">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">{greeting}.</h1>
+            <p className="text-sm text-muted-foreground mt-1">Here&apos;s what&apos;s happening today.</p>
+          </div>
           <Link href="/invoices/new">
-            <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
-              <Plus className="w-3.5 h-3.5" /> New invoice
-            </button>
+            <AnimatedPress className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-sm">
+              <Plus className="w-4 h-4" /> New invoice
+            </AnimatedPress>
           </Link>
         </div>
-      </motion.div>
+      </FadeIn>
 
-      {/* Overdue strip */}
+      {/* ── Overdue alert strip ────────────────────────────────────────────── */}
       {stats.overdue > 0 && (
-        <Link href="/invoices?status=overdue" className="block mb-5">
-          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200/60 dark:border-rose-900/40 hover:bg-rose-100/60 dark:hover:bg-rose-950/50 transition-colors">
-            <div className="w-9 h-9 rounded-full bg-rose-100 dark:bg-rose-900/50 flex items-center justify-center flex-shrink-0">
-              <AlertTriangle className="w-4 h-4 text-rose-700 dark:text-rose-300" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-rose-900 dark:text-rose-200 leading-tight">
-                {formatCurrency(stats.overdue, currency)} overdue
-              </p>
-              <p className="text-xs text-rose-700/80 dark:text-rose-300/70">Send reminders to bring these in</p>
-            </div>
-            <ArrowRight className="w-4 h-4 text-rose-700 dark:text-rose-300" />
-          </div>
-        </Link>
+        <FadeIn delay={60}>
+          <Link href="/invoices?status=overdue" className="block">
+            <AnimatedPress className="flex items-center gap-3 px-4 py-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200/60 dark:border-rose-900/40">
+              <GradientTile gradient="rose" size={40} radius={10}>
+                <AlertTriangle className="w-4 h-4" />
+              </GradientTile>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-rose-900 dark:text-rose-200 leading-tight">
+                  {formatCurrency(stats.overdue, currency)} overdue
+                </p>
+                <p className="text-xs text-rose-700/80 dark:text-rose-300/70">Send reminders to bring these in</p>
+              </div>
+              <ArrowRight className="w-4 h-4 text-rose-700 dark:text-rose-300 shrink-0" />
+            </AnimatedPress>
+          </Link>
+        </FadeIn>
       )}
 
-      {/* KPI grid */}
-      <motion.div
-        initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.05 }}
-        className="ch-stat-grid"
-      >
-        <StatCard
-          icon={<DollarSign className="w-3.5 h-3.5" />}
-          label={`Revenue (${monthly[monthly.length - 1]?.month ?? "this month"})`}
-          value={fmtShort(thisMonth, currency)}
-          delta={Math.round(monthDelta * 10) / 10}
-          sub="vs last month"
-          spark={sparkData}
-        />
-        <StatCard
-          icon={<Clock className="w-3.5 h-3.5" />}
-          label="Outstanding"
-          value={fmtShort(stats.outstanding, currency)}
-          sub={`${stats.recentInvoices.length} recent invoices`}
-        />
-        <StatCard
-          icon={<AlertTriangle className="w-3.5 h-3.5" />}
-          label="Overdue"
-          value={fmtShort(stats.overdue, currency)}
-          sub={stats.overdue > 0 ? "needs follow-up" : "all clear"}
-        />
-        <StatCard
-          icon={<CheckCircle className="w-3.5 h-3.5" />}
-          label="Paid this month"
-          value={fmtShort(stats.paidThisMonth, currency)}
-          sub="settled invoices"
-        />
-      </motion.div>
+      {/* ── KPI tiles (gradient-tinted) ────────────────────────────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          { gradient: "softTeal"   as GradientName, tone: "#1f4f4a", icon: <DollarSign className="w-3.5 h-3.5" />,
+            label: `Revenue (${monthly[monthly.length - 1]?.month ?? "this month"})`,
+            value: fmtShort(thisMonth, currency),
+            sub:   monthDelta !== 0 ? `${monthDelta >= 0 ? "+" : ""}${Math.round(monthDelta * 10) / 10}% vs last month` : "vs last month" },
+          { gradient: "softBlue"   as GradientName, tone: "#1e3a8a", icon: <Clock className="w-3.5 h-3.5" />,
+            label: "Outstanding", value: fmtShort(stats.outstanding, currency),
+            sub: `${stats.recentInvoices.length} recent invoices`, href: "/invoices?status=pending" },
+          { gradient: "softRose"   as GradientName, tone: "#9f1239", icon: <AlertTriangle className="w-3.5 h-3.5" />,
+            label: "Overdue", value: fmtShort(stats.overdue, currency),
+            sub: stats.overdue > 0 ? "needs follow-up" : "all clear",
+            href: stats.overdue > 0 ? "/invoices?status=overdue" : undefined },
+          { gradient: "softAmber"  as GradientName, tone: "#78350f", icon: <CheckCircle className="w-3.5 h-3.5" />,
+            label: "Paid this month", value: fmtShort(stats.paidThisMonth, currency),
+            sub: "settled invoices" },
+        ].map((t, i) => (
+          <FadeIn key={t.label} delay={120 + i * 50}>
+            <StatTile {...t} toneColor={t.tone} />
+          </FadeIn>
+        ))}
+      </div>
 
-      {/* 2-col layout */}
-      <div className="ch-grid-2">
-        {/* LEFT */}
-        <div className="flex flex-col gap-4">
-          {/* Briefing — sits above the revenue chart so the user always sees
-              what needs attention before the historical numbers. */}
-          <BriefingWidget compact />
-
-          {/* Revenue, last 6 months */}
-          <div className="rounded-xl border border-border bg-card shadow-sm">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-              <div>
-                <h3 className="text-sm font-semibold">Revenue, last 6 months</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">Paid invoices, trailing</p>
-              </div>
-            </div>
-            <div className="p-4">
-              <div className="ch-bars">
-                {monthly.map((m) => (
-                  <div key={m.month} className="ch-bar-col">
-                    <div
-                      className="ch-bar primary"
-                      style={{ height: `${(m.revenue / maxBar) * 100}%` }}
-                      title={formatCurrency(m.revenue, currency)}
-                    />
-                    <div className="ch-bar-label">{m.month}</div>
-                  </div>
-                ))}
-              </div>
-              <div className="flex items-center justify-between pt-3 mt-2 border-t border-border">
-                <span className="text-xs text-muted-foreground">Total billed</span>
-                <span className="text-sm font-semibold ch-mono">{formatCurrency(totalBilled, currency)}</span>
-              </div>
-            </div>
+      {/* ── Quick actions (mobile-style hub tiles) ─────────────────────────── */}
+      <FadeIn delay={320}>
+        <div>
+          <h2 className="text-[11px] uppercase tracking-wide font-bold text-muted-foreground mb-2">Quick actions</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <HubTile href="/invoices/new"    gradient="emerald" icon={<FileText  className="w-5 h-5" />} label="New invoice"  hint="Bill a customer" />
+            <HubTile href="/quotes/new"      gradient="violet"  icon={<FileCheck className="w-5 h-5" />} label="New quote"    hint="Send an estimate" />
+            <HubTile href="/work-orders/new" gradient="blue"    icon={<Wrench    className="w-5 h-5" />} label="Work order"   hint="Schedule a job" />
+            <HubTile href="/customers/new"   gradient="primary" icon={<UserPlus  className="w-5 h-5" />} label="Add customer" hint="New contact" />
           </div>
+        </div>
+      </FadeIn>
 
-          {/* Recent invoices */}
-          <div className="rounded-xl border border-border bg-card shadow-sm">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-              <h3 className="text-sm font-semibold">Recent invoices</h3>
-              <Link href="/invoices" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
-                View all <ChevronRight className="w-3 h-3" />
-              </Link>
+      {/* ── 2-col content area ─────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-5">
+        {/* LEFT: revenue + briefing + recent invoices */}
+        <div className="flex flex-col gap-5">
+          <FadeIn delay={380}><BriefingWidget compact /></FadeIn>
+
+          {/* Revenue chart card */}
+          <FadeIn delay={440}>
+            <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+                <div>
+                  <h3 className="text-sm font-semibold">Revenue, last 6 months</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">Paid invoices, trailing</p>
+                </div>
+                <GradientTile gradient="primary" size={32} radius={8}>
+                  <TrendingUp className="w-4 h-4" />
+                </GradientTile>
+              </div>
+              <div className="p-5">
+                <div className="flex items-end justify-between gap-2 h-32">
+                  {monthly.map((m) => {
+                    const pct = (m.revenue / maxBar) * 100;
+                    return (
+                      <div key={m.month} className="flex flex-col items-center gap-1.5 flex-1 min-w-0">
+                        <div className="w-full flex items-end justify-center h-full">
+                          <div
+                            className="w-full max-w-[28px] rounded-md"
+                            style={{
+                              height: `${Math.max(pct, 4)}%`,
+                              backgroundImage: "linear-gradient(180deg, hsl(var(--primary)) 0%, hsl(var(--primary) / 0.7) 100%)",
+                            }}
+                            title={formatCurrency(m.revenue, currency)}
+                          />
+                        </div>
+                        <span className="text-[10px] text-muted-foreground">{m.month}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex items-center justify-between pt-4 mt-2 border-t border-border">
+                  <span className="text-xs text-muted-foreground">Total billed</span>
+                  <span className="text-sm font-semibold tabular-nums">{formatCurrency(totalBilled, currency)}</span>
+                </div>
+              </div>
             </div>
-            {stats.recentInvoices.length === 0 ? (
-              <div className="ch-empty">
-                <h4>No invoices yet</h4>
-                <p>Create your first invoice to get started.</p>
-                <Link href="/invoices/new">
-                  <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:opacity-90">
-                    <Plus className="w-3 h-3" /> New invoice
-                  </button>
+          </FadeIn>
+
+          {/* Recent invoices — card list, no table */}
+          <FadeIn delay={500}>
+            <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+                <h3 className="text-sm font-semibold">Recent invoices</h3>
+                <Link href="/invoices" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+                  View all <ChevronRight className="w-3 h-3" />
                 </Link>
               </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="ch-table">
-                  <thead>
-                    <tr>
-                      <th>Invoice</th>
-                      <th>Customer</th>
-                      <th>Issued</th>
-                      <th>Status</th>
-                      <th className="num">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {stats.recentInvoices.slice(0, 5).map((inv, i) => (
-                      <tr
-                        key={inv.id ?? i}
-                        className={inv.id ? "" : "cursor-default"}
-                        onClick={() => { if (inv.id) router.push(`/invoices/${inv.id}`); }}
-                      >
-                        <td><span className="ref">{inv.number ?? "—"}</span></td>
-                        <td>{inv.customers?.name ?? "—"}</td>
-                        <td className="text-muted-foreground">{inv.issue_date ?? inv.due_date ?? ""}</td>
-                        <td><span className={`ch-pill ${statusForPill(inv.status)}`}>{inv.status}</span></td>
-                        <td className="num font-semibold">{formatCurrency(inv.total ?? 0, currency)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* RIGHT */}
-        <div className="flex flex-col gap-4">
-          {/* Quick actions */}
-          <div className="rounded-xl border border-border bg-card shadow-sm">
-            <div className="px-4 py-3 border-b border-border">
-              <h3 className="text-sm font-semibold">Quick actions</h3>
-            </div>
-            <div className="p-4">
-              <div className="ch-quick-actions">
-                <QuickAction href="/invoices/new" icon={<FileText className="w-4 h-4" />} label="New invoice" meta="Bill a customer" />
-                <QuickAction href="/quotes/new"   icon={<FileCheck className="w-4 h-4" />} label="New quote"   meta="Send an estimate" />
-                <QuickAction href="/work-orders/new" icon={<Wrench className="w-4 h-4" />} label="Work order"  meta="Schedule a job" />
-                <QuickAction href="/customers/new"   icon={<UserPlus className="w-4 h-4" />} label="Add customer" meta="New contact" />
-              </div>
-            </div>
-          </div>
-
-          {/* New leads — most recent unconverted */}
-          <NewLeadsWidget />
-
-          {/* Your todos — open tasks from the kanban board */}
-          <TasksWidget />
-
-          {/* Operations outlook — team, recurring jobs, agents */}
-          <OutlookWidget />
-
-          {/* Today's schedule */}
-          <div className="rounded-xl border border-border bg-card shadow-sm">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-              <div>
-                <h3 className="text-sm font-semibold">Today&apos;s schedule</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">{now.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })}</p>
-              </div>
-              <Link href="/work-orders" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
-                All jobs <ChevronRight className="w-3 h-3" />
-              </Link>
-            </div>
-            <div className="p-2">
-              {scheduledToday.length === 0 ? (
-                <div className="ch-empty"><h4>Nothing scheduled today</h4><p>Add a work order to fill your day.</p></div>
+              {stats.recentInvoices.length === 0 ? (
+                <div className="p-8 text-center">
+                  <p className="text-sm font-medium">No invoices yet</p>
+                  <p className="text-xs text-muted-foreground mt-1 mb-4">Create your first invoice to get started.</p>
+                  <Link href="/invoices/new">
+                    <AnimatedPress className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium">
+                      <Plus className="w-3 h-3" /> New invoice
+                    </AnimatedPress>
+                  </Link>
+                </div>
               ) : (
-                scheduledToday.slice(0, 6).map((wo) => <ScheduleRow key={wo.id} wo={wo} />)
-              )}
-              {tomorrow.length > 0 && (
-                <>
-                  <div className="border-t border-border my-2" />
-                  <div className="ch-schedule-day px-1">Tomorrow</div>
-                  {tomorrow.slice(0, 3).map((wo) => <ScheduleRow key={wo.id} wo={wo} />)}
-                </>
+                <div className="p-2 space-y-1.5">
+                  {stats.recentInvoices.slice(0, 5).map((inv, i) => (
+                    <CardListRow
+                      key={inv.id ?? i}
+                      href={inv.id ? `/invoices/${inv.id}` : undefined}
+                      gradient={inv.status === "paid" ? "emerald" : inv.status === "overdue" ? "rose" : "primary"}
+                      icon={<FileText className="w-4 h-4" />}
+                      title={<><span className="font-mono text-xs text-muted-foreground mr-2">{inv.number}</span>{inv.customers?.name ?? "—"}</>}
+                      meta={inv.issue_date ?? inv.due_date ?? ""}
+                      trailing={formatCurrency(inv.total ?? 0, currency)}
+                    />
+                  ))}
+                </div>
               )}
             </div>
-          </div>
-
-          {/* Activity */}
-          {stats.recentInvoices.length > 0 && (
-            <div className="rounded-xl border border-border bg-card shadow-sm">
-              <div className="px-4 py-3 border-b border-border">
-                <h3 className="text-sm font-semibold">Activity</h3>
-              </div>
-              <div className="p-2">
-                {stats.recentInvoices.slice(0, 5).map((inv, i) => {
-                  const inner = (
-                    <div className="ch-activity-item">
-                      <div className="ch-activity-icon">
-                        <FileText className="w-3.5 h-3.5" />
-                      </div>
-                      <div className="ch-activity-content">
-                        <div>
-                          Invoice <span className="font-semibold">{inv.number}</span> {inv.status === "paid" ? "paid" : "sent"}
-                          {" "}<span className="ch-mono font-semibold">· {formatCurrency(inv.total ?? 0, currency)}</span>
-                        </div>
-                        <div className="ch-activity-meta">{inv.customers?.name ?? "No client"}</div>
-                      </div>
-                    </div>
-                  );
-                  return inv.id
-                    ? <Link key={inv.id} href={`/invoices/${inv.id}`}>{inner}</Link>
-                    : <div key={i}>{inner}</div>;
-                })}
-              </div>
-            </div>
-          )}
+          </FadeIn>
         </div>
-      </div>
 
-    </div>
-  );
-}
+        {/* RIGHT: schedule + leads + tasks + outlook */}
+        <div className="flex flex-col gap-5">
+          {/* Today's schedule */}
+          <FadeIn delay={420}>
+            <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+                <div className="flex items-center gap-2.5">
+                  <GradientTile gradient="amber" size={32} radius={8}>
+                    <Calendar className="w-4 h-4" />
+                  </GradientTile>
+                  <div>
+                    <h3 className="text-sm font-semibold">Today&apos;s schedule</h3>
+                    <p className="text-xs text-muted-foreground">{now.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })}</p>
+                  </div>
+                </div>
+                <Link href="/work-orders" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+                  All jobs <ChevronRight className="w-3 h-3" />
+                </Link>
+              </div>
+              <div className="p-2 space-y-1.5">
+                {scheduledToday.length === 0 ? (
+                  <div className="p-6 text-center">
+                    <p className="text-sm font-medium">Nothing scheduled today</p>
+                    <p className="text-xs text-muted-foreground mt-1">Add a work order to fill your day.</p>
+                  </div>
+                ) : (
+                  scheduledToday.slice(0, 6).map((wo) => <ScheduleCard key={wo.id} wo={wo} />)
+                )}
+                {tomorrow.length > 0 && (
+                  <>
+                    <div className="border-t border-border my-2" />
+                    <div className="text-[10px] uppercase tracking-wide font-bold text-muted-foreground px-2 pb-1">Tomorrow</div>
+                    {tomorrow.slice(0, 3).map((wo) => <ScheduleCard key={wo.id} wo={wo} />)}
+                  </>
+                )}
+              </div>
+            </div>
+          </FadeIn>
 
-// ── Sub-components ──────────────────────────────────────────────────────────
-
-function statusForPill(status?: string) {
-  if (!status) return "draft";
-  return getStatusColor(status).includes("green") ? "paid"
-       : getStatusColor(status).includes("yellow") ? "pending"
-       : status; // pass through; matches our .ch-pill.* classes
-}
-
-function StatCard({
-  icon, label, value, delta, sub, spark,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  delta?: number;
-  sub: string;
-  spark?: number[];
-}) {
-  const up = (delta ?? 0) >= 0;
-  return (
-    <div className="ch-stat">
-      <div className="ch-stat-label">
-        {icon}
-        <span>{label}</span>
-      </div>
-      <div className="flex items-end justify-between gap-2">
-        <div className="ch-stat-value">{value}</div>
-        {spark && spark.length > 1 && <Sparkline data={spark} />}
-      </div>
-      <div className="ch-stat-meta">
-        {delta != null && (
-          <>
-            <TrendingUp className={`w-3 h-3 ${up ? "text-emerald-600" : "text-rose-600 rotate-180"}`} />
-            <span className={`ch-stat-delta ${up ? "up" : "down"}`}>{up ? "+" : ""}{delta}%</span>
-          </>
-        )}
-        <span>{sub}</span>
+          <FadeIn delay={480}><NewLeadsWidget /></FadeIn>
+          <FadeIn delay={540}><TasksWidget /></FadeIn>
+          <FadeIn delay={600}><OutlookWidget /></FadeIn>
+        </div>
       </div>
     </div>
   );
 }
 
-function Sparkline({ data, width = 96, height = 28 }: { data: number[]; width?: number; height?: number }) {
-  const max = Math.max(...data);
-  const min = Math.min(...data);
-  const range = max - min || 1;
-  const pts = data.map((v, i) => {
-    const x = (i / (data.length - 1)) * width;
-    const y = height - ((v - min) / range) * (height - 4) - 2;
-    return [x, y];
-  });
-  const d = pts.map((p, i) => (i === 0 ? "M" : "L") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" ");
-  const fillD = d + ` L ${width} ${height} L 0 ${height} Z`;
-  return (
-    <svg width={width} height={height} className="block">
-      <path d={fillD} className="ch-spark-fill" />
-      <path d={d} className="ch-spark" />
-    </svg>
-  );
-}
+// ── Sub-components ─────────────────────────────────────────────────────────
 
-function QuickAction({ href, icon, label, meta }: { href: string; icon: React.ReactNode; label: string; meta: string }) {
-  return (
-    <Link href={href}>
-      <button className="ch-quick-action">
-        <div className="ch-quick-action-icon">{icon}</div>
-        <div className="min-w-0">
-          <div>{label}</div>
-          <div className="ch-quick-action-meta">{meta}</div>
-        </div>
-      </button>
-    </Link>
-  );
-}
-
-function ScheduleRow({ wo }: { wo: WorkOrderWithCustomer }) {
+function ScheduleCard({ wo }: { wo: WorkOrderWithCustomer }) {
   const time = wo.start_time ? wo.start_time.slice(0, 5) : "—";
-  const barColor =
-    wo.status === "in_progress" ? "hsl(35 75% 50%)" :
-    wo.status === "submitted"   ? "hsl(280 50% 55%)" :
-    "hsl(var(--primary))";
+  const status = (wo.status ?? "draft") as WorkOrderStatus;
+  const gradient: GradientName =
+    status === "in_progress" ? "amber" :
+    status === "submitted"   ? "violet" :
+    status === "completed"   ? "emerald" :
+    "primary";
+
   return (
     <Link href={`/work-orders/${wo.id}`} className="block">
-      <div className="ch-schedule-item">
-        <div className="ch-schedule-time">{time}</div>
-        <div className="ch-schedule-bar" style={{ background: barColor }} />
-        <div className="ch-schedule-content">
-          <div className="ch-schedule-title">{wo.customers?.name ?? wo.title}</div>
-          <div className="ch-schedule-meta truncate">
+      <AnimatedPress className="flex items-center gap-3 p-3 rounded-lg bg-card border border-border/70 hover:border-primary/30 transition-colors">
+        <GradientTile gradient={gradient} size={40} radius={10}>
+          <Briefcase className="w-4 h-4" />
+        </GradientTile>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-mono font-semibold text-foreground tabular-nums">{time}</span>
+            <span className="text-sm font-medium text-foreground truncate">{wo.customers?.name ?? wo.title}</span>
+          </div>
+          <div className="text-xs text-muted-foreground truncate flex items-center gap-3 mt-0.5">
             <span className="inline-flex items-center gap-1">
-              <MapPin className="inline w-3 h-3" />{wo.property_address ?? "—"}
+              <MapPin className="w-3 h-3" />{wo.property_address ?? "—"}
             </span>
             {wo.assigned_to_email && (
-              <span className="ml-2 inline-flex items-center gap-1">
-                <User className="inline w-3 h-3" />{wo.assigned_to_email}
+              <span className="inline-flex items-center gap-1">
+                <User className="w-3 h-3" />{wo.assigned_to_email}
               </span>
             )}
           </div>
         </div>
-        <span className={`ch-pill ${STATUS_TO_PILL[wo.status]}`}>{wo.status.replace("_", " ")}</span>
-      </div>
+        <span className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${STATUS_PILL_TONE[status]} shrink-0`}>
+          {STATUS_PILL_TEXT[status]}
+        </span>
+      </AnimatedPress>
     </Link>
   );
 }
