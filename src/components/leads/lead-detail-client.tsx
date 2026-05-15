@@ -2,15 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { toast } from "sonner";
 import {
-  ArrowLeft, Phone, Mail, MapPin, Clock, MessageSquare,
-  UserPlus, FileCheck, Wrench, Trash2,
+  Phone, Mail, MapPin, Clock, MessageSquare, UserPlus, FileCheck, Wrench, Trash2, User,
 } from "@/components/ui/icons";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -19,16 +14,20 @@ import {
   updateLeadStatus, deleteLead,
   convertLeadToCustomer, convertLeadToQuote, convertLeadToWorkOrder,
 } from "@/lib/actions/leads";
+import {
+  DetailHero, FactCard, AnimatedPress, FadeIn, KireiAvatar, GradientTile,
+} from "@/components/ui/kirei";
+import type { GradientName } from "@/components/ui/kirei";
 import type { Lead, LeadStatus } from "@/types/database";
 
 const STATUSES: LeadStatus[] = ["new", "contacted", "quoted", "won", "lost"];
 
-const STATUS_BADGE: Record<LeadStatus, string> = {
-  new:       "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
-  contacted: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300",
-  quoted:    "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300",
-  won:       "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
-  lost:      "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
+const STATUS_GRADIENT: Record<LeadStatus, GradientName> = {
+  new:       "blue",
+  contacted: "amber",
+  quoted:    "violet",
+  won:       "emerald",
+  lost:      "rose",
 };
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -73,9 +72,7 @@ export function LeadDetailClient({ lead: initial }: { lead: Lead }) {
         const { customer_id } = await convertLeadToCustomer(lead.id);
         toast.success("Customer created");
         router.push(`/customers/${customer_id}`);
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Couldn't convert");
-      }
+      } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't convert"); }
     });
   };
 
@@ -85,9 +82,7 @@ export function LeadDetailClient({ lead: initial }: { lead: Lead }) {
         const { quote_id } = await convertLeadToQuote(lead.id);
         toast.success("Draft quote created");
         router.push(`/quotes/${quote_id}`);
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Couldn't convert");
-      }
+      } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't convert"); }
     });
   };
 
@@ -97,9 +92,7 @@ export function LeadDetailClient({ lead: initial }: { lead: Lead }) {
         const { work_order_id } = await convertLeadToWorkOrder(lead.id);
         toast.success("Job created");
         router.push(`/work-orders/${work_order_id}`);
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Couldn't convert");
-      }
+      } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't convert"); }
     });
   };
 
@@ -109,9 +102,7 @@ export function LeadDetailClient({ lead: initial }: { lead: Lead }) {
         await deleteLead(lead.id);
         toast.success("Lead deleted");
         router.push("/leads");
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Couldn't delete");
-      }
+      } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't delete"); }
     });
   };
 
@@ -119,27 +110,19 @@ export function LeadDetailClient({ lead: initial }: { lead: Lead }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        <Link href="/leads" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="w-4 h-4" />
-          Leads
-        </Link>
-        <span className="text-muted-foreground">/</span>
-        <span className="text-sm font-medium">{lead.name}</span>
-      </div>
-
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold">{lead.name}</h1>
-          <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
+      <DetailHero
+        backHref="/leads"
+        title={lead.name}
+        gradient={STATUS_GRADIENT[lead.status]}
+        icon={<KireiAvatar name={lead.name} size={52} radius={14} />}
+        status={lead.status}
+        subtitle={
+          <span className="inline-flex items-center gap-2 flex-wrap">
             <span>{fmtSource(lead.source)}</span>
             {lead.suburb && (
               <>
                 <span>·</span>
-                <span className="inline-flex items-center gap-1">
-                  <MapPin className="w-3 h-3" />
-                  {lead.suburb}
-                </span>
+                <span className="inline-flex items-center gap-1"><MapPin className="w-3 h-3" />{lead.suburb}</span>
               </>
             )}
             <span>·</span>
@@ -147,112 +130,122 @@ export function LeadDetailClient({ lead: initial }: { lead: Lead }) {
               <Clock className="w-3 h-3" />
               {new Date(lead.created_at).toLocaleString("en-AU", { dateStyle: "medium", timeStyle: "short" })}
             </span>
-          </p>
-        </div>
-        <Badge className={STATUS_BADGE[lead.status]}>{lead.status}</Badge>
-      </div>
-
-      {/* Quick contact actions */}
-      <div className="flex gap-2 flex-wrap">
-        {phoneClean && (
-          <Button asChild variant="default" size="sm">
-            <a href={`tel:${phoneClean}`}><Phone className="w-4 h-4 mr-2" />Call</a>
-          </Button>
-        )}
-        {phoneClean && (
-          <Button asChild variant="outline" size="sm">
-            <a href={`sms:${phoneClean}`}><MessageSquare className="w-4 h-4 mr-2" />SMS</a>
-          </Button>
-        )}
-        {lead.email && (
-          <Button asChild variant="outline" size="sm">
-            <a href={`mailto:${lead.email}`}><Mail className="w-4 h-4 mr-2" />Email</a>
-          </Button>
-        )}
-      </div>
+          </span>
+        }
+        actions={
+          <>
+            {phoneClean && (
+              <a href={`tel:${phoneClean}`}>
+                <AnimatedPress className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-sm">
+                  <Phone className="w-4 h-4" /> Call
+                </AnimatedPress>
+              </a>
+            )}
+            {phoneClean && (
+              <a href={`sms:${phoneClean}`}>
+                <AnimatedPress className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border bg-card text-sm font-medium">
+                  <MessageSquare className="w-4 h-4" /> SMS
+                </AnimatedPress>
+              </a>
+            )}
+            {lead.email && (
+              <a href={`mailto:${lead.email}`}>
+                <AnimatedPress className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border bg-card text-sm font-medium">
+                  <Mail className="w-4 h-4" /> Email
+                </AnimatedPress>
+              </a>
+            )}
+          </>
+        }
+      />
 
       {/* Status changer */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Status</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
-          {STATUSES.map((s) => (
-            <Button
-              key={s}
-              variant={s === lead.status ? "default" : "outline"}
-              size="sm"
-              disabled={pending || s === lead.status}
-              onClick={() => setStatus(s)}
-            >
-              {s}
-            </Button>
-          ))}
-        </CardContent>
-      </Card>
+      <FadeIn delay={80}>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <p className="text-[11px] uppercase tracking-wide font-bold text-muted-foreground mb-2.5">Pipeline stage</p>
+          <div className="flex flex-wrap gap-2">
+            {STATUSES.map((s) => {
+              const active = s === lead.status;
+              return (
+                <button
+                  key={s}
+                  disabled={pending || active}
+                  onClick={() => setStatus(s)}
+                  className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-sm font-semibold transition-all capitalize ${
+                    active
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "border border-border bg-card hover:bg-muted text-foreground"
+                  }`}
+                >
+                  {s}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </FadeIn>
 
       {/* Details */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Details</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          {lead.service        && <Field label="Service"  value={lead.service} />}
-          {lead.property_type  && <Field label="Property" value={lead.property_type} />}
-          {lead.timing         && <Field label="Timing"   value={lead.timing} />}
-          {lead.address        && <Field label="Address"  value={lead.address} />}
-          {lead.suburb         && <Field label="Suburb"   value={lead.suburb} />}
-          {lead.phone          && <Field label="Phone"    value={lead.phone} />}
-          {lead.email          && <Field label="Email"    value={lead.email} />}
-          <Field label="Source" value={fmtSource(lead.source)} />
-          {(lead.utm_source || lead.utm_medium || lead.utm_campaign) && (
-            <Field
-              label="Campaign"
-              value={[lead.utm_source, lead.utm_medium, lead.utm_campaign].filter(Boolean).join(" / ")}
-            />
-          )}
-        </CardContent>
-      </Card>
+      <FadeIn delay={140}>
+        <div>
+          <p className="text-[11px] uppercase tracking-wide font-bold text-muted-foreground mb-2.5">Details</p>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {lead.service       && <FactCard gradient="primary" icon={<Wrench    className="w-4 h-4" />} label="Service"  value={lead.service} />}
+            {lead.property_type && <FactCard gradient="blue"    icon={<MapPin    className="w-4 h-4" />} label="Property" value={lead.property_type} />}
+            {lead.timing        && <FactCard gradient="amber"   icon={<Clock     className="w-4 h-4" />} label="Timing"   value={lead.timing} />}
+            {lead.address       && <FactCard gradient="emerald" icon={<MapPin    className="w-4 h-4" />} label="Address"  value={lead.address} />}
+            {lead.suburb        && <FactCard gradient="emerald" icon={<MapPin    className="w-4 h-4" />} label="Suburb"   value={lead.suburb} />}
+            {lead.phone         && <FactCard gradient="primary" icon={<Phone     className="w-4 h-4" />} label="Phone"    value={lead.phone} />}
+            {lead.email         && <FactCard gradient="violet"  icon={<Mail      className="w-4 h-4" />} label="Email"    value={lead.email} />}
+            <FactCard gradient="dusk" icon={<User className="w-4 h-4" />} label="Source" value={fmtSource(lead.source)} />
+            {(lead.utm_source || lead.utm_medium || lead.utm_campaign) && (
+              <FactCard gradient="ocean" icon={<User className="w-4 h-4" />} label="Campaign" value={[lead.utm_source, lead.utm_medium, lead.utm_campaign].filter(Boolean).join(" / ")} />
+            )}
+          </div>
+        </div>
+      </FadeIn>
 
       {/* Notes */}
       {lead.notes && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Notes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm whitespace-pre-wrap leading-relaxed">{lead.notes}</p>
-          </CardContent>
-        </Card>
+        <FadeIn delay={200}>
+          <div className="rounded-xl border border-border bg-card p-5">
+            <div className="flex items-center gap-2.5 mb-3">
+              <GradientTile gradient="amber" size={28} radius={8}>
+                <Clock className="w-3.5 h-3.5" />
+              </GradientTile>
+              <p className="text-sm font-semibold">Notes</p>
+            </div>
+            <p className="text-sm whitespace-pre-wrap leading-relaxed text-foreground">{lead.notes}</p>
+          </div>
+        </FadeIn>
       )}
 
       {/* Convert actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Convert</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
-          <Button onClick={convertCustomer} disabled={pending || !!lead.customer_id} variant="outline">
-            <UserPlus className="w-4 h-4 mr-2" />
-            {lead.customer_id ? "Customer linked" : "To customer"}
-          </Button>
-          <Button onClick={convertQuote} disabled={pending || !!lead.quote_id} variant="outline">
-            <FileCheck className="w-4 h-4 mr-2" />
-            {lead.quote_id ? "Quote drafted" : "To quote"}
-          </Button>
-          <Button onClick={convertWorkOrder} disabled={pending} variant="outline">
-            <Wrench className="w-4 h-4 mr-2" />
-            To work order
-          </Button>
-        </CardContent>
-      </Card>
+      <FadeIn delay={260}>
+        <div>
+          <p className="text-[11px] uppercase tracking-wide font-bold text-muted-foreground mb-2.5">Convert</p>
+          <div className="flex flex-wrap gap-2">
+            <button onClick={convertCustomer} disabled={pending || !!lead.customer_id} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-card hover:bg-muted text-sm font-medium disabled:opacity-50">
+              <GradientTile gradient="blue" size={28} radius={8}><UserPlus className="w-3.5 h-3.5" /></GradientTile>
+              {lead.customer_id ? "Customer linked" : "To customer"}
+            </button>
+            <button onClick={convertQuote} disabled={pending || !!lead.quote_id} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-card hover:bg-muted text-sm font-medium disabled:opacity-50">
+              <GradientTile gradient="violet" size={28} radius={8}><FileCheck className="w-3.5 h-3.5" /></GradientTile>
+              {lead.quote_id ? "Quote drafted" : "To quote"}
+            </button>
+            <button onClick={convertWorkOrder} disabled={pending} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-card hover:bg-muted text-sm font-medium disabled:opacity-50">
+              <GradientTile gradient="amber" size={28} radius={8}><Wrench className="w-3.5 h-3.5" /></GradientTile>
+              To work order
+            </button>
+          </div>
+        </div>
+      </FadeIn>
 
-      {/* Delete */}
+      {/* Danger zone */}
       <div className="pt-2">
-        <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(true)} className="text-destructive">
-          <Trash2 className="w-4 h-4 mr-2" />
-          Delete lead
-        </Button>
+        <button onClick={() => setConfirmDelete(true)} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors">
+          <Trash2 className="w-4 h-4" /> Delete lead
+        </button>
       </div>
 
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
@@ -271,15 +264,6 @@ export function LeadDetailClient({ lead: initial }: { lead: Lead }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
-  );
-}
-
-function Field({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div className="text-xs uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className="mt-1">{value}</div>
     </div>
   );
 }

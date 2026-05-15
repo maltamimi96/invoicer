@@ -3,26 +3,35 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
-import { ArrowLeft, Edit, Trash2, ArrowRight, MoreHorizontal, Send, Copy, Link2 } from "@/components/ui/icons";
+import { Edit, Trash2, ArrowRight, MoreHorizontal, Send, Copy, Link2, FileCheck, Calendar, DollarSign } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { deleteQuote, updateQuote, convertQuoteToInvoice, sendQuoteEmail, sendQuoteSms, duplicateQuote } from "@/lib/actions/quotes";
 import { ShareWithCustomerDialog } from "@/components/share/share-with-customer-dialog";
-import { BackButton } from "@/components/layout/back-button";
 import { DeliveryStatusCard } from "@/components/delivery/delivery-status-card";
 import { ScheduledSendsCard } from "@/components/delivery/scheduled-sends-card";
 import { scheduleSend } from "@/lib/actions/scheduled-sends";
 import { SendDocumentModal } from "@/components/send/send-document-modal";
 import { QuoteEditor } from "./quote-editor";
 import { QuotePDFDownload } from "./quote-pdf";
-import { formatCurrency, formatDate, getStatusColor } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
+import {
+  DetailHero, FactCard, AnimatedPress, FadeIn,
+} from "@/components/ui/kirei";
+import type { GradientName } from "@/components/ui/kirei";
 import type { Business, Customer, LineItem, Product, Quote } from "@/types/database";
+
+const STATUS_GRADIENT: Record<string, GradientName> = {
+  accepted: "emerald",
+  sent:     "blue",
+  rejected: "rose",
+  expired:  "rose",
+  draft:    "violet",
+};
 
 interface QuoteDetailClientProps {
   quote: Quote & { customers?: Customer | null };
@@ -92,66 +101,76 @@ export function QuoteDetailClient({ quote: initial, customers, products, busines
 
   return (
     <div className="space-y-6">
-      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-center gap-4">
-        <BackButton fallbackHref="/quotes" />
-        <div className="flex-1">
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl font-bold">{quote.number}</h1>
-            <Badge variant="secondary" className={getStatusColor(quote.status)}>{quote.status}</Badge>
-            {quote.invoice_id && <Badge variant="outline" className="text-xs">Converted to invoice</Badge>}
-          </div>
-          <p className="text-sm text-muted-foreground mt-0.5">{customer?.name ?? "No client"}</p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {!quote.invoice_id && quote.status !== "rejected" && (
-            <Button size="sm" className="gap-1.5" onClick={handleConvert} disabled={converting}>
-              <ArrowRight className="w-3.5 h-3.5" />{converting ? "Converting..." : "Convert to invoice"}
-            </Button>
-          )}
-          {quote.status !== "rejected" && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1.5"
-              onClick={() => setSendOpen(true)}
+      <DetailHero
+        backHref="/quotes"
+        eyebrow={quote.number}
+        title={customer?.name ?? "No client"}
+        gradient={STATUS_GRADIENT[quote.status] ?? "violet"}
+        icon={<FileCheck className="w-6 h-6" />}
+        status={quote.status}
+        subtitle={quote.invoice_id ? "Converted to invoice" : `Issued ${formatDate(quote.issue_date)} · Expires ${formatDate(quote.expiry_date)}`}
+        actions={
+          <>
+            {!quote.invoice_id && quote.status !== "rejected" && (
+              <AnimatedPress
+                onClick={handleConvert}
+                className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-sm cursor-pointer ${converting ? "opacity-60" : ""}`}
+              >
+                <ArrowRight className="w-4 h-4" />{converting ? "Converting…" : "Convert to invoice"}
+              </AnimatedPress>
+            )}
+            {quote.status !== "rejected" && (
+              <AnimatedPress
+                onClick={() => setSendOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border bg-card text-sm font-medium cursor-pointer"
+              >
+                <Send className="w-4 h-4" /> Send
+              </AnimatedPress>
+            )}
+            {quote.customer_id && (
+              <AnimatedPress
+                onClick={() => setShareOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border bg-card text-sm font-medium cursor-pointer"
+              >
+                <Link2 className="w-4 h-4" /> Share
+              </AnimatedPress>
+            )}
+            <QuotePDFDownload quoteId={quote.id} quoteNumber={quote.number} />
+            <AnimatedPress
+              onClick={() => setEditing(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border bg-card text-sm font-medium cursor-pointer"
             >
-              <Send className="w-3.5 h-3.5" />
-              Send
-            </Button>
-          )}
-          {quote.customer_id && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1.5"
-              onClick={() => setShareOpen(true)}
-            >
-              <Link2 className="w-3.5 h-3.5" />
-              Share link
-            </Button>
-          )}
-          <QuotePDFDownload quoteId={quote.id} quoteNumber={quote.number} />
-          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setEditing(true)}>
-            <Edit className="w-3.5 h-3.5" />Edit
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon" className="h-8 w-8"><MoreHorizontal className="w-4 h-4" /></Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleStatusChange("draft")}>Reset to draft</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleStatusChange("sent")}>Mark as sent</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleStatusChange("accepted")}>Mark as accepted</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleStatusChange("rejected")}>Mark as rejected</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleStatusChange("expired")}>Mark as expired</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleDuplicate} className="gap-2"><Copy className="w-3.5 h-3.5" />Duplicate</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setShowDelete(true)} className="text-destructive gap-2"><Trash2 className="w-3.5 h-3.5" />Delete</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              <Edit className="w-4 h-4" /> Edit
+            </AnimatedPress>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl"><MoreHorizontal className="w-4 h-4" /></Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleStatusChange("draft")}>Reset to draft</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleStatusChange("sent")}>Mark as sent</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleStatusChange("accepted")}>Mark as accepted</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleStatusChange("rejected")}>Mark as rejected</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleStatusChange("expired")}>Mark as expired</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleDuplicate} className="gap-2"><Copy className="w-3.5 h-3.5" />Duplicate</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setShowDelete(true)} className="text-destructive gap-2"><Trash2 className="w-3.5 h-3.5" />Delete</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
+        }
+      />
+
+      {/* Fact strip */}
+      <FadeIn delay={80}>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <FactCard gradient="emerald" icon={<DollarSign className="w-4 h-4" />} label="Total"    value={formatCurrency(quote.total, business.currency)} />
+          <FactCard gradient="blue"    icon={<Calendar   className="w-4 h-4" />} label="Issued"   value={formatDate(quote.issue_date)} />
+          <FactCard gradient="amber"   icon={<Calendar   className="w-4 h-4" />} label="Expires"  value={formatDate(quote.expiry_date)} />
+          <FactCard gradient="violet"  icon={<FileCheck  className="w-4 h-4" />} label="Status"   value={<span className="capitalize">{quote.status}</span>} />
         </div>
-      </motion.div>
+      </FadeIn>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
@@ -229,25 +248,17 @@ export function QuoteDetailClient({ quote: initial, customers, products, busines
         <div className="space-y-4">
           <ScheduledSendsCard docType="quote" docId={quote.id} />
           <DeliveryStatusCard docType="quote" docId={quote.id} />
-          <Card>
-            <CardContent className="p-5 space-y-3">
-              <h3 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">Quote info</h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-muted-foreground">Status</span><Badge variant="secondary" className={getStatusColor(quote.status)}>{quote.status}</Badge></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Total</span><span className="font-semibold">{formatCurrency(quote.total, business.currency)}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Expires</span><span>{formatDate(quote.expiry_date)}</span></div>
-                {quote.invoice_id && (
-                  <div className="pt-2">
-                    <Link href={`/invoices/${quote.invoice_id}`}>
-                      <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs">
-                        <ArrowRight className="w-3 h-3" />View invoice
-                      </Button>
-                    </Link>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          {quote.invoice_id && (
+            <Link href={`/invoices/${quote.invoice_id}`} className="block">
+              <AnimatedPress className="flex items-center gap-3 p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-900/40 hover:bg-emerald-100/60 dark:hover:bg-emerald-950/50 transition-colors">
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-200">View invoice</p>
+                  <p className="text-xs text-emerald-700/80 dark:text-emerald-300/70">Converted from this quote</p>
+                </div>
+                <ArrowRight className="w-4 h-4 text-emerald-700 dark:text-emerald-300" />
+              </AnimatedPress>
+            </Link>
+          )}
         </div>
       </div>
 

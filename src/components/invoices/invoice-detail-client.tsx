@@ -3,12 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
-import { ArrowLeft, Edit, Send, Copy, Trash2, CheckCircle, DollarSign, MoreHorizontal, FileStack, ArrowRight, Link2 } from "@/components/ui/icons";
+import { Edit, Send, Copy, Trash2, CheckCircle, DollarSign, MoreHorizontal, FileStack, ArrowRight, Link2, FileText, Calendar } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -25,10 +23,22 @@ import { DeliveryStatusCard } from "@/components/delivery/delivery-status-card";
 import { ScheduledSendsCard } from "@/components/delivery/scheduled-sends-card";
 import { scheduleSend } from "@/lib/actions/scheduled-sends";
 import { ShareWithCustomerDialog } from "@/components/share/share-with-customer-dialog";
-import { BackButton } from "@/components/layout/back-button";
 
-import { formatCurrency, formatDate, getStatusColor } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
+import {
+  DetailHero, FactCard, AnimatedPress, FadeIn, GradientTile, KireiPill,
+} from "@/components/ui/kirei";
+import type { GradientName } from "@/components/ui/kirei";
 import type { Business, Customer, Invoice, LineItem, Payment, Product } from "@/types/database";
+
+const STATUS_GRADIENT: Record<string, GradientName> = {
+  paid:      "emerald",
+  partial:   "blue",
+  sent:      "blue",
+  overdue:   "rose",
+  cancelled: "rose",
+  draft:     "primary",
+};
 
 interface InvoiceDetailClientProps {
   invoice: Invoice & { customers?: Customer | null; payments?: Payment[] };
@@ -149,147 +159,161 @@ export function InvoiceDetailClient({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-center gap-4">
-        <BackButton fallbackHref="/invoices" />
-        <div className="flex-1">
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl font-bold">{invoice.number}</h1>
-            <Badge variant="secondary" className={`${getStatusColor(invoice.status)}`}>{invoice.status}</Badge>
-          </div>
-          <p className="text-sm text-muted-foreground mt-0.5">{customer?.name ?? "No client"}</p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {invoice.status !== "paid" && invoice.status !== "cancelled" && (
-            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setShowPayment(true)}>
-              <CheckCircle className="w-3.5 h-3.5" />Mark paid
-            </Button>
-          )}
-          {!isChild && invoice.status !== "cancelled" && remaining > 0 && (
-            <>
-              {isParent && (
-                <Button size="sm" className="gap-1.5" onClick={handleSendRemainder} disabled={saving}>
-                  <ArrowRight className="w-3.5 h-3.5" />Send remainder
-                </Button>
-              )}
-              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setProgressOpen(true)}>
-                <FileStack className="w-3.5 h-3.5" />
-                {progressInvoices.length === 0 ? "Send deposit" : "Add progress invoice"}
-              </Button>
-            </>
-          )}
-          <Button size="sm" className="gap-1.5" onClick={() => setEditing(true)}>
-            <Edit className="w-3.5 h-3.5" />Edit
-          </Button>
-          {invoice.status !== "cancelled" && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1.5"
-              onClick={() => setSendOpen(true)}
+      <DetailHero
+        backHref="/invoices"
+        eyebrow={invoice.number}
+        title={customer?.name ?? "No client"}
+        gradient={STATUS_GRADIENT[invoice.status] ?? "primary"}
+        icon={<FileText className="w-6 h-6" />}
+        status={invoice.status}
+        subtitle={`Issued ${formatDate(invoice.issue_date)} · Due ${formatDate(invoice.due_date)}`}
+        actions={
+          <>
+            {invoice.status !== "paid" && invoice.status !== "cancelled" && (
+              <AnimatedPress
+                onClick={() => setShowPayment(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border bg-card text-sm font-medium cursor-pointer"
+              >
+                <CheckCircle className="w-4 h-4" /> Mark paid
+              </AnimatedPress>
+            )}
+            {!isChild && invoice.status !== "cancelled" && remaining > 0 && (
+              <>
+                {isParent && (
+                  <AnimatedPress
+                    onClick={handleSendRemainder}
+                    className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-sm cursor-pointer ${saving ? "opacity-60" : ""}`}
+                  >
+                    <ArrowRight className="w-4 h-4" /> Send remainder
+                  </AnimatedPress>
+                )}
+                <AnimatedPress
+                  onClick={() => setProgressOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border bg-card text-sm font-medium cursor-pointer"
+                >
+                  <FileStack className="w-4 h-4" />
+                  {progressInvoices.length === 0 ? "Send deposit" : "Add progress"}
+                </AnimatedPress>
+              </>
+            )}
+            <AnimatedPress
+              onClick={() => setEditing(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-sm cursor-pointer"
             >
-              <Send className="w-3.5 h-3.5" />
-              Send
-            </Button>
-          )}
-          {invoice.customer_id && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1.5"
-              onClick={() => setShareOpen(true)}
-            >
-              <Link2 className="w-3.5 h-3.5" />
-              Share link
-            </Button>
-          )}
-          <InvoicePDFDownload invoiceId={invoice.id} invoiceNumber={invoice.number} />
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon" className="h-8 w-8"><MoreHorizontal className="w-4 h-4" /></Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleStatusChange("draft")}>Reset to draft</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleStatusChange("sent")}>Mark as sent</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleStatusChange("paid")}>Mark as paid</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleStatusChange("cancelled")}>Mark as cancelled</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleDuplicate} className="gap-2"><Copy className="w-3.5 h-3.5" />Duplicate</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setShowDelete(true)} className="text-destructive gap-2"><Trash2 className="w-3.5 h-3.5" />Delete</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              <Edit className="w-4 h-4" /> Edit
+            </AnimatedPress>
+            {invoice.status !== "cancelled" && (
+              <AnimatedPress
+                onClick={() => setSendOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border bg-card text-sm font-medium cursor-pointer"
+              >
+                <Send className="w-4 h-4" /> Send
+              </AnimatedPress>
+            )}
+            {invoice.customer_id && (
+              <AnimatedPress
+                onClick={() => setShareOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border bg-card text-sm font-medium cursor-pointer"
+              >
+                <Link2 className="w-4 h-4" /> Share
+              </AnimatedPress>
+            )}
+            <InvoicePDFDownload invoiceId={invoice.id} invoiceNumber={invoice.number} />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl"><MoreHorizontal className="w-4 h-4" /></Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleStatusChange("draft")}>Reset to draft</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleStatusChange("sent")}>Mark as sent</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleStatusChange("paid")}>Mark as paid</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleStatusChange("cancelled")}>Mark as cancelled</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleDuplicate} className="gap-2"><Copy className="w-3.5 h-3.5" />Duplicate</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setShowDelete(true)} className="text-destructive gap-2"><Trash2 className="w-3.5 h-3.5" />Delete</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
+        }
+      />
+
+      {/* Fact strip */}
+      <FadeIn delay={80}>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <FactCard gradient="emerald" icon={<DollarSign className="w-4 h-4" />} label="Total"      value={formatCurrency(invoice.total, business.currency)} />
+          <FactCard gradient="blue"    icon={<DollarSign className="w-4 h-4" />} label="Paid"       value={formatCurrency(invoice.amount_paid, business.currency)} />
+          <FactCard gradient="amber"   icon={<DollarSign className="w-4 h-4" />} label="Balance"    value={formatCurrency(invoice.total - invoice.amount_paid, business.currency)} />
+          <FactCard gradient="violet"  icon={<Calendar   className="w-4 h-4" />} label="Due"        value={formatDate(invoice.due_date)} />
         </div>
-      </motion.div>
+      </FadeIn>
 
       {/* Linked parent / progress strip */}
       {(isChild || isParent) && (
-        <div className="rounded-2xl border border-border bg-muted/30 p-4">
-          {isChild && parentInvoice && (
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center flex-shrink-0">
-                <FileStack className="w-4 h-4" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-muted-foreground">Progress payment for</p>
-                <Link href={`/invoices/${parentInvoice.id}`} className="text-sm font-semibold hover:underline">
-                  {parentInvoice.number} · {formatCurrency(parentInvoice.total, business.currency)} total
-                </Link>
-              </div>
-              <Link href={`/invoices/${parentInvoice.id}`} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
-                View parent <ArrowRight className="w-3 h-3" />
+        <FadeIn delay={130}>
+          <div className="rounded-xl border border-border bg-card p-5">
+            {isChild && parentInvoice && (
+              <Link href={`/invoices/${parentInvoice.id}`} className="block">
+                <AnimatedPress className="flex items-center gap-3">
+                  <GradientTile gradient="violet" size={40} radius={10}>
+                    <FileStack className="w-4 h-4" />
+                  </GradientTile>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-muted-foreground">Progress payment for</p>
+                    <p className="text-sm font-semibold">{parentInvoice.number} · {formatCurrency(parentInvoice.total, business.currency)} total</p>
+                  </div>
+                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">View parent <ArrowRight className="w-3 h-3" /></span>
+                </AnimatedPress>
               </Link>
-            </div>
-          )}
-          {isParent && (
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <FileStack className="w-4 h-4 text-muted-foreground" />
-                  <p className="text-sm font-semibold">Progress invoices</p>
+            )}
+            {isParent && (
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2.5">
+                    <GradientTile gradient="violet" size={32} radius={8}>
+                      <FileStack className="w-4 h-4" />
+                    </GradientTile>
+                    <p className="text-sm font-semibold">Progress invoices</p>
+                  </div>
+                  <p className="text-xs">
+                    <span className="text-muted-foreground">Billed</span>{" "}
+                    <span className="font-semibold tabular-nums">{formatCurrency(billedSoFar, business.currency)}</span>
+                    <span className="text-muted-foreground"> of </span>
+                    <span className="font-semibold tabular-nums">{formatCurrency(invoice.total, business.currency)}</span>
+                    {depositsReceived > 0 && (
+                      <>
+                        <span className="text-muted-foreground"> · </span>
+                        <span className="text-emerald-600 font-semibold">{formatCurrency(depositsReceived, business.currency)} collected</span>
+                      </>
+                    )}
+                    {remaining > 0 && (
+                      <>
+                        <span className="text-muted-foreground"> · </span>
+                        <span className="font-semibold">{formatCurrency(remaining, business.currency)} not yet invoiced</span>
+                      </>
+                    )}
+                  </p>
                 </div>
-                <p className="text-xs">
-                  <span className="text-muted-foreground">Billed</span>{" "}
-                  <span className="font-medium">{formatCurrency(billedSoFar, business.currency)}</span>
-                  <span className="text-muted-foreground"> of </span>
-                  <span className="font-medium">{formatCurrency(invoice.total, business.currency)}</span>
-                  {depositsReceived > 0 && (
-                    <>
-                      <span className="text-muted-foreground"> · </span>
-                      <span className="text-emerald-600 font-medium">{formatCurrency(depositsReceived, business.currency)} collected</span>
-                    </>
-                  )}
-                  {remaining > 0 && (
-                    <>
-                      <span className="text-muted-foreground"> · </span>
-                      <span className="font-semibold">{formatCurrency(remaining, business.currency)} not yet invoiced</span>
-                    </>
-                  )}
-                </p>
+                <div className="space-y-1.5">
+                  {progressInvoices.map((c) => (
+                    <Link key={c.id} href={`/invoices/${c.id}`} className="block">
+                      <AnimatedPress className="flex items-center justify-between gap-3 p-3 rounded-lg bg-card border border-border/70 hover:border-primary/30 transition-colors">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="font-mono text-xs text-muted-foreground">{c.number}</span>
+                          <KireiPill tone={c.status} />
+                          <span className="text-xs text-muted-foreground truncate">
+                            {(c.line_items?.[0] as LineItem | undefined)?.description ?? ""}
+                          </span>
+                        </div>
+                        <span className="font-semibold tabular-nums text-sm">{formatCurrency(c.total, business.currency)}</span>
+                      </AnimatedPress>
+                    </Link>
+                  ))}
+                </div>
               </div>
-              <div className="space-y-1.5">
-                {progressInvoices.map((c) => (
-                  <Link
-                    key={c.id}
-                    href={`/invoices/${c.id}`}
-                    className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl bg-card border border-border hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="font-mono text-xs text-muted-foreground">{c.number}</span>
-                      <Badge variant="secondary" className={`text-[10px] border-0 ${getStatusColor(c.status)}`}>
-                        {c.status}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground truncate">
-                        {(c.line_items?.[0] as LineItem | undefined)?.description ?? ""}
-                      </span>
-                    </div>
-                    <span className="font-semibold tabular-nums text-sm">{formatCurrency(c.total, business.currency)}</span>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        </FadeIn>
       )}
 
       {/* Amount paid progress */}
@@ -432,28 +456,39 @@ export function InvoiceDetailClient({
         <div className="space-y-4">
           <ScheduledSendsCard docType="invoice" docId={invoice.id} />
           <DeliveryStatusCard docType="invoice" docId={invoice.id} />
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Payment history</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
+          <div className="rounded-xl border border-border bg-card overflow-hidden">
+            <div className="flex items-center gap-2.5 px-5 py-4 border-b border-border">
+              <GradientTile gradient="emerald" size={32} radius={8}>
+                <DollarSign className="w-4 h-4" />
+              </GradientTile>
+              <div>
+                <h3 className="text-sm font-semibold">Payment history</h3>
+                <p className="text-xs text-muted-foreground">Recorded payments on this invoice</p>
+              </div>
+            </div>
+            <div className="p-2 space-y-1.5">
               {(invoice.payments ?? []).length === 0 ? (
-                <p className="text-xs text-muted-foreground">No payments recorded</p>
+                <p className="px-3 py-2 text-xs text-muted-foreground">No payments recorded</p>
               ) : (
                 (invoice.payments as Payment[]).map((payment) => (
-                  <div key={payment.id} className="flex justify-between text-sm">
+                  <div key={payment.id} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-card border border-border/70">
                     <div>
-                      <p className="font-medium">{formatCurrency(payment.amount, business.currency)}</p>
+                      <p className="text-sm font-semibold tabular-nums">{formatCurrency(payment.amount, business.currency)}</p>
                       <p className="text-xs text-muted-foreground">{formatDate(payment.date)} · {payment.method}</p>
                     </div>
                   </div>
                 ))
               )}
               {invoice.status !== "paid" && invoice.status !== "cancelled" && (
-                <Button variant="outline" size="sm" className="w-full gap-1.5" onClick={() => setShowPayment(true)}>
-                  <DollarSign className="w-3.5 h-3.5" />Record payment
-                </Button>
+                <AnimatedPress
+                  onClick={() => setShowPayment(true)}
+                  className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-dashed border-border hover:border-primary/40 hover:bg-primary/5 text-sm font-medium text-primary cursor-pointer"
+                >
+                  <DollarSign className="w-4 h-4" /> Record payment
+                </AnimatedPress>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       </div>
 
