@@ -20,6 +20,7 @@ import { Controller } from "react-hook-form";
 import { updateBusiness, uploadLogo } from "@/lib/actions/business";
 import { useAppearance, ACCENT_PRESETS, PATTERN_PRESETS, SIDEBAR_THEMES } from "@/components/layout/appearance-provider";
 import { PageHeader } from "@/components/layout/page-header";
+import { GradientTile } from "@/components/ui/kirei";
 import { ApiKeysSettings } from "@/components/settings/api-keys-settings";
 import { EmailSettings } from "@/components/settings/email-settings";
 import { WebhooksSettings } from "@/components/settings/webhooks-settings";
@@ -235,6 +236,7 @@ export function SettingsClient({ business: initial, apiKeys, emailConfig, webhoo
       <PageHeader
         title="Settings"
         subtitle={`Configuration for ${initial.name}`}
+        accent="linear-gradient(180deg, #60a5fa 0%, #1d4ed8 100%)"
       />
 
       <Tabs defaultValue="business">
@@ -261,7 +263,10 @@ export function SettingsClient({ business: initial, apiKeys, emailConfig, webhoo
         {/* ── Business tab ── */}
         <TabsContent value="business" className="space-y-4 mt-6">
           <Card>
-            <CardHeader><CardTitle className="text-base">Logo</CardTitle></CardHeader>
+            <CardHeader className="flex flex-row items-center gap-2.5 space-y-0">
+              <GradientTile gradient="violet" size={28} radius={8}><Palette className="w-3.5 h-3.5" /></GradientTile>
+              <CardTitle className="text-base">Logo</CardTitle>
+            </CardHeader>
             <CardContent className="flex items-center gap-6">
               <div className="w-24 h-24 rounded-xl border-2 border-dashed border-border flex items-center justify-center overflow-hidden bg-muted/40 flex-shrink-0">
                 {logoPreview ? (
@@ -291,7 +296,10 @@ export function SettingsClient({ business: initial, apiKeys, emailConfig, webhoo
           </Card>
 
           <Card>
-            <CardHeader><CardTitle className="text-base">Business Details</CardTitle></CardHeader>
+            <CardHeader className="flex flex-row items-center gap-2.5 space-y-0">
+              <GradientTile gradient="primary" size={28} radius={8}><Building2 className="w-3.5 h-3.5" /></GradientTile>
+              <CardTitle className="text-base">Business Details</CardTitle>
+            </CardHeader>
             <CardContent>
               <form onSubmit={businessForm.handleSubmit(handleSaveBusiness)} className="space-y-4">
                 <div className="space-y-1.5">
@@ -366,7 +374,10 @@ export function SettingsClient({ business: initial, apiKeys, emailConfig, webhoo
         {/* ── Payment tab ── */}
         <TabsContent value="payment" className="space-y-4 mt-6">
           <Card>
-            <CardHeader><CardTitle className="text-base">Bank & Payment Details</CardTitle></CardHeader>
+            <CardHeader className="flex flex-row items-center gap-2.5 space-y-0">
+              <GradientTile gradient="emerald" size={28} radius={8}><CreditCard className="w-3.5 h-3.5" /></GradientTile>
+              <CardTitle className="text-base">Bank & Payment Details</CardTitle>
+            </CardHeader>
             <CardContent>
               <form onSubmit={bankForm.handleSubmit(handleSaveBank)} className="space-y-4">
                 <div className="space-y-1.5"><Label>Bank name</Label><Input {...bankForm.register("bank_name")} /></div>
@@ -391,7 +402,10 @@ export function SettingsClient({ business: initial, apiKeys, emailConfig, webhoo
         {/* ── Documents tab ── */}
         <TabsContent value="documents" className="space-y-4 mt-6">
           <Card>
-            <CardHeader><CardTitle className="text-base">Invoice & Quote Numbering</CardTitle></CardHeader>
+            <CardHeader className="flex flex-row items-center gap-2.5 space-y-0">
+              <GradientTile gradient="amber" size={28} radius={8}><FileText className="w-3.5 h-3.5" /></GradientTile>
+              <CardTitle className="text-base">Invoice & Quote Numbering</CardTitle>
+            </CardHeader>
             <CardContent>
               <form onSubmit={invoiceForm.handleSubmit(handleSaveInvoice)} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
