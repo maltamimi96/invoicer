@@ -16,5 +16,7 @@ export { Skeleton, SkeletonRow, SkeletonTile, SkeletonList } from "./skeleton";
 export { KireiTabs } from "./tabs";
 export type { KireiTab } from "./tabs";
 export { KireiAvatar } from "./avatar";
+export { DetailHero } from "./detail-hero";
+export { FactCard } from "./fact-card";
 export { GRADIENTS, GRADIENTS_DARK, gradientCss, gradientVars } from "./gradient-tokens";
 export type { GradientName } from "./gradient-tokens";
