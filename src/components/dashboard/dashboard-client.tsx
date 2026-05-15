@@ -310,13 +310,13 @@ function ScheduleCard({ wo }: { wo: WorkOrderWithCustomer }) {
             <span className="text-xs font-mono font-semibold text-foreground tabular-nums">{time}</span>
             <span className="text-sm font-medium text-foreground truncate">{wo.customers?.name ?? wo.title}</span>
           </div>
-          <div className="text-xs text-muted-foreground truncate flex items-center gap-3 mt-0.5">
-            <span className="inline-flex items-center gap-1">
-              <MapPin className="w-3 h-3" />{wo.property_address ?? "—"}
+          <div className="text-xs text-muted-foreground flex items-center gap-3 mt-0.5 min-w-0">
+            <span className="inline-flex items-center gap-1 min-w-0 truncate">
+              <MapPin className="w-3 h-3 shrink-0" /><span className="truncate">{wo.property_address ?? "—"}</span>
             </span>
             {wo.assigned_to_email && (
-              <span className="inline-flex items-center gap-1">
-                <User className="w-3 h-3" />{wo.assigned_to_email}
+              <span className="hidden sm:inline-flex items-center gap-1 min-w-0 truncate">
+                <User className="w-3 h-3 shrink-0" /><span className="truncate">{wo.assigned_to_email}</span>
               </span>
             )}
           </div>

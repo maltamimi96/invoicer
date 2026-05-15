@@ -177,12 +177,12 @@ export function InvoicesClient({ invoices: initial, currency = "GBP" }: Invoices
                 key={invoice.id}
                 onClick={() => router.push(`/invoices/${invoice.id}`)}
                 onAuxClick={(e) => { if (e.button === 1) window.open(`/invoices/${invoice.id}`, "_blank"); }}
-                className="group flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-muted/40"
+                className="group flex flex-wrap items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-muted/40"
               >
                 <GradientTile gradient={STATUS_GRADIENT[invoice.status] ?? "primary"} size={40} radius={10}>
                   <FileText className="w-4 h-4" />
                 </GradientTile>
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-[140px] basis-0">
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-xs text-muted-foreground">{invoice.number}</span>
                   </div>
@@ -190,10 +190,10 @@ export function InvoicesClient({ invoices: initial, currency = "GBP" }: Invoices
                 </div>
                 <div className="hidden md:block w-32 text-xs text-muted-foreground">{formatDate(invoice.issue_date)}</div>
                 <div className="hidden md:block w-32 text-xs text-muted-foreground">{formatDate(invoice.due_date)}</div>
-                <div className="w-24 text-right">
+                <div className="ml-auto md:ml-0 md:w-24 text-right">
                   <KireiPill tone={invoice.status} />
                 </div>
-                <div className="w-28 text-right text-sm font-semibold tabular-nums">{formatCurrency(invoice.total, currency)}</div>
+                <div className="md:w-28 text-right text-sm font-semibold tabular-nums">{formatCurrency(invoice.total, currency)}</div>
                 <div className="w-8 text-right shrink-0" onClick={(e) => e.stopPropagation()}>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>

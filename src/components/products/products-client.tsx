@@ -142,12 +142,12 @@ export function ProductsClient({ products: initial, currency = "GBP" }: { produc
               <div
                 key={product.id}
                 onClick={() => setEditProduct(product)}
-                className="group flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-muted/40"
+                className="group flex flex-wrap items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-muted/40"
               >
                 <GradientTile gradient="emerald" size={40} radius={10}>
                   <Package className="w-4 h-4" />
                 </GradientTile>
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-[140px] basis-0">
                   <div className="text-sm font-semibold truncate">{product.name}</div>
                   {product.description && (
                     <div className="text-xs text-muted-foreground truncate max-w-md">{product.description}</div>
@@ -155,10 +155,10 @@ export function ProductsClient({ products: initial, currency = "GBP" }: { produc
                 </div>
                 <div className="hidden md:block w-20 text-xs text-muted-foreground truncate">{product.unit ?? "—"}</div>
                 <div className="hidden md:block w-16 text-right text-xs text-muted-foreground">{product.tax_rate}%</div>
-                <div className="w-24 text-right">
+                <div className="ml-auto md:ml-0 md:w-24 text-right">
                   <KireiPill tone={product.archived ? "archived" : "active"} />
                 </div>
-                <div className="w-28 text-right text-sm font-semibold tabular-nums">{formatCurrency(product.unit_price, currency)}</div>
+                <div className="md:w-28 text-right text-sm font-semibold tabular-nums">{formatCurrency(product.unit_price, currency)}</div>
                 <div className="w-16 text-right shrink-0" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-end gap-1">
                     <button className="inline-flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setEditProduct(product)}>

@@ -21,7 +21,10 @@ interface Props<T extends string> {
 
 export function KireiTabs<T extends string>({ tabs, value, onChange, className }: Props<T>) {
   return (
-    <div className={`inline-flex items-center gap-1 p-1 rounded-xl bg-muted/60 border border-border ${className ?? ""}`}>
+    <div
+      className={`flex items-center gap-1 p-1 rounded-xl bg-muted/60 border border-border overflow-x-auto max-w-full scrollbar-thin ${className ?? ""}`}
+      style={{ scrollbarWidth: "thin" }}
+    >
       {tabs.map((t) => {
         const active = t.value === value;
         return (
@@ -29,7 +32,7 @@ export function KireiTabs<T extends string>({ tabs, value, onChange, className }
             key={t.value}
             type="button"
             onClick={() => onChange(t.value)}
-            className={`relative inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+            className={`relative inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors flex-shrink-0 ${
               active ? "text-foreground" : "text-muted-foreground hover:text-foreground"
             }`}
           >
