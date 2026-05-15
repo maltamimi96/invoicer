@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, ArrowRight, ImagePlus, X, Sparkles, Loader2, CheckCircle } from "@/components/ui/icons";
-import { BackButton } from "@/components/layout/back-button";
+import { PageHeader } from "@/components/layout/page-header";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -276,18 +276,25 @@ export function ReportGenerator({ customers: initialCustomers, business, default
 
   return (
     <div className="space-y-6">
-      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-4">
-        <BackButton fallbackHref="/reports" />
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">New site report</h1>
-          <p className="text-sm text-muted-foreground">Step {step} of 2</p>
-        </div>
-      </motion.div>
+      <PageHeader
+        title="New site report"
+        subtitle={`Step ${step} of 2`}
+        accent="linear-gradient(180deg, #a78bfa 0%, #6d28d9 100%)"
+      />
 
       {/* Progress */}
       <div className="flex gap-2">
         {[1, 2].map((s) => (
-          <div key={s} className={`h-1.5 flex-1 rounded-full transition-colors ${s <= step ? "bg-purple-500" : "bg-muted"}`} />
+          <div
+            key={s}
+            className="h-1.5 flex-1 rounded-full transition-all"
+            style={{
+              backgroundImage: s <= step
+                ? "linear-gradient(90deg, #a78bfa, #6d28d9)"
+                : undefined,
+              backgroundColor: s <= step ? undefined : "hsl(var(--muted))",
+            }}
+          />
         ))}
       </div>
 

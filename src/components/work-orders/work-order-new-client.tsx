@@ -3,7 +3,7 @@
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeft, Loader2, Check, ChevronDown } from "@/components/ui/icons";
+import { Loader2, Check, ChevronDown } from "@/components/ui/icons";
 import { toast } from "sonner";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
+import { PageHeader } from "@/components/layout/page-header";
 import { ClientSelect } from "@/components/customers/client-select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { AddressSelect } from "@/components/addresses/address-select";
@@ -185,18 +186,14 @@ export function WorkOrderNewClient({
   const accountSelected = customerId && customerId !== "none";
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
-      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-4">
-        <Link href="/work-orders">
-          <Button variant="ghost" size="icon" className="h-8 w-8"><ArrowLeft className="w-4 h-4" /></Button>
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold">New Work Order</h1>
-          <p className="text-sm text-muted-foreground">Assign a job to your team — they&apos;ll submit photos from site</p>
-        </div>
-      </motion.div>
+    <div className="space-y-6 max-w-3xl mx-auto">
+      <PageHeader
+        title="New work order"
+        subtitle="Assign a job to your team — they'll submit photos from site"
+        accent="linear-gradient(180deg, #fbbf24 0%, #b45309 100%)"
+      />
 
-      <Card>
+      <Card className="rounded-xl">
         <CardContent className="p-6 space-y-5">
           <div className="space-y-1.5">
             <Label>Title *</Label>
