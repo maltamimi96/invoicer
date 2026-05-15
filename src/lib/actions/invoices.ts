@@ -508,9 +508,12 @@ export async function sendInvoiceEmail(id: string, opts?: { recipients?: string[
   }
   const pdfBuffer = Buffer.concat(chunks);
 
-  // Mint/reuse a portal token so the customer can pay/view online
+  // Mint/reuse a portal token so the customer can pay/view online + tokenised
+  // /api/pdf/invoice link so they can re-download even when email clients strip
+  // the attachment.
   const businessId = await getActiveBizId(supabase, user.id);
   let portalUrl: string | null = null;
+  let pdfUrl: string | null = null;
   if (customer?.id) {
     const { data: existing } = await tbl(supabase, "customer_portal_tokens")
       .select("token")
@@ -530,13 +533,16 @@ export async function sendInvoiceEmail(id: string, opts?: { recipients?: string[
       });
     }
     const base = appUrl();
-    if (base && token) portalUrl = `${base}/portal/${token}/invoice/${invoiceData.id}`;
+    if (base && token) {
+      portalUrl = `${base}/portal/${token}/invoice/${invoiceData.id}`;
+      pdfUrl    = `${base}/api/pdf/invoice/${invoiceData.id}?token=${token}`;
+    }
   }
 
   await sendEmail({
     to: recipients,
     subject: opts?.subject ?? `Invoice ${invoiceData.number} from ${businessData.name}`,
-    html: invoiceEmailHtml({ invoice: invoiceData, customer, business: businessData, lineItems, portalUrl }),
+    html: invoiceEmailHtml({ invoice: invoiceData, customer, business: businessData, lineItems, portalUrl, pdfUrl }),
     attachments: [{ filename: `${invoiceData.number}.pdf`, content: pdfBuffer }],
     tags: { business_id: businessId, doc_type: "invoice", doc_id: invoiceData.id },
   });

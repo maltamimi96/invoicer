@@ -228,9 +228,12 @@ export async function sendQuoteEmail(id: string, opts?: { recipients?: string[];
   }
   const pdfBuffer = Buffer.concat(chunks);
 
-  // Issue (or reuse) a portal token so the customer can review & accept online
+  // Issue (or reuse) a portal token so the customer can review & accept online,
+  // plus a tokenised /api/pdf/quote link so they can re-download the PDF even
+  // when email clients strip the attachment.
   const businessId = await getActiveBizId(supabase, user.id);
   let acceptUrl: string | null = null;
+  let pdfUrl: string | null = null;
   if (customer?.id) {
     const { data: existing } = await tbl(supabase, "customer_portal_tokens")
       .select("token")
@@ -250,13 +253,16 @@ export async function sendQuoteEmail(id: string, opts?: { recipients?: string[];
       });
     }
     const base = appUrl();
-    if (base && token) acceptUrl = `${base}/portal/${token}/quote/${quoteData.id}`;
+    if (base && token) {
+      acceptUrl = `${base}/portal/${token}/quote/${quoteData.id}`;
+      pdfUrl    = `${base}/api/pdf/quote/${quoteData.id}?token=${token}`;
+    }
   }
 
   await sendEmail({
     to: recipients,
     subject: opts?.subject ?? `Quote ${quoteData.number} from ${businessData.name}`,
-    html: quoteEmailHtml({ quote: quoteData, customer, business: businessData, lineItems, acceptUrl }),
+    html: quoteEmailHtml({ quote: quoteData, customer, business: businessData, lineItems, acceptUrl, pdfUrl }),
     attachments: [{ filename: `${quoteData.number}.pdf`, content: pdfBuffer }],
     tags: { business_id: businessId, doc_type: "quote", doc_id: quoteData.id },
   });
