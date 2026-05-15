@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
-  ArrowLeft, Plus, Edit, MapPin, Wrench, Boxes, Users, CreditCard,
+  Plus, Edit, MapPin, Wrench, Boxes, Users, CreditCard,
   Calendar, KeyRound, Car, FileText, Trash2, Check, X,
 } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,7 @@ import {
 } from "@/lib/actions/site-assets";
 import { setSiteBilling } from "@/lib/actions/billing-profiles";
 import { updateSite } from "@/lib/actions/sites";
+import { DetailHero, AnimatedPress, StatTile, FadeIn } from "@/components/ui/kirei";
 import type {
   Site, Account, SiteAsset, BillingProfile, Contact,
 } from "@/types/database";
@@ -66,26 +67,29 @@ export function SiteDetailClient({
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
-      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-4">
-        <Link href={`/customers/${account.id}`}>
-          <Button variant="ghost" size="icon" className="h-8 w-8"><ArrowLeft className="w-4 h-4" /></Button>
-        </Link>
-        <div className="flex-1 min-w-0">
-          <p className="text-xs text-muted-foreground">
-            <Link href={`/customers/${account.id}`} className="hover:underline">{account.name}</Link>
-          </p>
-          <h1 className="text-2xl font-bold truncate">{site.label || "Site"}</h1>
-          <p className="text-sm text-muted-foreground truncate">{fullAddress || "No address"}</p>
-        </div>
-        <div className="flex gap-2 shrink-0">
-          <Button variant="outline" size="sm" onClick={() => setEditing(!editing)}>
-            <Edit className="w-3.5 h-3.5 mr-1.5" />{editing ? "Cancel" : "Edit"}
-          </Button>
-          <Link href={`/work-orders/new?site=${site.id}`}>
-            <Button size="sm" className="gap-1.5"><Plus className="w-3.5 h-3.5" />New job</Button>
-          </Link>
-        </div>
-      </motion.div>
+      <DetailHero
+        backHref={`/customers/${account.id}`}
+        eyebrow={<Link href={`/customers/${account.id}`} className="hover:underline">{account.name}</Link>}
+        title={site.label || "Site"}
+        subtitle={fullAddress || "No address"}
+        gradient="emerald"
+        icon={<MapPin className="w-6 h-6" />}
+        actions={
+          <>
+            <AnimatedPress
+              onClick={() => setEditing(!editing)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border bg-card text-sm font-medium cursor-pointer"
+            >
+              <Edit className="w-4 h-4" /> {editing ? "Cancel" : "Edit"}
+            </AnimatedPress>
+            <Link href={`/work-orders/new?site=${site.id}`}>
+              <AnimatedPress className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-sm cursor-pointer">
+                <Plus className="w-4 h-4" /> New job
+              </AnimatedPress>
+            </Link>
+          </>
+        }
+      />
 
       {editing ? (
         <SiteEditCard
@@ -97,22 +101,15 @@ export function SiteDetailClient({
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Left rail */}
           <div className="space-y-4">
-            {/* Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {[
-                { label: "Total jobs", value: jobs.length },
-                { label: "Open", value: jobs.filter((j) => !["completed", "cancelled"].includes(j.status)).length },
-                { label: "Assets", value: assets.length },
-                { label: "Contacts", value: siteContacts.length },
-              ].map((s) => (
-                <Card key={s.label}>
-                  <CardContent className="p-3 text-center">
-                    <p className="text-xs text-muted-foreground">{s.label}</p>
-                    <p className="font-semibold">{s.value}</p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            {/* Stat tiles */}
+            <FadeIn delay={60}>
+              <div className="grid grid-cols-2 gap-2">
+                <StatTile gradient="softTeal"   toneColor="#1f4f4a" icon={<Wrench   className="w-3 h-3" />} label="Total jobs" value={String(jobs.length)} />
+                <StatTile gradient="softAmber"  toneColor="#78350f" icon={<Wrench   className="w-3 h-3" />} label="Open"       value={String(jobs.filter((j) => !["completed", "cancelled"].includes(j.status)).length)} />
+                <StatTile gradient="softBlue"   toneColor="#1e3a8a" icon={<Boxes    className="w-3 h-3" />} label="Assets"     value={String(assets.length)} />
+                <StatTile gradient="softViolet" toneColor="#3b1d6b" icon={<Users    className="w-3 h-3" />} label="Contacts"   value={String(siteContacts.length)} />
+              </div>
+            </FadeIn>
 
             {/* Address & access */}
             <Card>

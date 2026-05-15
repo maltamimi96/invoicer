@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeft, Download, FileText, Pencil, Check, X, Trash2, CheckCircle, RotateCcw, Mail, Copy, Link2 } from "@/components/ui/icons";
+import { Download, FileText, Pencil, Check, X, Trash2, CheckCircle, RotateCcw, Mail, Copy, Link2, ClipboardList } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { updateReportSection, updateReportStatus, updateReportPhotos, deleteReport, duplicateReport } from "@/lib/actions/reports";
 import { ShareWithCustomerDialog } from "@/components/share/share-with-customer-dialog";
-import { BackButton } from "@/components/layout/back-button";
+import { DetailHero, AnimatedPress } from "@/components/ui/kirei";
 import { ROOF_INSPECTION_SECTIONS, SECTION_MAP } from "@/lib/templates/roof-inspection";
 import type { Report, ReportPhoto, Customer, Business, RiskItem } from "@/types/database";
 import Link from "next/link";
@@ -115,55 +115,67 @@ export function ReportDetailClient({ report: initialReport, business }: ReportDe
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex items-start gap-4 flex-wrap">
-        <BackButton fallbackHref="/reports" />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-2xl font-bold tracking-tight truncate">{report.title}</h1>
-            <Badge className={report.status === "complete" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}>
-              {report.status}
-            </Badge>
-          </div>
-          <p className="text-sm text-muted-foreground mt-0.5">{report.property_address}</p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="outline" size="sm" onClick={toggleStatus}>
-            {report.status === "complete" ? <><RotateCcw className="w-3.5 h-3.5 mr-1.5" />Back to Draft</> : <><CheckCircle className="w-3.5 h-3.5 mr-1.5" />Mark Complete</>}
-          </Button>
-          <a href={`/api/pdf/report/${report.id}`} target="_blank" rel="noopener noreferrer">
-            <Button variant="outline" size="sm"><Download className="w-3.5 h-3.5 mr-1.5" />PDF</Button>
-          </a>
-          <a href={`/api/docx/report/${report.id}`} target="_blank" rel="noopener noreferrer">
-            <Button variant="outline" size="sm"><FileText className="w-3.5 h-3.5 mr-1.5" />DOCX</Button>
-          </a>
-          {report.customer_id && (
-            <Button variant="outline" size="sm" onClick={() => setShareOpen(true)}>
-              <Link2 className="w-3.5 h-3.5 mr-1.5" />Share link
-            </Button>
-          )}
-          <Button variant="outline" size="sm" onClick={handleDuplicate}>
-            <Copy className="w-3.5 h-3.5 mr-1.5" />Duplicate
-          </Button>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" disabled={deleting}>
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete report?</AlertDialogTitle>
-                <AlertDialogDescription>This permanently deletes the report and all photos. Cannot be undone.</AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction className="bg-destructive text-destructive-foreground" onClick={handleDelete}>Delete</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
-      </motion.div>
+      <DetailHero
+        backHref="/reports"
+        title={report.title}
+        subtitle={report.property_address}
+        gradient={report.status === "complete" ? "emerald" : "amber"}
+        icon={<ClipboardList className="w-6 h-6" />}
+        status={report.status}
+        actions={
+          <>
+            <AnimatedPress
+              onClick={toggleStatus}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border bg-card text-sm font-medium cursor-pointer"
+            >
+              {report.status === "complete"
+                ? <><RotateCcw className="w-4 h-4" />Back to Draft</>
+                : <><CheckCircle className="w-4 h-4" />Mark Complete</>}
+            </AnimatedPress>
+            <a href={`/api/pdf/report/${report.id}`} target="_blank" rel="noopener noreferrer">
+              <AnimatedPress className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border bg-card text-sm font-medium cursor-pointer">
+                <Download className="w-4 h-4" /> PDF
+              </AnimatedPress>
+            </a>
+            <a href={`/api/docx/report/${report.id}`} target="_blank" rel="noopener noreferrer">
+              <AnimatedPress className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border bg-card text-sm font-medium cursor-pointer">
+                <FileText className="w-4 h-4" /> DOCX
+              </AnimatedPress>
+            </a>
+            {report.customer_id && (
+              <AnimatedPress
+                onClick={() => setShareOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border bg-card text-sm font-medium cursor-pointer"
+              >
+                <Link2 className="w-4 h-4" /> Share
+              </AnimatedPress>
+            )}
+            <AnimatedPress
+              onClick={handleDuplicate}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border bg-card text-sm font-medium cursor-pointer"
+            >
+              <Copy className="w-4 h-4" /> Duplicate
+            </AnimatedPress>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl text-destructive hover:text-destructive" disabled={deleting}>
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete report?</AlertDialogTitle>
+                  <AlertDialogDescription>This permanently deletes the report and all photos. Cannot be undone.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction className="bg-destructive text-destructive-foreground" onClick={handleDelete}>Delete</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </>
+        }
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
