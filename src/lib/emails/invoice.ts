@@ -7,12 +7,17 @@ export function invoiceEmailHtml({
   business,
   lineItems,
   portalUrl,
+  pdfUrl,
 }: {
   invoice: Invoice;
   customer: Customer | null;
   business: Business;
   lineItems: LineItem[];
   portalUrl?: string | null;
+  /** Direct PDF download link (tokenised). Renders a 'Download PDF' button
+   *  in the body so the customer can grab the PDF even when their email
+   *  client strips attachments. */
+  pdfUrl?: string | null;
 }): string {
   // Coerce numbers — Postgres returns numeric columns as strings via PostgREST,
   // so plain subtraction was producing NaN in the email Total field.
@@ -62,10 +67,11 @@ export function invoiceEmailHtml({
       </tr>
     </table>
 
-    ${portalUrl ? `
+    ${portalUrl || pdfUrl ? `
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
       <tr><td align="center">
-        <a href="${portalUrl}" style="display:inline-block;background:#3b82f6;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 24px;border-radius:6px;">View invoice online</a>
+        ${portalUrl ? `<a href="${portalUrl}" style="display:inline-block;background:#3b82f6;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 24px;border-radius:8px;margin:0 4px 8px;">View invoice online</a>` : ""}
+        ${pdfUrl ? `<a href="${pdfUrl}" style="display:inline-block;background:#ffffff;color:#3b82f6;text-decoration:none;font-size:14px;font-weight:600;padding:12px 24px;border-radius:8px;border:1px solid #3b82f6;margin:0 4px 8px;">Download PDF</a>` : ""}
       </td></tr>
     </table>` : ""}
 

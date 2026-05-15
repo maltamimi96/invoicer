@@ -12,8 +12,16 @@ function getResend(): Resend {
 }
 
 // Default from address — override with RESEND_FROM_EMAIL env var once you verify a domain.
-// During development, Resend allows sending from onboarding@resend.dev to your own email only.
+// During development, Resend allows sending from onboarding@resend.dev to your own
+// account-owner mailbox only. Any other recipient will silently fail.
 const FROM = process.env.RESEND_FROM_EMAIL ?? "Kirei <onboarding@resend.dev>";
+
+/** True when the configured FROM address is the dev fallback. In that case
+ *  Resend rejects sends to anyone except the API key owner. Surfaced in error
+ *  messages so the user knows to verify their domain. */
+function isDevFromAddress(): boolean {
+  return /onboarding@resend\.dev/i.test(FROM);
+}
 
 export type EmailDocType = "invoice" | "quote" | "team_invite" | "lead" | "custom";
 
@@ -84,6 +92,14 @@ export async function sendEmail({
     }
   }
 
-  if (sendError) throw new Error(sendError);
+  if (sendError) {
+    // Enrich the most common silent-failure mode: trying to send from the
+    // dev sandbox address. Resend's own error text doesn't always say this
+    // clearly, so the user just sees "failed" with no path forward.
+    const hint = isDevFromAddress()
+      ? " — RESEND_FROM_EMAIL isn't set or still uses the resend.dev sandbox, which only delivers to the API key owner's mailbox. Verify your domain in Resend, then set RESEND_FROM_EMAIL to a verified address."
+      : "";
+    throw new Error(sendError + hint);
+  }
   return { id: resendId };
 }

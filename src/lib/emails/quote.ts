@@ -7,12 +7,15 @@ export function quoteEmailHtml({
   business,
   lineItems,
   acceptUrl,
+  pdfUrl,
 }: {
   quote: Quote;
   customer: Customer | null;
   business: Business;
   lineItems: LineItem[];
   acceptUrl?: string | null;
+  /** Direct PDF download link (tokenised). */
+  pdfUrl?: string | null;
 }): string {
   const fmt = (n: number) =>
     new Intl.NumberFormat("en-GB", { style: "currency", currency: business.currency }).format(n);
@@ -54,13 +57,12 @@ export function quoteEmailHtml({
     ${quote.notes ? `<p style="margin:24px 0 0;font-size:13px;color:#71717a;"><strong>Notes:</strong> ${quote.notes}</p>` : ""}
     ${quote.terms ? `<p style="margin:8px 0 0;font-size:13px;color:#71717a;"><strong>Terms:</strong> ${quote.terms}</p>` : ""}
 
-    ${acceptUrl ? `
+    ${acceptUrl || pdfUrl ? `
     <table width="100%" cellpadding="0" cellspacing="0" style="margin:32px 0 0;">
       <tr>
         <td align="center">
-          <a href="${acceptUrl}" style="display:inline-block;background:#8b5cf6;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;padding:14px 32px;border-radius:8px;">
-            Review &amp; accept quote
-          </a>
+          ${acceptUrl ? `<a href="${acceptUrl}" style="display:inline-block;background:#8b5cf6;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;padding:14px 28px;border-radius:8px;margin:0 4px 8px;">Review &amp; accept</a>` : ""}
+          ${pdfUrl ? `<a href="${pdfUrl}" style="display:inline-block;background:#ffffff;color:#8b5cf6;font-size:15px;font-weight:600;text-decoration:none;padding:14px 28px;border-radius:8px;border:1px solid #8b5cf6;margin:0 4px 8px;">Download PDF</a>` : ""}
         </td>
       </tr>
       <tr>

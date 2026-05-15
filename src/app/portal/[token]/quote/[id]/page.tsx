@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { ArrowLeft, FileCheck } from "@/components/ui/icons";
+import { ArrowLeft, FileCheck, Download } from "@/components/ui/icons";
 import { AcceptQuoteButton } from "@/components/customer-portal/accept-quote-button";
 import type { LineItem } from "@/types/database";
 
@@ -74,7 +74,17 @@ export default async function PortalQuotePage({ params }: { params: Promise<{ to
               From {business?.name} · Issued {formatDate(quote.issue_date)} · Expires {formatDate(quote.expiry_date)}
             </p>
           </div>
-          <StatusBadge status={quote.status} />
+          <div className="flex items-center gap-2 flex-wrap">
+            <a
+              href={`/api/pdf/quote/${quote.id}?token=${token}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border bg-card text-sm font-medium hover:bg-muted transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" /> Download PDF
+            </a>
+            <StatusBadge status={quote.status} />
+          </div>
         </div>
 
         {/* Customer */}
