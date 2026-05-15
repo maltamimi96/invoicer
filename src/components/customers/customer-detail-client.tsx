@@ -579,7 +579,7 @@ export function CustomerDetailClient({
                 {customer.email && (
                   <div className="flex items-center gap-2 text-sm">
                     <Mail className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                    <a href={`mailto:${customer.email}`} className="text-primary hover:underline truncate">{customer.email}</a>
+                    <a href={`mailto:${customer.email}`} className="text-primary hover:underline break-words">{customer.email}</a>
                   </div>
                 )}
                 {customer.phone && (

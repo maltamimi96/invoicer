@@ -191,7 +191,7 @@ function JobRow({ job, showDate }: { job: WorkOrderWithCustomer; showDate?: bool
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-sm font-medium truncate">{job.title}</p>
+            <p className="text-sm font-medium break-words">{job.title}</p>
             <span className={`ch-pill ${STATUS_PILL[job.status]}`}>{job.status.replace("_", " ")}</span>
             {showDate && job.scheduled_date && (
               <span className="text-[11px] text-muted-foreground">· {job.scheduled_date}</span>
@@ -200,7 +200,7 @@ function JobRow({ job, showDate }: { job: WorkOrderWithCustomer; showDate?: bool
           <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground">
             <span className="ch-mono">{job.number}</span>
             {job.property_address && (
-              <span className="flex items-center gap-1 truncate">
+              <span className="flex items-center gap-1 break-words">
                 <MapPin className="w-3 h-3 flex-shrink-0" />{job.property_address}
               </span>
             )}

@@ -114,8 +114,8 @@ export default function WorkOrdersList() {
                     <Text style={{ fontSize: 10, fontWeight: "700", color: c.fg, textTransform: "uppercase", letterSpacing: 0.5 }}>{item.status}</Text>
                   </View>
                 </View>
-                <Text style={{ fontSize: 15, fontWeight: "600", color: colors.text, marginTop: 4 }} numberOfLines={1}>{item.title ?? "Untitled"}</Text>
-                <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2 }} numberOfLines={1}>
+                <Text style={{ fontSize: 15, fontWeight: "600", color: colors.text, marginTop: 4 }} numberOfLines={3}>{item.title ?? "Untitled"}</Text>
+                <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2 }} numberOfLines={3}>
                   {item.customers?.name ?? "No customer"}
                   {item.scheduled_date ? ` · ${new Date(item.scheduled_date).toLocaleDateString()}` : ""}
                 </Text>

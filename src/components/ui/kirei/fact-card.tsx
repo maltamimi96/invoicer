@@ -32,7 +32,7 @@ export function FactCard({ icon, gradient = "primary", label, value, href, onCli
       )}
       <div className="min-w-0">
         <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{label}</p>
-        <div className="text-sm font-semibold text-foreground truncate mt-0.5">{value}</div>
+        <div className="text-sm font-semibold text-foreground break-words mt-0.5">{value}</div>
       </div>
     </AnimatedPress>
   );

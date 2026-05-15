@@ -312,7 +312,7 @@ export function InvoiceDetailClient({
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="font-mono text-xs text-muted-foreground">{c.number}</span>
                           <KireiPill tone={c.status} />
-                          <span className="text-xs text-muted-foreground truncate">
+                          <span className="text-xs text-muted-foreground break-words">
                             {(c.line_items?.[0] as LineItem | undefined)?.description ?? ""}
                           </span>
                         </div>

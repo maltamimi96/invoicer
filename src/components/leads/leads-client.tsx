@@ -526,7 +526,7 @@ function LeadCard({
       <div className="flex items-start justify-between gap-1">
         <div className="flex items-center gap-1.5 min-w-0">
           <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-          <span className="font-medium text-sm truncate">{lead.name}</span>
+          <span className="font-medium text-sm break-words">{lead.name}</span>
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -568,23 +568,23 @@ function LeadCard({
         {lead.phone && (
           <a href={`tel:${lead.phone.replace(/\s/g, "")}`} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
             <Phone className="h-3 w-3 shrink-0" />
-            <span className="truncate">{lead.phone}</span>
+            <span className="break-words">{lead.phone}</span>
           </a>
         )}
         {lead.email && (
           <a href={`mailto:${lead.email}`} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
             <Mail className="h-3 w-3 shrink-0" />
-            <span className="truncate">{lead.email}</span>
+            <span className="break-words">{lead.email}</span>
           </a>
         )}
         {lead.suburb && (
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <MapPin className="h-3 w-3 shrink-0" />
-            <span className="truncate">{lead.suburb}</span>
+            <span className="break-words">{lead.suburb}</span>
           </div>
         )}
         {lead.service && (
-          <div className="text-xs text-muted-foreground truncate">{lead.service}</div>
+          <div className="text-xs text-muted-foreground break-words">{lead.service}</div>
         )}
       </div>
 

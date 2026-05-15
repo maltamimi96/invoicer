@@ -96,7 +96,7 @@ export function TasksWidget() {
                 <Link href="/tasks" className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${PRIORITY_DOT[t.priority]}`} />
-                    <p className="text-sm font-medium truncate">{t.title}</p>
+                    <p className="text-sm font-medium break-words">{t.title}</p>
                   </div>
                   {(t.due_date || t.tags?.length > 0) && (
                     <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground flex-wrap">
