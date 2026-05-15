@@ -5,15 +5,15 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Loader2 } from "@/components/ui/icons";
+import { Loader2, User, MapPin, StickyNote, Building2 } from "@/components/ui/icons";
 import { createCustomer, updateCustomer } from "@/lib/actions/customers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AddressFields } from "@/components/addresses/address-fields";
+import { FormSection, AnimatedPress } from "@/components/ui/kirei";
 import type { Customer } from "@/types/database";
 
 const ACCOUNT_TYPES: { value: Customer["account_type"]; label: string; hint?: string }[] = [
@@ -122,67 +122,70 @@ export function CustomerForm({ customer, onSuccess, businessCountry }: CustomerF
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      {/* Type */}
-      <Card>
-        <CardContent className="p-5 space-y-4">
-          <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Customer type</h3>
-          <Controller
-            name="account_type"
-            control={control}
-            render={({ field }) => (
-              <Select value={field.value} onValueChange={field.onChange}>
-                <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
-                <SelectContent>
-                  {ACCOUNT_TYPES.map((t) => (
-                    <SelectItem key={t.value} value={t.value}>
-                      <div className="flex flex-col items-start">
-                        <span>{t.label}</span>
-                        {t.hint && <span className="text-xs text-muted-foreground">{t.hint}</span>}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          />
-        </CardContent>
-      </Card>
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      <FormSection
+        icon={<Building2 className="w-4 h-4" />}
+        gradient="violet"
+        title="Customer type"
+        hint="What kind of account this is — drives reporting + invoice defaults"
+      >
+        <Controller
+          name="account_type"
+          control={control}
+          render={({ field }) => (
+            <Select value={field.value} onValueChange={field.onChange}>
+              <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Select type" /></SelectTrigger>
+              <SelectContent>
+                {ACCOUNT_TYPES.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>
+                    <div className="flex flex-col items-start">
+                      <span>{t.label}</span>
+                      {t.hint && <span className="text-xs text-muted-foreground">{t.hint}</span>}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        />
+      </FormSection>
 
-      {/* Contact */}
-      <Card>
-        <CardContent className="p-5 space-y-4">
-          <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Contact</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <FormSection
+        icon={<User className="w-4 h-4" />}
+        gradient="primary"
+        title="Contact"
+        hint="Who to reach and how"
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label>Full name *</Label>
-              <Input placeholder="John Smith" {...register("name")} />
+              <Input className="h-11 rounded-xl" placeholder="John Smith" {...register("name")} />
               {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
             </div>
             <div className="space-y-1.5">
               <Label>{showCompanyHint ? "Company / organisation" : "Company"}</Label>
-              <Input placeholder={showCompanyHint ? "Acme Strata Pty Ltd" : "Acme Ltd (optional)"} {...register("company")} />
+              <Input className="h-11 rounded-xl" placeholder={showCompanyHint ? "Acme Strata Pty Ltd" : "Acme Ltd (optional)"} {...register("company")} />
             </div>
             <div className="space-y-1.5">
               <Label>Role / title</Label>
-              <Input placeholder="Director, Strata manager, etc." {...register("contact_role")} />
+              <Input className="h-11 rounded-xl" placeholder="Director, Strata manager, etc." {...register("contact_role")} />
             </div>
             <div className="space-y-1.5">
               <Label>Website</Label>
-              <Input placeholder="https://acme.com" {...register("website")} />
+              <Input className="h-11 rounded-xl" placeholder="https://acme.com" {...register("website")} />
             </div>
             <div className="space-y-1.5">
               <Label>Email</Label>
-              <Input type="email" placeholder="john@acme.com" {...register("email")} />
+              <Input type="email" className="h-11 rounded-xl" placeholder="john@acme.com" {...register("email")} />
               {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
             </div>
             <div className="space-y-1.5">
               <Label>Phone</Label>
-              <Input placeholder="+44 7700 000000" {...register("phone")} />
+              <Input className="h-11 rounded-xl" placeholder="+44 7700 000000" {...register("phone")} />
             </div>
             <div className="space-y-1.5">
               <Label>Secondary phone</Label>
-              <Input placeholder="Office / after-hours" {...register("secondary_phone")} />
+              <Input className="h-11 rounded-xl" placeholder="Office / after-hours" {...register("secondary_phone")} />
             </div>
             <div className="space-y-1.5">
               <Label>Preferred contact</Label>
@@ -191,7 +194,7 @@ export function CustomerForm({ customer, onSuccess, businessCountry }: CustomerF
                 control={control}
                 render={({ field }) => (
                   <Select value={field.value || "any"} onValueChange={field.onChange}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {PREFERRED_CONTACT.map((p) => (
                         <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
@@ -204,50 +207,53 @@ export function CustomerForm({ customer, onSuccess, businessCountry }: CustomerF
           </div>
           <div className="space-y-1.5">
             <Label>VAT / Tax number</Label>
-            <Input placeholder="GB123456789" {...register("tax_number")} />
+            <Input className="h-11 rounded-xl" placeholder="GB123456789" {...register("tax_number")} />
           </div>
-        </CardContent>
-      </Card>
+      </FormSection>
 
-      {/* Address */}
-      <Card>
-        <CardContent className="p-5 space-y-4">
-          <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Address</h3>
-          <p className="text-xs text-muted-foreground">Start typing the street address to autofill city, state, postcode and country.</p>
-          <AddressFields
-            country={watch("country") || businessCountry}
-            values={{
-              address:  watch("address")  ?? "",
-              city:     watch("city")     ?? "",
-              state:    watch("state")    ?? "",
-              postcode: watch("postcode") ?? "",
-              country:  watch("country")  ?? "",
-            }}
-            onChange={(next) => {
-              setValue("address",  next.address);
-              setValue("city",     next.city);
-              setValue("state",    next.state);
-              setValue("postcode", next.postcode);
-              setValue("country",  next.country);
-            }}
-          />
-        </CardContent>
-      </Card>
+      <FormSection
+        icon={<MapPin className="w-4 h-4" />}
+        gradient="emerald"
+        title="Address"
+        hint="Start typing the street address to autofill city, state, postcode and country"
+      >
+        <AddressFields
+          country={watch("country") || businessCountry}
+          values={{
+            address:  watch("address")  ?? "",
+            city:     watch("city")     ?? "",
+            state:    watch("state")    ?? "",
+            postcode: watch("postcode") ?? "",
+            country:  watch("country")  ?? "",
+          }}
+          onChange={(next) => {
+            setValue("address",  next.address);
+            setValue("city",     next.city);
+            setValue("state",    next.state);
+            setValue("postcode", next.postcode);
+            setValue("country",  next.country);
+          }}
+        />
+      </FormSection>
 
-      {/* Notes */}
-      <Card>
-        <CardContent className="p-5 space-y-3">
-          <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Notes</h3>
-          <Textarea placeholder="Internal notes about this customer..." rows={3} {...register("notes")} />
-        </CardContent>
-      </Card>
+      <FormSection
+        icon={<StickyNote className="w-4 h-4" />}
+        gradient="amber"
+        title="Notes"
+        hint="Internal notes — never shown to the customer"
+      >
+        <Textarea className="rounded-xl" placeholder="Internal notes about this customer…" rows={3} {...register("notes")} />
+      </FormSection>
 
       <div className="flex gap-3">
-        <Button type="button" variant="outline" className="flex-1" onClick={() => router.back()}>Cancel</Button>
-        <Button type="submit" className="flex-1" disabled={isSubmitting}>
-          {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+        <Button type="button" variant="outline" className="flex-1 h-11 rounded-xl" onClick={() => router.back()}>Cancel</Button>
+        <AnimatedPress
+          onClick={handleSubmit(onSubmit) as unknown as () => void}
+          className={`flex-1 inline-flex items-center justify-center gap-2 h-11 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-sm cursor-pointer ${isSubmitting ? "opacity-70" : ""}`}
+        >
+          {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
           {customer ? "Save changes" : "Create customer"}
-        </Button>
+        </AnimatedPress>
       </div>
     </form>
   );

@@ -24,7 +24,7 @@ import type { SmartFillData } from "./smart-fill-modal";
 import { formatCurrency } from "@/lib/utils";
 import { ClientSelect } from "@/components/customers/client-select";
 import { AddressSelect } from "@/components/addresses/address-select";
-import { BackButton } from "@/components/layout/back-button";
+import { PageHeader } from "@/components/layout/page-header";
 import { PdfSettingsPanel } from "@/components/pdf/pdf-settings-panel";
 import type { Business, Customer, Invoice, LineItem, Product } from "@/types/database";
 import { DEFAULT_PDF_SETTINGS } from "@/types/database";
@@ -172,15 +172,11 @@ export function InvoiceEditor({ customers, products, business, invoice, defaultC
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-        <div className="flex items-center gap-4">
-          <BackButton fallbackHref="/invoices" />
-          <div className="flex-1 min-w-0">
-            <h1 className="text-2xl font-bold truncate">{invoice ? `Edit ${invoice.number}` : "New Invoice"}</h1>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap sm:ml-auto">
+      <PageHeader
+        title={invoice ? `Edit ${invoice.number}` : "New invoice"}
+        subtitle={invoice ? "Update line items, dates, and totals" : "Bill a customer for work or products"}
+      />
+      <div className="flex items-center gap-2 flex-wrap">
           <Button variant="outline" size="sm" className="gap-1.5 flex-1 sm:flex-initial" onClick={() => setSmartFillOpen(true)}>
             <Sparkles className="w-3.5 h-3.5 text-purple-500" />Smart fill
           </Button>
@@ -204,8 +200,7 @@ export function InvoiceEditor({ customers, products, business, invoice, defaultC
             {saving ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Send className="w-3.5 h-3.5 mr-1.5" />}
             Save & send
           </Button>
-        </div>
-      </motion.div>
+      </div>
 
       <form className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main */}
