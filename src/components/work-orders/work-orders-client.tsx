@@ -137,14 +137,19 @@ export function WorkOrdersClient({ workOrders, userRole }: WorkOrdersClientProps
               <div
                 key={wo.id}
                 onClick={() => router.push(`/work-orders/${wo.id}`)}
-                className="group flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-muted/40"
+                className="group flex flex-wrap items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-muted/40"
               >
                 <GradientTile gradient={STATUS_GRADIENT[wo.status] ?? "primary"} size={40} radius={10}>
                   <Briefcase className="w-4 h-4" />
                 </GradientTile>
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-[140px] basis-0">
                   <div className="text-sm font-semibold truncate">{wo.title}</div>
-                  <div className="font-mono text-xs text-muted-foreground">{wo.number}</div>
+                  <div className="font-mono text-xs text-muted-foreground truncate">
+                    {wo.number}
+                    <span className="md:hidden text-muted-foreground/70">
+                      {wo.customers?.name ? ` · ${wo.customers.name}` : ""}
+                    </span>
+                  </div>
                 </div>
                 <div className="hidden lg:block w-44 text-xs text-muted-foreground truncate">{wo.customers?.name ?? "—"}</div>
                 <div className="hidden md:block w-44 text-xs text-muted-foreground truncate">
@@ -162,7 +167,7 @@ export function WorkOrdersClient({ workOrders, userRole }: WorkOrdersClientProps
                     <span className="inline-flex items-center gap-0.5"><Camera className="w-3 h-3" />{wo.photos?.length}</span>
                   ) : "—"}
                 </div>
-                <div className="w-24 text-right">
+                <div className="ml-auto text-right">
                   <KireiPill tone={wo.status} />
                 </div>
                 <div className="w-8 text-right shrink-0" onClick={(e) => e.stopPropagation()}>

@@ -125,30 +125,32 @@ export function BriefingWidget({ compact = false }: Props) {
 
 function Row({ item, onSnooze }: { item: BriefingItem; onSnooze: (item: BriefingItem, hours: number) => void }) {
   return (
-    <div className="flex items-center gap-3 p-3 rounded-lg bg-card border border-border/70 hover:border-primary/30 transition-colors group">
+    <div className="flex flex-wrap items-center gap-3 p-3 rounded-lg bg-card border border-border/70 hover:border-primary/30 transition-colors group">
       <GradientTile gradient={PRIORITY_GRADIENT[item.priority]} size={36} radius={10}>
         <span className="text-[9px] font-bold uppercase tracking-wider">
           {TYPE_LABEL[item.type].slice(0, 4)}
         </span>
       </GradientTile>
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-[140px] basis-0">
         <p className="text-sm font-semibold truncate">{item.title}</p>
         <p className="text-xs text-muted-foreground truncate">{item.subtitle}</p>
       </div>
-      <div className="flex items-center gap-1 flex-shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
+      <div className="flex items-center gap-1 ml-auto flex-shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
         <button
           onClick={() => onSnooze(item, 24)}
           className="inline-flex items-center gap-1 px-2 py-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground text-xs"
           title="Snooze 24h"
+          aria-label="Snooze 24h"
         >
-          <Clock className="w-3.5 h-3.5" /> Snooze
+          <Clock className="w-3.5 h-3.5" /><span className="hidden sm:inline">Snooze</span>
         </button>
         <button
           onClick={() => onSnooze(item, 0)}
           className="inline-flex items-center gap-1 px-2 py-1.5 rounded-md hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-xs"
-          title="Mark done — hide until something changes"
+          title="Mark done"
+          aria-label="Mark done"
         >
-          <Check className="w-3.5 h-3.5" /> Done
+          <Check className="w-3.5 h-3.5" /><span className="hidden sm:inline">Done</span>
         </button>
         <Link href={item.action_url}>
           <AnimatedPress className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-primary text-primary-foreground text-xs font-semibold cursor-pointer">

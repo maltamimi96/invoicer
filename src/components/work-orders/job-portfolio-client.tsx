@@ -32,7 +32,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { canEdit, isOwner, canManageTeam, type Role } from "@/lib/permissions";
+import { canEdit, isOwner, canManageTeam, canCaptureJobData, type Role } from "@/lib/permissions";
 import { BackButton } from "@/components/layout/back-button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Check, ChevronDown, Pencil } from "@/components/ui/icons";
@@ -174,9 +174,10 @@ export function JobPortfolioClient(props: JobPortfolioProps) {
   } = props;
 
   const router = useRouter();
-  const editable = canEdit(userRole);
-  const deletable = canManageTeam(userRole); // owners + admins
-  const canAssign = canManageTeam(userRole); // who can change job assignments
+  const editable = canEdit(userRole);             // can change scope, status, etc.
+  const canCapture = canCaptureJobData(userRole); // can upload from-site work (workers too)
+  const deletable = canManageTeam(userRole);      // owners + admins
+  const canAssign = canManageTeam(userRole);      // who can change job assignments
 
   // Local state mirrors so optimistic updates feel snappy
   const [photos, setPhotos] = useState<JobPhoto[]>(initialPhotos);
@@ -228,7 +229,7 @@ export function JobPortfolioClient(props: JobPortfolioProps) {
           <PhotosSection
             workOrderId={workOrder.id}
             photos={photos}
-            editable={editable}
+            editable={canCapture}
             currentUserId={currentUserId}
             onAdd={(p) => setPhotos((prev) => [...prev, p])}
             onUpdate={(id, patch) => setPhotos((prev) => prev.map((p) => p.id === id ? { ...p, ...patch } : p))}
@@ -237,7 +238,7 @@ export function JobPortfolioClient(props: JobPortfolioProps) {
           <TimeSection
             workOrderId={workOrder.id}
             entries={timeEntries}
-            editable={editable}
+            editable={canCapture}
             onAdd={(e) => setTimeEntries((prev) => [...prev, e])}
             onUpdate={(id, patch) => setTimeEntries((prev) => prev.map((e) => e.id === id ? { ...e, ...patch } : e))}
             onDelete={(id) => setTimeEntries((prev) => prev.filter((e) => e.id !== id))}
@@ -245,14 +246,14 @@ export function JobPortfolioClient(props: JobPortfolioProps) {
           <MaterialsSection
             workOrderId={workOrder.id}
             materials={materials}
-            editable={editable}
+            editable={canCapture}
             onAdd={(m) => setMaterials((prev) => [...prev, m])}
             onDelete={(id) => setMaterials((prev) => prev.filter((m) => m.id !== id))}
           />
           <DocumentsSection
             workOrderId={workOrder.id}
             documents={documents}
-            editable={editable}
+            editable={canCapture}
             currentUserId={currentUserId}
             onAdd={(d) => setDocuments((prev) => [d, ...prev])}
             onDelete={(id) => setDocuments((prev) => prev.filter((d) => d.id !== id))}
@@ -260,7 +261,7 @@ export function JobPortfolioClient(props: JobPortfolioProps) {
           <SignaturesSection
             workOrderId={workOrder.id}
             signatures={signatures}
-            editable={editable}
+            editable={canCapture}
             currentUserId={currentUserId}
             onAdd={(s) => setSignatures((prev) => [...prev, s])}
             onDelete={(id) => setSignatures((prev) => prev.filter((s) => s.id !== id))}

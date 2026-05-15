@@ -164,21 +164,21 @@ export function QuotesClient({ quotes: initial, currency = "GBP" }: { quotes: Qu
               <div
                 key={quote.id}
                 onClick={() => router.push(`/quotes/${quote.id}`)}
-                className="group flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-muted/40"
+                className="group flex flex-wrap items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-muted/40"
               >
                 <GradientTile gradient={STATUS_GRADIENT[quote.status] ?? "primary"} size={40} radius={10}>
                   <FileCheck className="w-4 h-4" />
                 </GradientTile>
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-[140px] basis-0">
                   <div className="font-mono text-xs text-muted-foreground">{quote.number}</div>
                   <div className="text-sm font-semibold truncate">{quote.customers?.name ?? "No client"}</div>
                 </div>
                 <div className="hidden md:block w-32 text-xs text-muted-foreground">{formatDate(quote.issue_date)}</div>
                 <div className="hidden md:block w-32 text-xs text-muted-foreground">{formatDate(quote.expiry_date)}</div>
-                <div className="w-24 text-right">
+                <div className="ml-auto md:ml-0 md:w-24 text-right">
                   <KireiPill tone={quote.status} />
                 </div>
-                <div className="w-28 text-right text-sm font-semibold tabular-nums">{formatCurrency(quote.total, currency)}</div>
+                <div className="md:w-28 text-right text-sm font-semibold tabular-nums">{formatCurrency(quote.total, currency)}</div>
                 <div className="w-8 text-right shrink-0" onClick={(e) => e.stopPropagation()}>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>

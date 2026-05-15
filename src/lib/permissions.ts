@@ -7,6 +7,14 @@ export function canEdit(role: Role): boolean {
   return role === 'owner' || role === 'admin' || role === 'editor';
 }
 
+/** Can capture from-site job data on a work order — photos, time, materials,
+ *  documents, signatures, notes. Workers need this on jobs they're assigned
+ *  to; viewers stay read-only. RLS already restricts workers to their own
+ *  jobs so we don't need to filter further here. */
+export function canCaptureJobData(role: Role): boolean {
+  return role === 'owner' || role === 'admin' || role === 'editor' || role === 'worker';
+}
+
 export function canManageTeam(role: Role): boolean {
   return role === 'owner' || role === 'admin';
 }

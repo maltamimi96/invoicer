@@ -211,7 +211,7 @@ export function CustomersClient({
                 <div
                   key={customer.id}
                   onClick={() => router.push(`/customers/${customer.id}`)}
-                  className="group flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-muted/40"
+                  className="group flex flex-wrap items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-muted/40"
                 >
                   <input
                     type="checkbox"
@@ -227,7 +227,7 @@ export function CustomersClient({
                     className="w-4 h-4 rounded border-border accent-primary cursor-pointer"
                   />
                   <KireiAvatar name={customer.name} size={40} />
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-[140px] basis-0">
                     <div className="font-semibold truncate">{customer.name}</div>
                     {customer.company && (
                       <div className="text-xs text-muted-foreground truncate inline-flex items-center gap-1 mt-0.5">
@@ -249,7 +249,7 @@ export function CustomersClient({
                   <div className="hidden md:block w-24 text-right text-sm tabular-nums">
                     {s?.outstanding ? <span className="font-semibold text-amber-700 dark:text-amber-400">{formatCurrency(s.outstanding, currency)}</span> : <span className="text-muted-foreground">—</span>}
                   </div>
-                  <div className="w-16 text-right">
+                  <div className="ml-auto text-right">
                     <KireiPill tone={customer.archived ? "archived" : "active"} />
                   </div>
                   <div className="w-8 text-right shrink-0" onClick={(e) => e.stopPropagation()}>
