@@ -568,13 +568,18 @@ export function CustomerDetailClient({
             </FadeIn>
 
             {/* Contact info */}
-            <Card>
-              <CardContent className="p-4 space-y-3">
+            <div className="rounded-xl border border-border bg-card overflow-hidden">
+              <div className="flex items-center gap-2.5 px-4 py-3 border-b border-border">
+                <GradientTile gradient="primary" size={28} radius={8}>
+                  <User className="w-3.5 h-3.5" />
+                </GradientTile>
                 <h3 className="text-sm font-semibold">Primary contact</h3>
+              </div>
+              <div className="p-4 space-y-3">
                 {customer.email && (
                   <div className="flex items-center gap-2 text-sm">
                     <Mail className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                    <a href={`mailto:${customer.email}`} className="text-blue-600 dark:text-blue-400 hover:underline truncate">{customer.email}</a>
+                    <a href={`mailto:${customer.email}`} className="text-primary hover:underline truncate">{customer.email}</a>
                   </div>
                 )}
                 {customer.phone && (
@@ -608,31 +613,35 @@ export function CustomerDetailClient({
                     <p className="text-xs text-muted-foreground whitespace-pre-wrap">{customer.notes}</p>
                   </>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
             {/* Quick actions */}
             <div className="space-y-2">
               <Link href={`/work-orders/new?customer=${customer.id}`} className="block">
-                <Button variant="outline" size="sm" className="w-full justify-start gap-2">
-                  <Wrench className="w-3.5 h-3.5" />New work order
-                </Button>
+                <AnimatedPress className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-border bg-card hover:bg-muted text-sm font-medium cursor-pointer">
+                  <GradientTile gradient="amber" size={24} radius={6}><Wrench className="w-3 h-3" /></GradientTile>
+                  New work order
+                </AnimatedPress>
               </Link>
               <Link href={`/quotes/new?customer=${customer.id}`} className="block">
-                <Button variant="outline" size="sm" className="w-full justify-start gap-2">
-                  <FileCheck className="w-3.5 h-3.5" />New quote
-                </Button>
+                <AnimatedPress className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-border bg-card hover:bg-muted text-sm font-medium cursor-pointer">
+                  <GradientTile gradient="violet" size={24} radius={6}><FileCheck className="w-3 h-3" /></GradientTile>
+                  New quote
+                </AnimatedPress>
               </Link>
               <Link href={`/invoices/new?customer=${customer.id}`} className="block">
-                <Button variant="outline" size="sm" className="w-full justify-start gap-2">
-                  <FileText className="w-3.5 h-3.5" />New invoice
-                </Button>
+                <AnimatedPress className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-border bg-card hover:bg-muted text-sm font-medium cursor-pointer">
+                  <GradientTile gradient="emerald" size={24} radius={6}><FileText className="w-3 h-3" /></GradientTile>
+                  New invoice
+                </AnimatedPress>
               </Link>
               {customer.phone && (
                 <Link href={`/messages?phone=${encodeURIComponent(customer.phone)}&name=${encodeURIComponent(customer.name)}&customer=${customer.id}`} className="block">
-                  <Button variant="outline" size="sm" className="w-full justify-start gap-2">
-                    <MessageSquare className="w-3.5 h-3.5" />Send message
-                  </Button>
+                  <AnimatedPress className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-border bg-card hover:bg-muted text-sm font-medium cursor-pointer">
+                    <GradientTile gradient="blue" size={24} radius={6}><MessageSquare className="w-3 h-3" /></GradientTile>
+                    Send message
+                  </AnimatedPress>
                 </Link>
               )}
             </div>

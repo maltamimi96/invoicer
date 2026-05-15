@@ -27,7 +27,7 @@ import {
 } from "@/lib/actions/site-assets";
 import { setSiteBilling } from "@/lib/actions/billing-profiles";
 import { updateSite } from "@/lib/actions/sites";
-import { DetailHero, AnimatedPress, StatTile, FadeIn } from "@/components/ui/kirei";
+import { DetailHero, AnimatedPress, StatTile, FadeIn, GradientTile } from "@/components/ui/kirei";
 import type {
   Site, Account, SiteAsset, BillingProfile, Contact,
 } from "@/types/database";
@@ -112,11 +112,14 @@ export function SiteDetailClient({
             </FadeIn>
 
             {/* Address & access */}
-            <Card>
-              <CardContent className="p-4 space-y-3">
-                <h3 className="text-sm font-semibold flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5" />Site
-                </h3>
+            <div className="rounded-xl border border-border bg-card overflow-hidden">
+              <div className="flex items-center gap-2.5 px-4 py-3 border-b border-border">
+                <GradientTile gradient="emerald" size={28} radius={8}>
+                  <MapPin className="w-3.5 h-3.5" />
+                </GradientTile>
+                <h3 className="text-sm font-semibold">Site</h3>
+              </div>
+              <div className="p-4 space-y-3">
                 {fullAddress ? (
                   <div className="flex items-start gap-2 text-sm">
                     <MapPinLink address={fullAddress} />
@@ -143,15 +146,18 @@ export function SiteDetailClient({
                     <p className="text-xs text-muted-foreground whitespace-pre-wrap">{site.access_notes}</p>
                   </>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
             {/* Bill-to */}
-            <Card>
-              <CardContent className="p-4 space-y-3">
-                <h3 className="text-sm font-semibold flex items-center gap-1.5">
-                  <CreditCard className="w-3.5 h-3.5" />Bill to
-                </h3>
+            <div className="rounded-xl border border-border bg-card overflow-hidden">
+              <div className="flex items-center gap-2.5 px-4 py-3 border-b border-border">
+                <GradientTile gradient="violet" size={28} radius={8}>
+                  <CreditCard className="w-3.5 h-3.5" />
+                </GradientTile>
+                <h3 className="text-sm font-semibold">Bill to</h3>
+              </div>
+              <div className="p-4 space-y-3">
                 <SearchableSelect
                   items={billingProfiles.map((bp) => ({
                     value: bp.id,
@@ -180,8 +186,8 @@ export function SiteDetailClient({
                     {billingProfiles.find((b) => b.id === billingId)?.email ?? ""}
                   </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </div>
 
           {/* Main */}
