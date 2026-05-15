@@ -4,13 +4,15 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
-  ArrowLeft, Plus, Edit, Mail, Phone, Building2, MapPin, FileText,
+  Plus, Edit, Mail, Phone, Building2, MapPin, FileText,
   FileCheck, Wrench, ClipboardList, StickyNote, User, Users, Home,
   Trash2, Star, Save, X, ChevronDown, ChevronUp, ImageIcon, MessageSquare,
-  CreditCard,
+  CreditCard, DollarSign,
 } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
-import { BackButton } from "@/components/layout/back-button";
+import {
+  DetailHero, StatTile, AnimatedPress, FadeIn, KireiAvatar, GradientTile,
+} from "@/components/ui/kirei";
 import { AddressFields } from "@/components/addresses/address-fields";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -520,25 +522,29 @@ export function CustomerDetailClient({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-        <div className="flex items-center gap-4 min-w-0">
-          <BackButton fallbackHref="/customers" />
-          <div className="flex-1 min-w-0">
-            <h1 className="text-2xl font-bold truncate">{customer.name}</h1>
-            {customer.company && <p className="text-sm text-muted-foreground truncate">{customer.company}</p>}
-          </div>
-        </div>
-        <div className="flex gap-2 flex-wrap sm:flex-nowrap sm:ml-auto sm:shrink-0">
-          <Button variant="outline" size="sm" className="flex-1 sm:flex-initial" onClick={() => setEditing(!editing)}>
-            <Edit className="w-3.5 h-3.5 mr-1.5" />{editing ? "Cancel" : "Edit"}
-          </Button>
-          <PortalLinkButton customerId={customer.id} customerName={customer.name} customerPhone={customer.phone ?? null} />
-          <Link href={`/invoices/new?customer=${customer.id}`} className="flex-1 sm:flex-initial">
-            <Button size="sm" className="gap-1.5 w-full sm:w-auto"><Plus className="w-3.5 h-3.5" />New invoice</Button>
-          </Link>
-        </div>
-      </motion.div>
+      <DetailHero
+        backHref="/customers"
+        title={customer.name}
+        subtitle={customer.company ?? undefined}
+        icon={<KireiAvatar name={customer.name} size={52} radius={14} />}
+        status={customer.archived ? "archived" : "active"}
+        actions={
+          <>
+            <AnimatedPress
+              onClick={() => setEditing(!editing)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border bg-card text-sm font-medium cursor-pointer"
+            >
+              <Edit className="w-4 h-4" /> {editing ? "Cancel" : "Edit"}
+            </AnimatedPress>
+            <PortalLinkButton customerId={customer.id} customerName={customer.name} customerPhone={customer.phone ?? null} />
+            <Link href={`/invoices/new?customer=${customer.id}`}>
+              <AnimatedPress className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-sm cursor-pointer">
+                <Plus className="w-4 h-4" /> New invoice
+              </AnimatedPress>
+            </Link>
+          </>
+        }
+      />
 
       {editing ? (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
@@ -549,24 +555,17 @@ export function CustomerDetailClient({
 
           {/* Left sidebar */}
           <div className="space-y-4">
-            {/* Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {[
-                { label: "Total spent", value: formatCurrency(totalSpent, currency) },
-                { label: "Outstanding", value: formatCurrency(outstanding, currency) },
-                { label: "Work orders", value: initialWorkOrders.length },
-                { label: "Invoices", value: invoices.length },
-                { label: "Quotes", value: quotes.length },
-                { label: "Properties", value: properties.length },
-              ].map((s) => (
-                <Card key={s.label}>
-                  <CardContent className="p-3 text-center">
-                    <p className="text-xs text-muted-foreground leading-tight mb-1">{s.label}</p>
-                    <p className="font-semibold text-sm">{s.value}</p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            {/* Stat tiles */}
+            <FadeIn delay={60}>
+              <div className="grid grid-cols-2 gap-2">
+                <StatTile gradient="softTeal"   toneColor="#1f4f4a" icon={<DollarSign  className="w-3 h-3" />} label="Total spent" value={formatCurrency(totalSpent, currency)} />
+                <StatTile gradient="softAmber"  toneColor="#78350f" icon={<DollarSign  className="w-3 h-3" />} label="Outstanding" value={formatCurrency(outstanding, currency)} />
+                <StatTile gradient="softBlue"   toneColor="#1e3a8a" icon={<Wrench      className="w-3 h-3" />} label="Work orders" value={String(initialWorkOrders.length)} />
+                <StatTile gradient="softTeal"   toneColor="#064e3b" icon={<FileText    className="w-3 h-3" />} label="Invoices"    value={String(invoices.length)} />
+                <StatTile gradient="softViolet" toneColor="#3b1d6b" icon={<FileCheck   className="w-3 h-3" />} label="Quotes"      value={String(quotes.length)} />
+                <StatTile gradient="softRose"   toneColor="#9f1239" icon={<Home        className="w-3 h-3" />} label="Properties"  value={String(properties.length)} />
+              </div>
+            </FadeIn>
 
             {/* Contact info */}
             <Card>
