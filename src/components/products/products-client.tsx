@@ -148,12 +148,12 @@ export function ProductsClient({ products: initial, currency = "GBP" }: { produc
                   <Package className="w-4 h-4" />
                 </GradientTile>
                 <div className="flex-1 min-w-[140px] basis-0">
-                  <div className="text-sm font-semibold truncate">{product.name}</div>
+                  <div className="text-sm font-semibold break-words">{product.name}</div>
                   {product.description && (
-                    <div className="text-xs text-muted-foreground truncate max-w-md">{product.description}</div>
+                    <div className="text-xs text-muted-foreground break-words max-w-md">{product.description}</div>
                   )}
                 </div>
-                <div className="hidden md:block w-20 text-xs text-muted-foreground truncate">{product.unit ?? "—"}</div>
+                <div className="hidden md:block w-20 text-xs text-muted-foreground break-words">{product.unit ?? "—"}</div>
                 <div className="hidden md:block w-16 text-right text-xs text-muted-foreground">{product.tax_rate}%</div>
                 <div className="ml-auto md:ml-0 md:w-24 text-right">
                   <KireiPill tone={product.archived ? "archived" : "active"} />

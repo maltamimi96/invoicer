@@ -132,8 +132,8 @@ function Row({ item, onSnooze }: { item: BriefingItem; onSnooze: (item: Briefing
         </span>
       </GradientTile>
       <div className="flex-1 min-w-[140px] basis-0">
-        <p className="text-sm font-semibold truncate">{item.title}</p>
-        <p className="text-xs text-muted-foreground truncate">{item.subtitle}</p>
+        <p className="text-sm font-semibold break-words">{item.title}</p>
+        <p className="text-xs text-muted-foreground break-words">{item.subtitle}</p>
       </div>
       <div className="flex items-center gap-1 ml-auto flex-shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
         <button

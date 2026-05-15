@@ -31,8 +31,8 @@ export function CardListRow({ href, gradient = "primary", icon, title, meta, tra
         </GradientTile>
       )}
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium text-foreground truncate">{title}</div>
-        {meta && <div className="text-xs text-muted-foreground mt-0.5 truncate">{meta}</div>}
+        <div className="text-sm font-medium text-foreground break-words">{title}</div>
+        {meta && <div className="text-xs text-muted-foreground mt-0.5 break-words">{meta}</div>}
       </div>
       {trailing && <div className="text-sm font-semibold text-foreground tabular-nums shrink-0">{trailing}</div>}
       {href && <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />}

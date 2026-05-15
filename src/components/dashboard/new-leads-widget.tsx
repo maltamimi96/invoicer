@@ -97,7 +97,7 @@ export function NewLeadsWidget() {
                 <KireiAvatar name={lead.name ?? "?"} size={40} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-semibold truncate">{lead.name}</p>
+                    <p className="text-sm font-semibold break-words">{lead.name}</p>
                     {lead.status === "contacted" && (
                       <span className="text-[10px] uppercase tracking-wide font-bold text-muted-foreground">contacted</span>
                     )}

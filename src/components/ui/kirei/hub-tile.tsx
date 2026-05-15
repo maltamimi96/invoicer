@@ -31,7 +31,7 @@ export function HubTile({ href, gradient, icon, label, hint, trailing }: HubTile
           {icon}
         </GradientTile>
         <div className="flex-1 min-w-0">
-          <p className="text-base font-semibold text-foreground truncate">{label}</p>
+          <p className="text-base font-semibold text-foreground break-words">{label}</p>
           {hint && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{hint}</p>}
         </div>
         {trailing ? (

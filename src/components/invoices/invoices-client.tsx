@@ -186,7 +186,7 @@ export function InvoicesClient({ invoices: initial, currency = "GBP" }: Invoices
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-xs text-muted-foreground">{invoice.number}</span>
                   </div>
-                  <div className="text-sm font-semibold truncate">{invoice.customers?.name ?? "No client"}</div>
+                  <div className="text-sm font-semibold break-words">{invoice.customers?.name ?? "No client"}</div>
                 </div>
                 <div className="hidden md:block w-32 text-xs text-muted-foreground">{formatDate(invoice.issue_date)}</div>
                 <div className="hidden md:block w-32 text-xs text-muted-foreground">{formatDate(invoice.due_date)}</div>

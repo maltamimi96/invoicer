@@ -374,7 +374,7 @@ function PortfolioHeader({
             <span className="text-xs font-mono text-muted-foreground">{workOrder.number}</span>
             <Badge className={`${STATUS_COLORS[status]} border-0`}>{STATUS_LABELS[status]}</Badge>
           </div>
-          <h1 className="text-2xl font-bold truncate">{workOrder.title}</h1>
+          <h1 className="text-2xl font-bold break-words">{workOrder.title}</h1>
         </div>
         <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
           <a href={`/api/pdf/work-order/${workOrder.id}`} target="_blank" rel="noopener noreferrer">
@@ -618,8 +618,8 @@ function AssignWorkersDialog({
                     {w.name?.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("") || "?"}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{w.name}</p>
-                    <p className="text-xs text-muted-foreground truncate">{w.role_title ?? w.email ?? "Worker"}</p>
+                    <p className="text-sm font-medium break-words">{w.name}</p>
+                    <p className="text-xs text-muted-foreground break-words">{w.role_title ?? w.email ?? "Worker"}</p>
                   </div>
                   {sel && <Check className="w-4 h-4 text-primary flex-shrink-0" />}
                 </button>
@@ -653,7 +653,7 @@ function FactCard({ icon: Icon, label, value, href, onClick }: {
       <Icon className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
       <div className="min-w-0 flex-1">
         <p className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium">{label}</p>
-        <div className="text-sm font-medium truncate">{value}</div>
+        <div className="text-sm font-medium break-words">{value}</div>
       </div>
       {onClick && <Pencil className="w-3 h-3 text-muted-foreground/60 ml-auto flex-shrink-0" />}
     </div>
@@ -1190,7 +1190,7 @@ function DocumentsSection({
             <div key={d.id} className="flex items-center justify-between py-1.5 border-b last:border-0 text-sm">
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                <a href={d.url} target="_blank" rel="noopener noreferrer" className="font-medium hover:underline truncate">{d.name}</a>
+                <a href={d.url} target="_blank" rel="noopener noreferrer" className="font-medium hover:underline break-words">{d.name}</a>
                 <Badge variant="outline" className="text-[10px]">{d.category}</Badge>
                 {d.customer_visible ? <Eye className="w-3 h-3 text-muted-foreground" /> : <EyeOff className="w-3 h-3 text-muted-foreground" />}
               </div>
@@ -1263,7 +1263,7 @@ function SignaturesSection({
                   <img src={s.signature_url} alt="signature" className="h-12 w-24 object-contain bg-white border rounded" />
                 </a>
                 <div className="min-w-0">
-                  <p className="text-sm font-medium truncate">{s.signed_by_name}{s.signed_by_role ? ` (${s.signed_by_role})` : ""}</p>
+                  <p className="text-sm font-medium break-words">{s.signed_by_name}{s.signed_by_role ? ` (${s.signed_by_role})` : ""}</p>
                   <p className="text-xs text-muted-foreground">
                     {SIG_PURPOSES.find((p) => p.key === s.purpose)?.label ?? s.purpose} · {fmtDateTime(s.signed_at)}
                   </p>

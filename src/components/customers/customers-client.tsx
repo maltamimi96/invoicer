@@ -228,19 +228,19 @@ export function CustomersClient({
                   />
                   <KireiAvatar name={customer.name} size={40} />
                   <div className="flex-1 min-w-[140px] basis-0">
-                    <div className="font-semibold truncate">{customer.name}</div>
+                    <div className="font-semibold break-words">{customer.name}</div>
                     {customer.company && (
-                      <div className="text-xs text-muted-foreground truncate inline-flex items-center gap-1 mt-0.5">
+                      <div className="text-xs text-muted-foreground break-words inline-flex items-center gap-1 mt-0.5">
                         <Building2 className="w-3 h-3" /> {customer.company}
                       </div>
                     )}
                   </div>
                   <div className="hidden md:block w-44 min-w-0 text-xs text-muted-foreground space-y-0.5">
                     {customer.email && (
-                      <div className="truncate inline-flex items-center gap-1.5"><Mail className="w-3 h-3 shrink-0" /> {customer.email}</div>
+                      <div className="break-words inline-flex items-center gap-1.5"><Mail className="w-3 h-3 shrink-0" /> {customer.email}</div>
                     )}
                     {customer.phone && (
-                      <div className="truncate inline-flex items-center gap-1.5"><Phone className="w-3 h-3 shrink-0" /> {customer.phone}</div>
+                      <div className="break-words inline-flex items-center gap-1.5"><Phone className="w-3 h-3 shrink-0" /> {customer.phone}</div>
                     )}
                   </div>
                   <div className="hidden md:block w-20 text-right text-sm tabular-nums">

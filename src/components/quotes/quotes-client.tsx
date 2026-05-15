@@ -171,7 +171,7 @@ export function QuotesClient({ quotes: initial, currency = "GBP" }: { quotes: Qu
                 </GradientTile>
                 <div className="flex-1 min-w-[140px] basis-0">
                   <div className="font-mono text-xs text-muted-foreground">{quote.number}</div>
-                  <div className="text-sm font-semibold truncate">{quote.customers?.name ?? "No client"}</div>
+                  <div className="text-sm font-semibold break-words">{quote.customers?.name ?? "No client"}</div>
                 </div>
                 <div className="hidden md:block w-32 text-xs text-muted-foreground">{formatDate(quote.issue_date)}</div>
                 <div className="hidden md:block w-32 text-xs text-muted-foreground">{formatDate(quote.expiry_date)}</div>

@@ -143,16 +143,16 @@ export function WorkOrdersClient({ workOrders, userRole }: WorkOrdersClientProps
                   <Briefcase className="w-4 h-4" />
                 </GradientTile>
                 <div className="flex-1 min-w-[140px] basis-0">
-                  <div className="text-sm font-semibold truncate">{wo.title}</div>
-                  <div className="font-mono text-xs text-muted-foreground truncate">
+                  <div className="text-sm font-semibold break-words">{wo.title}</div>
+                  <div className="font-mono text-xs text-muted-foreground break-words">
                     {wo.number}
                     <span className="md:hidden text-muted-foreground/70">
                       {wo.customers?.name ? ` · ${wo.customers.name}` : ""}
                     </span>
                   </div>
                 </div>
-                <div className="hidden lg:block w-44 text-xs text-muted-foreground truncate">{wo.customers?.name ?? "—"}</div>
-                <div className="hidden md:block w-44 text-xs text-muted-foreground truncate">
+                <div className="hidden lg:block w-44 text-xs text-muted-foreground break-words">{wo.customers?.name ?? "—"}</div>
+                <div className="hidden md:block w-44 text-xs text-muted-foreground break-words">
                   {wo.property_address ? (
                     <span className="inline-flex items-center gap-1"><MapPin className="w-3 h-3 shrink-0" />{wo.property_address}</span>
                   ) : "—"}
