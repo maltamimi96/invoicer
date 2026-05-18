@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { canManageTeam, isOwner } from "@/lib/permissions";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, buildBusinessFrom } from "@/lib/email";
 import { teamInviteEmailHtml } from "@/lib/emails/team-invite";
 import type { MemberProfile, MemberRole } from "@/types/database";
 
@@ -142,6 +142,7 @@ export async function createMemberProfile(payload: {
           inviteUrl,
           inviteCode: inviteToken!,
         }),
+        from: biz?.name ? buildBusinessFrom({ name: biz.name, localPart: "team" }) : undefined,
         tags: { business_id: businessId, doc_type: "team_invite" },
       });
     } catch {

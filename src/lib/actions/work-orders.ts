@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { dispatchWebhook } from "@/lib/webhooks";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, buildBusinessFrom } from "@/lib/email";
 import { workOrderSubmittedEmailHtml } from "@/lib/emails/work-order-submitted";
 import { getRecipientsForRoles } from "@/lib/notifications/recipients";
 import { logJobEvent } from "./job-timeline";
@@ -307,6 +307,8 @@ export async function submitWorkOrder(id: string, workerNotes: string): Promise<
           workerNotes: workerNotes || null,
           viewUrl: `${appUrl}/work-orders/${id}`,
         }),
+        from: bizRow?.name ? buildBusinessFrom({ name: bizRow.name, localPart: "jobs" }) : undefined,
+        tags: { business_id: businessId, doc_type: "custom" },
       });
     }
   } catch {

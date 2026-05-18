@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { dispatchWebhook } from "@/lib/webhooks";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, buildBusinessFrom } from "@/lib/email";
 import { appUrl } from "@/lib/app-url";
 import { quoteEmailHtml } from "@/lib/emails/quote";
 import { randomBytes } from "node:crypto";
@@ -264,6 +264,8 @@ export async function sendQuoteEmail(id: string, opts?: { recipients?: string[];
     subject: opts?.subject ?? `Quote ${quoteData.number} from ${businessData.name}`,
     html: quoteEmailHtml({ quote: quoteData, customer, business: businessData, lineItems, acceptUrl, pdfUrl }),
     attachments: [{ filename: `${quoteData.number}.pdf`, content: pdfBuffer }],
+    from: buildBusinessFrom({ name: businessData.name, localPart: "quotes" }),
+    replyTo: businessData.email || undefined,
     tags: { business_id: businessId, doc_type: "quote", doc_id: quoteData.id },
   });
 
