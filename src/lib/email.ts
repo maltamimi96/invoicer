@@ -11,16 +11,72 @@ function getResend(): Resend {
   return _resend;
 }
 
-// Default from address — override with RESEND_FROM_EMAIL env var once you verify a domain.
-// During development, Resend allows sending from onboarding@resend.dev to your own
-// account-owner mailbox only. Any other recipient will silently fail.
-const FROM = process.env.RESEND_FROM_EMAIL ?? "Kirei <onboarding@resend.dev>";
+/** Root domain we send from. Override with KIREI_EMAIL_DOMAIN if you ever
+ *  migrate. Verified once in Resend; wildcard subdomains (*.kireihq.com)
+ *  are also covered if you add the DKIM/SPF records for them. */
+const ROOT_DOMAIN = process.env.KIREI_EMAIL_DOMAIN ?? "kireihq.com";
+
+/** Default catch-all FROM when no business is associated with the send
+ *  (system / dev-sandbox path). */
+const FALLBACK_FROM = process.env.RESEND_FROM_EMAIL ?? "Kirei <onboarding@resend.dev>";
+
+/** Sanitize a business name into a usable local-part / subdomain label.
+ *  Strips everything that isn't a-z0-9, collapses repeats, trims length. */
+export function slugifyBusiness(name: string): string {
+  const slug = (name ?? "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")  // strip accents
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-+/g, "-")
+    .slice(0, 40);
+  return slug || "business";
+}
+
+/** Build a per-business FROM header, e.g.
+ *    "Crown Roofers <invoices@crownroofers.kireihq.com>"
+ *
+ *  Strategy is controlled by KIREI_FROM_STRATEGY env var:
+ *    - "subdomain" (default): invoices@<slug>.kireihq.com
+ *        Requires the wildcard `*.kireihq.com` to be verified in Resend.
+ *        Cleanest look for the customer.
+ *    - "local":             <slug>@kireihq.com
+ *        Only needs the root domain verified. Use this if subdomain
+ *        wildcard isn't set up yet.
+ *
+ *  Display name is the business name verbatim (sanitised — no quotes or
+ *  pipes — so it can't break the header).
+ */
+export function buildBusinessFrom(opts: {
+  /** Business name shown to the recipient. */
+  name: string;
+  /** Optional business slug if you already have one stored. Falls back to
+   *  slugifying the name. */
+  slug?: string | null;
+  /** Choose the local-part for the address. Default "invoices" reads
+   *  well across invoice / quote / team-invite contexts. */
+  localPart?: string;
+}): string {
+  const strategy = (process.env.KIREI_FROM_STRATEGY ?? "subdomain").toLowerCase();
+  const slug = (opts.slug && opts.slug.trim()) || slugifyBusiness(opts.name);
+  const local = opts.localPart ?? "invoices";
+  const displayName = (opts.name ?? "Kirei")
+    .replace(/[<>"\\]/g, "")
+    .trim() || "Kirei";
+
+  const address = strategy === "local"
+    ? `${slug}@${ROOT_DOMAIN}`
+    : `${local}@${slug}.${ROOT_DOMAIN}`;
+
+  return `${displayName} <${address}>`;
+}
 
 /** True when the configured FROM address is the dev fallback. In that case
  *  Resend rejects sends to anyone except the API key owner. Surfaced in error
  *  messages so the user knows to verify their domain. */
-function isDevFromAddress(): boolean {
-  return /onboarding@resend\.dev/i.test(FROM);
+function isDevFromAddress(from: string): boolean {
+  return /onboarding@resend\.dev/i.test(from);
 }
 
 export type EmailDocType = "invoice" | "quote" | "team_invite" | "lead" | "custom";
@@ -37,6 +93,8 @@ export async function sendEmail({
   html,
   attachments,
   tags,
+  from,
+  replyTo,
 }: {
   to: string | string[];
   subject: string;
@@ -46,7 +104,15 @@ export async function sendEmail({
    *  events back to the right invoice/quote. Falls back to a 'custom' row when
    *  business_id is provided without a doc. */
   tags?: EmailTags;
+  /** Override the From address — use `buildBusinessFrom({ name })` to get a
+   *  per-business sender (e.g. "Crown Roofers <invoices@crownroofers.kireihq.com>"). */
+  from?: string;
+  /** Set the Reply-To header — usually the business's own email so customer
+   *  replies go directly to them, not to our shared inbox. */
+  replyTo?: string | string[];
 }) {
+  const fromHeader = from ?? FALLBACK_FROM;
+
   // Resend headers can carry tags for our own webhook handler to read back.
   const headers: Record<string, string> = {};
   if (tags?.business_id) headers["X-Kirei-Business"] = tags.business_id;
@@ -57,11 +123,12 @@ export async function sendEmail({
   let sendError: string | null = null;
   try {
     const { data, error } = await getResend().emails.send({
-      from: FROM,
+      from: fromHeader,
       to,
       subject,
       html,
       attachments,
+      replyTo: replyTo,
       headers: Object.keys(headers).length ? headers : undefined,
     });
     if (error) throw new Error(error.message);
@@ -93,12 +160,15 @@ export async function sendEmail({
   }
 
   if (sendError) {
-    // Enrich the most common silent-failure mode: trying to send from the
-    // dev sandbox address. Resend's own error text doesn't always say this
-    // clearly, so the user just sees "failed" with no path forward.
-    const hint = isDevFromAddress()
-      ? " — RESEND_FROM_EMAIL isn't set or still uses the resend.dev sandbox, which only delivers to the API key owner's mailbox. Verify your domain in Resend, then set RESEND_FROM_EMAIL to a verified address."
-      : "";
+    let hint = "";
+    if (isDevFromAddress(fromHeader)) {
+      hint = " — Sender is still on the resend.dev sandbox, which only delivers to the API-key owner. Verify your domain in Resend.";
+    } else if (/domain.*not.*verified/i.test(sendError) || /not_found.*domain/i.test(sendError)) {
+      // Subdomain pattern failure — guide the user to the fix.
+      hint = ` — The sender (${fromHeader}) isn't a verified Resend domain. ` +
+        `Either verify the wildcard *.${ROOT_DOMAIN} in Resend (so each tenant gets its own subdomain), ` +
+        `or set KIREI_FROM_STRATEGY=local to send from <slug>@${ROOT_DOMAIN} instead.`;
+    }
     throw new Error(sendError + hint);
   }
   return { id: resendId };

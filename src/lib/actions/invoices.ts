@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { dispatchWebhook } from "@/lib/webhooks";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, buildBusinessFrom } from "@/lib/email";
 import { invoiceEmailHtml } from "@/lib/emails/invoice";
 import { appUrl } from "@/lib/app-url";
 import { randomBytes } from "node:crypto";
@@ -544,6 +544,8 @@ export async function sendInvoiceEmail(id: string, opts?: { recipients?: string[
     subject: opts?.subject ?? `Invoice ${invoiceData.number} from ${businessData.name}`,
     html: invoiceEmailHtml({ invoice: invoiceData, customer, business: businessData, lineItems, portalUrl, pdfUrl }),
     attachments: [{ filename: `${invoiceData.number}.pdf`, content: pdfBuffer }],
+    from: buildBusinessFrom({ name: businessData.name, localPart: "invoices" }),
+    replyTo: businessData.email || undefined,
     tags: { business_id: businessId, doc_type: "invoice", doc_id: invoiceData.id },
   });
 

@@ -11,7 +11,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, buildBusinessFrom } from "@/lib/email";
 import { sendSms } from "@/lib/actions/sms";
 import { invoiceEmailHtml } from "@/lib/emails/invoice";
 import { quoteEmailHtml } from "@/lib/emails/quote";
@@ -105,6 +105,8 @@ async function dispatchInvoice(
       subject: row.subject ?? `Invoice ${invoice.number} from ${business?.name ?? ""}`,
       html: invoiceEmailHtml({ invoice, customer: invoice.customers, business, lineItems, portalUrl }),
       attachments: [{ filename: `${invoice.number}.pdf`, content: pdfBuffer }],
+      from: business?.name ? buildBusinessFrom({ name: business.name, localPart: "invoices" }) : undefined,
+      replyTo: business?.email || undefined,
       tags: { business_id: row.business_id, doc_type: "invoice", doc_id: invoice.id },
     });
 
@@ -166,6 +168,8 @@ async function dispatchQuote(
       subject: row.subject ?? `Quote ${quote.number} from ${business?.name ?? ""}`,
       html: quoteEmailHtml({ quote, customer: quote.customers, business, lineItems, acceptUrl }),
       attachments: [{ filename: `${quote.number}.pdf`, content: pdfBuffer }],
+      from: business?.name ? buildBusinessFrom({ name: business.name, localPart: "quotes" }) : undefined,
+      replyTo: business?.email || undefined,
       tags: { business_id: row.business_id, doc_type: "quote", doc_id: quote.id },
     });
 

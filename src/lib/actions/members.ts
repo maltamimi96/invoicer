@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { canManageTeam, isOwner, type Role } from "@/lib/permissions";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, buildBusinessFrom } from "@/lib/email";
 import { teamInviteEmailHtml } from "@/lib/emails/team-invite";
 import type { BusinessMember, MemberRole } from "@/types/database";
 
@@ -84,6 +84,8 @@ export async function addMember(email: string, role: MemberRole): Promise<void> 
         inviteUrl,
         inviteCode: inviteToken,
       }),
+      from: biz?.name ? buildBusinessFrom({ name: biz.name, localPart: "team" }) : undefined,
+      tags: { business_id: businessId, doc_type: "team_invite" },
     });
   } catch {
     // Email failure is non-fatal — the invite link can still be copied manually
