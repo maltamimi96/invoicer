@@ -4,9 +4,13 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { createCustomer, updateCustomer } from "@/lib/actions/customers";
 import { createWorkOrder, updateWorkOrderStatus } from "@/lib/actions/work-orders";
-import { createQuote, updateQuote, sendQuoteEmail, convertQuoteToInvoice } from "@/lib/actions/quotes";
-import { createInvoice, updateInvoice, sendInvoiceEmail, addPayment } from "@/lib/actions/invoices";
-import { getProducts, createProduct } from "@/lib/actions/products";
+import { createQuote, updateQuote, sendQuoteEmail, convertQuoteToInvoice, deleteQuote } from "@/lib/actions/quotes";
+import { createInvoice, updateInvoice, sendInvoiceEmail, addPayment, deleteInvoice } from "@/lib/actions/invoices";
+import { getProducts, createProduct, updateProduct, deleteProduct } from "@/lib/actions/products";
+import { listTasks, createTask, updateTask, moveTask, deleteTask } from "@/lib/actions/tasks";
+import { updateBusiness } from "@/lib/actions/business";
+import { deleteCustomer } from "@/lib/actions/customers";
+import { deleteWorkOrder } from "@/lib/actions/work-orders";
 import { createReport } from "@/lib/actions/reports";
 import { createSite } from "@/lib/actions/sites";
 import { createContact } from "@/lib/actions/account-contacts";
@@ -19,7 +23,7 @@ import { addJobDocument, getJobDocuments } from "@/lib/actions/job-documents";
 import { getJobPhotos, updateJobPhoto } from "@/lib/actions/job-photos";
 import { addJobNote, getJobTimeline } from "@/lib/actions/job-timeline";
 import { getWorkOrderFinancials, linkFinancialToWorkOrder } from "@/lib/actions/work-orders";
-import { getLeads, createLead, updateLeadStatus, convertLeadToCustomer, convertLeadToQuote, convertLeadToWorkOrder } from "@/lib/actions/leads";
+import { getLeads, createLead, updateLeadStatus, convertLeadToCustomer, convertLeadToQuote, convertLeadToWorkOrder, deleteLead } from "@/lib/actions/leads";
 import { getRecurringJobs, createRecurringJob, setRecurringJobActive, deleteRecurringJob } from "@/lib/actions/recurring-jobs";
 import { createPortalLink } from "@/lib/actions/customer-portal";
 import { parseWhen } from "@/lib/ai/resolvers";
@@ -891,6 +895,127 @@ const TOOLS: Anthropic.Tool[] = [
     },
   },
 
+  // ── Tasks ──────────────────────────────────────────────────────────────────
+  {
+    name: "list_tasks",
+    description: "List tasks on the team kanban board. Optionally filter by status (todo/in_progress/in_review/done).",
+    input_schema: {
+      type: "object" as const,
+      properties: { status: { type: "string", enum: ["todo", "in_progress", "in_review", "done"] } },
+    },
+  },
+  {
+    name: "create_task",
+    description: "Create a task on the kanban board.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        title: { type: "string" },
+        description: { type: "string" },
+        status: { type: "string", enum: ["todo", "in_progress", "in_review", "done"], description: "Defaults to todo" },
+        priority: { type: "string", enum: ["low", "normal", "high", "urgent"], description: "Defaults to normal" },
+        due_date: { type: "string", description: "YYYY-MM-DD" },
+        tags: { type: "array", items: { type: "string" } },
+      },
+      required: ["title"],
+    },
+  },
+  {
+    name: "update_task",
+    description: "Update a task's title / description / priority / due date / tags.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        id: { type: "string" },
+        title: { type: "string" },
+        description: { type: "string" },
+        priority: { type: "string", enum: ["low", "normal", "high", "urgent"] },
+        due_date: { type: "string" },
+        tags: { type: "array", items: { type: "string" } },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "move_task",
+    description: "Move a task to a different status column (todo/in_progress/in_review/done).",
+    input_schema: {
+      type: "object" as const,
+      properties: { id: { type: "string" }, status: { type: "string", enum: ["todo", "in_progress", "in_review", "done"] } },
+      required: ["id", "status"],
+    },
+  },
+  {
+    name: "delete_task",
+    description: "Delete a task.",
+    input_schema: { type: "object" as const, properties: { id: { type: "string" } }, required: ["id"] },
+  },
+
+  // ── Settings ───────────────────────────────────────────────────────────────
+  {
+    name: "get_settings",
+    description: "Get the business profile + settings (name, contact, currency, prefixes, bank details, appearance).",
+    input_schema: { type: "object" as const, properties: {} },
+  },
+  {
+    name: "update_settings",
+    description: "Update business settings / preferences. Only provided fields change. Fields: name, email, phone, address, currency, accent_color, sidebar_theme, bg_pattern, invoice_prefix, quote_prefix, work_order_prefix, bank_name, bank_account_number, bank_account_name, bank_sort_code, license_number.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        name: { type: "string" }, email: { type: "string" }, phone: { type: "string" }, address: { type: "string" },
+        currency: { type: "string" }, accent_color: { type: "string" }, sidebar_theme: { type: "string" }, bg_pattern: { type: "string" },
+        invoice_prefix: { type: "string" }, quote_prefix: { type: "string" }, work_order_prefix: { type: "string" },
+        bank_name: { type: "string" }, bank_account_number: { type: "string" }, bank_account_name: { type: "string" },
+        bank_sort_code: { type: "string" }, license_number: { type: "string" },
+      },
+    },
+  },
+
+  // ── Edits + deletes (parity with MCP) ────────────────────────────────────────
+  {
+    name: "update_product",
+    description: "Update a catalog product / service.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        id: { type: "string" }, name: { type: "string" }, unit_price: { type: "number" },
+        tax_rate: { type: "number" }, description: { type: "string" }, unit: { type: "string" }, archived: { type: "boolean" },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "delete_customer",
+    description: "Delete a customer. Their invoices/quotes keep their data but lose the customer link.",
+    input_schema: { type: "object" as const, properties: { id: { type: "string" } }, required: ["id"] },
+  },
+  {
+    name: "delete_quote",
+    description: "Delete a quote.",
+    input_schema: { type: "object" as const, properties: { id: { type: "string" } }, required: ["id"] },
+  },
+  {
+    name: "delete_invoice",
+    description: "Delete an invoice.",
+    input_schema: { type: "object" as const, properties: { id: { type: "string" } }, required: ["id"] },
+  },
+  {
+    name: "delete_product",
+    description: "Delete a catalog product.",
+    input_schema: { type: "object" as const, properties: { id: { type: "string" } }, required: ["id"] },
+  },
+  {
+    name: "delete_lead",
+    description: "Delete a lead.",
+    input_schema: { type: "object" as const, properties: { id: { type: "string" } }, required: ["id"] },
+  },
+  {
+    name: "delete_work_order",
+    description: "Delete a work order and its photos.",
+    input_schema: { type: "object" as const, properties: { id: { type: "string" } }, required: ["id"] },
+  },
+
   // ── Navigation ─────────────────────────────────────────────────────────────
   {
     name: "navigate_to",
@@ -1651,6 +1776,106 @@ async function executeTool(
       const { data } = await q;
       return { reports: data ?? [], count: (data ?? []).length };
     }
+
+    // ── Tasks ──────────────────────────────────────────────────────────────────
+    case "list_tasks": {
+      const all = await listTasks();
+      const filtered = input.status ? all.filter((t) => t.status === input.status) : all;
+      return { tasks: filtered, count: filtered.length };
+    }
+
+    case "create_task": {
+      const t = await createTask({
+        title: input.title,
+        description: input.description,
+        status: input.status ?? "todo",
+        priority: input.priority ?? "normal",
+        due_date: input.due_date,
+        tags: input.tags,
+      });
+      return { created: true, task: t };
+    }
+
+    case "update_task": {
+      const t = await updateTask({
+        id: input.id,
+        title: input.title,
+        description: input.description,
+        priority: input.priority,
+        due_date: input.due_date,
+        tags: input.tags,
+      });
+      return { updated: true, task: t };
+    }
+
+    case "move_task": {
+      await moveTask({ id: input.id, status: input.status, position: 0 });
+      return { moved: true };
+    }
+
+    case "delete_task": {
+      await deleteTask({ id: input.id });
+      return { deleted: true };
+    }
+
+    // ── Settings ───────────────────────────────────────────────────────────────
+    case "get_settings": {
+      const sb = await getRawSupabase();
+      const { data } = await sb.from("businesses").select("*").eq("id", ctx.businessId).single();
+      return { settings: data };
+    }
+
+    case "update_settings": {
+      const fields = [
+        "name", "email", "phone", "address", "currency", "accent_color", "sidebar_theme", "bg_pattern",
+        "invoice_prefix", "quote_prefix", "work_order_prefix", "bank_name", "bank_account_number",
+        "bank_account_name", "bank_sort_code", "license_number",
+      ] as const;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const patch: Record<string, any> = {};
+      for (const f of fields) if (input[f] !== undefined) patch[f] = input[f];
+      if (Object.keys(patch).length === 0) return { error: "No fields to update" };
+      const updated = await updateBusiness(patch);
+      return { updated: true, settings: updated };
+    }
+
+    // ── Edits + deletes (parity with MCP) ────────────────────────────────────────
+    case "update_product": {
+      const { id, ...rest } = input;
+      const p = await updateProduct(id, {
+        ...(rest.name !== undefined ? { name: rest.name } : {}),
+        ...(rest.unit_price !== undefined ? { unit_price: rest.unit_price } : {}),
+        ...(rest.tax_rate !== undefined ? { tax_rate: rest.tax_rate } : {}),
+        ...(rest.description !== undefined ? { description: rest.description } : {}),
+        ...(rest.unit !== undefined ? { unit: rest.unit } : {}),
+        ...(rest.archived !== undefined ? { archived: rest.archived } : {}),
+      });
+      return { updated: true, product: p };
+    }
+
+    case "delete_customer":
+      await deleteCustomer(input.id);
+      return { deleted: true };
+
+    case "delete_quote":
+      await deleteQuote(input.id);
+      return { deleted: true };
+
+    case "delete_invoice":
+      await deleteInvoice(input.id);
+      return { deleted: true };
+
+    case "delete_product":
+      await deleteProduct(input.id);
+      return { deleted: true };
+
+    case "delete_lead":
+      await deleteLead(input.id);
+      return { deleted: true };
+
+    case "delete_work_order":
+      await deleteWorkOrder(input.id);
+      return { deleted: true };
 
     case "navigate_to":
       return { navigating: true, path: input.path };
