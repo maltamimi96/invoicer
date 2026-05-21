@@ -404,17 +404,22 @@ export function registerTools(server: McpServer): void {
     },
     async (args, extra) => {
       const ctx = ctxFrom(extra); assertScope(ctx, "leads:write");
+      // upsert_lead handles dedup (it's the single ingest path). It's
+      // SECURITY INVOKER and requires p_user_id — the service-role client
+      // satisfies it.
       const { data, error } = await ctx.sb.rpc("upsert_lead", {
-        p_business_id: ctx.businessId, p_name: args.name, p_phone: args.phone ?? null, p_email: args.email ?? null,
-        p_suburb: args.suburb ?? null, p_service: args.service ?? null, p_source: args.source ?? "manual",
-        p_notes: args.notes ?? null,
+        p_business_id: ctx.businessId, p_user_id: ctx.userId, p_name: args.name,
+        p_phone: args.phone ?? null, p_email: args.email ?? null,
+        p_suburb: args.suburb ?? null, p_service: args.service ?? null,
+        p_source: args.source ?? "manual", p_notes: args.notes ?? null,
       });
       if (error) {
-        // Fall back to a plain insert if the RPC signature differs.
+        // Fall back to a plain insert (leads.user_id is NOT NULL).
         const { data: ins, error: insErr } = await t(ctx, "leads").insert({
-          business_id: ctx.businessId, name: args.name, phone: args.phone ?? null, email: args.email ?? null,
-          suburb: args.suburb ?? null, service: args.service ?? null, source: args.source ?? "manual",
-          notes: args.notes ?? null, status: "new",
+          business_id: ctx.businessId, user_id: ctx.userId, name: args.name,
+          phone: args.phone ?? null, email: args.email ?? null,
+          suburb: args.suburb ?? null, service: args.service ?? null,
+          source: args.source ?? "manual", notes: args.notes ?? null, status: "new",
         }).select().single();
         if (insErr) throw insErr;
         return text({ created: true, lead: ins });
@@ -500,7 +505,8 @@ export function registerTools(server: McpServer): void {
       const status = args.status ?? "todo";
       const { data: maxRow } = await t(ctx, "tasks").select("position").eq("business_id", ctx.businessId).eq("status", status).order("position", { ascending: false }).limit(1).maybeSingle();
       const { data, error } = await t(ctx, "tasks").insert({
-        business_id: ctx.businessId, title: args.title, description: args.description ?? null,
+        business_id: ctx.businessId, created_by: ctx.userId,
+        title: args.title, description: args.description ?? null,
         status, priority: args.priority ?? "normal", due_date: args.due_date ?? null,
         tags: args.tags ?? [], position: (maxRow?.position ?? -1) + 1,
       }).select().single();
@@ -535,7 +541,7 @@ export function registerTools(server: McpServer): void {
     async (args, extra) => {
       const ctx = ctxFrom(extra); assertScope(ctx, "products:write");
       const { data, error } = await t(ctx, "products").insert({
-        business_id: ctx.businessId, name: args.name, unit_price: args.unit_price,
+        business_id: ctx.businessId, user_id: ctx.userId, name: args.name, unit_price: args.unit_price,
         tax_rate: args.tax_rate ?? 10, description: args.description ?? null, unit: args.unit ?? null, archived: false,
       }).select().single();
       if (error) throw error;
