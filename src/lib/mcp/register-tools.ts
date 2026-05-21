@@ -418,20 +418,29 @@ export function registerTools(server: McpServer): void {
   tool("create_work_order", "Create a work order / job.",
     {
       title: z.string().min(1), customer_id: UUID.optional(), property_address: z.string().optional(),
-      scheduled_date: z.string().optional(), reported_issue: z.string().optional(), description: z.string().optional(),
+      scheduled_date: z.string().optional(), start_time: z.string().optional(), end_time: z.string().optional(),
+      reported_issue: z.string().optional(), description: z.string().optional(),
     },
     async (args, extra) => {
       const ctx = ctxFrom(extra); assertScope(ctx, "work_orders:write");
-      const { data: number } = await ctx.sb.rpc("next_work_order_number", { p_business_id: ctx.businessId }).then(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (r: any) => r, () => ({ data: null }),
-      );
+      // Mint the WO number the same way the web app does: read the business
+      // prefix + next number, then bump the counter. (There is no RPC for
+      // this — the previous version called a non-existent RPC and inserted a
+      // null number, which the NOT NULL column rejected.)
+      const { data: biz } = await t(ctx, "businesses")
+        .select("work_order_prefix, work_order_next_number")
+        .eq("id", ctx.businessId).single();
+      const next = biz?.work_order_next_number ?? 1;
+      const number = `${biz?.work_order_prefix ?? "WO"}-${String(next).padStart(4, "0")}`;
+      await t(ctx, "businesses").update({ work_order_next_number: next + 1 }).eq("id", ctx.businessId);
+
       const { data, error } = await t(ctx, "work_orders").insert({
-        business_id: ctx.businessId, user_id: ctx.userId, title: args.title,
+        business_id: ctx.businessId, user_id: ctx.userId, number, title: args.title,
         customer_id: args.customer_id ?? null, property_address: args.property_address ?? null,
-        scheduled_date: args.scheduled_date ?? null, reported_issue: args.reported_issue ?? null,
-        description: args.description ?? null, status: "draft",
-        ...(number ? { number } : {}),
+        scheduled_date: args.scheduled_date ?? null,
+        start_time: args.start_time ?? null, end_time: args.end_time ?? null,
+        reported_issue: args.reported_issue ?? null,
+        description: args.description ?? null, status: "draft", photos: [],
       }).select().single();
       if (error) throw error;
       return text({ created: true, work_order: data });
