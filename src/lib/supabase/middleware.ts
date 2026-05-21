@@ -53,6 +53,10 @@ export async function updateSession(request: NextRequest) {
     pathname === "/api/auth/signup" ||
     pathname.startsWith("/api/v1/") ||
     pathname.startsWith("/api/cron/") ||
+    // MCP server authenticates itself via the inv_* API key (the mcp-handler
+    // auth wrapper returns 401 on its own). Let every method through —
+    // including the unauthenticated discovery / OPTIONS preflight.
+    pathname.startsWith("/api/mcp") ||
     (isBearerAuthRoute && hasBearer) ||
     (pathname.startsWith("/api/pdf/") && new URL(request.url).searchParams.get("token") !== null);
 
