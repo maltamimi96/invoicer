@@ -26,6 +26,37 @@ import type { ApiScope, LineItem } from "@/types/database";
 
 interface AuthExtra { businessId: string; userId: string; scopes: ApiScope[]; }
 
+/** Extract a human message from anything thrown — Error, Supabase
+ *  PostgrestError (plain object with .message/.details/.hint/.code), or
+ *  arbitrary value. Avoids the "[object Object]" that plain String() gives. */
+function errMsg(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  if (e && typeof e === "object") {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const o = e as any;
+    const parts = [o.message, o.details, o.hint, o.code && `(${o.code})`].filter(Boolean);
+    if (parts.length) return parts.join(" — ");
+    try { return JSON.stringify(e); } catch { return "Unknown error"; }
+  }
+  return String(e);
+}
+
+/** Mint the next sequential document number for an entity straight from the
+ *  businesses counter (e.g. quote_prefix + quote_next_number -> QT-0007),
+ *  bumping the counter. We do NOT use the next_quote_number / next_invoice_number
+ *  RPCs here: they are SECURITY DEFINER but gate on auth.uid() membership, which
+ *  is NULL under the service-role MCP client, so they raise "Not authorised".
+ *  This read-bump matches what the cookie-bound server actions fall back to. */
+async function mintNumber(ctx: McpContext, prefixCol: string, counterCol: string, fallbackPrefix: string): Promise<string> {
+  const { data: biz, error } = await t(ctx, "businesses").select(`${prefixCol}, ${counterCol}`).eq("id", ctx.businessId).single();
+  if (error) throw error;
+  const next = biz?.[counterCol] ?? 1;
+  const number = `${biz?.[prefixCol] ?? fallbackPrefix}-${String(next).padStart(4, "0")}`;
+  const { error: upErr } = await t(ctx, "businesses").update({ [counterCol]: next + 1 }).eq("id", ctx.businessId);
+  if (upErr) throw upErr;
+  return number;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function ctxFrom(extra: any): McpContext {
   const auth = extra?.authInfo?.extra as AuthExtra | undefined;
@@ -118,7 +149,7 @@ export function registerTools(server: McpServer): void {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return await handler(args as any, extra as any);
       } catch (e) {
-        return errorText(e instanceof Error ? e.message : String(e));
+        return errorText(errMsg(e));
       }
     });
 
@@ -217,8 +248,7 @@ export function registerTools(server: McpServer): void {
     async (args, extra) => {
       const ctx = ctxFrom(extra); assertScope(ctx, "quotes:write");
       const { items, subtotal, tax_total, total } = buildLineItems(args.line_items);
-      const { data: number, error: mintErr } = await ctx.sb.rpc("next_quote_number", { p_business_id: ctx.businessId });
-      if (mintErr || !number) throw mintErr ?? new Error("Couldn't mint quote number");
+      const number = await mintNumber(ctx, "quote_prefix", "quote_next_number", "QT");
       const issue = new Date().toISOString().split("T")[0];
       const expiry = new Date(Date.now() + (args.expiry_days ?? 30) * 86_400_000).toISOString().split("T")[0];
       const { data, error } = await t(ctx, "quotes").insert({
@@ -298,8 +328,7 @@ export function registerTools(server: McpServer): void {
     async (args, extra) => {
       const ctx = ctxFrom(extra); assertScope(ctx, "invoices:write");
       const { items, subtotal, tax_total, total } = buildLineItems(args.line_items);
-      const { data: number, error: mintErr } = await ctx.sb.rpc("next_invoice_number", { p_business_id: ctx.businessId });
-      if (mintErr || !number) throw mintErr ?? new Error("Couldn't mint invoice number");
+      const number = await mintNumber(ctx, "invoice_prefix", "invoice_next_number", "INV");
       const issue = new Date().toISOString().split("T")[0];
       const due = new Date(Date.now() + (args.due_days ?? 14) * 86_400_000).toISOString().split("T")[0];
       const { data, error } = await t(ctx, "invoices").insert({
