@@ -50,7 +50,11 @@ const authed = withMcpAuth(
       },
     };
   },
-  { required: true },
+  {
+    required: true,
+    // 401s point clients here to discover the OAuth authorization server.
+    resourceMetadataPath: "/.well-known/oauth-protected-resource",
+  },
 );
 
 export { authed as GET, authed as POST, authed as DELETE };

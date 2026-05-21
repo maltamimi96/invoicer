@@ -28,6 +28,10 @@ export default function LoginPage() {
 
   const inviteEmail = searchParams.get("email") ?? "";
   const inviteBiz = searchParams.get("biz") ?? "";
+  // Where to go after sign-in. Only same-origin relative paths are honoured
+  // (must start with a single "/") so this can't be used as an open redirect.
+  const nextParamRaw = searchParams.get("next") ?? "";
+  const nextParam = /^\/(?!\/)/.test(nextParamRaw) ? nextParamRaw : "";
 
   const supabase = createClient();
 
@@ -54,6 +58,10 @@ export default function LoginPage() {
     if (inviteBiz) {
       // Use full navigation so the Route Handler's redirect is followed correctly
       window.location.href = `/api/activate-invite?biz=${encodeURIComponent(inviteBiz)}`;
+    } else if (nextParam) {
+      // Return to the OAuth consent screen (or wherever sent us here). Full
+      // navigation so any route-handler redirect at the destination is followed.
+      window.location.href = nextParam;
     } else {
       router.push("/dashboard");
       router.refresh();

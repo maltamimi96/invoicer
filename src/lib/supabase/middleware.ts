@@ -57,6 +57,11 @@ export async function updateSession(request: NextRequest) {
     // auth wrapper returns 401 on its own). Let every method through —
     // including the unauthenticated discovery / OPTIONS preflight.
     pathname.startsWith("/api/mcp") ||
+    // OAuth 2.1 authorization-server endpoints + RFC 8414/9728 metadata for
+    // the claude.ai connector. /authorize reads the session cookie itself and
+    // redirects to login when needed, so it must not be auto-redirected here.
+    pathname.startsWith("/api/oauth/") ||
+    pathname.startsWith("/.well-known/") ||
     (isBearerAuthRoute && hasBearer) ||
     (pathname.startsWith("/api/pdf/") && new URL(request.url).searchParams.get("token") !== null);
 
