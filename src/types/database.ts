@@ -868,15 +868,49 @@ export type ApiScope =
   | 'leads:write'
   | 'customers:read'
   | 'customers:write'
-  | 'agent:access';
+  | 'quotes:read'
+  | 'quotes:write'
+  | 'invoices:read'
+  | 'invoices:write'
+  | 'work_orders:read'
+  | 'work_orders:write'
+  | 'tasks:read'
+  | 'tasks:write'
+  | 'products:read'
+  | 'products:write'
+  | 'settings:read'
+  | 'settings:write'
+  | 'email:send'
+  | 'agent:access'
+  | 'admin';  // wildcard — grants every scope (use for trusted Claude Code keys)
 
 export const ALL_API_SCOPES: { value: ApiScope; label: string; group: string }[] = [
-  { value: 'leads:read',      label: 'Read leads',      group: 'Leads' },
-  { value: 'leads:write',     label: 'Create leads',    group: 'Leads' },
-  { value: 'customers:read',  label: 'Read customers',  group: 'Customers' },
-  { value: 'customers:write', label: 'Create customers', group: 'Customers' },
-  { value: 'agent:access',    label: 'AI Agent access',  group: 'Agent' },
+  { value: 'admin',            label: 'Full admin (everything)', group: 'Admin' },
+  { value: 'leads:read',       label: 'Read leads',        group: 'Leads' },
+  { value: 'leads:write',      label: 'Create / edit leads', group: 'Leads' },
+  { value: 'customers:read',   label: 'Read customers',    group: 'Customers' },
+  { value: 'customers:write',  label: 'Create / edit customers', group: 'Customers' },
+  { value: 'quotes:read',      label: 'Read quotes',       group: 'Quotes' },
+  { value: 'quotes:write',     label: 'Create / edit quotes', group: 'Quotes' },
+  { value: 'invoices:read',    label: 'Read invoices',     group: 'Invoices' },
+  { value: 'invoices:write',   label: 'Create / edit invoices', group: 'Invoices' },
+  { value: 'work_orders:read', label: 'Read work orders',  group: 'Work orders' },
+  { value: 'work_orders:write',label: 'Create / edit work orders', group: 'Work orders' },
+  { value: 'tasks:read',       label: 'Read tasks',        group: 'Tasks' },
+  { value: 'tasks:write',      label: 'Create / edit tasks', group: 'Tasks' },
+  { value: 'products:read',    label: 'Read products',     group: 'Products' },
+  { value: 'products:write',   label: 'Create / edit products', group: 'Products' },
+  { value: 'settings:read',    label: 'Read settings',     group: 'Settings' },
+  { value: 'settings:write',   label: 'Edit settings & preferences', group: 'Settings' },
+  { value: 'email:send',       label: 'Send emails to customers', group: 'Email' },
+  { value: 'agent:access',     label: 'AI Agent access',   group: 'Agent' },
 ];
+
+/** Expand the `admin` wildcard into the concrete scope set, and dedupe. */
+export function expandApiScopes(scopes: ApiScope[]): ApiScope[] {
+  if (!scopes.includes('admin')) return scopes;
+  return ALL_API_SCOPES.map((s) => s.value).filter((s) => s !== 'admin');
+}
 
 export interface BusinessApiKey {
   id: string;
