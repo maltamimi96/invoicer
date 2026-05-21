@@ -564,4 +564,415 @@ export function registerTools(server: McpServer): void {
         leadCount: (leads ?? []).length, jobCount: (jobs ?? []).length,
       });
     });
+
+  // ===== CUSTOMERS (delete) =====
+  tool("delete_customer", "Delete a customer. Their invoices/quotes keep their data but lose the customer link.",
+    { customer_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "customers:write");
+      const { error } = await t(ctx, "customers").delete().eq("id", args.customer_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ deleted: true });
+    });
+
+  // ===== QUOTES (update / delete / status / convert) =====
+  tool("update_quote", "Update a quote's notes, terms, expiry, status or line items. Provide line_items to fully replace them (totals recomputed).",
+    {
+      quote_id: UUID, notes: z.string().optional(), terms: z.string().optional(),
+      expiry_date: z.string().optional(), property_address: z.string().optional(),
+      status: z.enum(["draft", "sent", "accepted", "rejected", "expired"]).optional(),
+      line_items: z.array(z.object({ name: z.string(), description: z.string().optional(), quantity: z.number().optional(), unit_price: z.number(), tax_rate: z.number().optional(), discount_percent: z.number().optional() })).optional(),
+    },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "quotes:write");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const patch: any = {};
+      for (const k of ["notes", "terms", "expiry_date", "property_address", "status"] as const) if (args[k] !== undefined) patch[k] = args[k];
+      if (args.line_items) {
+        const { items, subtotal, tax_total, total } = buildLineItems(args.line_items);
+        patch.line_items = items; patch.subtotal = subtotal; patch.tax_total = tax_total; patch.total = total;
+      }
+      if (Object.keys(patch).length === 0) return errorText("No fields to update.");
+      const { data, error } = await t(ctx, "quotes").update(patch).eq("id", args.quote_id).eq("business_id", ctx.businessId).select().single();
+      if (error) throw error;
+      return text({ updated: true, quote: data });
+    });
+
+  tool("set_quote_status", "Set a quote's status.",
+    { quote_id: UUID, status: z.enum(["draft", "sent", "accepted", "rejected", "expired"]) },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "quotes:write");
+      const { error } = await t(ctx, "quotes").update({ status: args.status }).eq("id", args.quote_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ updated: true });
+    });
+
+  tool("delete_quote", "Delete a quote.",
+    { quote_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "quotes:write");
+      const { error } = await t(ctx, "quotes").delete().eq("id", args.quote_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ deleted: true });
+    });
+
+  tool("convert_quote_to_invoice", "Create an invoice from an accepted quote (copies line items + totals) and links them.",
+    { quote_id: UUID, due_days: z.number().int().optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "quotes:write"); assertScope(ctx, "invoices:write");
+      const { data: quote } = await t(ctx, "quotes").select("*").eq("id", args.quote_id).eq("business_id", ctx.businessId).maybeSingle();
+      if (!quote) return errorText("Quote not found");
+      const { data: biz } = await t(ctx, "businesses").select("invoice_prefix, invoice_next_number").eq("id", ctx.businessId).single();
+      const next = biz?.invoice_next_number ?? 1;
+      const number = `${biz?.invoice_prefix ?? "INV"}-${String(next).padStart(4, "0")}`;
+      await t(ctx, "businesses").update({ invoice_next_number: next + 1 }).eq("id", ctx.businessId);
+      const issue = new Date().toISOString().split("T")[0];
+      const due = new Date(Date.now() + (args.due_days ?? 14) * 86_400_000).toISOString().split("T")[0];
+      const { data: invoice, error } = await t(ctx, "invoices").insert({
+        business_id: ctx.businessId, user_id: ctx.userId, customer_id: quote.customer_id, number,
+        issue_date: issue, due_date: due, line_items: quote.line_items,
+        subtotal: quote.subtotal, discount_type: quote.discount_type ?? "fixed", discount_value: quote.discount_value ?? 0,
+        discount_amount: quote.discount_amount ?? 0, tax_total: quote.tax_total, total: quote.total,
+        amount_paid: 0, notes: quote.notes, terms: quote.terms, property_address: quote.property_address, status: "draft",
+      }).select().single();
+      if (error) throw error;
+      await t(ctx, "quotes").update({ invoice_id: invoice.id, status: "accepted" }).eq("id", quote.id);
+      return text({ created: true, invoice });
+    });
+
+  // ===== INVOICES (update / delete / payment / status) =====
+  tool("update_invoice", "Update an invoice's notes, terms, due date, status or line items.",
+    {
+      invoice_id: UUID, notes: z.string().optional(), terms: z.string().optional(),
+      due_date: z.string().optional(), property_address: z.string().optional(),
+      status: z.enum(["draft", "sent", "partial", "paid", "overdue", "cancelled"]).optional(),
+      line_items: z.array(z.object({ name: z.string(), description: z.string().optional(), quantity: z.number().optional(), unit_price: z.number(), tax_rate: z.number().optional(), discount_percent: z.number().optional() })).optional(),
+    },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "invoices:write");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const patch: any = {};
+      for (const k of ["notes", "terms", "due_date", "property_address", "status"] as const) if (args[k] !== undefined) patch[k] = args[k];
+      if (args.line_items) {
+        const { items, subtotal, tax_total, total } = buildLineItems(args.line_items);
+        patch.line_items = items; patch.subtotal = subtotal; patch.tax_total = tax_total; patch.total = total;
+      }
+      if (Object.keys(patch).length === 0) return errorText("No fields to update.");
+      const { data, error } = await t(ctx, "invoices").update(patch).eq("id", args.invoice_id).eq("business_id", ctx.businessId).select().single();
+      if (error) throw error;
+      return text({ updated: true, invoice: data });
+    });
+
+  tool("set_invoice_status", "Set an invoice's status.",
+    { invoice_id: UUID, status: z.enum(["draft", "sent", "partial", "paid", "overdue", "cancelled"]) },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "invoices:write");
+      const { error } = await t(ctx, "invoices").update({ status: args.status }).eq("id", args.invoice_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ updated: true });
+    });
+
+  tool("add_invoice_payment", "Record a payment against an invoice. Recomputes amount_paid + status (partial/paid).",
+    { invoice_id: UUID, amount: z.number().positive(), date: z.string().optional(), method: z.string().optional(), reference: z.string().optional(), notes: z.string().optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "invoices:write");
+      const { data: invoice } = await t(ctx, "invoices").select("total").eq("id", args.invoice_id).eq("business_id", ctx.businessId).maybeSingle();
+      if (!invoice) return errorText("Invoice not found");
+      const { error: payErr } = await t(ctx, "payments").insert({
+        invoice_id: args.invoice_id, business_id: ctx.businessId, user_id: ctx.userId,
+        amount: args.amount, date: args.date ?? new Date().toISOString().split("T")[0],
+        method: args.method ?? null, reference: args.reference ?? null, notes: args.notes ?? null,
+      });
+      if (payErr) throw payErr;
+      // Recompute from truth: direct payments + any child-invoice collections.
+      const num = (v: unknown) => Number(v ?? 0) || 0;
+      const { data: direct } = await t(ctx, "payments").select("amount").eq("invoice_id", args.invoice_id).eq("business_id", ctx.businessId);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const directSum = (direct ?? []).reduce((s: number, r: any) => s + num(r.amount), 0);
+      const { data: children } = await t(ctx, "invoices").select("amount_paid").eq("parent_invoice_id", args.invoice_id).eq("business_id", ctx.businessId);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const childSum = (children ?? []).reduce((s: number, r: any) => s + num(r.amount_paid), 0);
+      const amountPaid = directSum + childSum;
+      const status = amountPaid >= num(invoice.total) - 0.01 ? "paid" : "partial";
+      await t(ctx, "invoices").update({ amount_paid: amountPaid, status }).eq("id", args.invoice_id);
+      return text({ recorded: true, amount_paid: amountPaid, status });
+    });
+
+  tool("delete_invoice", "Delete an invoice.",
+    { invoice_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "invoices:write");
+      const { error } = await t(ctx, "invoices").delete().eq("id", args.invoice_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ deleted: true });
+    });
+
+  // ===== LEADS (get / update / delete / convert) =====
+  tool("get_lead", "Get one lead with all its fields.",
+    { lead_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "leads:read");
+      const { data } = await t(ctx, "leads").select("*").eq("id", args.lead_id).eq("business_id", ctx.businessId).maybeSingle();
+      if (!data) return errorText("Lead not found");
+      return text(data);
+    });
+
+  tool("update_lead", "Update lead fields (name/phone/email/suburb/service/property_type/timing/notes).",
+    {
+      lead_id: UUID, name: z.string().optional(), phone: z.string().optional(), email: z.string().optional(),
+      suburb: z.string().optional(), service: z.string().optional(), property_type: z.string().optional(),
+      timing: z.string().optional(), notes: z.string().optional(),
+    },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "leads:write");
+      const { lead_id, ...patch } = args;
+      const clean = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined));
+      if (Object.keys(clean).length === 0) return errorText("No fields to update.");
+      const { data, error } = await t(ctx, "leads").update(clean).eq("id", lead_id).eq("business_id", ctx.businessId).select().single();
+      if (error) throw error;
+      return text({ updated: true, lead: data });
+    });
+
+  tool("delete_lead", "Delete a lead.",
+    { lead_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "leads:write");
+      const { error } = await t(ctx, "leads").delete().eq("id", args.lead_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ deleted: true });
+    });
+
+  tool("convert_lead_to_customer", "Create a customer from a lead and link them (sets lead status to contacted).",
+    { lead_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "leads:write"); assertScope(ctx, "customers:write");
+      const { data: lead } = await t(ctx, "leads").select("*").eq("id", args.lead_id).eq("business_id", ctx.businessId).maybeSingle();
+      if (!lead) return errorText("Lead not found");
+      const { data: customer, error } = await t(ctx, "customers").insert({
+        business_id: ctx.businessId, user_id: ctx.userId, name: lead.name,
+        email: lead.email ?? null, phone: lead.phone ?? null, city: lead.suburb ?? null,
+        notes: lead.notes ?? null, archived: false,
+      }).select().single();
+      if (error) throw error;
+      await t(ctx, "leads").update({ customer_id: customer.id, status: lead.status === "new" ? "contacted" : lead.status }).eq("id", lead.id);
+      return text({ created: true, customer });
+    });
+
+  // ===== WORK ORDERS (get / update / delete / status / assign / note) =====
+  tool("get_work_order", "Get one work order with customer, assigned workers, photos count, and recent timeline.",
+    { work_order_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "work_orders:read");
+      const { data: wo } = await t(ctx, "work_orders").select("*, customers(name, phone, email)").eq("id", args.work_order_id).eq("business_id", ctx.businessId).maybeSingle();
+      if (!wo) return errorText("Work order not found");
+      const [{ data: assignments }, { data: photos }] = await Promise.all([
+        t(ctx, "work_order_assignments").select("member_profiles(id, name, email)").eq("work_order_id", args.work_order_id),
+        t(ctx, "job_photos").select("id, phase, url").eq("work_order_id", args.work_order_id),
+      ]);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const workers = (assignments ?? []).map((a: any) => a.member_profiles).filter(Boolean);
+      return text({ ...wo, assigned_workers: workers, photo_count: (photos ?? []).length });
+    });
+
+  tool("update_work_order", "Update a work order's title / scope / schedule / address.",
+    {
+      work_order_id: UUID, title: z.string().optional(), description: z.string().optional(),
+      scope_of_work: z.string().optional(), reported_issue: z.string().optional(), property_address: z.string().optional(),
+      scheduled_date: z.string().optional(), start_time: z.string().optional(), end_time: z.string().optional(),
+    },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "work_orders:write");
+      const { work_order_id, ...patch } = args;
+      const clean = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined));
+      if (Object.keys(clean).length === 0) return errorText("No fields to update.");
+      const { data, error } = await t(ctx, "work_orders").update(clean).eq("id", work_order_id).eq("business_id", ctx.businessId).select().single();
+      if (error) throw error;
+      return text({ updated: true, work_order: data });
+    });
+
+  tool("set_work_order_status", "Set a work order's status.",
+    { work_order_id: UUID, status: z.enum(["draft", "assigned", "in_progress", "submitted", "reviewed", "completed", "cancelled"]) },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "work_orders:write");
+      const { error } = await t(ctx, "work_orders").update({ status: args.status }).eq("id", args.work_order_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ updated: true });
+    });
+
+  tool("assign_workers", "Assign team members to a work order by their member_profile IDs (use list_team to resolve names). Replaces the current assignment set.",
+    { work_order_id: UUID, member_profile_ids: z.array(UUID) },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "work_orders:write");
+      await t(ctx, "work_order_assignments").delete().eq("work_order_id", args.work_order_id).eq("business_id", ctx.businessId);
+      if (args.member_profile_ids.length > 0) {
+        const rows = args.member_profile_ids.map((pid: string) => ({
+          work_order_id: args.work_order_id, business_id: ctx.businessId, member_profile_id: pid, assigned_by: ctx.userId,
+        }));
+        const { error } = await t(ctx, "work_order_assignments").insert(rows);
+        if (error) throw error;
+        await t(ctx, "work_orders").update({ status: "assigned" }).eq("id", args.work_order_id).eq("business_id", ctx.businessId).eq("status", "draft");
+      }
+      return text({ assigned: args.member_profile_ids.length });
+    });
+
+  tool("add_work_order_note", "Add a note to a work order's timeline.",
+    { work_order_id: UUID, note: z.string().min(1), visible_to_customer: z.boolean().optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "work_orders:write");
+      const { error } = await t(ctx, "job_timeline_events").insert({
+        business_id: ctx.businessId, work_order_id: args.work_order_id, type: "note_added",
+        payload: { content: args.note }, actor_type: "user", actor_label: "Claude",
+        visible_to_customer: args.visible_to_customer ?? false, occurred_at: new Date().toISOString(),
+      });
+      if (error) throw error;
+      return text({ added: true });
+    });
+
+  tool("delete_work_order", "Delete a work order and its photos.",
+    { work_order_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "work_orders:write");
+      const { error } = await t(ctx, "work_orders").delete().eq("id", args.work_order_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ deleted: true });
+    });
+
+  // ===== TASKS (update / delete) =====
+  tool("update_task", "Update a task's title / description / priority / due date / tags.",
+    {
+      task_id: UUID, title: z.string().optional(), description: z.string().optional(),
+      priority: z.enum(["low", "normal", "high", "urgent"]).optional(), due_date: z.string().optional(), tags: z.array(z.string()).optional(),
+    },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "tasks:write");
+      const { task_id, ...patch } = args;
+      const clean = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined));
+      if (Object.keys(clean).length === 0) return errorText("No fields to update.");
+      const { data, error } = await t(ctx, "tasks").update(clean).eq("id", task_id).eq("business_id", ctx.businessId).select().single();
+      if (error) throw error;
+      return text({ updated: true, task: data });
+    });
+
+  tool("delete_task", "Delete a task.",
+    { task_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "tasks:write");
+      const { error } = await t(ctx, "tasks").delete().eq("id", args.task_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ deleted: true });
+    });
+
+  // ===== PRODUCTS (update / delete) =====
+  tool("update_product", "Update a catalog product.",
+    { product_id: UUID, name: z.string().optional(), unit_price: z.number().optional(), tax_rate: z.number().optional(), description: z.string().optional(), unit: z.string().optional(), archived: z.boolean().optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "products:write");
+      const { product_id, ...patch } = args;
+      const clean = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined));
+      if (Object.keys(clean).length === 0) return errorText("No fields to update.");
+      const { data, error } = await t(ctx, "products").update(clean).eq("id", product_id).eq("business_id", ctx.businessId).select().single();
+      if (error) throw error;
+      return text({ updated: true, product: data });
+    });
+
+  tool("delete_product", "Delete a catalog product.",
+    { product_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "products:write");
+      const { error } = await t(ctx, "products").delete().eq("id", args.product_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ deleted: true });
+    });
+
+  // ===== SITES (per-customer properties) =====
+  tool("list_sites", "List a customer's sites / properties.",
+    { customer_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "customers:read");
+      const { data, error } = await t(ctx, "sites").select("id, label, address, city, state, postcode, gate_code, parking_notes, access_notes, archived")
+        .eq("business_id", ctx.businessId).eq("account_id", args.customer_id).order("created_at");
+      if (error) throw error;
+      return text(data);
+    });
+
+  tool("create_site", "Add a site / property to a customer.",
+    {
+      customer_id: UUID, label: z.string().optional(), address: z.string().optional(), city: z.string().optional(),
+      state: z.string().optional(), postcode: z.string().optional(), gate_code: z.string().optional(),
+      parking_notes: z.string().optional(), access_notes: z.string().optional(),
+    },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "customers:write");
+      const { customer_id, ...rest } = args;
+      const { data, error } = await t(ctx, "sites").insert({
+        business_id: ctx.businessId, account_id: customer_id, archived: false,
+        ...Object.fromEntries(Object.entries(rest).map(([k, v]) => [k, v ?? null])),
+      }).select().single();
+      if (error) throw error;
+      return text({ created: true, site: data });
+    });
+
+  // ===== CONTACTS (per-customer contacts) =====
+  tool("list_contacts", "List a customer's contacts (booker / on-site / billing people).",
+    { customer_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "customers:read");
+      const { data, error } = await t(ctx, "account_contacts").select("id, name, email, phone, role, notes, archived")
+        .eq("business_id", ctx.businessId).eq("account_id", args.customer_id).order("created_at");
+      if (error) throw error;
+      return text(data);
+    });
+
+  tool("create_contact", "Add a contact to a customer.",
+    { customer_id: UUID, name: z.string().min(1), email: z.string().optional(), phone: z.string().optional(), role: z.string().optional(), notes: z.string().optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "customers:write");
+      const { data, error } = await t(ctx, "account_contacts").insert({
+        business_id: ctx.businessId, account_id: args.customer_id, name: args.name,
+        email: args.email ?? null, phone: args.phone ?? null, role: args.role ?? "other", notes: args.notes ?? null, archived: false,
+      }).select().single();
+      if (error) throw error;
+      return text({ created: true, contact: data });
+    });
+
+  // ===== TEAM =====
+  tool("list_team", "List the business's team member profiles (id, name, email, role title) — use the IDs with assign_workers.",
+    {},
+    async (_args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "work_orders:read");
+      const { data, error } = await t(ctx, "member_profiles").select("id, name, email, role_title, skills, is_active").eq("business_id", ctx.businessId).order("name");
+      if (error) throw error;
+      return text(data);
+    });
+
+  // ===== RECURRING =====
+  tool("list_recurring", "List recurring job templates.",
+    {},
+    async (_args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "work_orders:read");
+      const { data, error } = await t(ctx, "recurring_jobs").select("id, name, title, cadence, active, next_occurrence_at, customer_id").eq("business_id", ctx.businessId).order("next_occurrence_at");
+      if (error) throw error;
+      return text(data);
+    });
+
+  tool("set_recurring_active", "Pause or resume a recurring job.",
+    { recurring_id: UUID, active: z.boolean() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "work_orders:write");
+      const { error } = await t(ctx, "recurring_jobs").update({ active: args.active }).eq("id", args.recurring_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ updated: true });
+    });
+
+  // ===== SCHEDULE =====
+  tool("get_schedule", "Get jobs scheduled on a given date (YYYY-MM-DD), or today if omitted.",
+    { date: z.string().optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "work_orders:read");
+      const date = args.date ?? new Date().toISOString().split("T")[0];
+      const { data, error } = await t(ctx, "work_orders").select("id, number, title, status, start_time, end_time, property_address, customers(name)")
+        .eq("business_id", ctx.businessId).eq("scheduled_date", date).order("start_time", { ascending: true, nullsFirst: false });
+      if (error) throw error;
+      return text({ date, jobs: data });
+    });
 }
