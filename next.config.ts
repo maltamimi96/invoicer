@@ -34,6 +34,17 @@ const nextConfig: NextConfig = {
     formats: ["image/avif", "image/webp"],
   },
   serverExternalPackages: ["@react-pdf/renderer"],
+  // RFC 8414 / 9728 discovery lives at /.well-known/* by spec, but App Router
+  // dot-folders are flaky — serve them from plain API routes via rewrites so
+  // the public URL stays correct.
+  async rewrites() {
+    return [
+      { source: "/.well-known/oauth-authorization-server", destination: "/api/oauth/meta/authorization-server" },
+      { source: "/.well-known/oauth-authorization-server/api/mcp", destination: "/api/oauth/meta/authorization-server" },
+      { source: "/.well-known/oauth-protected-resource", destination: "/api/oauth/meta/protected-resource" },
+      { source: "/.well-known/oauth-protected-resource/api/mcp", destination: "/api/oauth/meta/protected-resource" },
+    ];
+  },
   async headers() {
     return [
       {
