@@ -1010,4 +1010,191 @@ export function registerTools(server: McpServer): void {
       if (error) throw error;
       return text({ date, jobs: data });
     });
+
+  // ===== QUOTES / INVOICES — duplicate =====
+  tool("duplicate_quote", "Create a fresh draft copy of an existing quote (new number, today's issue date).",
+    { quote_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "quotes:write");
+      const { data: q } = await t(ctx, "quotes").select("*").eq("id", args.quote_id).eq("business_id", ctx.businessId).maybeSingle();
+      if (!q) return errorText("Quote not found");
+      const number = await mintNumber(ctx, "quote_prefix", "quote_next_number", "QT");
+      const issue = new Date().toISOString().split("T")[0];
+      const expiry = new Date(Date.now() + 30 * 86_400_000).toISOString().split("T")[0];
+      const { data, error } = await t(ctx, "quotes").insert({
+        business_id: ctx.businessId, user_id: ctx.userId, customer_id: q.customer_id, number,
+        issue_date: issue, expiry_date: expiry, line_items: q.line_items,
+        subtotal: q.subtotal, discount_type: q.discount_type ?? "fixed", discount_value: q.discount_value ?? 0,
+        discount_amount: q.discount_amount ?? 0, tax_total: q.tax_total, total: q.total,
+        notes: q.notes, terms: q.terms, property_address: q.property_address, status: "draft", invoice_id: null,
+      }).select().single();
+      if (error) throw error;
+      return text({ created: true, quote: data });
+    });
+
+  tool("duplicate_invoice", "Create a fresh draft copy of an existing invoice (new number, today's issue date, unpaid).",
+    { invoice_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "invoices:write");
+      const { data: inv } = await t(ctx, "invoices").select("*").eq("id", args.invoice_id).eq("business_id", ctx.businessId).maybeSingle();
+      if (!inv) return errorText("Invoice not found");
+      const number = await mintNumber(ctx, "invoice_prefix", "invoice_next_number", "INV");
+      const issue = new Date().toISOString().split("T")[0];
+      const due = new Date(Date.now() + 14 * 86_400_000).toISOString().split("T")[0];
+      const { data, error } = await t(ctx, "invoices").insert({
+        business_id: ctx.businessId, user_id: ctx.userId, customer_id: inv.customer_id, number,
+        issue_date: issue, due_date: due, line_items: inv.line_items,
+        subtotal: inv.subtotal, discount_type: inv.discount_type ?? "fixed", discount_value: inv.discount_value ?? 0,
+        discount_amount: inv.discount_amount ?? 0, tax_total: inv.tax_total, total: inv.total,
+        amount_paid: 0, notes: inv.notes, terms: inv.terms, property_address: inv.property_address, status: "draft",
+      }).select().single();
+      if (error) throw error;
+      return text({ created: true, invoice: data });
+    });
+
+  // ===== LEADS — convert to quote / work order =====
+  tool("convert_lead_to_quote", "Create a customer (if not linked) + a draft quote from a lead, and link them (lead → quoted).",
+    { lead_id: UUID, expiry_days: z.number().int().optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "leads:write"); assertScope(ctx, "quotes:write");
+      const customerId = await ensureCustomerForLead(ctx, args.lead_id);
+      if (!customerId) return errorText("Lead not found");
+      const number = await mintNumber(ctx, "quote_prefix", "quote_next_number", "QT");
+      const issue = new Date().toISOString().split("T")[0];
+      const expiry = new Date(Date.now() + (args.expiry_days ?? 30) * 86_400_000).toISOString().split("T")[0];
+      const { data: quote, error } = await t(ctx, "quotes").insert({
+        business_id: ctx.businessId, user_id: ctx.userId, customer_id: customerId, number,
+        issue_date: issue, expiry_date: expiry, line_items: [], subtotal: 0,
+        discount_type: "fixed", discount_value: 0, discount_amount: 0, tax_total: 0, total: 0,
+        status: "draft", invoice_id: null,
+      }).select().single();
+      if (error) throw error;
+      await t(ctx, "leads").update({ customer_id: customerId, quote_id: quote.id, status: "quoted" }).eq("id", args.lead_id).eq("business_id", ctx.businessId);
+      return text({ created: true, quote, customer_id: customerId });
+    });
+
+  tool("convert_lead_to_work_order", "Create a customer (if not linked) + a work order from a lead, and link them (lead → won).",
+    { lead_id: UUID, scheduled_date: z.string().optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "leads:write"); assertScope(ctx, "work_orders:write");
+      const customerId = await ensureCustomerForLead(ctx, args.lead_id);
+      if (!customerId) return errorText("Lead not found");
+      const { data: lead } = await t(ctx, "leads").select("name, service, suburb, notes").eq("id", args.lead_id).eq("business_id", ctx.businessId).maybeSingle();
+      const number = await mintNumber(ctx, "work_order_prefix", "work_order_next_number", "WO");
+      const { data: wo, error } = await t(ctx, "work_orders").insert({
+        business_id: ctx.businessId, user_id: ctx.userId, number,
+        title: lead?.service ? `${lead.service} — ${lead?.name ?? ""}`.trim() : (lead?.name ?? "New job"),
+        customer_id: customerId, property_address: lead?.suburb ?? null,
+        reported_issue: lead?.notes ?? null, scheduled_date: args.scheduled_date ?? null, status: "draft", photos: [],
+      }).select().single();
+      if (error) throw error;
+      await t(ctx, "leads").update({ customer_id: customerId, status: "won" }).eq("id", args.lead_id).eq("business_id", ctx.businessId);
+      return text({ created: true, work_order: wo, customer_id: customerId });
+    });
+
+  // ===== WORK ORDERS — share link / financials / materials / time =====
+  tool("enable_work_order_share_link", "Generate (or reuse) a public customer share link for a work order. Returns the /jobs/<token> URL.",
+    { work_order_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "work_orders:write");
+      const { data: wo } = await t(ctx, "work_orders").select("share_token").eq("id", args.work_order_id).eq("business_id", ctx.businessId).maybeSingle();
+      if (!wo) return errorText("Work order not found");
+      let token = wo.share_token as string | null;
+      if (!token) {
+        token = `${randomBytes(16).toString("hex")}${randomBytes(4).toString("hex")}`;
+        const { error } = await t(ctx, "work_orders").update({ share_token: token, share_enabled_at: new Date().toISOString() }).eq("id", args.work_order_id).eq("business_id", ctx.businessId);
+        if (error) throw error;
+      }
+      return text({ enabled: true, url: `${appBase()}/jobs/${token}` });
+    });
+
+  tool("disable_work_order_share_link", "Revoke a work order's public share link.",
+    { work_order_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "work_orders:write");
+      const { error } = await t(ctx, "work_orders").update({ share_token: null, share_enabled_at: null }).eq("id", args.work_order_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ disabled: true });
+    });
+
+  tool("get_work_order_financials", "Get a work order's linked quotes + invoices and its unbilled materials/time totals.",
+    { work_order_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "work_orders:read");
+      const num = (v: unknown) => Number(v ?? 0) || 0;
+      const [{ data: quotes }, { data: invoices }, { data: materials }, { data: time }] = await Promise.all([
+        t(ctx, "quotes").select("id, number, status, total").eq("work_order_id", args.work_order_id).eq("business_id", ctx.businessId),
+        t(ctx, "invoices").select("id, number, status, total, amount_paid").eq("work_order_id", args.work_order_id).eq("business_id", ctx.businessId),
+        t(ctx, "job_materials").select("name, qty, unit_price, billable, invoice_id").eq("work_order_id", args.work_order_id).eq("business_id", ctx.businessId),
+        t(ctx, "job_time_entries").select("duration_seconds, invoice_id").eq("work_order_id", args.work_order_id).eq("business_id", ctx.businessId),
+      ]);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const unbilledMaterials = (materials ?? []).filter((m: any) => m.billable && !m.invoice_id).reduce((s: number, m: any) => s + num(m.qty) * num(m.unit_price), 0);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const unbilledSeconds = (time ?? []).filter((e: any) => !e.invoice_id).reduce((s: number, e: any) => s + num(e.duration_seconds), 0);
+      return text({ quotes, invoices, unbilledMaterials, unbilledTimeHours: Math.round((unbilledSeconds / 3600) * 100) / 100 });
+    });
+
+  tool("list_job_materials", "List materials logged on a work order.",
+    { work_order_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "work_orders:read");
+      const { data, error } = await t(ctx, "job_materials").select("id, name, qty, unit, unit_cost, unit_price, billable, invoice_id").eq("work_order_id", args.work_order_id).eq("business_id", ctx.businessId).order("added_at");
+      if (error) throw error;
+      return text(data);
+    });
+
+  tool("add_job_material", "Add a material line to a work order.",
+    { work_order_id: UUID, name: z.string().min(1), qty: z.number().optional(), unit: z.string().optional(), unit_cost: z.number().optional(), unit_price: z.number().optional(), billable: z.boolean().optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "work_orders:write");
+      const { data, error } = await t(ctx, "job_materials").insert({
+        business_id: ctx.businessId, work_order_id: args.work_order_id, added_by: ctx.userId,
+        name: args.name, qty: args.qty ?? 1, unit: args.unit ?? null,
+        unit_cost: args.unit_cost ?? 0, unit_price: args.unit_price ?? args.unit_cost ?? 0,
+        billable: args.billable ?? true,
+      }).select().single();
+      if (error) throw error;
+      return text({ added: true, material: data });
+    });
+
+  tool("list_job_time", "List time entries logged on a work order.",
+    { work_order_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "work_orders:read");
+      const { data, error } = await t(ctx, "job_time_entries").select("id, type, started_at, ended_at, duration_seconds, notes, invoice_id").eq("work_order_id", args.work_order_id).eq("business_id", ctx.businessId).order("started_at");
+      if (error) throw error;
+      return text(data);
+    });
+
+  tool("log_time_block", "Log a completed block of time on a work order (minutes).",
+    { work_order_id: UUID, minutes: z.number().positive(), type: z.enum(["work", "travel", "break"]).optional(), notes: z.string().optional(), started_at: z.string().optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "work_orders:write");
+      const started = args.started_at ?? new Date(Date.now() - args.minutes * 60_000).toISOString();
+      const ended = new Date(new Date(started).getTime() + args.minutes * 60_000).toISOString();
+      const { data, error } = await t(ctx, "job_time_entries").insert({
+        business_id: ctx.businessId, work_order_id: args.work_order_id, user_id: ctx.userId,
+        type: args.type ?? "work", started_at: started, ended_at: ended,
+        duration_seconds: Math.round(args.minutes * 60), notes: args.notes ?? null,
+      }).select().single();
+      if (error) throw error;
+      return text({ logged: true, time_entry: data });
+    });
+}
+
+/** Find or create the customer for a lead (mirrors ensureCustomerForLead in
+ *  the web app). Returns the customer id, or null if the lead is missing. */
+async function ensureCustomerForLead(ctx: McpContext, leadId: string): Promise<string | null> {
+  const { data: lead } = await t(ctx, "leads").select("*").eq("id", leadId).eq("business_id", ctx.businessId).maybeSingle();
+  if (!lead) return null;
+  if (lead.customer_id) return lead.customer_id;
+  const { data: customer, error } = await t(ctx, "customers").insert({
+    business_id: ctx.businessId, user_id: ctx.userId, name: lead.name,
+    email: lead.email ?? null, phone: lead.phone ?? null, city: lead.suburb ?? null,
+    notes: lead.notes ?? null, archived: false,
+  }).select("id").single();
+  if (error) throw error;
+  await t(ctx, "leads").update({ customer_id: customer.id }).eq("id", leadId).eq("business_id", ctx.businessId);
+  return customer.id;
 }
