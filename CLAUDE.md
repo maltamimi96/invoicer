@@ -96,6 +96,7 @@ Conventions:
   ```
 - After mutations: `revalidatePath()` the affected page(s)
 - New columns: write the migration in `supabase/migrations/`, apply via `supabase db query --linked --file`, update `src/types/database.ts`
+- **Expose it over MCP**: any new capability also gets a tool in `src/lib/mcp/register-tools.ts` (see the MCP section). This is a hard rule, not optional.
 
 ### Mobile app talks to the same Postgres
 
@@ -202,6 +203,24 @@ A specialised AI agent for generating quotes using a per-business pricing knowle
 - `/quoting-agent/settings` — disable toggle, baseline rates editor, full knowledge-bank manager (grouped by kind, inline edit/delete, "Unconfirmed estimate" badge for AI rows)
 
 **To extend**: adding a new tool means a JSON-schema entry in the `TOOLS` array + a branch in `runTool()`. The agent's memory persists across the conversation (server returns `messages` history; client sends back) — same shape contract as the mobile agent.
+
+### MCP server — drive the app from Claude Code / claude.ai
+
+A remote **Model Context Protocol** server at **`/api/mcp`** (`mcp-handler` package) lets Claude Code, the Claude API, and the **claude.ai connector** operate a business end-to-end. ~50 tools across every entity.
+
+- **Endpoint**: `src/app/api/mcp/route.ts` — `createMcpHandler` wrapped in `withMcpAuth`. Stateless Streamable HTTP (no Redis).
+- **Tools**: `src/lib/mcp/register-tools.ts` — every tool reads business context from the authed key, checks its scope (`assertScope`), and runs against the **admin Supabase client scoped by `business_id`** (same pattern as `/api/v1` — MCP requests are API-key-authed, NOT cookie, so the cookie-bound server actions can't be reused directly). Helpers in `src/lib/mcp/context.ts`.
+- **Heavy ops** (quote/invoice PDF + email) reuse the exact pure helpers the web app uses (number-mint, `invoiceEmailHtml`/`quoteEmailHtml`, PDF renderers, `sendEmail`, `buildBusinessFrom`) so output is identical. WO/invoice numbers are minted from `businesses.<x>_prefix` + `<x>_next_number` (read-bump) — there is **no `next_work_order_number` RPC** (only `next_invoice_number` / `next_quote_number` exist).
+
+**Auth — two ways in, same server:**
+- **Header key** (Claude Code, API): `Authorization: Bearer inv_…` — the existing per-business API keys (Settings → API), validated by `authenticateApiKey()`.
+- **OAuth 2.1** (claude.ai custom connector): full AS in front of the MCP endpoint — `src/app/api/oauth/{register,authorize,token}` + RFC 8414/9728 metadata at `src/app/api/oauth/meta/*` served at `/.well-known/*` via `next.config.ts` rewrites (App Router dot-folders are unreliable). Public client + PKCE S256. `/authorize` requires a kireihq.com login (login page honours a same-origin `?next=`) then shows a consent screen to pick a business. The token endpoint **mints an `inv_*` admin key as the access_token** — so the MCP layer is auth-method-agnostic and the connection is revocable in Settings → API. Tables: `oauth_clients`, `oauth_codes` (migration `20260522023813_mcp_oauth.sql`, service-role only).
+
+**Scopes** (`ApiScope` in `src/types/database.ts`): `leads/customers/quotes/invoices/work_orders/tasks/products/settings` × `read|write`, plus `email:send`, `agent:access`, and the `admin` wildcard. `expandApiScopes()` turns `admin` into the full set. The Settings → API UI and `createApiKey` validator both derive from `ALL_API_SCOPES`, so new scopes appear + validate automatically.
+
+**🔴 STANDING RULE — every new feature MUST get an MCP tool.** When you add a server action / capability (new entity, new mutation, new workflow), you also add the matching tool(s) to `src/lib/mcp/register-tools.ts` in the same PR: pick/extend a scope, write the zod schema, scope-check, run via the admin client scoped by `business_id`. The MCP surface is expected to stay at parity with the app's capabilities — treat "added a feature but not its MCP tool" as an incomplete change.
+
+Middleware whitelists `/api/mcp`, `/api/oauth/`, and `/.well-known/` (they own their auth).
 
 ### Smart Organise (the cleanup agent)
 
