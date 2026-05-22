@@ -1,12 +1,11 @@
 name: Email Leads Scanner
 
 on:
-  schedule:
-    # Fire every 30 minutes. The route itself gates the cadence by Sydney
-    # local time: twice an hour during the day (6am–8pm), once every two
-    # hours overnight (8pm–6am). Off-cadence ticks return immediately.
-    - cron: '*/30 * * * *'
-  workflow_dispatch: {}  # manual trigger from GitHub UI (bypasses the gate via ?force=1)
+  # Scheduling moved to Vercel Cron (vercel.json → /api/cron/email-leads,
+  # */30) because GitHub Actions' scheduled cron is unreliable — it throttles
+  # and silently skips */30 runs. This workflow is kept only for manual
+  # on-demand scans from the GitHub UI.
+  workflow_dispatch: {}  # manual trigger (bypasses the time-of-day gate via ?force=1)
 
 jobs:
   scan-emails:
