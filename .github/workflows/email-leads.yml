@@ -2,9 +2,11 @@ name: Email Leads Scanner
 
 on:
   schedule:
-    # Once daily — 7:30 AM AEST (= 21:30 UTC). Scans the last ~26 hours of inbox.
-    - cron: '30 21 * * *'
-  workflow_dispatch: {}  # manual trigger from GitHub UI
+    # Fire every 30 minutes. The route itself gates the cadence by Sydney
+    # local time: twice an hour during the day (6am–8pm), once every two
+    # hours overnight (8pm–6am). Off-cadence ticks return immediately.
+    - cron: '*/30 * * * *'
+  workflow_dispatch: {}  # manual trigger from GitHub UI (bypasses the gate via ?force=1)
 
 jobs:
   scan-emails:
@@ -29,9 +31,12 @@ jobs:
 
       - name: Trigger email leads scan
         run: |
+          # Manual runs force a scan regardless of the time-of-day cadence gate.
+          QS=""
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then QS="?force=1"; fi
           response=$(curl -sf -w "\n%{http_code}" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            "${{ secrets.INVOICER_URL }}/api/cron/email-leads")
+            "${{ secrets.INVOICER_URL }}/api/cron/email-leads${QS}")
 
           http_code=$(echo "$response" | tail -1)
           body=$(echo "$response" | head -n -1)
