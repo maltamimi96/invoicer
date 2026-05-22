@@ -86,13 +86,26 @@ export async function updateInvoice(id: string, payload: Partial<Invoice>): Prom
 
   const businessId = await getActiveBizId(supabase, user.id);
 
+  // Marking an invoice "paid" via the status dropdown should also settle the
+  // balance — otherwise amount_paid stays behind and (for deposit children)
+  // the parent-reconcile trigger has nothing to roll up. Only auto-fill when
+  // the caller didn't pass an explicit amount_paid.
+  const patch: Partial<Invoice> = { ...payload };
+  if (payload.status === "paid" && payload.amount_paid == null) {
+    const { data: cur } = await tbl(supabase, "invoices").select("total").eq("id", id).eq("business_id", businessId).single();
+    if (cur) patch.amount_paid = cur.total;
+  }
+
   const { data, error } = await tbl(supabase, "invoices")
-    .update(payload)
+    .update(patch)
     .eq("id", id)
     .eq("business_id", businessId)
     .select()
     .single();
   if (error) throw error;
+  // The parent (if any) is reconciled automatically by the DB trigger
+  // trg_reconcile_parent_invoice — revalidate it too so the UI reflects it.
+  if (data?.parent_invoice_id) revalidatePath(`/invoices/${data.parent_invoice_id}`);
   revalidatePath("/invoices");
   revalidatePath(`/invoices/${id}`);
   revalidatePath("/dashboard");

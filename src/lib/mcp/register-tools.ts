@@ -698,11 +698,17 @@ export function registerTools(server: McpServer): void {
       return text({ updated: true, invoice: data });
     });
 
-  tool("set_invoice_status", "Set an invoice's status.",
+  tool("set_invoice_status", "Set an invoice's status. Marking 'paid' also settles amount_paid, and (for deposit children) the parent invoice reconciles automatically.",
     { invoice_id: UUID, status: z.enum(["draft", "sent", "partial", "paid", "overdue", "cancelled"]) },
     async (args, extra) => {
       const ctx = ctxFrom(extra); assertScope(ctx, "invoices:write");
-      const { error } = await t(ctx, "invoices").update({ status: args.status }).eq("id", args.invoice_id).eq("business_id", ctx.businessId);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const patch: any = { status: args.status };
+      if (args.status === "paid") {
+        const { data: cur } = await t(ctx, "invoices").select("total").eq("id", args.invoice_id).eq("business_id", ctx.businessId).maybeSingle();
+        if (cur) patch.amount_paid = cur.total;  // DB trigger rolls this up to any parent
+      }
+      const { error } = await t(ctx, "invoices").update(patch).eq("id", args.invoice_id).eq("business_id", ctx.businessId);
       if (error) throw error;
       return text({ updated: true });
     });
