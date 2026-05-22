@@ -30,6 +30,12 @@ interface LeadExtraction {
   property_type: string | null;
   notes: string | null;
   reason: string;
+  // Action item — set when the email asks the OWNER to DO something
+  // (send a quote, reply, fix an invoice, call someone, follow up, schedule).
+  requires_action: boolean;
+  action_title: string | null;        // short imperative, e.g. "Send quote to Sarah for gutter repair"
+  action_priority: "low" | "normal" | "high" | "urgent" | null;
+  action_due: "today" | "tomorrow" | "this_week" | null;
 }
 
 interface BusinessResult {
@@ -37,9 +43,70 @@ interface BusinessResult {
   businessName: string;
   processed: number;
   leads: number;
+  tasks: number;
   skipped: number;
   duplicates: number;
   error?: string;
+}
+
+const DUE_OFFSET_DAYS: Record<string, number> = { today: 0, tomorrow: 1, this_week: 3 };
+
+/** Create a to-do from an action-required email. Deduped by source_message_id
+ *  via the partial unique index, so re-scans never duplicate it. Returns true
+ *  if a new task was inserted. */
+async function createTaskFromEmail(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  sb: any,
+  businessId: string,
+  createdBy: string,
+  email: RawEmail,
+  ex: LeadExtraction,
+): Promise<boolean> {
+  if (!ex.requires_action || !ex.action_title) return false;
+
+  // Cheap pre-check (the unique index is the real guard against races).
+  if (email.messageId) {
+    const { data: existing } = await sb.from("tasks")
+      .select("id").eq("business_id", businessId).eq("source_message_id", email.messageId).maybeSingle();
+    if (existing) return false;
+  }
+
+  let dueDate: string | null = null;
+  if (ex.action_due && ex.action_due in DUE_OFFSET_DAYS) {
+    const d = new Date();
+    d.setDate(d.getDate() + DUE_OFFSET_DAYS[ex.action_due]);
+    dueDate = d.toISOString().split("T")[0];
+  }
+
+  const senderEmail = ex.email || email.from.match(/<(.+?)>/)?.[1] || email.from;
+  const description =
+    `From email: "${email.subject}"\n` +
+    `Sender: ${senderEmail}\n` +
+    (ex.notes ? `\n${ex.notes}` : "");
+
+  // Next position in the todo column.
+  const { data: maxRow } = await sb.from("tasks")
+    .select("position").eq("business_id", businessId).eq("status", "todo")
+    .order("position", { ascending: false }).limit(1).maybeSingle();
+
+  const { error } = await sb.from("tasks").insert({
+    business_id: businessId,
+    created_by: createdBy,
+    title: ex.action_title.slice(0, 300),
+    description,
+    status: "todo",
+    priority: ex.action_priority ?? "normal",
+    due_date: dueDate,
+    tags: ["email", "auto"],
+    position: (maxRow?.position ?? -1) + 1,
+    source_message_id: email.messageId ?? null,
+  });
+  // Unique-violation (23505) => another run beat us to it; treat as no-op.
+  if (error && error.code !== "23505") {
+    console.error("[email-leads] task insert failed:", error.message);
+    return false;
+  }
+  return !error;
 }
 
 // Daily scan covers the last ~26 hours (small overlap guards against boundary misses).
@@ -87,6 +154,17 @@ NOT a lead (set is_lead=false, this is important):
 
 When unsure between "real human asking about work" and "sales pitch AT this business", read the content: if they're asking the business to DO work for them, it's a lead; if they're trying to sell the business something, it's NOT.
 
+SEPARATELY, decide whether this email requires the BUSINESS OWNER to DO SOMETHING — an action/follow-up worth putting on their to-do list. Set requires_action=true and write a short imperative action_title for things like:
+- "Send a quote to <name> for <work>"
+- "Reply to <name> about <topic>"
+- "Call <name> on <phone>"
+- "Fix / re-send invoice <number>"
+- "Follow up <name> on <topic>"
+- "Schedule / book <job> for <name>"
+- "Chase payment from <name>"
+A genuine new lead almost always also needs an action (e.g. "Send quote to ..."). Set requires_action=false for purely informational mail, receipts, newsletters, spam, automated notifications, or anything that needs no human action.
+Pick action_priority by urgency words ("urgent", "ASAP", "today", "by Friday") and money at stake. Pick action_due: "today" if they want a same-day response or it's urgent, "tomorrow" if soon, "this_week" otherwise, or null if no clear timeframe.
+
 Email:
 From: ${email.from}
 Subject: ${email.subject}
@@ -104,7 +182,11 @@ Respond with ONLY a JSON object (no markdown, no explanation):
   "service": "what service they need or null",
   "property_type": "residential/commercial or null",
   "notes": "brief summary of their request or null",
-  "reason": "why you classified it this way (1 sentence)"
+  "reason": "why you classified it this way (1 sentence)",
+  "requires_action": true/false,
+  "action_title": "short imperative task title or null",
+  "action_priority": "low|normal|high|urgent or null",
+  "action_due": "today|tomorrow|this_week or null"
 }`;
 
   try {
@@ -116,7 +198,7 @@ Respond with ONLY a JSON object (no markdown, no explanation):
 
     const text = response.content.find((b) => b.type === "text");
     if (!text || text.type !== "text") {
-      return { is_lead: false, name: null, phone: null, email: null, suburb: null, service: null, property_type: null, notes: null, reason: "No AI response" };
+      return { is_lead: false, name: null, phone: null, email: null, suburb: null, service: null, property_type: null, notes: null, reason: "No AI response", requires_action: false, action_title: null, action_priority: null, action_due: null };
     }
 
     let jsonStr = text.text.trim();
@@ -126,7 +208,7 @@ Respond with ONLY a JSON object (no markdown, no explanation):
     return JSON.parse(jsonStr) as LeadExtraction;
   } catch (e) {
     console.error("AI classification failed:", e);
-    return { is_lead: false, name: null, phone: null, email: null, suburb: null, service: null, property_type: null, notes: null, reason: "AI error" };
+    return { is_lead: false, name: null, phone: null, email: null, suburb: null, service: null, property_type: null, notes: null, reason: "AI error", requires_action: false, action_title: null, action_priority: null, action_due: null };
   }
 }
 
@@ -141,6 +223,7 @@ async function processBusinessEmails(
     businessName: config.business_name,
     processed: 0,
     leads: 0,
+    tasks: 0,
     skipped: 0,
     duplicates: 0,
   };
@@ -153,7 +236,16 @@ async function processBusinessEmails(
       pass: config.imap_pass,
     };
 
-    const since = new Date(Date.now() - SCAN_WINDOW_HOURS * 60 * 60 * 1000);
+    // Scan since the last successful check (with a 45-min overlap to guard
+    // boundary misses), capped at SCAN_WINDOW_HOURS so a long outage doesn't
+    // re-classify weeks of mail. Frequent runs therefore stay cheap.
+    const lastChecked = config.last_checked ? new Date(config.last_checked).getTime() : 0;
+    const overlapMs = 45 * 60 * 1000;
+    const capMs = SCAN_WINDOW_HOURS * 60 * 60 * 1000;
+    const sinceMs = lastChecked
+      ? Math.max(lastChecked - overlapMs, Date.now() - capMs)
+      : Date.now() - capMs;
+    const since = new Date(sinceMs);
     const emails = await fetchEmailsSince(imapConfig, since, 200);
     result.processed = emails.length;
 
@@ -180,6 +272,22 @@ async function processBusinessEmails(
       }
 
       const extraction = await classifyEmail(anthropic, email, config.business_name);
+
+      // Action items first — a non-lead email (e.g. "re-send invoice INV-29",
+      // "call the tenant back") can still need a to-do. Independent of lead.
+      if (extraction.requires_action && extraction.action_title) {
+        const made = await createTaskFromEmail(sb, config.business_id, config.business_user_id, email, extraction);
+        if (made) {
+          result.tasks++;
+          await sendTelegram(
+            `✅ <b>NEW TASK — Email</b> (${config.business_name})\n\n` +
+            `📝 ${extraction.action_title}\n` +
+            (extraction.action_due ? `⏰ ${extraction.action_due}\n` : "") +
+            (extraction.action_priority ? `🔺 ${extraction.action_priority}\n` : "") +
+            `\n✉️ ${email.subject}`
+          );
+        }
+      }
 
       if (!extraction.is_lead) {
         result.skipped++;
@@ -259,6 +367,29 @@ async function processBusinessEmails(
   return result;
 }
 
+/** Current wall-clock hour/minute in the business's local zone (Sydney). */
+function localNow(): { hour: number; minute: number } {
+  const parts = new Intl.DateTimeFormat("en-AU", {
+    timeZone: "Australia/Sydney", hour: "2-digit", minute: "2-digit", hour12: false,
+  }).formatToParts(new Date());
+  const hour = Number(parts.find((p) => p.type === "hour")?.value ?? "0") % 24;
+  const minute = Number(parts.find((p) => p.type === "minute")?.value ?? "0");
+  return { hour, minute };
+}
+
+/** Cadence gate. The workflow fires every 30 min; we decide whether THIS tick
+ *  should actually scan:
+ *    - Daytime (6am–8pm Sydney): every run → twice an hour.
+ *    - Night (8pm–6am): only on even hours at the top of the hour → once every
+ *      two hours (8pm, 10pm, 12am, 2am, 4am).
+ *  DST-proof because it reads the actual Sydney clock, not a fixed UTC offset. */
+function shouldRunNow(): boolean {
+  const { hour, minute } = localNow();
+  const daytime = hour >= 6 && hour < 20;
+  if (daytime) return true;
+  return hour % 2 === 0 && minute < 30;
+}
+
 export async function GET(req: NextRequest) {
   // Auth
   const secret = process.env.CRON_SECRET;
@@ -269,6 +400,13 @@ export async function GET(req: NextRequest) {
   const auth = req.headers.get("authorization");
   if (auth !== `Bearer ${secret}`) {
     return new NextResponse("Unauthorized", { status: 401 });
+  }
+
+  // Cadence gate (skip unless ?force=1, used by manual workflow_dispatch).
+  const force = req.nextUrl.searchParams.get("force") === "1";
+  if (!force && !shouldRunNow()) {
+    const { hour, minute } = localNow();
+    return NextResponse.json({ skipped: true, reason: "off-cadence", localTime: `${hour}:${String(minute).padStart(2, "0")}` });
   }
 
   try {
@@ -305,8 +443,9 @@ export async function GET(req: NextRequest) {
     }
 
     const totalLeads = results.reduce((s, r) => s + r.leads, 0);
+    const totalTasks = results.reduce((s, r) => s + r.tasks, 0);
     const totalProcessed = results.reduce((s, r) => s + r.processed, 0);
-    console.log(`[email-leads] Scanned ${configs.length} business(es): ${totalProcessed} emails, ${totalLeads} leads`);
+    console.log(`[email-leads] Scanned ${configs.length} business(es): ${totalProcessed} emails, ${totalLeads} leads, ${totalTasks} tasks`);
 
     return NextResponse.json({ businesses: configs.length, results });
   } catch (e) {
