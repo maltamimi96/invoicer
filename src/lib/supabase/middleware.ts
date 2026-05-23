@@ -45,6 +45,8 @@ export async function updateSession(request: NextRequest) {
     pathname === "/api/ai/transcribe";
 
   const isPublicRoute =
+    pathname === "/privacy" ||
+    pathname === "/support" ||
     pathname.startsWith("/invoice/") ||
     pathname.startsWith("/quote/") ||
     pathname.startsWith("/jobs/") ||

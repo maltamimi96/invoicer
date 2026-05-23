@@ -2,7 +2,7 @@
   "expo": {
     "name": "Kirei",
     "slug": "kirei",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "orientation": "default",
     "scheme": "kirei",
     "userInterfaceStyle": "automatic",
