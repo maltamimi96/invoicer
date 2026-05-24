@@ -53,9 +53,11 @@ export async function addMember(email: string, role: MemberRole): Promise<void> 
   // serve via Connected Hub without needing the email link to load.
   const inviteToken = generateInviteCode();
 
+  const cleanEmail = email.toLowerCase().trim();
+
   const { error } = await tbl(supabase, "business_members").insert({
     business_id: businessId,
-    email: email.toLowerCase().trim(),
+    email: cleanEmail,
     role,
     status: "pending",
     invite_token: inviteToken,
@@ -65,6 +67,19 @@ export async function addMember(email: string, role: MemberRole): Promise<void> 
     if (error.code === "23505") throw new Error("This email has already been added to this business");
     throw error;
   }
+
+  // Every team member also gets a workforce profile (member_profiles) so they
+  // can be assigned to jobs and auto-linked on sign-in via
+  // link_my_member_profile(). Without this, an access-level add left a member
+  // with no profile. Placeholder name from the email local-part; the member
+  // (or an admin) can edit it later. user_id stays null until they sign in.
+  const placeholderName = cleanEmail.split("@")[0].replace(/[._-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) || cleanEmail;
+  const { error: profErr } = await tbl(supabase, "member_profiles").upsert(
+    { business_id: businessId, email: cleanEmail, name: placeholderName, is_active: true },
+    { onConflict: "business_id,email", ignoreDuplicates: true },
+  );
+  // A profile must exist — only swallow the "already exists" case.
+  if (profErr && profErr.code !== "23505") throw profErr;
 
   // Send invite email (best-effort — don't fail the whole operation if email fails)
   try {
