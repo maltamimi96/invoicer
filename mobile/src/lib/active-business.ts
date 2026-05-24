@@ -53,17 +53,24 @@ async function fetchAccessibleBusinesses(userId: string): Promise<MobileBusiness
 }
 
 /** Resolve the caller's role within a business: owner if user_id matches,
- *  otherwise the role on business_members. Defaults to 'viewer'. */
+ *  otherwise the role on business_members.
+ *
+ *  Fails CLOSED: if the membership row can't be read (RLS hiccup, pending
+ *  status, transient error) we return 'worker' — the most restricted role —
+ *  rather than 'viewer', so a real worker can NEVER be shown the full
+ *  owner/admin dashboard because their role didn't resolve. A genuine viewer
+ *  still gets 'viewer' only when we positively read that value. */
 async function fetchRoleForBusiness(userId: string, business: MobileBusiness): Promise<Role> {
   if (business.user_id === userId) return "owner";
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("business_members")
     .select("role")
     .eq("business_id", business.id)
     .eq("user_id", userId)
     .eq("status", "active")
     .maybeSingle();
-  return (data?.role ?? "viewer") as Role;
+  if (error || !data?.role) return "worker"; // fail closed — most restricted
+  return data.role as Role;
 }
 
 export interface UseActiveBusinessResult {
@@ -83,7 +90,9 @@ export function useActiveBusiness(): UseActiveBusinessResult {
   const [loading, setLoading] = useState(true);
   const [businesses, setBusinesses] = useState<MobileBusiness[]>([]);
   const [active, setActive] = useState<MobileBusiness | null>(null);
-  const [role, setRole] = useState<Role>("viewer");
+  // Start restricted (fail-closed) — never show admin tabs/dashboard before
+  // the real role is confirmed.
+  const [role, setRole] = useState<Role>("worker");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -93,7 +102,7 @@ export function useActiveBusiness(): UseActiveBusinessResult {
 
       const all = await fetchAccessibleBusinesses(user.id);
       setBusinesses(all);
-      if (all.length === 0) { setActive(null); setRole("viewer"); return; }
+      if (all.length === 0) { setActive(null); setRole("worker"); return; }
 
       // Try the persisted choice; fall back to first
       const persisted = await AsyncStorage.getItem(ACTIVE_KEY);
