@@ -310,6 +310,41 @@ User's accumulated preferences:
 - **Never trust empty input** — coerce, validate, soft-fail
 - Current accent name: **teal**; sidebar: **light**; canvas: warm off-white. Don't revert to flux lime unless explicitly asked.
 
+## Session log (late May 2026) — store launch, MCP, email agent, design system
+
+Most recent push. Pick up from here.
+
+### Mobile published to the stores (EAS)
+- **EAS project linked:** `@tim90six/kirei`, `projectId` in `mobile/app.json`. Expo account `tim90six` (m.altamimi96@outlook.com). Drive EAS non-interactively with `EXPO_TOKEN` (create at expo.dev/settings/access-tokens) — `eas login` itself can't be automated.
+- **iOS: live on TestFlight.** Apple Team `474LBTA57F` (Individual). Distribution cert + provisioning profile created via `eas credentials`. App Store Connect app **"Kirei: Trades Manager"** (the plain name "Kirei" was taken — store name differs from the on-device name, which stays "Kirei"), **ASC App ID `6772754750`**, bundle `com.crownroofers.connectedhub`.
+- **Submit is non-interactive via an App Store Connect API key:** `mobile/asc-key.p8` (gitignored — `*.p8`), Key ID `G7R8967FYN`, Issuer ID in `eas.json`. `eas.json` submit.production.ios is fully filled, so `eas submit --platform ios --latest` just works.
+- **Android: `.aab` built**, not yet uploaded. First Play release must be uploaded **manually** in the Play Console (Google requires the first release + app entry by hand; `eas submit` works for every release after). Play accepts the name "Kirei".
+- **EAS build gotchas (each cost a failed build):**
+  - `mobile/.npmrc` with `legacy-peer-deps=true` is **required** — EAS Build runs a plain `npm install` that ERESOLVE-fails this repo's peer graph otherwise (16-second build death).
+  - Deps must match SDK 54 (`expo-linear-gradient ~15.0.8`, `expo-asset ~12.0.13`, etc.) — run `npx expo-doctor` before building. The repo nests `mobile/` inside the web repo, so `mobile/metro.config.js` pins `nodeModulesPaths` to mobile's own node_modules (else Metro grabs the web app's React). The lingering "duplicate react at ../node_modules" doctor warning is the web copy outside `mobile/` — harmless, EAS builds `mobile/` in isolation.
+  - iOS encryption compliance is pre-answered via `ITSAppUsesNonExemptEncryption: false` in app.json infoPlist.
+  - **No OTA updates** — `expo-updates` isn't installed, so every JS fix needs a full rebuild + resubmit to reach testers. (Candidate: add `expo-updates` + `eas update` for instant beta fixes.)
+- **Store assets:** public **`/privacy`** and **`/support`** pages on kireihq.com (whitelisted in middleware; privacy URL is mandatory for both stores). Paste-ready listing copy + Apple App Privacy / Play Data Safety answers in `mobile/STORE_LISTING.md`.
+- **TestFlight distribution:** Internal testing has no review (testers must be added under Users & Access). External testing needs Beta App Review before the public link works. For a few people, use Internal.
+
+### Per-business email sender
+`buildBusinessFrom({ name, localPart })` in `src/lib/email.ts` — every outbound email is `"Business Name <localpart@<slug>.kireihq.com>"` with Reply-To = the business email. `KIREI_FROM_STRATEGY` env: `subdomain` (default, needs `*.kireihq.com` verified) or `local` (`<slug>@kireihq.com`, root domain only). **Production is set to `local`.** Wired into invoice/quote/team/work-order sends + the scheduled-send cron. DNS for kireihq.com is verified — sends work (confirmed via a live `email_events` row).
+
+### Email agent now creates tasks (not just leads)
+`/api/cron/email-leads` classifies each email for **action items** too (send quote / reply / fix invoice / call X) and creates kanban tasks, deduped by `tasks.source_message_id` (migration `20260522184355`, partial unique index). Scheduling moved **from GitHub Actions to Vercel Cron** (`vercel.json`, `*/30`) because GitHub's scheduler was silently skipping runs. The route gates cadence by **Sydney local time** (`Australia/Sydney`): twice/hour 6am–8pm, every 2h overnight; off-cadence ticks early-return. `?force=1` bypasses the gate (manual GH `workflow_dispatch`).
+
+### Deposit / progress-invoice fix
+A paid deposit (child invoice, `parent_invoice_id`) now correctly deducts from the parent. DB trigger `trg_reconcile_parent_invoice` (migration `20260522183034`) recomputes the parent's `amount_paid` + status whenever any child changes — works no matter how the child was paid (record-payment, status dropdown, MCP). "Mark paid" paths now also set `amount_paid = total`. Backfilled existing parents.
+
+### Team / worker fixes
+- **`addMember` now always creates a `member_profiles` row** (not just `business_members`) — an access-level add used to leave a member with no workforce profile (not job-assignable, not link-able). Upserts on `(business_id, email)`; throws if the profile can't be created.
+- **Mobile role resolution fails closed:** `fetchRoleForBusiness` (`mobile/src/lib/active-business.ts`) returns `worker` (most restricted) on empty/error instead of `viewer`, and `useActiveBusiness` starts at `worker`. Previously a worker whose role didn't resolve (pending status / no profile / transient error) was shown the full owner dashboard, because the app only locks down `role === 'worker'` and treats viewer/editor/admin as full-access.
+
+### Web Kirei design reskin
+The web app was reskinned to match the mobile look — primitives under `src/components/ui/kirei/` (GradientTile, StatTile, CardListRow, KireiAvatar, KireiPill, KireiTabs, EmptyState, Skeleton, FadeIn, AnimatedPress, DetailHero, FactCard, FormSection). List pages use card-lists with `break-words` (not `truncate` — user wants text to wrap, not clip, on mobile). `PageHeader` has a gradient accent rail.
+
+---
+
 ## Recent session log (May 2026)
 
 What landed in the most recent multi-day push, grouped so the next session can pick up where this left off:
