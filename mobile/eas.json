@@ -7,30 +7,40 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "ios": { "simulator": true },
+      "ios": {
+        "simulator": true
+      },
       "channel": "development"
     },
     "preview": {
       "distribution": "internal",
       "channel": "preview",
-      "ios":     { "resourceClass": "m-medium" },
-      "android": { "buildType": "apk" }
+      "ios": {
+        "resourceClass": "m-medium"
+      },
+      "android": {
+        "buildType": "apk"
+      }
     },
     "production": {
       "channel": "production",
       "autoIncrement": true,
-      "ios":     { "resourceClass": "m-medium" },
-      "android": { "buildType": "app-bundle" }
+      "ios": {
+        "resourceClass": "m-medium"
+      },
+      "android": {
+        "buildType": "app-bundle"
+      }
     }
   },
   "submit": {
     "production": {
       "ios": {
-        "ascAppId":              "6772754750",
-        "ascApiKeyPath":         "./asc-key.p8",
-        "ascApiKeyId":           "G7R8967FYN",
-        "ascApiKeyIssuerId":     "ac1d8617-9810-4aaa-a5c7-1455eca2d090",
-        "appleTeamId":           "474LBTA57F"
+        "ascAppId": "6772754750",
+        "ascApiKeyPath": "./asc-key.p8",
+        "ascApiKeyId": "G7R8967FYN",
+        "ascApiKeyIssuerId": "ac1d8617-9810-4aaa-a5c7-1455eca2d090",
+        "appleTeamId": "474LBTA57F"
       },
       "android": {
         "serviceAccountKeyPath": "./play-service-account.json",

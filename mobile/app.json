@@ -42,6 +42,13 @@
         "android.permission.RECORD_AUDIO",
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.CAMERA",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.MODIFY_AUDIO_SETTINGS"
       ]
     },
@@ -77,6 +84,12 @@
         "projectId": "3b4cb8dc-1952-4a78-89e4-e8d987868f86"
       }
     },
-    "owner": "tim90six"
+    "owner": "tim90six",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/3b4cb8dc-1952-4a78-89e4-e8d987868f86"
+    }
   }
 }
