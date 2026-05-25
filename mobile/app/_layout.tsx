@@ -8,6 +8,8 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { colors } from "@/lib/theme";
 import { ThemeProvider, useThemeMode } from "@/lib/theme-provider";
+import { useActiveBusiness } from "@/lib/active-business";
+import { isWorker, isRouteBlockedForWorker } from "@/lib/permissions";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
@@ -27,6 +29,7 @@ function Inner() {
   const [loaded,  setLoaded]  = useState(false);
   const router   = useRouter();
   const segments = useSegments();
+  const { role, loading: roleLoading } = useActiveBusiness();
 
   useEffect(() => {
     // Idempotent: if a member_profile exists for this email in any business
@@ -54,6 +57,17 @@ function Inner() {
     if (!session && !inAuth) router.replace("/(auth)/login");
     if (session  &&  inAuth) router.replace("/(tabs)");
   }, [loaded, session, segments, router]);
+
+  // Worker hard-isolation: bounce a worker off any admin route (invoices,
+  // leads, customers, quotes, etc.) — covers deep links + programmatic nav
+  // that the hidden tabs wouldn't stop. Wait until role is resolved so we
+  // don't bounce a still-loading admin.
+  useEffect(() => {
+    if (!loaded || !session || roleLoading) return;
+    if (isWorker(role) && isRouteBlockedForWorker(segments as string[])) {
+      router.replace("/(tabs)");
+    }
+  }, [loaded, session, roleLoading, role, segments, router]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.canvas }}>
