@@ -8,7 +8,11 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "release:build": "eas build --platform all --profile production --non-interactive",
+    "release:submit": "eas submit --platform all --latest --non-interactive",
+    "release:ota": "eas update --branch production --message",
+    "release": "npm run release:build && npm run release:submit"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
