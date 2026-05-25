@@ -6,8 +6,8 @@ import { isWorker } from "@/lib/permissions";
 import { GradientTabBar } from "@/components/GradientTabBar";
 
 /** Role-aware tab bar.
- *  - Workers: Home (jobs) · Tasks · Schedule · Profile (4 tabs).
- *  - Owners + admin/editor/viewer: Home (dashboard) · Sales · Tasks · Schedule · Profile (5 tabs).
+ *  - Workers: Jobs · Tasks · Profile (3 tabs) — hard-isolated to their own work.
+ *  - Owners + admin/editor/viewer: Home (dashboard) · Sales · Tasks · Schedule · Profile.
  *  Tabs are always registered; href: null hides them from users who
  *  shouldn't see them — keeps the file-based routing simple. */
 export default function TabsLayout() {
@@ -51,6 +51,7 @@ export default function TabsLayout() {
         options={{
           title: "Schedule",
           tabBarIcon: ({ color }) => <Calendar size={20} color={color} />,
+          href: worker ? null : "/schedule",
         }}
       />
       <Tabs.Screen

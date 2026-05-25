@@ -33,12 +33,18 @@ export default function ProfileScreen() {
 
   const settingsItems: Array<{
     href: string; label: string; icon: React.ReactNode; gradient: keyof typeof gradients;
-  }> = canEditBusiness ? [
-    { href: "/settings/business",   label: "Business profile", icon: <Building2 size={18} color="#fff" />, gradient: "primary" },
-    { href: "/settings/bank",       label: "Bank details",     icon: <Landmark  size={18} color="#fff" />, gradient: "emerald" },
-    { href: "/settings/appearance", label: "Appearance",       icon: <Palette   size={18} color="#fff" />, gradient: "violet" },
-    { href: "/settings/advanced",   label: "Advanced",         icon: <Sparkles  size={18} color="#fff" />, gradient: "dusk" },
-  ] : [];
+  }> = [
+    // Admin-only business config — hidden from workers/editors/viewers.
+    ...(canEditBusiness ? [
+      { href: "/settings/business", label: "Business profile", icon: <Building2 size={18} color="#fff" />, gradient: "primary" as const },
+      { href: "/settings/bank",     label: "Bank details",     icon: <Landmark  size={18} color="#fff" />, gradient: "emerald" as const },
+    ] : []),
+    // Available to everyone (incl. workers) — just appearance.
+    { href: "/settings/appearance", label: "Appearance", icon: <Palette size={18} color="#fff" />, gradient: "violet" as const },
+    ...(canEditBusiness ? [
+      { href: "/settings/advanced", label: "Advanced", icon: <Sparkles size={18} color="#fff" />, gradient: "dusk" as const },
+    ] : []),
+  ];
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={["top", "left", "right"]}>

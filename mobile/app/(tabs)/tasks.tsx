@@ -46,7 +46,17 @@ const PRIORITY_COLOR: Record<Task["priority"], string> = {
 };
 
 type Scope = "mine" | "all";
-type ViewTab = "open" | "done";
+type ViewTab = "today" | "open" | "done";
+
+/** Local YYYY-MM-DD for "today" comparisons against task.due_date. */
+function todayStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+/** Due today or overdue, and not finished. */
+function isDueTodayOrOverdue(t: Task): boolean {
+  return t.status !== "done" && !!t.due_date && t.due_date <= todayStr();
+}
 
 export default function TasksScreen() {
   const qc = useQueryClient();
@@ -54,7 +64,7 @@ export default function TasksScreen() {
   const editable = canEdit(role);
 
   const [scope, setScope]       = useState<Scope>(editable ? "all" : "mine");
-  const [tab, setTab]           = useState<ViewTab>("open");
+  const [tab, setTab]           = useState<ViewTab>("today");
   const [editing, setEditing]   = useState<Task | null>(null);
   const [creating, setCreating] = useState(false);
 
@@ -78,10 +88,15 @@ export default function TasksScreen() {
     onError:    (e: Error) => Alert.alert("Couldn't delete", e.message),
   });
 
-  const list = (tasks ?? []).filter((t) => tab === "done" ? t.status === "done" : t.status !== "done");
+  const list = (tasks ?? []).filter((t) =>
+    tab === "done"  ? t.status === "done"
+  : tab === "today" ? isDueTodayOrOverdue(t)
+  :                   t.status !== "done"  // "open"
+  );
   const counts = {
-    open: (tasks ?? []).filter((t) => t.status !== "done").length,
-    done: (tasks ?? []).filter((t) => t.status === "done").length,
+    today: (tasks ?? []).filter(isDueTodayOrOverdue).length,
+    open:  (tasks ?? []).filter((t) => t.status !== "done").length,
+    done:  (tasks ?? []).filter((t) => t.status === "done").length,
   };
 
   const confirmDelete = (task: Task) =>
@@ -100,7 +115,7 @@ export default function TasksScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 28, fontWeight: "800", color: colors.text, letterSpacing: -0.5 }}>Tasks</Text>
                 <Text style={{ fontSize: 13, color: colors.muted, marginTop: 4 }}>
-                  {counts.open} open · {counts.done} done
+                  {counts.today} due today · {counts.open} open
                 </Text>
               </View>
               {editable && (
@@ -127,8 +142,9 @@ export default function TasksScreen() {
             )}
 
             <View style={{ flexDirection: "row", gap: 4, marginBottom: space.md }}>
-              <TabPill active={tab === "open"} label={`Open · ${counts.open}`} onPress={() => setTab("open")} />
-              <TabPill active={tab === "done"} label={`Done · ${counts.done}`} onPress={() => setTab("done")} />
+              <TabPill active={tab === "today"} label={`Today · ${counts.today}`} onPress={() => setTab("today")} />
+              <TabPill active={tab === "open"}  label={`Open · ${counts.open}`}   onPress={() => setTab("open")} />
+              <TabPill active={tab === "done"}  label={`Done · ${counts.done}`}   onPress={() => setTab("done")} />
             </View>
           </View>
         }
@@ -162,12 +178,14 @@ export default function TasksScreen() {
           ) : (
             <EmptyState
               icon={<ListChecks size={32} color="#fff" />}
-              title={tab === "open" ? "No tasks here" : "Nothing completed yet"}
-              subtitle={tab === "open"
+              title={tab === "today" ? "Nothing due today" : tab === "open" ? "No tasks here" : "Nothing completed yet"}
+              subtitle={tab === "today"
+                ? "You're all caught up — nothing due or overdue."
+                : tab === "open"
                 ? (editable ? "Add a task to track what needs doing." : "Nothing assigned to you right now.")
                 : "Completed tasks will appear here."}
-              ctaLabel={editable && tab === "open" ? "New task" : undefined}
-              onPressCta={editable && tab === "open" ? () => setCreating(true) : undefined}
+              ctaLabel={editable && tab !== "done" ? "New task" : undefined}
+              onPressCta={editable && tab !== "done" ? () => setCreating(true) : undefined}
               gradient="primary"
             />
           )

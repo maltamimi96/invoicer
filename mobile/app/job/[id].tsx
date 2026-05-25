@@ -71,9 +71,13 @@ export default function JobDetail() {
   });
 
   const photoMutation = useMutation({
-    mutationFn: async (localUri: string) => {
-      const { url } = await uploadJobPhoto(localUri);
-      await addWorkOrderPhoto(id!, { url, taken_at: new Date().toISOString() });
+    // Accepts one OR many local URIs — uploads them sequentially so a worker
+    // can add a whole batch from the library in one go.
+    mutationFn: async (localUris: string[]) => {
+      for (const uri of localUris) {
+        const { url } = await uploadJobPhoto(uri);
+        await addWorkOrderPhoto(id!, { url, taken_at: new Date().toISOString() });
+      }
     },
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -122,7 +126,7 @@ export default function JobDetail() {
       quality: 0.7,
       exif: false,
     });
-    if (!result.canceled) photoMutation.mutate(result.assets[0].uri);
+    if (!result.canceled) photoMutation.mutate(result.assets.map((a) => a.uri));
   };
 
   const pickPhoto = async () => {
@@ -130,10 +134,12 @@ export default function JobDetail() {
     if (!perm.granted) return Alert.alert("Photo library disabled", "Enable photo library access in Settings.");
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,   // pick a batch at once
+      selectionLimit: 0,               // 0 = unlimited
       quality: 0.7,
       exif: false,
     });
-    if (!result.canceled) photoMutation.mutate(result.assets[0].uri);
+    if (!result.canceled) photoMutation.mutate(result.assets.map((a) => a.uri));
   };
 
   const saveNotes = async () => {
