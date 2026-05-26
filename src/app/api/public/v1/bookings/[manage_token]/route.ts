@@ -8,6 +8,7 @@
 import { NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { json, publicError, preflight, rateLimit, clientIp } from "@/lib/booking/public";
+import { fireBookingWebhook, notifyBookingCancelled } from "@/lib/booking/notify";
 import type { Appointment, BookingSettings } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -97,6 +98,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ma
     business_id: appt.business_id, appointment_id: appt.id, event: "rescheduled", actor: "customer",
     detail: { from: appt.starts_at, to: newStart.toISOString() },
   });
+  await fireBookingWebhook(appt.business_id, settings, "booking.rescheduled", {
+    id: appt.id, from: appt.starts_at, to: newStart.toISOString(), resource_id: resourceId,
+  });
   return json({ ok: true, appointment: publicView(updated as Appointment) });
 }
 
@@ -123,6 +127,10 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ m
 
   await sb.from("booking_audit_log").insert({
     business_id: appt.business_id, appointment_id: appt.id, event: "cancelled", actor: "customer",
+  });
+  await notifyBookingCancelled(sb, appt.business_id, settings, updated as Appointment).catch(() => undefined);
+  await fireBookingWebhook(appt.business_id, settings, "booking.cancelled", {
+    id: appt.id, starts_at: appt.starts_at, customer_name: appt.customer_name,
   });
   return json({ ok: true, appointment: publicView(updated as Appointment) });
 }

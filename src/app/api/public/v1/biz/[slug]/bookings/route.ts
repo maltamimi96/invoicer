@@ -14,6 +14,8 @@ import {
   resolveTenant, json, publicError, preflight, rateLimit, clientIp,
   honeypotTripped, verifyCaptcha,
 } from "@/lib/booking/public";
+import { notifyBookingCreated, fireBookingWebhook } from "@/lib/booking/notify";
+import type { Appointment } from "@/types/database";
 
 export const dynamic = "force-dynamic";
 
@@ -162,7 +164,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     detail: { ip, source: appt.source },
   });
 
-  // NOTE: webhook dispatch + customer/team notifications are wired in Phase 5.
+  // Notifications (customer + team) and webhooks. Best-effort, awaited so they
+  // complete before the serverless function returns.
+  const apptRow = { ...(appt as Appointment), lead_id: leadId, work_order_id: workOrderId };
+  await notifyBookingCreated(sb, businessId, settings, apptRow).catch(() => undefined);
+  await fireBookingWebhook(businessId, settings, "booking.created", {
+    id: appt.id, customer_name: customerName, customer_email: customerEmail, customer_phone: customerPhone,
+    starts_at: appt.starts_at, ends_at: appt.ends_at, status: appt.status,
+    appointment_type_id: typeId, resource_id: resourceId, lead_id: leadId, work_order_id: workOrderId,
+  });
 
   return json({
     ok: true,

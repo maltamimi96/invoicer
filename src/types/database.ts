@@ -815,7 +815,13 @@ export type WebhookEvent =
   | 'quote.rejected'
   | 'payment.received'
   | 'work_order.created'
-  | 'work_order.completed';
+  | 'work_order.completed'
+  | 'booking.created'
+  | 'booking.confirmed'
+  | 'booking.rescheduled'
+  | 'booking.cancelled'
+  | 'booking.reminder'
+  | 'booking.no_show';
 
 export const ALL_WEBHOOK_EVENTS: { value: WebhookEvent; label: string; group: string }[] = [
   { value: 'lead.created',          label: 'Lead created',          group: 'Leads' },
@@ -833,6 +839,12 @@ export const ALL_WEBHOOK_EVENTS: { value: WebhookEvent; label: string; group: st
   { value: 'payment.received',      label: 'Payment received',      group: 'Payments' },
   { value: 'work_order.created',    label: 'Work order created',    group: 'Work Orders' },
   { value: 'work_order.completed',  label: 'Work order completed',  group: 'Work Orders' },
+  { value: 'booking.created',       label: 'Booking created',       group: 'Bookings' },
+  { value: 'booking.confirmed',     label: 'Booking confirmed',     group: 'Bookings' },
+  { value: 'booking.rescheduled',   label: 'Booking rescheduled',   group: 'Bookings' },
+  { value: 'booking.cancelled',     label: 'Booking cancelled',     group: 'Bookings' },
+  { value: 'booking.reminder',      label: 'Booking reminder',      group: 'Bookings' },
+  { value: 'booking.no_show',       label: 'Booking no-show',       group: 'Bookings' },
 ];
 
 export interface BusinessWebhook {
@@ -880,6 +892,8 @@ export type ApiScope =
   | 'products:write'
   | 'settings:read'
   | 'settings:write'
+  | 'bookings:read'
+  | 'bookings:write'
   | 'email:send'
   | 'agent:access'
   | 'admin';  // wildcard — grants every scope (use for trusted Claude Code keys)
@@ -902,6 +916,8 @@ export const ALL_API_SCOPES: { value: ApiScope; label: string; group: string }[]
   { value: 'products:write',   label: 'Create / edit products', group: 'Products' },
   { value: 'settings:read',    label: 'Read settings',     group: 'Settings' },
   { value: 'settings:write',   label: 'Edit settings & preferences', group: 'Settings' },
+  { value: 'bookings:read',    label: 'Read bookings & config', group: 'Bookings' },
+  { value: 'bookings:write',   label: 'Manage bookings & config', group: 'Bookings' },
   { value: 'email:send',       label: 'Send emails to customers', group: 'Email' },
   { value: 'agent:access',     label: 'AI Agent access',   group: 'Agent' },
 ];

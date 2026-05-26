@@ -1187,6 +1187,126 @@ export function registerTools(server: McpServer): void {
       if (error) throw error;
       return text({ logged: true, time_entry: data });
     });
+
+  // ===== ONLINE BOOKING =====
+  tool("get_booking_settings", "Get this business's online-booking settings (enabled flag, public slug, timezone, rules, required fields, reminders).",
+    {},
+    async (_args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "bookings:read");
+      const { data } = await t(ctx, "booking_settings").select("*").eq("business_id", ctx.businessId).maybeSingle();
+      return text(data ?? { enabled: false, note: "Booking not configured yet — call update_booking_settings to create it." });
+    });
+
+  tool("update_booking_settings", "Update online-booking settings. Only provided fields change. Set enabled=true to go live (a slug must be set first).",
+    {
+      enabled: z.boolean().optional(), slug: z.string().optional(), timezone: z.string().optional(),
+      min_lead_minutes: z.number().int().min(0).optional(), max_advance_days: z.number().int().min(1).optional(),
+      slot_granularity_minutes: z.number().int().min(1).optional(), default_buffer_minutes: z.number().int().min(0).optional(),
+      max_per_day: z.number().int().min(0).nullable().optional(),
+      require_phone: z.boolean().optional(), require_email: z.boolean().optional(), require_address: z.boolean().optional(),
+      confirmation_message: z.string().nullable().optional(), cancellation_window_hours: z.number().int().min(0).optional(),
+      reminder_offsets: z.array(z.number().int()).optional(),
+      create_lead: z.boolean().optional(), create_work_order: z.boolean().optional(),
+      notify_customer_email: z.boolean().optional(), notify_customer_sms: z.boolean().optional(),
+      notify_team_email: z.boolean().optional(), team_notify_email: z.string().nullable().optional(),
+    },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "bookings:write");
+      const patch = Object.fromEntries(Object.entries(args).filter(([, v]) => v !== undefined));
+      // Lazy-create the row.
+      await t(ctx, "booking_settings").upsert({ business_id: ctx.businessId, ...patch }, { onConflict: "business_id" });
+      const { data, error } = await t(ctx, "booking_settings").select("*").eq("business_id", ctx.businessId).single();
+      if (error) throw error;
+      return text({ updated: true, settings: data });
+    });
+
+  tool("list_appointment_types", "List the bookable services (appointment types).",
+    {},
+    async (_args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "bookings:read");
+      const { data, error } = await t(ctx, "appointment_types").select("*").eq("business_id", ctx.businessId).order("sort_order");
+      if (error) throw error;
+      return text(data);
+    });
+
+  tool("create_appointment_type", "Create a bookable service.",
+    {
+      name: z.string().min(1), duration_minutes: z.number().int().min(1),
+      description: z.string().optional(), buffer_minutes: z.number().int().min(0).optional(),
+      price_display: z.string().optional(), color: z.string().optional(),
+    },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "bookings:write");
+      const { data, error } = await t(ctx, "appointment_types").insert({
+        business_id: ctx.businessId, name: args.name, duration_minutes: args.duration_minutes,
+        description: args.description ?? null, buffer_minutes: args.buffer_minutes ?? null,
+        price_display: args.price_display ?? null, color: args.color ?? null,
+      }).select().single();
+      if (error) throw error;
+      return text({ created: true, appointment_type: data });
+    });
+
+  tool("list_booking_resources", "List bookable resources (usually team members).",
+    {},
+    async (_args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "bookings:read");
+      const { data, error } = await t(ctx, "booking_resources").select("*").eq("business_id", ctx.businessId).order("sort_order");
+      if (error) throw error;
+      return text(data);
+    });
+
+  tool("create_booking_resource", "Create a bookable resource. display_name is shown publicly (use a first name).",
+    { display_name: z.string().min(1), member_profile_id: UUID.optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "bookings:write");
+      const { data, error } = await t(ctx, "booking_resources").insert({
+        business_id: ctx.businessId, display_name: args.display_name, member_profile_id: args.member_profile_id ?? null,
+      }).select().single();
+      if (error) throw error;
+      return text({ created: true, resource: data });
+    });
+
+  tool("set_booking_working_hours", "Replace a resource's weekly working hours. blocks: array of {weekday 0=Sun..6=Sat, start_time 'HH:MM', end_time 'HH:MM'}.",
+    {
+      resource_id: UUID,
+      blocks: z.array(z.object({ weekday: z.number().int().min(0).max(6), start_time: z.string(), end_time: z.string() })),
+    },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "bookings:write");
+      await t(ctx, "booking_working_hours").delete().eq("business_id", ctx.businessId).eq("resource_id", args.resource_id);
+      if (args.blocks.length) {
+        const rows = args.blocks.map((b: { weekday: number; start_time: string; end_time: string }) => ({
+          business_id: ctx.businessId, resource_id: args.resource_id, weekday: b.weekday, start_time: b.start_time, end_time: b.end_time,
+        }));
+        const { error } = await t(ctx, "booking_working_hours").insert(rows);
+        if (error) throw error;
+      }
+      return text({ updated: true, blocks: args.blocks.length });
+    });
+
+  tool("list_appointments", "List booked appointments. Optionally filter by ISO date range (from/to on starts_at) and status.",
+    { from: z.string().optional(), to: z.string().optional(), status: z.string().optional(), limit: z.number().int().min(1).max(200).optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "bookings:read");
+      let q = t(ctx, "appointments").select("*").eq("business_id", ctx.businessId).order("starts_at").limit(args.limit ?? 100);
+      if (args.from) q = q.gte("starts_at", args.from);
+      if (args.to) q = q.lte("starts_at", args.to);
+      if (args.status) q = q.eq("status", args.status);
+      const { data, error } = await q;
+      if (error) throw error;
+      return text(data);
+    });
+
+  tool("set_appointment_status", "Set an appointment's status (pending/confirmed/cancelled/rescheduled/completed/no_show).",
+    { appointment_id: UUID, status: z.enum(["pending", "confirmed", "cancelled", "rescheduled", "completed", "no_show"]) },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "bookings:write");
+      const patch: Record<string, unknown> = { status: args.status };
+      if (args.status === "cancelled") patch.cancelled_at = new Date().toISOString();
+      const { data, error } = await t(ctx, "appointments").update(patch).eq("id", args.appointment_id).eq("business_id", ctx.businessId).select().single();
+      if (error) throw error;
+      return text({ updated: true, appointment: data });
+    });
 }
 
 /** Find or create the customer for a lead (mirrors ensureCustomerForLead in
