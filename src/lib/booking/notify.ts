@@ -13,7 +13,7 @@ type Sb = any;
 
 interface BizRow {
   name: string; email: string | null; sms_sender_id: string | null;
-  logo_url: string | null; primary_color: string | null; phone: string | null;
+  logo_url: string | null; accent_color: string | null; phone: string | null;
 }
 
 /** Resolve the service name + duration and resource display name for an appt. */
@@ -79,7 +79,7 @@ export async function fireBookingWebhook(
 
 async function getBiz(sb: Sb, businessId: string): Promise<BizRow | null> {
   const { data } = await sb.from("businesses")
-    .select("name, email, sms_sender_id, logo_url, primary_color, phone").eq("id", businessId).maybeSingle();
+    .select("name, email, sms_sender_id, logo_url, accent_color, phone").eq("id", businessId).maybeSingle();
   return (data as BizRow) ?? null;
 }
 
@@ -89,7 +89,7 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://kireihq.com";
 async function bookingEmail(sb: Sb, biz: BizRow, settings: BookingSettings, appt: Appointment, kind: BookingEmailKind, manageUrl: string | null): Promise<string> {
   const { serviceName, durationMin, resourceName } = await apptContext(sb, appt);
   return bookingEmailHtml({
-    kind, businessName: biz.name, logoUrl: biz.logo_url, accent: biz.primary_color || "#1f8f86",
+    kind, businessName: biz.name, logoUrl: biz.logo_url, accent: biz.accent_color || "#1f8f86",
     customerName: appt.customer_name, serviceName, durationMin, resourceName,
     address: appt.customer_address, notes: appt.notes,
     whenText: fmtLocal(appt.starts_at, settings.timezone),

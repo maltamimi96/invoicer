@@ -10,6 +10,12 @@ import type { AppointmentType } from "@/types/database";
 
 export const dynamic = "force-dynamic";
 
+/** Return a normalised #rrggbb hex, or null for named/invalid colours. */
+function hexOrNull(c: string | null | undefined): string | null {
+  if (!c) return null;
+  return /^#?[0-9a-fA-F]{6}$/.test(c) ? (c.startsWith("#") ? c : `#${c}`) : null;
+}
+
 export async function OPTIONS() { return preflight(); }
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
@@ -26,7 +32,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
   if (settings.resource_ids.length > 0) resQ = resQ.in("id", settings.resource_ids);
   const [{ data: types }, { data: biz }, { data: resources }] = await Promise.all([
     typeQ.order("sort_order", { ascending: true }),
-    sb.from("businesses").select("name, logo_url, primary_color").eq("id", businessId).maybeSingle(),
+    sb.from("businesses").select("name, logo_url, accent_color").eq("id", businessId).maybeSingle(),
     resQ.order("sort_order", { ascending: true }),
   ]);
 
@@ -36,7 +42,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
     timezone: settings.timezone,
     branding: {
       logo_url: settings.brand_logo_url ?? biz?.logo_url ?? null,
-      color: settings.brand_color ?? biz?.primary_color ?? null,
+      // Only pass a real hex through — the business accent may be a named
+      // theme token (e.g. "slate") which isn't a valid CSS colour.
+      color: hexOrNull(settings.brand_color) ?? hexOrNull(biz?.accent_color) ?? null,
     },
     required_fields: {
       phone: settings.require_phone,

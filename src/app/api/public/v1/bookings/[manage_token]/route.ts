@@ -13,6 +13,11 @@ import type { Appointment, BookingSettings } from "@/types/database";
 
 export const dynamic = "force-dynamic";
 
+function hexOrNull(c: string | null | undefined): string | null {
+  if (!c) return null;
+  return /^#?[0-9a-fA-F]{6}$/.test(c) ? (c.startsWith("#") ? c : `#${c}`) : null;
+}
+
 export async function OPTIONS() { return preflight(); }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -41,7 +46,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ mana
   if (!found) return publicError("Booking not found", 404);
   const { appt, settings } = found;
   const { data: biz } = await sb.from("businesses")
-    .select("name, logo_url, primary_color").eq("id", appt.business_id).maybeSingle();
+    .select("name, logo_url, accent_color").eq("id", appt.business_id).maybeSingle();
   return json({
     appointment: publicView(appt),
     slug: settings.slug,
@@ -52,7 +57,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ mana
     branding: {
       business_name: biz?.name ?? null,
       logo_url: settings.brand_logo_url ?? biz?.logo_url ?? null,
-      color: settings.brand_color ?? biz?.primary_color ?? null,
+      color: hexOrNull(settings.brand_color) ?? hexOrNull(biz?.accent_color) ?? null,
     },
   });
 }
