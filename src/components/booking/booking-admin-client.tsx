@@ -15,30 +15,50 @@ import {
   createAppointmentType, updateAppointmentType, deleteAppointmentType,
   createResource, deleteResource,
   listWorkingHours, setWorkingHours,
-  createException, deleteException,
+  createException, deleteException, setAppointmentStatus,
 } from "@/lib/actions/booking";
 import type {
   BookingSettings, AppointmentType, BookingResource,
-  BookingAvailabilityException, BookingWorkingHours,
+  BookingAvailabilityException, BookingWorkingHours, Appointment,
 } from "@/types/database";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export function BookingAdminClient({
-  initialSettings, initialTypes, initialResources, initialExceptions, appUrl,
+  initialSettings, initialTypes, initialResources, initialExceptions, initialAppointments, appUrl,
 }: {
   initialSettings: BookingSettings;
   initialTypes: AppointmentType[];
   initialResources: BookingResource[];
   initialExceptions: BookingAvailabilityException[];
+  initialAppointments: Appointment[];
   appUrl: string;
 }) {
   const [settings, setSettings] = useState(initialSettings);
   const [types, setTypes] = useState(initialTypes);
   const [resources, setResources] = useState(initialResources);
   const [exceptions, setExceptions] = useState(initialExceptions);
+  const [appointments, setAppointments] = useState(initialAppointments);
   const [slugInput, setSlugInput] = useState(settings.slug ?? "");
   const [pending, start] = useTransition();
+
+  const fmtWhen = (iso: string) => new Intl.DateTimeFormat("en-AU", {
+    timeZone: settings.timezone, weekday: "short", day: "numeric", month: "short",
+    hour: "numeric", minute: "2-digit", hour12: true,
+  }).format(new Date(iso));
+  const PILL: Record<string, string> = {
+    confirmed: "bg-emerald-100 text-emerald-700", pending: "bg-amber-100 text-amber-700",
+    completed: "bg-blue-100 text-blue-700", cancelled: "bg-rose-100 text-rose-700",
+    rescheduled: "bg-violet-100 text-violet-700", no_show: "bg-zinc-200 text-zinc-600",
+  };
+  const changeStatus = (id: string, status: Appointment["status"]) => start(async () => {
+    try {
+      await setAppointmentStatus(id, status);
+      setAppointments((arr) => arr.map((a) => a.id === id ? { ...a, status } : a));
+      toast.success(`Marked ${status.replace("_", " ")}`);
+    } catch (e) { toast.error((e as Error).message); }
+  });
+  const upcoming = appointments.filter((a) => a.status !== "cancelled");
 
   const publicUrl = settings.slug ? `${appUrl}/book/${settings.slug}` : null;
   const embedSnippet = settings.slug
@@ -62,6 +82,32 @@ export function BookingAdminClient({
         title="Online Booking"
         subtitle="Let customers book appointments from your website or a shareable link."
       />
+
+      {/* Upcoming bookings */}
+      <Card className="p-5 space-y-3">
+        <div className="font-semibold flex items-center gap-1.5"><Calendar className="size-4" /> Upcoming bookings</div>
+        {upcoming.length === 0 && <div className="text-sm text-muted-foreground">No upcoming bookings yet.</div>}
+        <div className="space-y-2">
+          {upcoming.map((a) => (
+            <div key={a.id} className="flex flex-wrap items-center gap-3 rounded-md border p-3">
+              <div className="flex-1 min-w-[160px]">
+                <div className="font-medium break-words">{a.customer_name}</div>
+                <div className="text-xs text-muted-foreground">
+                  {fmtWhen(a.starts_at)}{a.customer_phone ? ` · ${a.customer_phone}` : ""}
+                </div>
+              </div>
+              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full capitalize ${PILL[a.status] ?? "bg-zinc-100 text-zinc-600"}`}>
+                {a.status.replace("_", " ")}
+              </span>
+              <div className="flex gap-1">
+                {a.status !== "completed" && <Button size="sm" variant="outline" disabled={pending} onClick={() => changeStatus(a.id, "completed")}>Done</Button>}
+                {a.status !== "no_show" && <Button size="sm" variant="outline" disabled={pending} onClick={() => changeStatus(a.id, "no_show")}>No-show</Button>}
+                <Button size="sm" variant="ghost" disabled={pending} onClick={() => changeStatus(a.id, "cancelled")}><Trash2 className="size-4" /></Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
 
       {/* Enable + public link */}
       <Card className="p-5 space-y-4">

@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { canEdit, type Role } from "@/lib/permissions";
 import {
-  getBookingSettings, listAppointmentTypes, listResources, listExceptions,
+  getBookingSettings, listAppointmentTypes, listResources, listExceptions, listAppointments,
 } from "@/lib/actions/booking";
 import { BookingAdminClient } from "@/components/booking/booking-admin-client";
 
@@ -27,8 +27,9 @@ export default async function BookingSettingsPage() {
   }
   if (!canEdit(role)) redirect("/dashboard");
 
-  const [settings, types, resources, exceptions] = await Promise.all([
+  const [settings, types, resources, exceptions, appointments] = await Promise.all([
     getBookingSettings(), listAppointmentTypes(), listResources(), listExceptions(),
+    listAppointments({ from: new Date().toISOString(), limit: 100 }),
   ]);
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://kireihq.com";
@@ -39,6 +40,7 @@ export default async function BookingSettingsPage() {
       initialTypes={types}
       initialResources={resources}
       initialExceptions={exceptions}
+      initialAppointments={appointments}
       appUrl={appUrl}
     />
   );
