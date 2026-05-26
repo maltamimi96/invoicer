@@ -27,6 +27,7 @@ interface Slot { start: string; end: string; resource_id: string; resource_name:
 type Step = "type" | "time" | "details" | "done";
 
 const API = (slug: string, path: string) => `/api/public/v1/biz/${encodeURIComponent(slug)}${path}`;
+const KIREI_LOGO = "/kirei-logo.png"; // fallback when the business has no logo
 
 function addDays(key: string, n: number) {
   const [y, m, d] = key.split("-").map(Number);
@@ -48,6 +49,7 @@ export function BookingWidget({ slug }: { slug: string }) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [step, setStep] = useState<Step>("type");
   const [type, setType] = useState<ApptType | null>(null);
+  const [selectingType, setSelectingType] = useState<string | null>(null);
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [slot, setSlot] = useState<Slot | null>(null);
@@ -162,12 +164,11 @@ export function BookingWidget({ slug }: { slug: string }) {
 
   // ---- styles ----
   const stepIndex = { type: 0, time: 1, details: 2, done: 3 }[step];
-  const initials = (config?.business_name || "K").slice(0, 2).toUpperCase();
   const S = {
-    page: { minHeight: "100vh", background: `linear-gradient(160deg, ${accent} 0%, ${accentDark} 100%)`, display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "32px 16px", fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif", color: "#0f172a", position: "relative", overflow: "hidden" } as React.CSSProperties,
+    page: { minHeight: "100dvh", background: `linear-gradient(160deg, ${accent} 0%, ${accentDark} 100%)`, display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "clamp(14px, 4vw, 32px) clamp(10px, 3vw, 16px)", fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif", color: "#0f172a", position: "relative", overflow: "hidden" } as React.CSSProperties,
     card: { width: "100%", maxWidth: 540, background: "#fff", borderRadius: 22, boxShadow: "0 24px 60px rgba(0,0,0,0.22)", overflow: "hidden", position: "relative", zIndex: 1 } as React.CSSProperties,
-    header: { padding: "26px 26px 22px", color: "#fff", background: `linear-gradient(135deg, ${accent}, ${accentDark})`, position: "relative", overflow: "hidden" } as React.CSSProperties,
-    body: { padding: 24 } as React.CSSProperties,
+    header: { padding: "clamp(20px, 5vw, 26px)", color: "#fff", background: `linear-gradient(135deg, ${accent}, ${accentDark})`, position: "relative", overflow: "hidden" } as React.CSSProperties,
+    body: { padding: "clamp(18px, 5vw, 24px)" } as React.CSSProperties,
     tile: { display: "flex", alignItems: "center", gap: 14, width: "100%", textAlign: "left" as const, border: "1px solid #e8eaed", background: "#fff", borderRadius: 16, padding: 16, marginBottom: 12, cursor: "pointer" },
     label: { display: "block", fontSize: 13, fontWeight: 600, margin: "14px 0 6px", color: "#334155" } as React.CSSProperties,
     input: { width: "100%", padding: "12px 14px", border: "1px solid #d7dbe0", borderRadius: 12, fontSize: 15, boxSizing: "border-box" as const, outlineColor: accent },
@@ -201,13 +202,12 @@ export function BookingWidget({ slug }: { slug: string }) {
           <div style={{ display: "flex", alignItems: "center", gap: 14, position: "relative" }}>
             <motion.div initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.1, type: "spring", stiffness: 200 }}
               style={{ width: 56, height: 56, borderRadius: 16, background: "rgba(255,255,255,0.2)", border: "2px solid rgba(255,255,255,0.4)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
-              {config.branding.logo_url
-                // eslint-disable-next-line @next/next/no-img-element
-                ? <img src={config.branding.logo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                : <span style={{ fontSize: 22, fontWeight: 800 }}>{initials}</span>}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={config.branding.logo_url || KIREI_LOGO} alt={config.business_name || "Kirei"}
+                style={{ width: "100%", height: "100%", objectFit: "contain", background: config.branding.logo_url ? "transparent" : "#fff", padding: config.branding.logo_url ? 0 : 4 }} />
             </motion.div>
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 21, fontWeight: 800, lineHeight: 1.15 }}>{config.business_name || "Book an appointment"}</div>
+              <div style={{ fontSize: "clamp(18px, 5vw, 21px)", fontWeight: 800, lineHeight: 1.15 }}>{config.business_name || "Book an appointment"}</div>
               <div style={{ opacity: 0.9, fontSize: 13, marginTop: 3 }}>
                 {step === "type" && "Choose a service to get started"}
                 {step === "time" && (type?.name ?? "Pick a time")}
@@ -234,8 +234,10 @@ export function BookingWidget({ slug }: { slug: string }) {
                 {config.appointment_types.length === 0 && <Empty text="No services available to book yet." />}
                 {config.appointment_types.map((t, i) => (
                   <motion.button key={t.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-                    whileHover={{ y: -2, boxShadow: "0 8px 20px rgba(0,0,0,0.08)", borderColor: accent }} whileTap={{ scale: 0.99 }}
-                    style={S.tile} onClick={() => { setType(t); setStep("time"); loadSlots(t); }}>
+                    whileHover={selectingType ? undefined : { y: -2, boxShadow: "0 8px 20px rgba(0,0,0,0.08)", borderColor: accent }} whileTap={{ scale: 0.99 }}
+                    disabled={selectingType !== null}
+                    style={{ ...S.tile, opacity: selectingType && selectingType !== t.id ? 0.5 : 1, cursor: selectingType ? "default" : "pointer" }}
+                    onClick={() => { if (selectingType) return; setSelectingType(t.id); setType(t); setStep("time"); loadSlots(t); }}>
                     <div style={{ width: 44, height: 44, borderRadius: 12, background: `${accent}1a`, color: accent, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, flexShrink: 0 }}>
                       {t.duration_minutes}<span style={{ fontSize: 10, marginLeft: 1 }}>m</span>
                     </div>
@@ -244,7 +246,9 @@ export function BookingWidget({ slug }: { slug: string }) {
                       {t.description && <div style={{ fontSize: 13, color: "#64748b", marginTop: 2 }}>{t.description}</div>}
                       {t.price_display && <div style={{ fontSize: 13, color: accent, marginTop: 3, fontWeight: 600 }}>{t.price_display}</div>}
                     </div>
-                    <span style={{ color: "#cbd5e1", fontSize: 20 }}>›</span>
+                    {selectingType === t.id
+                      ? <motion.span animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }} style={{ width: 16, height: 16, borderRadius: "50%", border: `2px solid ${accent}40`, borderTopColor: accent }} />
+                      : <span style={{ color: "#cbd5e1", fontSize: 20 }}>›</span>}
                   </motion.button>
                 ))}
               </motion.div>
@@ -278,7 +282,7 @@ export function BookingWidget({ slug }: { slug: string }) {
                     </div>
                   </div>
                 ))}
-                <button style={S.link} disabled={picking !== null} onClick={() => { setStep("type"); setSlots([]); }}>← Back to services</button>
+                <button style={S.link} disabled={picking !== null} onClick={() => { setStep("type"); setSlots([]); setSelectingType(null); }}>← Back to services</button>
               </motion.div>
             )}
 
@@ -306,7 +310,8 @@ export function BookingWidget({ slug }: { slug: string }) {
                   <div style={{ marginTop: 14 }} className={config.captcha.provider === "hcaptcha" ? "h-captcha" : "cf-turnstile"} data-sitekey={config.captcha.site_key} data-callback="__kireiCaptcha" />
                 )}
                 {error && <div style={S.err} role="alert">{error}</div>}
-                <motion.button whileTap={{ scale: 0.98 }} style={{ ...S.btn, marginTop: 18, opacity: submitting ? 0.7 : 1 }} disabled={submitting} onClick={submit}>
+                <motion.button whileTap={submitting ? undefined : { scale: 0.98 }} style={{ ...S.btn, marginTop: 18, opacity: submitting ? 0.75 : 1, cursor: submitting ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }} disabled={submitting} onClick={submit}>
+                  {submitting && <motion.span animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }} style={{ width: 15, height: 15, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.45)", borderTopColor: "#fff" }} />}
                   {submitting ? "Booking…" : "Confirm booking"}
                 </motion.button>
                 <button style={S.link} onClick={() => { setStep("time"); setSlot(null); setHoldToken(null); }}>← Choose a different time</button>

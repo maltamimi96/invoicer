@@ -88,8 +88,8 @@ export function ManageWidget({ token }: { token: string }) {
   }).format(new Date(iso));
 
   const page: React.CSSProperties = {
-    minHeight: "100vh", background: `linear-gradient(160deg, ${accent} 0%, ${accentDark} 100%)`,
-    display: "flex", justifyContent: "center", alignItems: "center", padding: "24px 16px",
+    minHeight: "100dvh", background: `linear-gradient(160deg, ${accent} 0%, ${accentDark} 100%)`,
+    display: "flex", justifyContent: "center", alignItems: "center", padding: "clamp(14px, 4vw, 24px) clamp(10px, 3vw, 16px)",
     fontFamily: "system-ui,-apple-system,Segoe UI,Roboto,sans-serif", color: "#0f172a", position: "relative", overflow: "hidden",
   };
   const card: React.CSSProperties = { width: "100%", maxWidth: 480, background: "#fff", borderRadius: 22, boxShadow: "0 24px 60px rgba(0,0,0,0.22)", overflow: "hidden", position: "relative", zIndex: 1 };
@@ -106,7 +106,6 @@ export function ManageWidget({ token }: { token: string }) {
   const a = data.appointment;
   const cancelled = a.status === "cancelled";
   const bizName = data.branding.business_name || "Your booking";
-  const initials = bizName.slice(0, 2).toUpperCase();
 
   return (
     <div style={page}>
@@ -119,10 +118,9 @@ export function ManageWidget({ token }: { token: string }) {
           <div aria-hidden style={{ position: "absolute", inset: 0, opacity: 0.12, backgroundImage: "radial-gradient(circle at 20% 30%, #fff 1.5px, transparent 1.6px)", backgroundSize: "22px 22px" }} />
           <div style={{ display: "flex", alignItems: "center", gap: 12, position: "relative" }}>
             <div style={{ width: 48, height: 48, borderRadius: 14, background: "rgba(255,255,255,0.2)", border: "2px solid rgba(255,255,255,0.4)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
-              {data.branding.logo_url
-                // eslint-disable-next-line @next/next/no-img-element
-                ? <img src={data.branding.logo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                : <span style={{ fontSize: 18, fontWeight: 800 }}>{initials}</span>}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={data.branding.logo_url || "/kirei-logo.png"} alt={bizName}
+                style={{ width: "100%", height: "100%", objectFit: "contain", background: data.branding.logo_url ? "transparent" : "#fff", padding: data.branding.logo_url ? 0 : 4 }} />
             </div>
             <div>
               <div style={{ fontSize: 18, fontWeight: 800 }}>{bizName}</div>
