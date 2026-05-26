@@ -41,8 +41,9 @@ const navSections: NavSection[] = [
     { label: "Recurring",     href: "/recurring",     icon: Repeat                                         },
   ]},
   { section: "Service", items: [
-    { label: "Work Orders", href: "/work-orders", icon: Wrench,        worker: true },
-    { label: "Schedule",    href: "/schedule",    icon: CalendarDays,  worker: true },
+    { label: "Work Orders",    href: "/work-orders",     icon: Wrench,        worker: true },
+    { label: "Schedule",       href: "/schedule",        icon: CalendarDays,  worker: true },
+    { label: "Online Booking", href: "/settings/booking", icon: CalendarDays                 },
   ]},
   { section: "Contacts", items: [
     { label: "Customers",  href: "/customers",  icon: Users                         },

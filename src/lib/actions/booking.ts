@@ -1,0 +1,251 @@
+"use server";
+
+/**
+ * Booking admin server actions — the API surface for the Booking settings area.
+ * AI-tool-first: flat scalar args, RLS does tenant isolation. Writes gated to
+ * owner/admin/editor (matches the booking-table write RLS).
+ *
+ * Mirrored into MCP tools in src/lib/mcp/register-tools.ts (Phase 5).
+ */
+import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase/server";
+import { getActiveBizId } from "@/lib/active-business";
+import { getUser } from "@/lib/auth";
+import { canEdit, type Role } from "@/lib/permissions";
+import type {
+  BookingSettings, AppointmentType, BookingResource,
+  BookingWorkingHours, BookingAvailabilityException, Appointment,
+} from "@/types/database";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const tbl = (sb: any, name: string) => sb.from(name);
+
+async function ctx(requireWrite = true) {
+  const supabase = await createClient();
+  const user = await getUser();
+  const businessId = await getActiveBizId(supabase, user.id);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: biz } = await (supabase as any).from("businesses").select("user_id").eq("id", businessId).single();
+  let role: Role = "owner";
+  if (biz?.user_id !== user.id) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: m } = await (supabase as any).from("business_members")
+      .select("role").eq("business_id", businessId).eq("user_id", user.id).eq("status", "active").maybeSingle();
+    role = (m?.role ?? "viewer") as Role;
+  }
+  if (requireWrite && !canEdit(role)) throw new Error("Forbidden");
+  return { supabase, businessId, role };
+}
+
+function revalidate() { revalidatePath("/settings/booking"); }
+
+const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])$/;
+
+// ---------------------------------------------------------------------------
+// Settings (one row per business, lazy-created)
+// ---------------------------------------------------------------------------
+export async function getBookingSettings(): Promise<BookingSettings> {
+  const { supabase, businessId } = await ctx(false);
+  const { data } = await tbl(supabase, "booking_settings").select("*").eq("business_id", businessId).maybeSingle();
+  if (data) return data as BookingSettings;
+  const { data: created, error } = await tbl(supabase, "booking_settings")
+    .insert({ business_id: businessId }).select("*").single();
+  if (error) throw new Error(error.message);
+  return created as BookingSettings;
+}
+
+export async function setBookingEnabled(enabled: boolean): Promise<void> {
+  const { supabase, businessId } = await ctx();
+  await getBookingSettings();
+  const { error } = await tbl(supabase, "booking_settings")
+    .update({ enabled }).eq("business_id", businessId);
+  if (error) throw new Error(error.message);
+  revalidate();
+}
+
+export async function setBookingSlug(slug: string): Promise<{ ok: boolean; error?: string }> {
+  const { supabase, businessId } = await ctx();
+  const clean = slug.trim().toLowerCase();
+  if (!SLUG_RE.test(clean)) return { ok: false, error: "Use 3–40 lowercase letters, numbers or hyphens." };
+  await getBookingSettings();
+  const { error } = await tbl(supabase, "booking_settings").update({ slug: clean }).eq("business_id", businessId);
+  if (error) {
+    if (error.code === "23505") return { ok: false, error: "That link is already taken — try another." };
+    return { ok: false, error: error.message };
+  }
+  revalidate();
+  return { ok: true };
+}
+
+export async function updateBookingSettings(patch: Partial<Omit<BookingSettings,
+  "business_id" | "slug" | "created_at" | "updated_at">>): Promise<void> {
+  const { supabase, businessId } = await ctx();
+  await getBookingSettings();
+  const { error } = await tbl(supabase, "booking_settings").update(patch).eq("business_id", businessId);
+  if (error) throw new Error(error.message);
+  revalidate();
+}
+
+// ---------------------------------------------------------------------------
+// Appointment types
+// ---------------------------------------------------------------------------
+export async function listAppointmentTypes(): Promise<AppointmentType[]> {
+  const { supabase, businessId } = await ctx(false);
+  const { data } = await tbl(supabase, "appointment_types").select("*")
+    .eq("business_id", businessId).order("sort_order", { ascending: true });
+  return (data ?? []) as AppointmentType[];
+}
+
+export async function createAppointmentType(input: {
+  name: string; durationMinutes: number; description?: string; bufferMinutes?: number;
+  priceDisplay?: string; color?: string; eligibleResourceIds?: string[]; sortOrder?: number;
+}): Promise<AppointmentType> {
+  const { supabase, businessId } = await ctx();
+  const { data, error } = await tbl(supabase, "appointment_types").insert({
+    business_id: businessId, name: input.name.trim(),
+    duration_minutes: input.durationMinutes,
+    description: input.description?.trim() || null,
+    buffer_minutes: input.bufferMinutes ?? null,
+    price_display: input.priceDisplay?.trim() || null,
+    color: input.color || null,
+    eligible_resource_ids: input.eligibleResourceIds ?? [],
+    sort_order: input.sortOrder ?? 0,
+  }).select("*").single();
+  if (error) throw new Error(error.message);
+  revalidate();
+  return data as AppointmentType;
+}
+
+export async function updateAppointmentType(id: string, patch: Partial<{
+  name: string; duration_minutes: number; description: string | null; buffer_minutes: number | null;
+  price_display: string | null; color: string | null; active: boolean; eligible_resource_ids: string[]; sort_order: number;
+}>): Promise<void> {
+  const { supabase, businessId } = await ctx();
+  const { error } = await tbl(supabase, "appointment_types").update(patch).eq("id", id).eq("business_id", businessId);
+  if (error) throw new Error(error.message);
+  revalidate();
+}
+
+export async function deleteAppointmentType(id: string): Promise<void> {
+  const { supabase, businessId } = await ctx();
+  await tbl(supabase, "appointment_types").delete().eq("id", id).eq("business_id", businessId);
+  revalidate();
+}
+
+// ---------------------------------------------------------------------------
+// Resources
+// ---------------------------------------------------------------------------
+export async function listResources(): Promise<BookingResource[]> {
+  const { supabase, businessId } = await ctx(false);
+  const { data } = await tbl(supabase, "booking_resources").select("*")
+    .eq("business_id", businessId).order("sort_order", { ascending: true });
+  return (data ?? []) as BookingResource[];
+}
+
+export async function createResource(input: {
+  displayName: string; memberProfileId?: string | null; sortOrder?: number;
+}): Promise<BookingResource> {
+  const { supabase, businessId } = await ctx();
+  const { data, error } = await tbl(supabase, "booking_resources").insert({
+    business_id: businessId, display_name: input.displayName.trim(),
+    member_profile_id: input.memberProfileId ?? null, sort_order: input.sortOrder ?? 0,
+  }).select("*").single();
+  if (error) throw new Error(error.message);
+  revalidate();
+  return data as BookingResource;
+}
+
+export async function updateResource(id: string, patch: Partial<{
+  display_name: string; member_profile_id: string | null; active: boolean; sort_order: number;
+}>): Promise<void> {
+  const { supabase, businessId } = await ctx();
+  const { error } = await tbl(supabase, "booking_resources").update(patch).eq("id", id).eq("business_id", businessId);
+  if (error) throw new Error(error.message);
+  revalidate();
+}
+
+export async function deleteResource(id: string): Promise<void> {
+  const { supabase, businessId } = await ctx();
+  await tbl(supabase, "booking_resources").delete().eq("id", id).eq("business_id", businessId);
+  revalidate();
+}
+
+// ---------------------------------------------------------------------------
+// Working hours — replace-all for a resource (simplest mental model)
+// ---------------------------------------------------------------------------
+export async function listWorkingHours(resourceId: string): Promise<BookingWorkingHours[]> {
+  const { supabase, businessId } = await ctx(false);
+  const { data } = await tbl(supabase, "booking_working_hours").select("*")
+    .eq("business_id", businessId).eq("resource_id", resourceId)
+    .order("weekday").order("start_time");
+  return (data ?? []) as BookingWorkingHours[];
+}
+
+export async function setWorkingHours(resourceId: string, blocks: Array<{
+  weekday: number; start_time: string; end_time: string;
+}>): Promise<void> {
+  const { supabase, businessId } = await ctx();
+  await tbl(supabase, "booking_working_hours").delete().eq("business_id", businessId).eq("resource_id", resourceId);
+  if (blocks.length > 0) {
+    const rows = blocks.map((b) => ({
+      business_id: businessId, resource_id: resourceId,
+      weekday: b.weekday, start_time: b.start_time, end_time: b.end_time,
+    }));
+    const { error } = await tbl(supabase, "booking_working_hours").insert(rows);
+    if (error) throw new Error(error.message);
+  }
+  revalidate();
+}
+
+// ---------------------------------------------------------------------------
+// Availability exceptions (blackouts / custom hours)
+// ---------------------------------------------------------------------------
+export async function listExceptions(): Promise<BookingAvailabilityException[]> {
+  const { supabase, businessId } = await ctx(false);
+  const { data } = await tbl(supabase, "booking_availability_exceptions").select("*")
+    .eq("business_id", businessId).order("date", { ascending: true });
+  return (data ?? []) as BookingAvailabilityException[];
+}
+
+export async function createException(input: {
+  date: string; isClosed: boolean; resourceId?: string | null;
+  startTime?: string; endTime?: string; reason?: string;
+}): Promise<void> {
+  const { supabase, businessId } = await ctx();
+  const { error } = await tbl(supabase, "booking_availability_exceptions").insert({
+    business_id: businessId, date: input.date,
+    is_closed: input.isClosed, resource_id: input.resourceId ?? null,
+    start_time: input.isClosed ? null : input.startTime ?? null,
+    end_time: input.isClosed ? null : input.endTime ?? null,
+    reason: input.reason?.trim() || null,
+  });
+  if (error) throw new Error(error.message);
+  revalidate();
+}
+
+export async function deleteException(id: string): Promise<void> {
+  const { supabase, businessId } = await ctx();
+  await tbl(supabase, "booking_availability_exceptions").delete().eq("id", id).eq("business_id", businessId);
+  revalidate();
+}
+
+// ---------------------------------------------------------------------------
+// Appointments (admin read)
+// ---------------------------------------------------------------------------
+export async function listAppointments(opts?: { from?: string; to?: string; limit?: number }): Promise<Appointment[]> {
+  const { supabase, businessId } = await ctx(false);
+  let q = tbl(supabase, "appointments").select("*").eq("business_id", businessId);
+  if (opts?.from) q = q.gte("starts_at", opts.from);
+  if (opts?.to) q = q.lte("starts_at", opts.to);
+  const { data } = await q.order("starts_at", { ascending: true }).limit(opts?.limit ?? 200);
+  return (data ?? []) as Appointment[];
+}
+
+export async function setAppointmentStatus(id: string, status: Appointment["status"]): Promise<void> {
+  const { supabase, businessId } = await ctx();
+  const patch: Record<string, unknown> = { status };
+  if (status === "cancelled") patch.cancelled_at = new Date().toISOString();
+  const { error } = await tbl(supabase, "appointments").update(patch).eq("id", id).eq("business_id", businessId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/settings/booking");
+}
