@@ -940,6 +940,139 @@ export interface BusinessMember {
   created_at: string;
 }
 
+// ============================================================================
+// Online Booking / Appointments
+// ============================================================================
+export type AppointmentStatus =
+  | 'pending' | 'confirmed' | 'cancelled' | 'rescheduled' | 'completed' | 'no_show';
+export type BookingSource = 'web' | 'embed' | 'api' | 'admin';
+export type CaptchaProvider = 'turnstile' | 'hcaptcha';
+
+export interface BookingSettings {
+  business_id: string;
+  enabled: boolean;
+  slug: string | null;
+  timezone: string;
+  min_lead_minutes: number;
+  max_advance_days: number;
+  slot_granularity_minutes: number;
+  default_buffer_minutes: number;
+  max_per_day: number | null;
+  require_phone: boolean;
+  require_email: boolean;
+  require_address: boolean;
+  confirmation_message: string | null;
+  cancellation_window_hours: number;
+  reminder_offsets: number[];
+  create_lead: boolean;
+  create_work_order: boolean;
+  brand_logo_url: string | null;
+  brand_color: string | null;
+  captcha_provider: CaptchaProvider | null;
+  captcha_site_key: string | null;
+  captcha_secret_key: string | null;
+  webhook_url: string | null;
+  webhook_secret: string | null;
+  notify_customer_email: boolean;
+  notify_customer_sms: boolean;
+  notify_team_email: boolean;
+  team_notify_email: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AppointmentType {
+  id: string;
+  business_id: string;
+  name: string;
+  description: string | null;
+  duration_minutes: number;
+  buffer_minutes: number | null;
+  price_display: string | null;
+  color: string | null;
+  active: boolean;
+  eligible_resource_ids: string[];
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BookingResource {
+  id: string;
+  business_id: string;
+  member_profile_id: string | null;
+  display_name: string;
+  active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BookingWorkingHours {
+  id: string;
+  business_id: string;
+  resource_id: string;
+  weekday: number; // 0=Sun .. 6=Sat
+  start_time: string; // 'HH:MM:SS'
+  end_time: string;
+  created_at: string;
+}
+
+export interface BookingAvailabilityException {
+  id: string;
+  business_id: string;
+  resource_id: string | null;
+  date: string; // 'YYYY-MM-DD'
+  is_closed: boolean;
+  start_time: string | null;
+  end_time: string | null;
+  reason: string | null;
+  created_at: string;
+}
+
+export interface Appointment {
+  id: string;
+  business_id: string;
+  appointment_type_id: string | null;
+  resource_id: string;
+  customer_name: string;
+  customer_phone: string | null;
+  customer_email: string | null;
+  customer_address: string | null;
+  notes: string | null;
+  starts_at: string;
+  ends_at: string;
+  status: AppointmentStatus;
+  source: BookingSource;
+  manage_token: string;
+  lead_id: string | null;
+  work_order_id: string | null;
+  idempotency_key: string | null;
+  cancelled_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BookingHold {
+  id: string;
+  business_id: string;
+  resource_id: string;
+  appointment_type_id: string | null;
+  starts_at: string;
+  ends_at: string;
+  hold_token: string;
+  expires_at: string;
+  created_at: string;
+}
+
+/** A bookable slot returned by the availability engine (Phase 2). */
+export interface BookingSlot {
+  start: string;        // UTC ISO
+  end: string;          // UTC ISO
+  resource_id: string;
+  resource_name: string; // public-safe display_name only
+}
+
 // Database interface for Supabase client
 export interface Database {
   public: {
