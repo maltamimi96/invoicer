@@ -18,7 +18,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
 
   const tenant = await resolveTenant(slug);
   if (!tenant) return publicError("Booking not available", 404);
-  const { businessId, settings, sb } = tenant;
+  const { settings, sb } = tenant; // settings = the booking form
 
   const { searchParams } = new URL(req.url);
   const typeId = searchParams.get("type");
@@ -32,7 +32,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
   // Guard against absurd ranges.
   if (toKey < fromKey) return publicError("to must be >= from", 400);
 
-  const result = await getAvailability(sb, businessId, typeId, fromKey, toKey, resourceId);
+  const result = await getAvailability(sb, settings, typeId, fromKey, toKey, resourceId);
   if (!result) return publicError("Appointment type not found", 404);
 
   return json({

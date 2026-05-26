@@ -12,7 +12,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { BookingSettings } from "@/types/database";
+import type { BookingForm } from "@/types/database";
 
 export const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -31,9 +31,11 @@ export function preflight() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
 }
 
-/** Resolve an enabled booking slug → { businessId, settings }, or null. */
+/** Resolve an enabled booking-form slug → { businessId, formId, settings(form) }.
+ *  `settings` is the booking FORM (a superset of the per-business rule fields),
+ *  so all downstream rule logic works unchanged. */
 export async function resolveTenant(slug: string): Promise<{
-  businessId: string; settings: BookingSettings;
+  businessId: string; formId: string; settings: BookingForm;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   sb: any;
 } | null> {
@@ -41,12 +43,10 @@ export async function resolveTenant(slug: string): Promise<{
   // the repo-wide tbl()/(sb as any) convention for newer tables).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sb = createAdminClient() as any;
-  const { data: bizId } = await sb.rpc("booking_business_for_slug", { p_slug: slug.toLowerCase() });
-  if (!bizId) return null;
-  const { data: settings } = await sb
-    .from("booking_settings").select("*").eq("business_id", bizId).maybeSingle();
-  if (!settings || !settings.enabled) return null;
-  return { businessId: bizId as string, settings: settings as BookingSettings, sb };
+  const { data: form } = await sb
+    .from("booking_forms").select("*").eq("slug", slug.toLowerCase()).eq("enabled", true).maybeSingle();
+  if (!form) return null;
+  return { businessId: form.business_id as string, formId: form.id as string, settings: form as BookingForm, sb };
 }
 
 /** Best-effort in-memory IP rate limiter. Fluid Compute reuses instances so this
@@ -72,7 +72,7 @@ export function clientIp(req: NextRequest): string {
 
 /** Verify a CAPTCHA token against the business's configured provider. Returns
  *  true when no provider is configured (CAPTCHA is opt-in per tenant). */
-export async function verifyCaptcha(settings: BookingSettings, token: string | undefined): Promise<boolean> {
+export async function verifyCaptcha(settings: Pick<BookingForm, "captcha_provider" | "captcha_secret_key">, token: string | undefined): Promise<boolean> {
   if (!settings.captcha_provider || !settings.captcha_secret_key) return true; // not enforced
   if (!token) return false;
   const endpoint = settings.captcha_provider === "hcaptcha"

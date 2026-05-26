@@ -28,7 +28,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
 
   const tenant = await resolveTenant(slug);
   if (!tenant) return publicError("Booking not available", 404);
-  const { businessId, settings, sb } = tenant;
+  const { businessId, formId, settings, sb } = tenant; // settings = the booking form
 
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return publicError("Invalid JSON", 400); }
@@ -89,6 +89,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
   // Insert — the exclusion constraint guards concurrency. 23P01 = overlap.
   const { data: appt, error } = await sb.from("appointments").insert({
     business_id: businessId,
+    form_id: formId,
     appointment_type_id: typeId,
     resource_id: resourceId,
     customer_name: customerName,

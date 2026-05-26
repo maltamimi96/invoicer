@@ -11,7 +11,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notifyBookingReminder, fireBookingWebhook } from "@/lib/booking/notify";
-import type { Appointment, BookingSettings } from "@/types/database";
+import type { Appointment, BookingForm } from "@/types/database";
 
 export const dynamic = "force-dynamic";
 
@@ -30,28 +30,31 @@ export async function GET(req: NextRequest) {
   let expiredHolds = 0;
   try { const { data } = await sb.rpc("booking_expire_holds"); expiredHolds = (data as number) ?? 0; } catch { /* ignore */ }
 
-  // 2. Reminders. Load enabled settings into a map.
-  const { data: settingsRows } = await sb.from("booking_settings").select("*").eq("enabled", true);
-  const settingsById = new Map<string, BookingSettings>();
+  // 2. Reminders. Load enabled forms — keyed by id, with a per-business
+  //    fallback for legacy appointments that predate form_id.
+  const { data: formRows } = await sb.from("booking_forms").select("*").eq("enabled", true);
+  const formById = new Map<string, BookingForm>();
+  const formByBusiness = new Map<string, BookingForm>();
   let maxOffset = 0;
-  for (const s of (settingsRows ?? []) as BookingSettings[]) {
-    settingsById.set(s.business_id, s);
-    for (const o of s.reminder_offsets ?? []) maxOffset = Math.max(maxOffset, o);
+  for (const f of (formRows ?? []) as BookingForm[]) {
+    formById.set(f.id, f);
+    if (!formByBusiness.has(f.business_id)) formByBusiness.set(f.business_id, f);
+    for (const o of f.reminder_offsets ?? []) maxOffset = Math.max(maxOffset, o);
   }
-  if (settingsById.size === 0) return NextResponse.json({ ok: true, expiredHolds, reminders: 0 });
+  if (formById.size === 0) return NextResponse.json({ ok: true, expiredHolds, reminders: 0 });
 
   const now = Date.now();
   const windowEnd = new Date(now + (maxOffset + 30) * 60_000).toISOString(); // +slack
   const { data: appts } = await sb.from("appointments")
     .select("*")
-    .in("business_id", [...settingsById.keys()])
+    .in("business_id", [...formByBusiness.keys()])
     .eq("status", "confirmed")
     .gte("starts_at", new Date(now).toISOString())
     .lte("starts_at", windowEnd);
 
   let sent = 0;
   for (const appt of (appts ?? []) as Appointment[]) {
-    const settings = settingsById.get(appt.business_id);
+    const settings = (appt.form_id ? formById.get(appt.form_id) : null) ?? formByBusiness.get(appt.business_id);
     if (!settings) continue;
     const startMs = new Date(appt.starts_at).getTime();
     for (const offset of settings.reminder_offsets ?? []) {

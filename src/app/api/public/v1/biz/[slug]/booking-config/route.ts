@@ -20,12 +20,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
   if (!tenant) return publicError("Booking not available", 404);
   const { businessId, settings, sb } = tenant;
 
+  let typeQ = sb.from("appointment_types").select("*").eq("business_id", businessId).eq("active", true);
+  if (settings.appointment_type_ids.length > 0) typeQ = typeQ.in("id", settings.appointment_type_ids);
+  let resQ = sb.from("booking_resources").select("id, display_name, sort_order").eq("business_id", businessId).eq("active", true);
+  if (settings.resource_ids.length > 0) resQ = resQ.in("id", settings.resource_ids);
   const [{ data: types }, { data: biz }, { data: resources }] = await Promise.all([
-    sb.from("appointment_types").select("*").eq("business_id", businessId)
-      .eq("active", true).order("sort_order", { ascending: true }),
+    typeQ.order("sort_order", { ascending: true }),
     sb.from("businesses").select("name, logo_url, primary_color").eq("id", businessId).maybeSingle(),
-    sb.from("booking_resources").select("id, display_name, sort_order").eq("business_id", businessId)
-      .eq("active", true).order("sort_order", { ascending: true }),
+    resQ.order("sort_order", { ascending: true }),
   ]);
 
   return json({

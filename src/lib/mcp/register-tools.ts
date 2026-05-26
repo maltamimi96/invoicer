@@ -1189,17 +1189,35 @@ export function registerTools(server: McpServer): void {
     });
 
   // ===== ONLINE BOOKING =====
-  tool("get_booking_settings", "Get this business's online-booking settings (enabled flag, public slug, timezone, rules, required fields, reminders).",
+  tool("list_booking_forms", "List this business's booking forms (each has its own public slug, rules and selected services/resources).",
     {},
     async (_args, extra) => {
       const ctx = ctxFrom(extra); assertScope(ctx, "bookings:read");
-      const { data } = await t(ctx, "booking_settings").select("*").eq("business_id", ctx.businessId).maybeSingle();
-      return text(data ?? { enabled: false, note: "Booking not configured yet — call update_booking_settings to create it." });
+      const { data } = await t(ctx, "booking_forms").select("*").eq("business_id", ctx.businessId).order("created_at");
+      return text(data ?? []);
     });
 
-  tool("update_booking_settings", "Update online-booking settings. Only provided fields change. Set enabled=true to go live (a slug must be set first).",
+  tool("create_booking_form", "Create a new booking form. Returns it (set a slug + enabled via update_booking_form to publish).",
+    { name: z.string().min(1) },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "bookings:write");
+      const { data, error } = await t(ctx, "booking_forms").insert({ business_id: ctx.businessId, name: args.name }).select().single();
+      if (error) throw error;
+      return text({ created: true, form: data });
+    });
+
+  tool("get_booking_settings", "Get the default booking form (enabled flag, public slug, timezone, rules, required fields, reminders). Use list_booking_forms for all forms.",
+    {},
+    async (_args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "bookings:read");
+      const { data } = await t(ctx, "booking_forms").select("*").eq("business_id", ctx.businessId).order("created_at").limit(1).maybeSingle();
+      return text(data ?? { enabled: false, note: "No booking form yet — call create_booking_form." });
+    });
+
+  tool("update_booking_form", "Update a booking form (or the default form if form_id omitted). Only provided fields change. Set enabled=true + a slug to publish.",
     {
-      enabled: z.boolean().optional(), slug: z.string().optional(), timezone: z.string().optional(),
+      form_id: UUID.optional(),
+      enabled: z.boolean().optional(), slug: z.string().optional(), name: z.string().optional(), timezone: z.string().optional(),
       min_lead_minutes: z.number().int().min(0).optional(), max_advance_days: z.number().int().min(1).optional(),
       slot_granularity_minutes: z.number().int().min(1).optional(), default_buffer_minutes: z.number().int().min(0).optional(),
       max_per_day: z.number().int().min(0).nullable().optional(),
@@ -1208,17 +1226,23 @@ export function registerTools(server: McpServer): void {
       confirmation_message: z.string().nullable().optional(), cancellation_window_hours: z.number().int().min(0).optional(),
       reminder_offsets: z.array(z.number().int()).optional(),
       create_lead: z.boolean().optional(), create_work_order: z.boolean().optional(),
+      appointment_type_ids: z.array(UUID).optional(), resource_ids: z.array(UUID).optional(),
       notify_customer_email: z.boolean().optional(), notify_customer_sms: z.boolean().optional(),
       notify_team_email: z.boolean().optional(), team_notify_email: z.string().nullable().optional(),
     },
     async (args, extra) => {
       const ctx = ctxFrom(extra); assertScope(ctx, "bookings:write");
-      const patch = Object.fromEntries(Object.entries(args).filter(([, v]) => v !== undefined));
-      // Lazy-create the row.
-      await t(ctx, "booking_settings").upsert({ business_id: ctx.businessId, ...patch }, { onConflict: "business_id" });
-      const { data, error } = await t(ctx, "booking_settings").select("*").eq("business_id", ctx.businessId).single();
+      const { form_id, ...rest } = args;
+      const patch = Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== undefined));
+      let id = form_id as string | undefined;
+      if (!id) {
+        const { data: f } = await t(ctx, "booking_forms").select("id").eq("business_id", ctx.businessId).order("created_at").limit(1).maybeSingle();
+        if (!f) throw new Error("No booking form — call create_booking_form first");
+        id = f.id;
+      }
+      const { data, error } = await t(ctx, "booking_forms").update(patch).eq("id", id).eq("business_id", ctx.businessId).select("*").single();
       if (error) throw error;
-      return text({ updated: true, settings: data });
+      return text({ updated: true, form: data });
     });
 
   tool("list_appointment_types", "List the bookable services (appointment types).",

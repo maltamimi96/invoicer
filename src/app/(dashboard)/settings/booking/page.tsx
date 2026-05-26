@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { canEdit, type Role } from "@/lib/permissions";
 import {
-  getBookingSettings, listAppointmentTypes, listResources, listExceptions, listAppointments,
+  listForms, listAppointmentTypes, listResources, listExceptions, listAppointments,
   listBookingTeamMembers,
 } from "@/lib/actions/booking";
 import { BookingAdminClient } from "@/components/booking/booking-admin-client";
@@ -28,8 +28,8 @@ export default async function BookingSettingsPage() {
   }
   if (!canEdit(role)) redirect("/dashboard");
 
-  const [settings, types, resources, exceptions, appointments, teamMembers] = await Promise.all([
-    getBookingSettings(), listAppointmentTypes(), listResources(), listExceptions(),
+  const [forms, types, resources, exceptions, appointments, teamMembers] = await Promise.all([
+    listForms(), listAppointmentTypes(), listResources(), listExceptions(),
     listAppointments({ from: new Date().toISOString(), limit: 100 }),
     listBookingTeamMembers(),
   ]);
@@ -38,7 +38,7 @@ export default async function BookingSettingsPage() {
 
   return (
     <BookingAdminClient
-      initialSettings={settings}
+      initialForms={forms}
       initialTypes={types}
       initialResources={resources}
       initialExceptions={exceptions}

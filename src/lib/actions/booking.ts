@@ -13,7 +13,7 @@ import { getActiveBizId } from "@/lib/active-business";
 import { getUser } from "@/lib/auth";
 import { canEdit, type Role } from "@/lib/permissions";
 import type {
-  BookingSettings, AppointmentType, BookingResource,
+  BookingSettings, BookingForm, AppointmentType, BookingResource,
   BookingWorkingHours, BookingAvailabilityException, Appointment,
 } from "@/types/database";
 
@@ -83,6 +83,53 @@ export async function updateBookingSettings(patch: Partial<Omit<BookingSettings,
   await getBookingSettings();
   const { error } = await tbl(supabase, "booking_settings").update(patch).eq("business_id", businessId);
   if (error) throw new Error(error.message);
+  revalidate();
+}
+
+// ---------------------------------------------------------------------------
+// Booking forms (multiple per business) — each exposes a subset of the shared
+// services/resources with its own slug, rules and branding.
+// ---------------------------------------------------------------------------
+export async function listForms(): Promise<BookingForm[]> {
+  const { supabase, businessId } = await ctx(false);
+  const { data } = await tbl(supabase, "booking_forms").select("*")
+    .eq("business_id", businessId).order("sort_order").order("created_at");
+  return (data ?? []) as BookingForm[];
+}
+
+export async function createForm(name: string): Promise<BookingForm> {
+  const { supabase, businessId } = await ctx();
+  const { data, error } = await tbl(supabase, "booking_forms")
+    .insert({ business_id: businessId, name: name.trim() || "New form" }).select("*").single();
+  if (error) throw new Error(error.message);
+  revalidate();
+  return data as BookingForm;
+}
+
+export async function updateForm(id: string, patch: Partial<Omit<BookingForm,
+  "id" | "business_id" | "slug" | "created_at" | "updated_at">>): Promise<void> {
+  const { supabase, businessId } = await ctx();
+  const { error } = await tbl(supabase, "booking_forms").update(patch).eq("id", id).eq("business_id", businessId);
+  if (error) throw new Error(error.message);
+  revalidate();
+}
+
+export async function setFormSlug(id: string, slug: string): Promise<{ ok: boolean; error?: string }> {
+  const { supabase, businessId } = await ctx();
+  const clean = slug.trim().toLowerCase();
+  if (!SLUG_RE.test(clean)) return { ok: false, error: "Use 3–40 lowercase letters, numbers or hyphens." };
+  const { error } = await tbl(supabase, "booking_forms").update({ slug: clean }).eq("id", id).eq("business_id", businessId);
+  if (error) {
+    if (error.code === "23505") return { ok: false, error: "That link is already taken — try another." };
+    return { ok: false, error: error.message };
+  }
+  revalidate();
+  return { ok: true };
+}
+
+export async function deleteForm(id: string): Promise<void> {
+  const { supabase, businessId } = await ctx();
+  await tbl(supabase, "booking_forms").delete().eq("id", id).eq("business_id", businessId);
   revalidate();
 }
 

@@ -998,6 +998,47 @@ export interface BookingSettings {
   updated_at: string;
 }
 
+/** A single bookable form. Superset of the per-business rule fields plus its
+ *  own slug/name/branding and the subset of services + resources it exposes. */
+export interface BookingForm {
+  id: string;
+  business_id: string;
+  name: string;
+  slug: string | null;
+  enabled: boolean;
+  timezone: string;
+  min_lead_minutes: number;
+  max_advance_days: number;
+  slot_granularity_minutes: number;
+  default_buffer_minutes: number;
+  max_per_day: number | null;
+  require_phone: boolean;
+  require_email: boolean;
+  require_address: boolean;
+  show_resource_names: boolean;
+  confirmation_message: string | null;
+  cancellation_window_hours: number;
+  reminder_offsets: number[];
+  create_lead: boolean;
+  create_work_order: boolean;
+  brand_logo_url: string | null;
+  brand_color: string | null;
+  captcha_provider: CaptchaProvider | null;
+  captcha_site_key: string | null;
+  captcha_secret_key: string | null;
+  webhook_url: string | null;
+  webhook_secret: string | null;
+  notify_customer_email: boolean;
+  notify_customer_sms: boolean;
+  notify_team_email: boolean;
+  team_notify_email: string | null;
+  appointment_type_ids: string[];
+  resource_ids: string[];
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AppointmentType {
   id: string;
   business_id: string;
@@ -1062,6 +1103,7 @@ export interface Appointment {
   status: AppointmentStatus;
   source: BookingSource;
   manage_token: string;
+  form_id: string | null;
   customer_id: string | null;
   lead_id: string | null;
   work_order_id: string | null;

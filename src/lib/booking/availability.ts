@@ -12,7 +12,7 @@
  * Times in / out are UTC ISO strings. DST is handled by src/lib/booking/time.ts.
  */
 import type {
-  BookingSettings, AppointmentType, BookingResource, BookingSlot,
+  BookingForm, BookingSettings, AppointmentType, BookingResource, BookingSlot,
 } from "@/types/database";
 import {
   zonedWallToUtc, utcToZonedParts, zonedDateKey, addDaysKey,
@@ -32,23 +32,27 @@ interface ResourceWindows {
   exceptions: Map<string, { closed: boolean; startMin?: number; endMin?: number }[]>;
 }
 
-/** Load everything the engine needs for one appointment type. */
-export async function loadAvailabilityData(sb: Sb, businessId: string, appointmentTypeId: string) {
-  const [{ data: settings }, { data: type }] = await Promise.all([
-    sb.from("booking_settings").select("*").eq("business_id", businessId).maybeSingle(),
-    sb.from("appointment_types").select("*").eq("id", appointmentTypeId).eq("business_id", businessId).maybeSingle(),
-  ]);
-  if (!settings || !type || !type.active) return null;
+/** Load everything the engine needs for one appointment type, scoped to a form. */
+export async function loadAvailabilityData(sb: Sb, form: BookingForm, appointmentTypeId: string) {
+  const businessId = form.business_id;
+  const settings = form; // the form carries all rule fields
+  // The type must belong to the business and be exposed by this form.
+  if (form.appointment_type_ids.length > 0 && !form.appointment_type_ids.includes(appointmentTypeId)) return null;
+  const { data: type } = await sb.from("appointment_types").select("*").eq("id", appointmentTypeId).eq("business_id", businessId).maybeSingle();
+  if (!type || !type.active) return null;
 
-  // Eligible resources: explicit list on the type, else all active resources.
-  const eligible: string[] = type.eligible_resource_ids ?? [];
+  // Eligible resources: the form's selection ∩ the type's eligibility ∩ active.
+  const typeEligible: string[] = type.eligible_resource_ids ?? [];
   let resQuery = sb.from("booking_resources").select("*").eq("business_id", businessId).eq("active", true);
-  if (eligible.length > 0) resQuery = resQuery.in("id", eligible);
+  const restrictIds = form.resource_ids.length > 0
+    ? (typeEligible.length > 0 ? form.resource_ids.filter((id) => typeEligible.includes(id)) : form.resource_ids)
+    : typeEligible;
+  if (restrictIds.length > 0) resQuery = resQuery.in("id", restrictIds);
   const { data: resources } = await resQuery.order("sort_order", { ascending: true });
 
   const resourceIds: string[] = (resources ?? []).map((r: BookingResource) => r.id);
   if (resourceIds.length === 0) {
-    return { settings: settings as BookingSettings, type: type as AppointmentType, windows: [] as ResourceWindows[] };
+    return { settings: settings as BookingForm, type: type as AppointmentType, windows: [] as ResourceWindows[] };
   }
 
   const [{ data: hours }, { data: exceptions }] = await Promise.all([
@@ -76,7 +80,7 @@ export async function loadAvailabilityData(sb: Sb, businessId: string, appointme
     return { resource, hours: hMap, exceptions: eMap };
   });
 
-  return { settings: settings as BookingSettings, type: type as AppointmentType, windows };
+  return { settings: settings as BookingForm, type: type as AppointmentType, windows };
 }
 
 /** Pure slot computation given loaded data + busy intervals per resource. */
@@ -165,10 +169,11 @@ export function computeSlots(args: {
 
 /** Orchestrator: load data, pull busy intervals per resource, compute slots. */
 export async function getAvailability(
-  sb: Sb, businessId: string, appointmentTypeId: string, fromKey: string, toKey: string,
+  sb: Sb, form: BookingForm, appointmentTypeId: string, fromKey: string, toKey: string,
   resourceId?: string | null,
 ): Promise<{ slots: BookingSlot[]; timezone: string } | null> {
-  const data = await loadAvailabilityData(sb, businessId, appointmentTypeId);
+  const businessId = form.business_id;
+  const data = await loadAvailabilityData(sb, form, appointmentTypeId);
   if (!data) return null;
   const { settings, type } = data;
   // Optionally narrow to a single chosen resource/worker.
