@@ -1062,6 +1062,7 @@ export interface Appointment {
   status: AppointmentStatus;
   source: BookingSource;
   manage_token: string;
+  customer_id: string | null;
   lead_id: string | null;
   work_order_id: string | null;
   idempotency_key: string | null;

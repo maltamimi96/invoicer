@@ -28,11 +28,13 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
     .update({ last_used_at: new Date().toISOString() })
     .eq("token", token);
 
-  const [{ data: customer }, { data: business }] = await Promise.all([
+  const [{ data: customer }, { data: business }, { data: bsettings }] = await Promise.all([
     tbl(sb, "customers").select("*").eq("id", link.customer_id).maybeSingle(),
     tbl(sb, "businesses").select("name, logo_url, accent_color, email, phone, currency, license_number").eq("id", link.business_id).maybeSingle(),
+    tbl(sb, "booking_settings").select("timezone").eq("business_id", link.business_id).maybeSingle(),
   ]);
   if (!customer) notFound();
+  const bookingTz: string = bsettings?.timezone ?? "Australia/Sydney";
 
   const [{ data: invoices }, { data: quotes }, { data: workOrders }, { data: reports }] = await Promise.all([
     tbl(sb, "invoices")
@@ -57,10 +59,19 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
       .order("report_date", { ascending: false }),
   ]);
 
+  const { data: appointments } = await tbl(sb, "appointments")
+    .select("id, starts_at, ends_at, status, notes, appointment_types(name), booking_resources(display_name)")
+    .eq("business_id", link.business_id)
+    .eq("customer_id", link.customer_id)
+    .neq("status", "cancelled")
+    .order("starts_at", { ascending: true });
+
   const invs = invoices ?? [];
   const qts = quotes ?? [];
   const wos = workOrders ?? [];
   const rps = reports ?? [];
+  const appts = (appointments ?? []) as Array<{ id: string; starts_at: string; ends_at: string; status: string; notes: string | null; appointment_types: { name: string } | null; booking_resources: { display_name: string } | null }>;
+  const apptFmt = (iso: string) => new Intl.DateTimeFormat("en-AU", { timeZone: bookingTz, weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true }).format(new Date(iso));
   const totalOwing = invs
     .filter((i: { status: string }) => i.status !== "paid" && i.status !== "cancelled")
     .reduce((s: number, i: { total: number; amount_paid: number }) => s + (i.total - (i.amount_paid || 0)), 0);
@@ -225,6 +236,32 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
             </div>
           )}
         </section>
+
+        {/* Appointments / bookings */}
+        {appts.length > 0 && (
+          <section>
+            <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-teal-500" /> Appointments
+            </h3>
+            <div className="space-y-2">
+              {appts.map((ap) => (
+                <Card key={ap.id} className="p-4 flex items-center justify-between gap-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium">{ap.appointment_types?.name ?? "Appointment"}</span>
+                      <StatusBadge status={ap.status} />
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1 flex-wrap">
+                      <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{apptFmt(ap.starts_at)}</span>
+                      {ap.booking_resources?.display_name && <span>with {ap.booking_resources.display_name}</span>}
+                    </div>
+                    {ap.notes && <p className="text-xs text-muted-foreground mt-1 break-words">{ap.notes}</p>}
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Reports */}
         {rps.length > 0 && (

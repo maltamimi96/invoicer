@@ -123,10 +123,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
   // are NOT NULL, so we attribute these to the business owner.
   let leadId: string | null = null;
   let workOrderId: string | null = null;
+  let customerId: string | null = null;
   try {
     const { data: biz } = await sb.from("businesses")
       .select("user_id, work_order_prefix, work_order_next_number").eq("id", businessId).single();
     const ownerId: string | null = biz?.user_id ?? null;
+
+    // Match an existing customer (by email, then phone) so the booking shows on
+    // their access hub. We don't auto-create customers for walk-ins.
+    if (customerEmail || customerPhone) {
+      let cq = sb.from("customers").select("id").eq("business_id", businessId).limit(1);
+      cq = customerEmail ? cq.ilike("email", customerEmail) : cq.eq("phone", customerPhone);
+      const { data: cust } = await cq.maybeSingle();
+      customerId = (cust as { id?: string } | null)?.id ?? null;
+    }
 
     if (settings.create_lead && ownerId) {
       const { data: lead } = await sb.rpc("upsert_lead", {
@@ -156,11 +166,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
         end_time: end.toISOString().slice(11, 16),
       };
       if (profileId) woInsert.assigned_to_profile_id = profileId;
+      if (customerId) woInsert.customer_id = customerId;
       const { data: wo } = await sb.from("work_orders").insert(woInsert).select("id").single();
       workOrderId = (wo as { id?: string } | null)?.id ?? null;
     }
-    if (leadId || workOrderId) {
-      await sb.from("appointments").update({ lead_id: leadId, work_order_id: workOrderId }).eq("id", appt.id);
+    if (leadId || workOrderId || customerId) {
+      await sb.from("appointments").update({ lead_id: leadId, work_order_id: workOrderId, customer_id: customerId }).eq("id", appt.id);
     }
   } catch (e) {
     console.error("Booking side-effect error (non-fatal):", e);
