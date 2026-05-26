@@ -251,6 +251,37 @@ export async function listAppointments(opts?: { from?: string; to?: string; limi
   return (data ?? []) as Appointment[];
 }
 
+export interface AppointmentDetail {
+  appointment: Appointment;
+  serviceName: string | null;
+  resourceName: string | null;
+  lead: { id: string; name: string } | null;
+  workOrder: { id: string; number: string | null; status: string } | null;
+  audit: Array<{ id: string; event: string; actor: string; detail: unknown; created_at: string }>;
+}
+
+export async function getAppointmentDetail(id: string): Promise<AppointmentDetail | null> {
+  const { supabase, businessId } = await ctx(false);
+  const { data: appt } = await tbl(supabase, "appointments").select("*").eq("id", id).eq("business_id", businessId).maybeSingle();
+  if (!appt) return null;
+  const a = appt as Appointment;
+  const [svc, res, lead, wo, audit] = await Promise.all([
+    a.appointment_type_id ? tbl(supabase, "appointment_types").select("name").eq("id", a.appointment_type_id).maybeSingle() : Promise.resolve({ data: null }),
+    tbl(supabase, "booking_resources").select("display_name").eq("id", a.resource_id).maybeSingle(),
+    a.lead_id ? tbl(supabase, "leads").select("id, name").eq("id", a.lead_id).maybeSingle() : Promise.resolve({ data: null }),
+    a.work_order_id ? tbl(supabase, "work_orders").select("id, number, status").eq("id", a.work_order_id).maybeSingle() : Promise.resolve({ data: null }),
+    tbl(supabase, "booking_audit_log").select("id, event, actor, detail, created_at").eq("appointment_id", id).order("created_at", { ascending: true }),
+  ]);
+  return {
+    appointment: a,
+    serviceName: svc.data?.name ?? null,
+    resourceName: res.data?.display_name ?? null,
+    lead: lead.data ?? null,
+    workOrder: wo.data ?? null,
+    audit: (audit.data ?? []) as AppointmentDetail["audit"],
+  };
+}
+
 export async function setAppointmentStatus(id: string, status: Appointment["status"]): Promise<void> {
   const { supabase, businessId } = await ctx();
   const patch: Record<string, unknown> = { status };

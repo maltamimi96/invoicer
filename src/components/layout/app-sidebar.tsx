@@ -43,6 +43,7 @@ const navSections: NavSection[] = [
   { section: "Service", items: [
     { label: "Work Orders",    href: "/work-orders",     icon: Wrench,        worker: true },
     { label: "Schedule",       href: "/schedule",        icon: CalendarDays,  worker: true },
+    { label: "Bookings",       href: "/bookings",        icon: CalendarDays                 },
     { label: "Online Booking", href: "/settings/booking", icon: CalendarDays                 },
   ]},
   { section: "Contacts", items: [
