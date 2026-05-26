@@ -38,7 +38,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ mana
   const sb = createAdminClient() as any;
   const found = await load(sb, manage_token);
   if (!found) return publicError("Booking not found", 404);
-  return json({ appointment: publicView(found.appt) });
+  const { appt, settings } = found;
+  return json({
+    appointment: publicView(appt),
+    slug: settings.slug,
+    timezone: settings.timezone,
+    appointment_type_id: appt.appointment_type_id,
+    cancellation_window_hours: settings.cancellation_window_hours,
+    can_cancel: (new Date(appt.starts_at).getTime() - Date.now()) / 3_600_000 >= settings.cancellation_window_hours,
+  });
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ manage_token: string }> }) {

@@ -55,6 +55,7 @@ export async function updateSession(request: NextRequest) {
     // Public online-booking surface: hosted page + embed + slug-scoped API.
     // These own their tenant resolution (by slug) and bot protection.
     pathname.startsWith("/book/") ||
+    pathname.startsWith("/booking/") ||
     pathname.startsWith("/api/public/") ||
     pathname === "/api/auth/signup" ||
     pathname.startsWith("/api/v1/") ||
