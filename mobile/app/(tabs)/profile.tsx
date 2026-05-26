@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Alert, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { LogOut, Bell, Building2, ChevronRight, Landmark, Palette, Sparkles } from "lucide-react-native";
+import { LogOut, Bell, Building2, ChevronRight, Landmark, Palette, Sparkles, CalendarClock } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
@@ -38,6 +38,7 @@ export default function ProfileScreen() {
     ...(canEditBusiness ? [
       { href: "/settings/business", label: "Business profile", icon: <Building2 size={18} color="#fff" />, gradient: "primary" as const },
       { href: "/settings/bank",     label: "Bank details",     icon: <Landmark  size={18} color="#fff" />, gradient: "emerald" as const },
+      { href: "/settings/booking",  label: "Online Booking",   icon: <CalendarClock size={18} color="#fff" />, gradient: "dusk" as const },
     ] : []),
     // Available to everyone (incl. workers) — just appearance.
     { href: "/settings/appearance", label: "Appearance", icon: <Palette size={18} color="#fff" />, gradient: "violet" as const },

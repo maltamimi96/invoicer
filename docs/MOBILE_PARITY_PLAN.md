@@ -146,6 +146,7 @@ Status legend: ✅ done · 🟡 partial · ❌ missing · 🚫 not applicable on
 | Schedule send (later) | ❌ | 2 | |
 | Email delivery tracking | 🚫 | — | View-only on web is enough |
 | Customer portal | 🚫 | — | Customer-facing, not the tradie's app |
+| Online booking — admin config | ✅ | 7 | `mobile/app/settings/booking.tsx` — enable, slug + shareable link, rules, required-field/auto-create toggles, services, resources + working hours, upcoming bookings with status actions. Owner/admin only. Customer booking surface is web/widget (`/book/{slug}`). |
 | **Mobile-native bonuses** |
 | Push notifications | 🟡 | 3f | Local 9am morning briefing notification scheduled from dashboard. Server-push triggers (real-time new-lead pings) need EAS credentials + server cron — follow-up. |
 | Offline-first (jobs / photos) | ❌ | 5 | Power feature |
