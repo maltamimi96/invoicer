@@ -1332,6 +1332,94 @@ export function registerTools(server: McpServer): void {
       if (error) throw error;
       return text({ updated: true, appointment: data });
     });
+
+  tool("update_appointment_type", "Update a service. Only provided fields change. eligible_resource_ids restricts which resources can serve it (empty = any).",
+    {
+      appointment_type_id: UUID, name: z.string().optional(), duration_minutes: z.number().int().min(1).optional(),
+      description: z.string().nullable().optional(), buffer_minutes: z.number().int().min(0).nullable().optional(),
+      price_display: z.string().nullable().optional(), color: z.string().nullable().optional(),
+      active: z.boolean().optional(), eligible_resource_ids: z.array(UUID).optional(), sort_order: z.number().int().optional(),
+    },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "bookings:write");
+      const { appointment_type_id, ...rest } = args;
+      const patch = Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== undefined));
+      const { data, error } = await t(ctx, "appointment_types").update(patch).eq("id", appointment_type_id).eq("business_id", ctx.businessId).select().single();
+      if (error) throw error;
+      return text({ updated: true, appointment_type: data });
+    });
+
+  tool("delete_appointment_type", "Delete a bookable service.",
+    { appointment_type_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "bookings:write");
+      const { error } = await t(ctx, "appointment_types").delete().eq("id", args.appointment_type_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ deleted: true });
+    });
+
+  tool("update_booking_resource", "Update a resource — rename, (de)activate, or link/unlink a team member (member_profile_id null = generic).",
+    { resource_id: UUID, display_name: z.string().optional(), active: z.boolean().optional(), member_profile_id: UUID.nullable().optional(), sort_order: z.number().int().optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "bookings:write");
+      const { resource_id, ...rest } = args;
+      const patch = Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== undefined));
+      const { data, error } = await t(ctx, "booking_resources").update(patch).eq("id", resource_id).eq("business_id", ctx.businessId).select().single();
+      if (error) throw error;
+      return text({ updated: true, resource: data });
+    });
+
+  tool("delete_booking_resource", "Delete a bookable resource.",
+    { resource_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "bookings:write");
+      const { error } = await t(ctx, "booking_resources").delete().eq("id", args.resource_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ deleted: true });
+    });
+
+  tool("delete_booking_form", "Delete a booking form.",
+    { form_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "bookings:write");
+      const { error } = await t(ctx, "booking_forms").delete().eq("id", args.form_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ deleted: true });
+    });
+
+  tool("list_booking_exceptions", "List availability exceptions (blackout dates / custom hours).",
+    {},
+    async (_args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "bookings:read");
+      const { data, error } = await t(ctx, "booking_availability_exceptions").select("*").eq("business_id", ctx.businessId).order("date");
+      if (error) throw error;
+      return text(data);
+    });
+
+  tool("create_booking_exception", "Add a blackout date (closed all day) or a custom-hours window. resource_id null = whole business.",
+    {
+      date: z.string(), is_closed: z.boolean().default(true), resource_id: UUID.nullable().optional(),
+      start_time: z.string().optional(), end_time: z.string().optional(), reason: z.string().optional(),
+    },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "bookings:write");
+      const { data, error } = await t(ctx, "booking_availability_exceptions").insert({
+        business_id: ctx.businessId, date: args.date, is_closed: args.is_closed, resource_id: args.resource_id ?? null,
+        start_time: args.is_closed ? null : args.start_time ?? null, end_time: args.is_closed ? null : args.end_time ?? null,
+        reason: args.reason ?? null,
+      }).select().single();
+      if (error) throw error;
+      return text({ created: true, exception: data });
+    });
+
+  tool("delete_booking_exception", "Remove an availability exception.",
+    { exception_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "bookings:write");
+      const { error } = await t(ctx, "booking_availability_exceptions").delete().eq("id", args.exception_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ deleted: true });
+    });
 }
 
 /** Find or create the customer for a lead (mirrors ensureCustomerForLead in
