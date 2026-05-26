@@ -69,12 +69,36 @@ export function BookingAdminClient({
     navigator.clipboard.writeText(text).then(() => toast.success(`${label} copied`));
   };
 
-  const patchSettings = (patch: Partial<BookingSettings>) => {
+  const [dirty, setDirty] = useState(false);
+
+  // Local-only field edit (no server round-trip per keystroke); persisted by
+  // the explicit "Save changes" button below.
+  const field = (patch: Partial<BookingSettings>) => {
     setSettings((s) => ({ ...s, ...patch }));
-    start(async () => {
-      try { await updateBookingSettings(patch); } catch (e) { toast.error((e as Error).message); }
-    });
+    setDirty(true);
   };
+
+  const saveRules = () => start(async () => {
+    try {
+      await updateBookingSettings({
+        timezone: settings.timezone,
+        min_lead_minutes: settings.min_lead_minutes,
+        max_advance_days: settings.max_advance_days,
+        slot_granularity_minutes: settings.slot_granularity_minutes,
+        default_buffer_minutes: settings.default_buffer_minutes,
+        max_per_day: settings.max_per_day,
+        cancellation_window_hours: settings.cancellation_window_hours,
+        require_phone: settings.require_phone,
+        require_email: settings.require_email,
+        require_address: settings.require_address,
+        create_lead: settings.create_lead,
+        create_work_order: settings.create_work_order,
+        confirmation_message: settings.confirmation_message,
+      });
+      setDirty(false);
+      toast.success("Settings saved");
+    } catch (e) { toast.error((e as Error).message); }
+  });
 
   return (
     <div className="space-y-6">
@@ -158,27 +182,34 @@ export function BookingAdminClient({
         <div className="font-semibold flex items-center gap-1.5"><Clock className="size-4" /> Booking rules</div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="Timezone">
-            <Input value={settings.timezone} onChange={(e) => setSettings((s) => ({ ...s, timezone: e.target.value }))} onBlur={(e) => patchSettings({ timezone: e.target.value })} />
+            <Input value={settings.timezone} onChange={(e) => field({ timezone: e.target.value })} />
           </Field>
-          <NumField label="Min notice (minutes)" value={settings.min_lead_minutes} onCommit={(v) => patchSettings({ min_lead_minutes: v })} />
-          <NumField label="Book up to (days ahead)" value={settings.max_advance_days} onCommit={(v) => patchSettings({ max_advance_days: v })} />
-          <NumField label="Slot interval (minutes)" value={settings.slot_granularity_minutes} onCommit={(v) => patchSettings({ slot_granularity_minutes: v })} />
-          <NumField label="Buffer between jobs (minutes)" value={settings.default_buffer_minutes} onCommit={(v) => patchSettings({ default_buffer_minutes: v })} />
-          <NumField label="Max bookings per day (0 = unlimited)" value={settings.max_per_day ?? 0} onCommit={(v) => patchSettings({ max_per_day: v === 0 ? null : v })} />
-          <NumField label="Cancellation notice (hours)" value={settings.cancellation_window_hours} onCommit={(v) => patchSettings({ cancellation_window_hours: v })} />
+          <NumField label="Min notice (minutes)" value={settings.min_lead_minutes} onChange={(v) => field({ min_lead_minutes: v })} />
+          <NumField label="Book up to (days ahead)" value={settings.max_advance_days} onChange={(v) => field({ max_advance_days: v })} />
+          <NumField label="Slot interval (minutes)" value={settings.slot_granularity_minutes} onChange={(v) => field({ slot_granularity_minutes: v })} />
+          <NumField label="Buffer between jobs (minutes)" value={settings.default_buffer_minutes} onChange={(v) => field({ default_buffer_minutes: v })} />
+          <NumField label="Max bookings per day (0 = unlimited)" value={settings.max_per_day ?? 0} onChange={(v) => field({ max_per_day: v === 0 ? null : v })} />
+          <NumField label="Cancellation notice (hours)" value={settings.cancellation_window_hours} onChange={(v) => field({ cancellation_window_hours: v })} />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-          <ToggleRow label="Require phone" checked={settings.require_phone} onChange={(v) => patchSettings({ require_phone: v })} />
-          <ToggleRow label="Require email" checked={settings.require_email} onChange={(v) => patchSettings({ require_email: v })} />
-          <ToggleRow label="Require address" checked={settings.require_address} onChange={(v) => patchSettings({ require_address: v })} />
-          <ToggleRow label="Create a lead per booking" checked={settings.create_lead} onChange={(v) => patchSettings({ create_lead: v })} />
-          <ToggleRow label="Create a work order per booking" checked={settings.create_work_order} onChange={(v) => patchSettings({ create_work_order: v })} />
+          <ToggleRow label="Require phone" checked={settings.require_phone} onChange={(v) => field({ require_phone: v })} />
+          <ToggleRow label="Require email" checked={settings.require_email} onChange={(v) => field({ require_email: v })} />
+          <ToggleRow label="Require address" checked={settings.require_address} onChange={(v) => field({ require_address: v })} />
+          <ToggleRow label="Create a lead per booking" checked={settings.create_lead} onChange={(v) => field({ create_lead: v })} />
+          <ToggleRow label="Create a work order per booking" checked={settings.create_work_order} onChange={(v) => field({ create_work_order: v })} />
         </div>
 
         <Field label="Confirmation message (shown after booking)">
-          <Textarea value={settings.confirmation_message ?? ""} placeholder="Thanks! We'll see you then." onChange={(e) => setSettings((s) => ({ ...s, confirmation_message: e.target.value }))} onBlur={(e) => patchSettings({ confirmation_message: e.target.value || null })} />
+          <Textarea value={settings.confirmation_message ?? ""} placeholder="Thanks! We'll see you then." onChange={(e) => field({ confirmation_message: e.target.value || null })} />
         </Field>
+
+        <div className="flex items-center gap-3 pt-1">
+          <Button onClick={saveRules} disabled={pending || !dirty}>
+            {pending ? "Saving…" : dirty ? "Save changes" : "Saved"}
+          </Button>
+          {dirty && <span className="text-xs text-muted-foreground">You have unsaved changes</span>}
+        </div>
       </Card>
 
       {/* Appointment types */}
@@ -235,9 +266,9 @@ export function BookingAdminClient({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <div className="space-y-1.5"><Label>{label}</Label>{children}</div>;
 }
-function NumField({ label, value, onCommit }: { label: string; value: number; onCommit: (v: number) => void }) {
+function NumField({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
   const [v, setV] = useState(String(value));
-  return <Field label={label}><Input type="number" value={v} onChange={(e) => setV(e.target.value)} onBlur={() => onCommit(Math.max(0, parseInt(v) || 0))} /></Field>;
+  return <Field label={label}><Input type="number" value={v} onChange={(e) => { setV(e.target.value); onChange(Math.max(0, parseInt(e.target.value) || 0)); }} /></Field>;
 }
 function ToggleRow({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return <div className="flex items-center justify-between rounded-md border p-3"><span className="text-sm">{label}</span><Switch checked={checked} onCheckedChange={onChange} /></div>;
