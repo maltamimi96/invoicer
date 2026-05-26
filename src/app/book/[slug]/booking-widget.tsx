@@ -1,11 +1,12 @@
 "use client";
 
 /**
- * Self-contained public booking widget. Inline styles only so it renders
- * identically standalone or inside a cross-site embed iframe, independent of
- * any host CSS. Themed by the business's brand color. Accessible + responsive.
+ * Public booking widget — branded, animated, self-contained. Inline styles so
+ * it renders identically standalone or inside a cross-site embed iframe.
+ * Brand colour + logo + business name pulled from booking-config.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface ApptType {
   id: string; name: string; description: string | null;
@@ -23,7 +24,6 @@ interface Config {
   appointment_types: ApptType[];
 }
 interface Slot { start: string; end: string; resource_id: string; resource_name: string }
-
 type Step = "type" | "time" | "details" | "done";
 
 const API = (slug: string, path: string) => `/api/public/v1/biz/${encodeURIComponent(slug)}${path}`;
@@ -34,6 +34,14 @@ function addDays(key: string, n: number) {
   dt.setUTCDate(dt.getUTCDate() + n);
   return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}-${String(dt.getUTCDate()).padStart(2, "0")}`;
 }
+function shade(hex: string, pct: number) {
+  // darken/lighten a #rrggbb by pct (-1..1)
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if (!m) return hex;
+  const adj = (c: number) => Math.max(0, Math.min(255, Math.round(c + 255 * pct)));
+  const [r, g, b] = [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)];
+  return `#${[adj(r), adj(g), adj(b)].map((c) => c.toString(16).padStart(2, "0")).join("")}`;
+}
 
 export function BookingWidget({ slug }: { slug: string }) {
   const [config, setConfig] = useState<Config | null>(null);
@@ -43,6 +51,7 @@ export function BookingWidget({ slug }: { slug: string }) {
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [slot, setSlot] = useState<Slot | null>(null);
+  const [picking, setPicking] = useState<string | null>(null); // slot.start being held → locks the grid
   const [holdToken, setHoldToken] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", phone: "", email: "", address: "", notes: "", hp: "" });
   const [captchaToken, setCaptchaToken] = useState<string>("");
@@ -52,8 +61,8 @@ export function BookingWidget({ slug }: { slug: string }) {
   const idempotencyKey = useRef<string>(crypto.randomUUID());
 
   const accent = config?.branding.color || "#1f8f86";
+  const accentDark = shade(accent, -0.22);
 
-  // Load config.
   useEffect(() => {
     fetch(API(slug, "/booking-config"))
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("unavailable"))))
@@ -61,7 +70,6 @@ export function BookingWidget({ slug }: { slug: string }) {
       .catch(() => setLoadError("This booking page isn't available."));
   }, [slug]);
 
-  // Inject CAPTCHA script if configured.
   useEffect(() => {
     if (!config?.captcha?.site_key) return;
     const src = config.captcha.provider === "hcaptcha"
@@ -71,48 +79,33 @@ export function BookingWidget({ slug }: { slug: string }) {
     const s = document.createElement("script");
     s.src = src; s.async = true; s.defer = true;
     document.head.appendChild(s);
-    // Turnstile/hCaptcha call a global callback; expose one.
     (window as unknown as Record<string, unknown>).__kireiCaptcha = (t: string) => setCaptchaToken(t);
   }, [config]);
 
-  // When embedded, report our height to the parent so the iframe auto-grows.
+  // Report height for embeds.
   useEffect(() => {
-    const post = () => {
-      try {
-        const h = document.documentElement.scrollHeight;
-        window.parent?.postMessage({ kireiBookingHeight: h }, "*");
-      } catch { /* cross-origin parent without listener — ignore */ }
-    };
+    const post = () => { try { window.parent?.postMessage({ kireiBookingHeight: document.documentElement.scrollHeight }, "*"); } catch { /* ignore */ } };
     post();
     const ro = new ResizeObserver(post);
     ro.observe(document.documentElement);
     return () => ro.disconnect();
   }, [step, slots, config, error, result]);
 
-  const tzFmt = useMemo(() => config ? new Intl.DateTimeFormat("en-AU", {
-    timeZone: config.timezone, weekday: "short", day: "numeric", month: "short",
-  }) : null, [config]);
-  const timeFmt = useMemo(() => config ? new Intl.DateTimeFormat("en-AU", {
-    timeZone: config.timezone, hour: "numeric", minute: "2-digit", hour12: true,
-  }) : null, [config]);
+  const tzFmt = useMemo(() => config ? new Intl.DateTimeFormat("en-AU", { timeZone: config.timezone, weekday: "long", day: "numeric", month: "long" }) : null, [config]);
+  const timeFmt = useMemo(() => config ? new Intl.DateTimeFormat("en-AU", { timeZone: config.timezone, hour: "numeric", minute: "2-digit", hour12: true }) : null, [config]);
 
-  // Load availability when a type is chosen.
   const loadSlots = useCallback(async (t: ApptType) => {
     if (!config) return;
-    setLoadingSlots(true); setError(null);
+    setLoadingSlots(true); setError(null); setSlots([]);
     const today = new Intl.DateTimeFormat("en-CA", { timeZone: config.timezone }).format(new Date());
     try {
-      const r = await fetch(API(slug, `/availability?type=${t.id}&from=${today}&to=${addDays(today, 14)}`));
+      const r = await fetch(API(slug, `/availability?type=${t.id}&from=${today}&to=${addDays(today, 21)}`));
       const d = await r.json();
       setSlots(d.slots ?? []);
-    } catch {
-      setError("Couldn't load available times.");
-    } finally {
-      setLoadingSlots(false);
-    }
+    } catch { setError("Couldn't load available times."); }
+    finally { setLoadingSlots(false); }
   }, [config, slug]);
 
-  // Group slots by local date.
   const slotsByDay = useMemo(() => {
     const map = new Map<string, Slot[]>();
     if (!config) return map;
@@ -125,193 +118,238 @@ export function BookingWidget({ slug }: { slug: string }) {
   }, [slots, config]);
 
   async function pickSlot(s: Slot) {
-    if (!type) return;
-    setSlot(s); setError(null);
-    // Create a 10-minute hold so the slot can't be taken while filling the form.
+    if (!type || picking) return;            // lock — prevents double-taps / races
+    setPicking(s.start); setSlot(s); setError(null);
     try {
       const r = await fetch(API(slug, "/holds"), {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ type: type.id, resource_id: s.resource_id, start: s.start }),
       });
       if (r.ok) { const d = await r.json(); setHoldToken(d.hold_token); }
-      else setHoldToken(null); // fall back to direct booking
+      else { setHoldToken(null); if (r.status === 409) { setError("That time was just taken — pick another."); await loadSlots(type); setPicking(null); return; } }
     } catch { setHoldToken(null); }
+    setPicking(null);
     setStep("details");
   }
 
   async function submit() {
     if (!config || !type || !slot) return;
     setError(null);
+    if (!form.name.trim()) return setError("Please enter your name.");
     if (config.required_fields.phone && !form.phone.trim()) return setError("Phone is required.");
     if (config.required_fields.email && !form.email.trim()) return setError("Email is required.");
     if (config.required_fields.address && !form.address.trim()) return setError("Address is required.");
-    if (!form.name.trim()) return setError("Please enter your name.");
     if (config.captcha?.site_key && !captchaToken) return setError("Please complete the verification.");
-
     setSubmitting(true);
     try {
       const r = await fetch(API(slug, "/bookings"), {
         method: "POST",
         headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey.current },
         body: JSON.stringify({
-          hold_token: holdToken ?? undefined,
-          type: type.id, resource_id: slot.resource_id, start: slot.start,
-          customer_name: form.name, customer_phone: form.phone || undefined,
-          customer_email: form.email || undefined, customer_address: form.address || undefined,
-          notes: form.notes || undefined, captcha_token: captchaToken || undefined,
-          company_website: form.hp, // honeypot
+          hold_token: holdToken ?? undefined, type: type.id, resource_id: slot.resource_id, start: slot.start,
+          customer_name: form.name, customer_phone: form.phone || undefined, customer_email: form.email || undefined,
+          customer_address: form.address || undefined, notes: form.notes || undefined,
+          captcha_token: captchaToken || undefined, company_website: form.hp,
         }),
       });
       const d = await r.json();
-      if (!r.ok) {
-        setError(d.error || "Couldn't complete your booking.");
-        // If the slot was taken, send them back to pick again.
-        if (r.status === 409) { setStep("time"); if (type) loadSlots(type); }
-        return;
-      }
+      if (!r.ok) { setError(d.error || "Couldn't complete your booking."); if (r.status === 409) { setStep("time"); loadSlots(type); } return; }
       setResult({ manage_token: d.manage_token, message: d.confirmation_message });
       setStep("done");
-    } catch {
-      setError("Network error — please try again.");
-    } finally {
-      setSubmitting(false);
-    }
+    } catch { setError("Network error — please try again."); }
+    finally { setSubmitting(false); }
   }
 
   // ---- styles ----
+  const stepIndex = { type: 0, time: 1, details: 2, done: 3 }[step];
+  const initials = (config?.business_name || "K").slice(0, 2).toUpperCase();
   const S = {
-    page: { minHeight: "100vh", background: "#f6f7f9", display: "flex", justifyContent: "center", padding: "24px 16px", fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif", color: "#0f172a" } as React.CSSProperties,
-    card: { width: "100%", maxWidth: 560, background: "#fff", borderRadius: 16, boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)", overflow: "hidden" } as React.CSSProperties,
-    header: { background: accent, color: "#fff", padding: "20px 24px" } as React.CSSProperties,
+    page: { minHeight: "100vh", background: `linear-gradient(160deg, ${accent} 0%, ${accentDark} 100%)`, display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "32px 16px", fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif", color: "#0f172a", position: "relative", overflow: "hidden" } as React.CSSProperties,
+    card: { width: "100%", maxWidth: 540, background: "#fff", borderRadius: 22, boxShadow: "0 24px 60px rgba(0,0,0,0.22)", overflow: "hidden", position: "relative", zIndex: 1 } as React.CSSProperties,
+    header: { padding: "26px 26px 22px", color: "#fff", background: `linear-gradient(135deg, ${accent}, ${accentDark})`, position: "relative", overflow: "hidden" } as React.CSSProperties,
     body: { padding: 24 } as React.CSSProperties,
-    tile: (active: boolean) => ({ display: "block", width: "100%", textAlign: "left" as const, border: `1px solid ${active ? accent : "#e2e8f0"}`, background: active ? `${accent}10` : "#fff", borderRadius: 12, padding: 14, marginBottom: 10, cursor: "pointer" }),
-    chip: (active: boolean) => ({ border: `1px solid ${active ? accent : "#e2e8f0"}`, background: active ? accent : "#fff", color: active ? "#fff" : "#0f172a", borderRadius: 999, padding: "8px 12px", margin: 4, cursor: "pointer", fontSize: 14 }),
-    label: { display: "block", fontSize: 13, fontWeight: 600, margin: "12px 0 4px" } as React.CSSProperties,
-    input: { width: "100%", padding: "10px 12px", border: "1px solid #cbd5e1", borderRadius: 10, fontSize: 15, boxSizing: "border-box" as const },
-    btn: { background: accent, color: "#fff", border: "none", borderRadius: 10, padding: "12px 18px", fontSize: 15, fontWeight: 600, cursor: "pointer", width: "100%" } as React.CSSProperties,
-    link: { background: "none", border: "none", color: accent, cursor: "pointer", fontSize: 14, padding: 0, marginTop: 12 } as React.CSSProperties,
-    err: { background: "#fef2f2", color: "#b91c1c", borderRadius: 10, padding: "10px 12px", fontSize: 14, marginTop: 12 } as React.CSSProperties,
+    tile: { display: "flex", alignItems: "center", gap: 14, width: "100%", textAlign: "left" as const, border: "1px solid #e8eaed", background: "#fff", borderRadius: 16, padding: 16, marginBottom: 12, cursor: "pointer" },
+    label: { display: "block", fontSize: 13, fontWeight: 600, margin: "14px 0 6px", color: "#334155" } as React.CSSProperties,
+    input: { width: "100%", padding: "12px 14px", border: "1px solid #d7dbe0", borderRadius: 12, fontSize: 15, boxSizing: "border-box" as const, outlineColor: accent },
+    btn: { background: accent, color: "#fff", border: "none", borderRadius: 12, padding: "14px 18px", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%", boxShadow: `0 6px 18px ${accent}55` } as React.CSSProperties,
+    link: { background: "none", border: "none", color: accent, cursor: "pointer", fontSize: 14, padding: 0, marginTop: 14, fontWeight: 600 } as React.CSSProperties,
+    err: { background: "#fef2f2", color: "#b91c1c", borderRadius: 12, padding: "10px 13px", fontSize: 14, marginTop: 14 } as React.CSSProperties,
   };
 
-  if (loadError) return <div style={S.page}><div style={{ ...S.card, padding: 32, textAlign: "center" }}>{loadError}</div></div>;
-  if (!config) return <div style={S.page}><div style={{ ...S.card, padding: 32, textAlign: "center" }}>Loading…</div></div>;
+  const blob = (style: React.CSSProperties): React.CSSProperties => ({ position: "absolute", borderRadius: "50%", filter: "blur(8px)", opacity: 0.25, background: "#fff", ...style });
+
+  if (loadError) return <div style={S.page}><div style={{ ...S.card, padding: 36, textAlign: "center" }}>{loadError}</div></div>;
+  if (!config) return (
+    <div style={S.page}>
+      <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+        style={{ width: 38, height: 38, borderRadius: "50%", border: "3px solid rgba(255,255,255,0.35)", borderTopColor: "#fff", marginTop: 80 }} />
+    </div>
+  );
 
   return (
     <div style={S.page}>
-      <main style={S.card} aria-label="Online booking">
+      {/* animated background blobs */}
+      <motion.div aria-hidden style={blob({ width: 260, height: 260, top: -60, left: -40 })}
+        animate={{ y: [0, 24, 0], x: [0, 14, 0] }} transition={{ repeat: Infinity, duration: 12, ease: "easeInOut" }} />
+      <motion.div aria-hidden style={blob({ width: 200, height: 200, bottom: -50, right: -30, opacity: 0.18 })}
+        animate={{ y: [0, -20, 0] }} transition={{ repeat: Infinity, duration: 10, ease: "easeInOut" }} />
+
+      <motion.main style={S.card} initial={{ opacity: 0, y: 18, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }} aria-label="Online booking">
+        {/* Header with logo + business name */}
         <div style={S.header}>
-          {config.branding.logo_url && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={config.branding.logo_url} alt="" style={{ height: 32, marginBottom: 8 }} />
-          )}
-          <div style={{ fontSize: 20, fontWeight: 700 }}>{config.business_name || "Book an appointment"}</div>
-          <div style={{ opacity: 0.85, fontSize: 13, marginTop: 2 }}>
-            {step === "type" && "Choose a service"}
-            {step === "time" && type?.name}
-            {step === "details" && "Your details"}
-            {step === "done" && "Confirmed"}
+          <div aria-hidden style={{ position: "absolute", inset: 0, opacity: 0.12, backgroundImage: "radial-gradient(circle at 20% 30%, #fff 1.5px, transparent 1.6px)", backgroundSize: "22px 22px" }} />
+          <div style={{ display: "flex", alignItems: "center", gap: 14, position: "relative" }}>
+            <motion.div initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.1, type: "spring", stiffness: 200 }}
+              style={{ width: 56, height: 56, borderRadius: 16, background: "rgba(255,255,255,0.2)", border: "2px solid rgba(255,255,255,0.4)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
+              {config.branding.logo_url
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={config.branding.logo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                : <span style={{ fontSize: 22, fontWeight: 800 }}>{initials}</span>}
+            </motion.div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 21, fontWeight: 800, lineHeight: 1.15 }}>{config.business_name || "Book an appointment"}</div>
+              <div style={{ opacity: 0.9, fontSize: 13, marginTop: 3 }}>
+                {step === "type" && "Choose a service to get started"}
+                {step === "time" && (type?.name ?? "Pick a time")}
+                {step === "details" && "Just a few details"}
+                {step === "done" && "All confirmed 🎉"}
+              </div>
+            </div>
+          </div>
+          {/* step progress */}
+          <div style={{ display: "flex", gap: 6, marginTop: 18, position: "relative" }}>
+            {[0, 1, 2].map((i) => (
+              <div key={i} style={{ flex: 1, height: 4, borderRadius: 999, background: "rgba(255,255,255,0.3)", overflow: "hidden" }}>
+                <motion.div animate={{ width: stepIndex > i ? "100%" : stepIndex === i ? "60%" : "0%" }} transition={{ duration: 0.4 }} style={{ height: "100%", background: "#fff" }} />
+              </div>
+            ))}
           </div>
         </div>
 
         <div style={S.body}>
-          {/* STEP 1 — type */}
-          {step === "type" && (
-            <div>
-              {config.appointment_types.length === 0 && <p>No services available to book right now.</p>}
-              {config.appointment_types.map((t) => (
-                <button key={t.id} style={S.tile(false)} onClick={() => { setType(t); setStep("time"); loadSlots(t); }}>
-                  <div style={{ fontWeight: 600 }}>{t.name}</div>
-                  {t.description && <div style={{ fontSize: 13, color: "#64748b", marginTop: 2 }}>{t.description}</div>}
-                  <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
-                    {t.duration_minutes} min{t.price_display ? ` · ${t.price_display}` : ""}
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
+          <AnimatePresence mode="wait">
+            {/* STEP 1 — type */}
+            {step === "type" && (
+              <motion.div key="type" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ duration: 0.25 }}>
+                {config.appointment_types.length === 0 && <Empty text="No services available to book yet." />}
+                {config.appointment_types.map((t, i) => (
+                  <motion.button key={t.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
+                    whileHover={{ y: -2, boxShadow: "0 8px 20px rgba(0,0,0,0.08)", borderColor: accent }} whileTap={{ scale: 0.99 }}
+                    style={S.tile} onClick={() => { setType(t); setStep("time"); loadSlots(t); }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 12, background: `${accent}1a`, color: accent, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, flexShrink: 0 }}>
+                      {t.duration_minutes}<span style={{ fontSize: 10, marginLeft: 1 }}>m</span>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700 }}>{t.name}</div>
+                      {t.description && <div style={{ fontSize: 13, color: "#64748b", marginTop: 2 }}>{t.description}</div>}
+                      {t.price_display && <div style={{ fontSize: 13, color: accent, marginTop: 3, fontWeight: 600 }}>{t.price_display}</div>}
+                    </div>
+                    <span style={{ color: "#cbd5e1", fontSize: 20 }}>›</span>
+                  </motion.button>
+                ))}
+              </motion.div>
+            )}
 
-          {/* STEP 2 — time */}
-          {step === "time" && (
-            <div>
-              {loadingSlots && <p>Loading available times…</p>}
-              {!loadingSlots && slots.length === 0 && <p>No times available in the next two weeks.</p>}
-              {!loadingSlots && [...slotsByDay.entries()].map(([day, daySlots]) => (
-                <div key={day} style={{ marginBottom: 16 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 6 }}>
-                    {tzFmt!.format(new Date(daySlots[0].start))}
+            {/* STEP 2 — time */}
+            {step === "time" && (
+              <motion.div key="time" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ duration: 0.25 }}>
+                {loadingSlots && <SlotSkeleton />}
+                {!loadingSlots && slots.length === 0 && <Empty text="No times available in the next few weeks. Please check back soon." />}
+                {!loadingSlots && [...slotsByDay.entries()].map(([day, daySlots]) => (
+                  <div key={day} style={{ marginBottom: 18 }}>
+                    <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8, color: "#0f172a" }}>{tzFmt!.format(new Date(daySlots[0].start))}</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      {daySlots.map((s) => {
+                        const isPicking = picking === s.start;
+                        const locked = picking !== null && !isPicking;
+                        return (
+                          <motion.button key={s.start} whileTap={{ scale: 0.95 }} disabled={picking !== null}
+                            onClick={() => pickSlot(s)}
+                            style={{
+                              border: `1px solid ${isPicking ? accent : "#e2e8f0"}`, background: isPicking ? accent : "#fff",
+                              color: isPicking ? "#fff" : "#0f172a", borderRadius: 12, padding: "9px 14px", fontSize: 14,
+                              cursor: picking ? "default" : "pointer", opacity: locked ? 0.45 : 1, minWidth: 84, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "opacity .15s",
+                            }}>
+                            {isPicking && <motion.span animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }} style={{ width: 13, height: 13, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.5)", borderTopColor: "#fff" }} />}
+                            {timeFmt!.format(new Date(s.start))}
+                          </motion.button>
+                        );
+                      })}
+                    </div>
                   </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", margin: -4 }}>
-                    {daySlots.map((s) => (
-                      <button key={s.start} style={S.chip(false)} onClick={() => pickSlot(s)}>
-                        {timeFmt!.format(new Date(s.start))}
-                      </button>
-                    ))}
-                  </div>
+                ))}
+                <button style={S.link} disabled={picking !== null} onClick={() => { setStep("type"); setSlots([]); }}>← Back to services</button>
+              </motion.div>
+            )}
+
+            {/* STEP 3 — details */}
+            {step === "details" && slot && (
+              <motion.div key="details" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ duration: 0.25 }}>
+                <div style={{ background: `${accent}10`, border: `1px solid ${accent}33`, borderRadius: 14, padding: 14, fontSize: 14, marginBottom: 6 }}>
+                  <strong>{type?.name}</strong><br />
+                  <span style={{ color: "#475569" }}>{tzFmt!.format(new Date(slot.start))} · {timeFmt!.format(new Date(slot.start))} · with {slot.resource_name}</span>
                 </div>
-              ))}
-              <button style={S.link} onClick={() => { setStep("type"); setSlots([]); }}>← Back to services</button>
-            </div>
-          )}
-
-          {/* STEP 3 — details */}
-          {step === "details" && slot && (
-            <div>
-              <div style={{ background: "#f1f5f9", borderRadius: 10, padding: 12, fontSize: 14, marginBottom: 8 }}>
-                <strong>{type?.name}</strong><br />
-                {tzFmt!.format(new Date(slot.start))}, {timeFmt!.format(new Date(slot.start))} · with {slot.resource_name}
-              </div>
-              <label style={S.label} htmlFor="bk-name">Name *</label>
-              <input id="bk-name" style={S.input} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} autoComplete="name" />
-              {config.required_fields.phone !== undefined && (
-                <>
-                  <label style={S.label} htmlFor="bk-phone">Phone {config.required_fields.phone ? "*" : ""}</label>
-                  <input id="bk-phone" style={S.input} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} autoComplete="tel" inputMode="tel" />
-                </>
-              )}
-              <label style={S.label} htmlFor="bk-email">Email {config.required_fields.email ? "*" : ""}</label>
-              <input id="bk-email" type="email" style={S.input} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} autoComplete="email" inputMode="email" />
-              {config.required_fields.address && (
-                <>
+                <label style={S.label} htmlFor="bk-name">Name *</label>
+                <input id="bk-name" style={S.input} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} autoComplete="name" />
+                <label style={S.label} htmlFor="bk-phone">Phone {config.required_fields.phone ? "*" : ""}</label>
+                <input id="bk-phone" style={S.input} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} autoComplete="tel" inputMode="tel" />
+                <label style={S.label} htmlFor="bk-email">Email {config.required_fields.email ? "*" : ""}</label>
+                <input id="bk-email" type="email" style={S.input} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} autoComplete="email" inputMode="email" />
+                {config.required_fields.address && (<>
                   <label style={S.label} htmlFor="bk-addr">Address *</label>
                   <input id="bk-addr" style={S.input} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} autoComplete="street-address" />
-                </>
-              )}
-              <label style={S.label} htmlFor="bk-notes">Notes</label>
-              <textarea id="bk-notes" style={{ ...S.input, minHeight: 70 }} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+                </>)}
+                <label style={S.label} htmlFor="bk-notes">Notes</label>
+                <textarea id="bk-notes" style={{ ...S.input, minHeight: 72 }} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+                <input tabIndex={-1} autoComplete="off" aria-hidden="true" value={form.hp} onChange={(e) => setForm({ ...form, hp: e.target.value })} style={{ position: "absolute", left: "-9999px", width: 1, height: 1, opacity: 0 }} />
+                {config.captcha?.site_key && (
+                  <div style={{ marginTop: 14 }} className={config.captcha.provider === "hcaptcha" ? "h-captcha" : "cf-turnstile"} data-sitekey={config.captcha.site_key} data-callback="__kireiCaptcha" />
+                )}
+                {error && <div style={S.err} role="alert">{error}</div>}
+                <motion.button whileTap={{ scale: 0.98 }} style={{ ...S.btn, marginTop: 18, opacity: submitting ? 0.7 : 1 }} disabled={submitting} onClick={submit}>
+                  {submitting ? "Booking…" : "Confirm booking"}
+                </motion.button>
+                <button style={S.link} onClick={() => { setStep("time"); setSlot(null); setHoldToken(null); }}>← Choose a different time</button>
+              </motion.div>
+            )}
 
-              {/* Honeypot — hidden from humans */}
-              <input tabIndex={-1} autoComplete="off" aria-hidden="true" value={form.hp}
-                onChange={(e) => setForm({ ...form, hp: e.target.value })}
-                style={{ position: "absolute", left: "-9999px", width: 1, height: 1, opacity: 0 }} />
-
-              {config.captcha?.site_key && (
-                <div style={{ marginTop: 12 }}
-                  className={config.captcha.provider === "hcaptcha" ? "h-captcha" : "cf-turnstile"}
-                  data-sitekey={config.captcha.site_key} data-callback="__kireiCaptcha" />
-              )}
-
-              {error && <div style={S.err} role="alert">{error}</div>}
-              <button style={{ ...S.btn, marginTop: 16, opacity: submitting ? 0.7 : 1 }} disabled={submitting} onClick={submit}>
-                {submitting ? "Booking…" : "Confirm booking"}
-              </button>
-              <button style={S.link} onClick={() => { setStep("time"); setSlot(null); setHoldToken(null); }}>← Choose a different time</button>
-            </div>
-          )}
-
-          {/* STEP 4 — done */}
-          {step === "done" && result && (
-            <div style={{ textAlign: "center", padding: "12px 0" }}>
-              <div style={{ fontSize: 44 }}>✓</div>
-              <h2 style={{ margin: "8px 0" }}>You're booked!</h2>
-              {slot && <p style={{ color: "#475569" }}>{tzFmt!.format(new Date(slot.start))}, {timeFmt!.format(new Date(slot.start))}</p>}
-              <p style={{ color: "#475569" }}>{result.message || config.confirmation_message || "We've received your booking and will be in touch."}</p>
-              <a href={`/booking/${result.manage_token}`} style={{ ...S.link, display: "inline-block", textDecoration: "none" }}>
-                Manage or cancel this booking
-              </a>
-            </div>
-          )}
+            {/* STEP 4 — done */}
+            {step === "done" && result && (
+              <motion.div key="done" initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ textAlign: "center", padding: "16px 0" }}>
+                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 200, damping: 12 }}
+                  style={{ width: 76, height: 76, borderRadius: "50%", background: accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px", fontSize: 40 }}>✓</motion.div>
+                <h2 style={{ margin: "6px 0", fontSize: 22 }}>You're booked!</h2>
+                {slot && <p style={{ color: "#475569", fontWeight: 600 }}>{tzFmt!.format(new Date(slot.start))} · {timeFmt!.format(new Date(slot.start))}</p>}
+                <p style={{ color: "#475569" }}>{result.message || config.confirmation_message || "We've sent a confirmation to your email and will be in touch."}</p>
+                <a href={`/booking/${result.manage_token}`} style={{ ...S.link, display: "inline-block", textDecoration: "none" }}>Manage or cancel this booking</a>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
-      </main>
+
+        <div style={{ textAlign: "center", padding: "0 0 16px", fontSize: 11, color: "#94a3b8" }}>Powered by Kirei</div>
+      </motion.main>
+    </div>
+  );
+}
+
+function Empty({ text }: { text: string }) {
+  return <div style={{ textAlign: "center", padding: "28px 12px", color: "#64748b", fontSize: 14 }}>{text}</div>;
+}
+function SlotSkeleton() {
+  return (
+    <div>
+      {[0, 1].map((d) => (
+        <div key={d} style={{ marginBottom: 18 }}>
+          <div style={{ width: 140, height: 14, borderRadius: 6, background: "#eef1f4", marginBottom: 10 }} />
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <motion.div key={i} animate={{ opacity: [0.5, 1, 0.5] }} transition={{ repeat: Infinity, duration: 1.2, delay: i * 0.08 }}
+                style={{ width: 84, height: 36, borderRadius: 12, background: "#eef1f4" }} />
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
