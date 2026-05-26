@@ -5,12 +5,32 @@
  */
 import { sendEmail, buildBusinessFrom } from "@/lib/email";
 import { dispatchWebhook } from "@/lib/webhooks";
+import { bookingEmailHtml, type BookingEmailKind } from "@/lib/emails/booking";
 import type { BookingSettings, Appointment, WebhookEvent } from "@/types/database";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Sb = any;
 
-interface BizRow { name: string; email: string | null; sms_sender_id: string | null }
+interface BizRow {
+  name: string; email: string | null; sms_sender_id: string | null;
+  logo_url: string | null; primary_color: string | null; phone: string | null;
+}
+
+/** Resolve the service name + duration and resource display name for an appt. */
+async function apptContext(sb: Sb, appt: Appointment): Promise<{ serviceName: string | null; durationMin: number | null; resourceName: string | null }> {
+  const [type, resource] = await Promise.all([
+    appt.appointment_type_id
+      ? sb.from("appointment_types").select("name, duration_minutes").eq("id", appt.appointment_type_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    sb.from("booking_resources").select("display_name").eq("id", appt.resource_id).maybeSingle(),
+  ]);
+  const durFromTimes = Math.round((new Date(appt.ends_at).getTime() - new Date(appt.starts_at).getTime()) / 60000);
+  return {
+    serviceName: type.data?.name ?? null,
+    durationMin: type.data?.duration_minutes ?? durFromTimes,
+    resourceName: resource.data?.display_name ?? null,
+  };
+}
 
 function fmtLocal(iso: string, tz: string): string {
   return new Intl.DateTimeFormat("en-AU", {
@@ -58,11 +78,25 @@ export async function fireBookingWebhook(
 }
 
 async function getBiz(sb: Sb, businessId: string): Promise<BizRow | null> {
-  const { data } = await sb.from("businesses").select("name, email, sms_sender_id").eq("id", businessId).maybeSingle();
+  const { data } = await sb.from("businesses")
+    .select("name, email, sms_sender_id, logo_url, primary_color, phone").eq("id", businessId).maybeSingle();
   return (data as BizRow) ?? null;
 }
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://kireihq.com";
+
+/** Build a branded booking email for the given kind. */
+async function bookingEmail(sb: Sb, biz: BizRow, settings: BookingSettings, appt: Appointment, kind: BookingEmailKind, manageUrl: string | null): Promise<string> {
+  const { serviceName, durationMin, resourceName } = await apptContext(sb, appt);
+  return bookingEmailHtml({
+    kind, businessName: biz.name, logoUrl: biz.logo_url, accent: biz.primary_color || "#1f8f86",
+    customerName: appt.customer_name, serviceName, durationMin, resourceName,
+    address: appt.customer_address, notes: appt.notes,
+    whenText: fmtLocal(appt.starts_at, settings.timezone),
+    manageUrl, businessEmail: biz.email, businessPhone: biz.phone,
+    customMessage: kind === "confirmed" ? settings.confirmation_message : null,
+  });
+}
 
 /** Confirmation on a new booking: customer email/SMS + team email, per settings. */
 export async function notifyBookingCreated(sb: Sb, businessId: string, settings: BookingSettings, appt: Appointment): Promise<void> {
@@ -78,13 +112,7 @@ export async function notifyBookingCreated(sb: Sb, businessId: string, settings:
       subject: `Booking confirmed — ${biz.name}`,
       from, replyTo: biz.email ?? undefined,
       tags: { business_id: businessId, doc_type: "custom" },
-      html: `<div style="font-family:system-ui,sans-serif;max-width:520px;margin:auto">
-        <h2>You're booked${appt.customer_name ? `, ${appt.customer_name}` : ""}!</h2>
-        <p style="font-size:16px"><strong>${when}</strong></p>
-        ${settings.confirmation_message ? `<p>${settings.confirmation_message}</p>` : ""}
-        <p style="color:#475569;font-size:14px">Need to change it? <a href="${manageUrl}">Manage or cancel your booking</a>.</p>
-        <p style="color:#94a3b8;font-size:12px">${biz.name}</p>
-      </div>`,
+      html: await bookingEmail(sb, biz, settings, appt, "confirmed", manageUrl),
     }).catch(() => undefined);
   }
 
@@ -127,9 +155,7 @@ export async function notifyBookingReminder(sb: Sb, businessId: string, settings
       subject: `Reminder: your appointment with ${biz.name}`,
       from, replyTo: biz.email ?? undefined,
       tags: { business_id: businessId, doc_type: "custom" },
-      html: `<div style="font-family:system-ui,sans-serif;max-width:520px;margin:auto">
-        <h2>Appointment reminder</h2><p style="font-size:16px"><strong>${when}</strong></p>
-        <p style="color:#475569;font-size:14px"><a href="${manageUrl}">Manage or cancel</a></p></div>`,
+      html: await bookingEmail(sb, biz, settings, appt, "reminder", manageUrl),
     }).catch(() => undefined);
   }
   if (settings.notify_customer_sms && appt.customer_phone) {
@@ -148,7 +174,7 @@ export async function notifyBookingCancelled(sb: Sb, businessId: string, setting
     await sendEmail({
       to: appt.customer_email, subject: `Booking cancelled — ${biz.name}`, from, replyTo: biz.email ?? undefined,
       tags: { business_id: businessId, doc_type: "custom" },
-      html: `<div style="font-family:system-ui,sans-serif"><h2>Booking cancelled</h2><p>Your appointment for ${when} has been cancelled.</p></div>`,
+      html: await bookingEmail(sb, biz, settings, appt, "cancelled", null),
     }).catch(() => undefined);
   }
   if (settings.notify_team_email) {
