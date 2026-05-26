@@ -1204,6 +1204,7 @@ export function registerTools(server: McpServer): void {
       slot_granularity_minutes: z.number().int().min(1).optional(), default_buffer_minutes: z.number().int().min(0).optional(),
       max_per_day: z.number().int().min(0).nullable().optional(),
       require_phone: z.boolean().optional(), require_email: z.boolean().optional(), require_address: z.boolean().optional(),
+      show_resource_names: z.boolean().optional(),
       confirmation_message: z.string().nullable().optional(), cancellation_window_hours: z.number().int().min(0).optional(),
       reminder_offsets: z.array(z.number().int()).optional(),
       create_lead: z.boolean().optional(), create_work_order: z.boolean().optional(),

@@ -166,10 +166,13 @@ export function computeSlots(args: {
 /** Orchestrator: load data, pull busy intervals per resource, compute slots. */
 export async function getAvailability(
   sb: Sb, businessId: string, appointmentTypeId: string, fromKey: string, toKey: string,
+  resourceId?: string | null,
 ): Promise<{ slots: BookingSlot[]; timezone: string } | null> {
   const data = await loadAvailabilityData(sb, businessId, appointmentTypeId);
   if (!data) return null;
-  const { settings, type, windows } = data;
+  const { settings, type } = data;
+  // Optionally narrow to a single chosen resource/worker.
+  const windows = resourceId ? data.windows.filter((w) => w.resource.id === resourceId) : data.windows;
 
   // Query window in UTC: pad a day on each side to catch tz/buffer edges.
   const fromUtc = zonedWallToUtc(...dateParts(addDaysKey(fromKey, -1)), 0, 0, settings.timezone);

@@ -20,10 +20,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
   if (!tenant) return publicError("Booking not available", 404);
   const { businessId, settings, sb } = tenant;
 
-  const [{ data: types }, { data: biz }] = await Promise.all([
+  const [{ data: types }, { data: biz }, { data: resources }] = await Promise.all([
     sb.from("appointment_types").select("*").eq("business_id", businessId)
       .eq("active", true).order("sort_order", { ascending: true }),
     sb.from("businesses").select("name, logo_url, primary_color").eq("id", businessId).maybeSingle(),
+    sb.from("booking_resources").select("id, display_name, sort_order").eq("business_id", businessId)
+      .eq("active", true).order("sort_order", { ascending: true }),
   ]);
 
   return json({
@@ -39,6 +41,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
       email: settings.require_email,
       address: settings.require_address,
     },
+    show_resource_names: settings.show_resource_names,
+    // Public resource list. Names only when the business allows it.
+    resources: (resources ?? []).map((r: { id: string; display_name: string }) => ({
+      id: r.id,
+      name: settings.show_resource_names ? r.display_name : null,
+    })),
     confirmation_message: settings.confirmation_message,
     cancellation_window_hours: settings.cancellation_window_hours,
     captcha: settings.captcha_provider

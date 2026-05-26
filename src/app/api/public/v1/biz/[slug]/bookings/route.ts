@@ -143,12 +143,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
       const next = biz?.work_order_next_number ?? 1;
       const number = `${biz?.work_order_prefix ?? "WO"}-${String(next).padStart(4, "0")}`;
       await sb.from("businesses").update({ work_order_next_number: next + 1 }).eq("id", businessId);
-      const { data: wo } = await sb.from("work_orders").insert({
+      // Assign the job to the worker behind the booked resource (if any).
+      const { data: res } = await sb.from("booking_resources")
+        .select("member_profile_id").eq("id", resourceId).maybeSingle();
+      const profileId: string | null = res?.member_profile_id ?? null;
+      const woInsert: Record<string, unknown> = {
         business_id: businessId, user_id: ownerId, number,
         title: `Booking: ${customerName}`,
-        status: "draft",
+        status: profileId ? "assigned" : "draft",
         scheduled_date: start.toISOString().slice(0, 10),
-      }).select("id").single();
+        start_time: start.toISOString().slice(11, 16),
+        end_time: end.toISOString().slice(11, 16),
+      };
+      if (profileId) woInsert.assigned_to_profile_id = profileId;
+      const { data: wo } = await sb.from("work_orders").insert(woInsert).select("id").single();
       workOrderId = (wo as { id?: string } | null)?.id ?? null;
     }
     if (leadId || workOrderId) {

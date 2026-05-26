@@ -28,10 +28,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
   const fromKey = searchParams.get("from") || todayKey;
   const toKey = searchParams.get("to") || addDaysKey(fromKey, 7);
 
+  const resourceId = searchParams.get("resource"); // optional: a chosen worker
   // Guard against absurd ranges.
   if (toKey < fromKey) return publicError("to must be >= from", 400);
 
-  const result = await getAvailability(sb, businessId, typeId, fromKey, toKey);
+  const result = await getAvailability(sb, businessId, typeId, fromKey, toKey, resourceId);
   if (!result) return publicError("Appointment type not found", 404);
 
   return json({

@@ -13,9 +13,10 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   setBookingEnabled, setBookingSlug, updateBookingSettings,
   createAppointmentType, updateAppointmentType, deleteAppointmentType,
-  createResource, deleteResource,
+  createResource, deleteResource, updateResource,
   listWorkingHours, setWorkingHours,
   createException, deleteException, setAppointmentStatus,
+  type TeamMemberLite,
 } from "@/lib/actions/booking";
 import type {
   BookingSettings, AppointmentType, BookingResource,
@@ -25,13 +26,14 @@ import type {
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export function BookingAdminClient({
-  initialSettings, initialTypes, initialResources, initialExceptions, initialAppointments, appUrl,
+  initialSettings, initialTypes, initialResources, initialExceptions, initialAppointments, teamMembers, appUrl,
 }: {
   initialSettings: BookingSettings;
   initialTypes: AppointmentType[];
   initialResources: BookingResource[];
   initialExceptions: BookingAvailabilityException[];
   initialAppointments: Appointment[];
+  teamMembers: TeamMemberLite[];
   appUrl: string;
 }) {
   const [settings, setSettings] = useState(initialSettings);
@@ -196,6 +198,7 @@ export function BookingAdminClient({
           <ToggleRow label="Require phone" checked={settings.require_phone} onChange={(v) => field({ require_phone: v })} />
           <ToggleRow label="Require email" checked={settings.require_email} onChange={(v) => field({ require_email: v })} />
           <ToggleRow label="Require address" checked={settings.require_address} onChange={(v) => field({ require_address: v })} />
+          <ToggleRow label="Show worker names publicly" checked={settings.show_resource_names} onChange={(v) => field({ show_resource_names: v })} />
           <ToggleRow label="Create a lead per booking" checked={settings.create_lead} onChange={(v) => field({ create_lead: v })} />
           <ToggleRow label="Create a work order per booking" checked={settings.create_work_order} onChange={(v) => field({ create_work_order: v })} />
         </div>
@@ -234,14 +237,16 @@ export function BookingAdminClient({
       {/* Resources + working hours */}
       <Card className="p-5 space-y-4">
         <div className="font-semibold flex items-center gap-1.5"><Users className="size-4" /> Team / resources & hours</div>
+        <p className="text-xs text-muted-foreground -mt-1">Link a resource to a team member to auto-block their existing jobs and assign new bookings to them — or leave it generic (e.g. “Bay 1”).</p>
         <div className="space-y-3">
           {resources.map((r) => (
-            <ResourceRow key={r.id} resource={r}
+            <ResourceRow key={r.id} resource={r} teamMembers={teamMembers}
+              onLink={(memberId) => start(async () => { await updateResource(r.id, { member_profile_id: memberId }); setResources((arr) => arr.map((x) => x.id === r.id ? { ...x, member_profile_id: memberId } : x)); })}
               onDelete={() => start(async () => { await deleteResource(r.id); setResources((arr) => arr.filter((x) => x.id !== r.id)); })} />
           ))}
           {resources.length === 0 && <div className="text-sm text-muted-foreground">Add at least one bookable person/resource.</div>}
         </div>
-        <AddResource onAdd={(row) => setResources((arr) => [...arr, row])} />
+        <AddResource teamMembers={teamMembers} existing={resources} onAdd={(row) => setResources((arr) => [...arr, row])} />
       </Card>
 
       {/* Blackout dates */}
@@ -294,21 +299,36 @@ function AddType({ onAdd }: { onAdd: (row: AppointmentType) => void }) {
   );
 }
 
-function AddResource({ onAdd }: { onAdd: (row: BookingResource) => void }) {
+function AddResource({ teamMembers, onAdd }: { teamMembers: TeamMemberLite[]; existing: BookingResource[]; onAdd: (row: BookingResource) => void }) {
   const [name, setName] = useState("");
+  const [memberId, setMemberId] = useState("");
   const [pending, start] = useTransition();
+  const pickMember = (id: string) => {
+    setMemberId(id);
+    const m = teamMembers.find((x) => x.id === id);
+    if (m?.name && !name.trim()) setName(m.name.split(" ")[0]); // prefill first name
+  };
   return (
-    <div className="flex gap-2 items-end border-t pt-4">
-      <div className="flex-1"><Label className="text-xs">Display name (public)</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Sam" /></div>
+    <div className="flex flex-wrap gap-2 items-end border-t pt-4">
+      {teamMembers.length > 0 && (
+        <div><Label className="text-xs">Team member</Label>
+          <select value={memberId} onChange={(e) => pickMember(e.target.value)}
+            className="h-9 rounded-md border bg-background px-2 text-sm">
+            <option value="">Generic (no worker)</option>
+            {teamMembers.map((m) => <option key={m.id} value={m.id}>{m.name || m.email}</option>)}
+          </select>
+        </div>
+      )}
+      <div className="flex-1 min-w-[140px]"><Label className="text-xs">Display name (public)</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Sam" /></div>
       <Button disabled={pending || !name.trim()} onClick={() => start(async () => {
-        try { const row = await createResource({ displayName: name }); onAdd(row); setName(""); toast.success("Resource added"); }
+        try { const row = await createResource({ displayName: name, memberProfileId: memberId || null }); onAdd(row); setName(""); setMemberId(""); toast.success("Resource added"); }
         catch (e) { toast.error((e as Error).message); }
       })}><Plus className="size-4 mr-1" /> Add</Button>
     </div>
   );
 }
 
-function ResourceRow({ resource, onDelete }: { resource: BookingResource; onDelete: () => void }) {
+function ResourceRow({ resource, teamMembers, onLink, onDelete }: { resource: BookingResource; teamMembers: TeamMemberLite[]; onLink: (memberId: string | null) => void; onDelete: () => void }) {
   const [open, setOpen] = useState(false);
   const [hours, setHours] = useState<{ enabled: boolean; start: string; end: string }[]>(
     DAYS.map(() => ({ enabled: false, start: "09:00", end: "17:00" })),
@@ -337,8 +357,18 @@ function ResourceRow({ resource, onDelete }: { resource: BookingResource; onDele
 
   return (
     <div className="rounded-md border">
-      <div className="flex items-center gap-3 p-3">
-        <div className="flex-1 font-medium">{resource.display_name}</div>
+      <div className="flex flex-wrap items-center gap-3 p-3">
+        <div className="flex-1 min-w-[120px]">
+          <div className="font-medium">{resource.display_name}</div>
+          <div className="text-xs text-muted-foreground">{resource.member_profile_id ? "Linked worker" : "Generic resource"}</div>
+        </div>
+        {teamMembers.length > 0 && (
+          <select value={resource.member_profile_id ?? ""} onChange={(e) => onLink(e.target.value || null)}
+            className="h-8 rounded-md border bg-background px-2 text-xs">
+            <option value="">Generic</option>
+            {teamMembers.map((m) => <option key={m.id} value={m.id}>{m.name || m.email}</option>)}
+          </select>
+        )}
         <Button size="sm" variant="outline" onClick={expand}>{open ? "Hide hours" : "Set hours"}</Button>
         <Button size="icon" variant="ghost" onClick={onDelete}><Trash2 className="size-4" /></Button>
       </div>

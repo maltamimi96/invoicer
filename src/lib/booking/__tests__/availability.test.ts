@@ -8,7 +8,7 @@ function settings(over: Partial<BookingSettings> = {}): BookingSettings {
     business_id: "b", enabled: true, slug: "t", timezone: "UTC",
     min_lead_minutes: 0, max_advance_days: 30, slot_granularity_minutes: 30,
     default_buffer_minutes: 0, max_per_day: null,
-    require_phone: false, require_email: false, require_address: false,
+    require_phone: false, require_email: false, require_address: false, show_resource_names: true,
     confirmation_message: null, cancellation_window_hours: 24, reminder_offsets: [],
     create_lead: false, create_work_order: false,
     brand_logo_url: null, brand_color: null,

@@ -22,9 +22,11 @@ interface Config {
   cancellation_window_hours: number;
   captcha: { provider: "turnstile" | "hcaptcha"; site_key: string | null } | null;
   appointment_types: ApptType[];
+  show_resource_names: boolean;
+  resources: { id: string; name: string | null }[];
 }
 interface Slot { start: string; end: string; resource_id: string; resource_name: string }
-type Step = "type" | "time" | "details" | "done";
+type Step = "type" | "worker" | "time" | "details" | "done";
 
 const API = (slug: string, path: string) => `/api/public/v1/biz/${encodeURIComponent(slug)}${path}`;
 const KIREI_LOGO = "/kirei-logo.png"; // fallback when the business has no logo
@@ -96,12 +98,13 @@ export function BookingWidget({ slug }: { slug: string }) {
   const tzFmt = useMemo(() => config ? new Intl.DateTimeFormat("en-AU", { timeZone: config.timezone, weekday: "long", day: "numeric", month: "long" }) : null, [config]);
   const timeFmt = useMemo(() => config ? new Intl.DateTimeFormat("en-AU", { timeZone: config.timezone, hour: "numeric", minute: "2-digit", hour12: true }) : null, [config]);
 
-  const loadSlots = useCallback(async (t: ApptType) => {
+  const loadSlots = useCallback(async (t: ApptType, resourceId?: string | null) => {
     if (!config) return;
     setLoadingSlots(true); setError(null); setSlots([]);
     const today = new Intl.DateTimeFormat("en-CA", { timeZone: config.timezone }).format(new Date());
+    const res = resourceId ? `&resource=${resourceId}` : "";
     try {
-      const r = await fetch(API(slug, `/availability?type=${t.id}&from=${today}&to=${addDays(today, 21)}`));
+      const r = await fetch(API(slug, `/availability?type=${t.id}&from=${today}&to=${addDays(today, 21)}${res}`));
       const d = await r.json();
       setSlots(d.slots ?? []);
     } catch { setError("Couldn't load available times."); }
@@ -163,7 +166,7 @@ export function BookingWidget({ slug }: { slug: string }) {
   }
 
   // ---- styles ----
-  const stepIndex = { type: 0, time: 1, details: 2, done: 3 }[step];
+  const stepIndex = ({ type: 0, worker: 1, time: 1, details: 2, done: 3 } as Record<Step, number>)[step] ?? 0;
   const S = {
     page: { minHeight: "100dvh", background: `linear-gradient(160deg, ${accent} 0%, ${accentDark} 100%)`, display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "clamp(14px, 4vw, 32px) clamp(10px, 3vw, 16px)", fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif", color: "#0f172a", position: "relative", overflow: "hidden" } as React.CSSProperties,
     card: { width: "100%", maxWidth: 540, background: "#fff", borderRadius: 22, boxShadow: "0 24px 60px rgba(0,0,0,0.22)", overflow: "hidden", position: "relative", zIndex: 1 } as React.CSSProperties,
@@ -210,6 +213,7 @@ export function BookingWidget({ slug }: { slug: string }) {
               <div style={{ fontSize: "clamp(18px, 5vw, 21px)", fontWeight: 800, lineHeight: 1.15 }}>{config.business_name || "Book an appointment"}</div>
               <div style={{ opacity: 0.9, fontSize: 13, marginTop: 3 }}>
                 {step === "type" && "Choose a service to get started"}
+                {step === "worker" && "Choose who you'd like"}
                 {step === "time" && (type?.name ?? "Pick a time")}
                 {step === "details" && "Just a few details"}
                 {step === "done" && "All confirmed 🎉"}
@@ -237,7 +241,13 @@ export function BookingWidget({ slug }: { slug: string }) {
                     whileHover={selectingType ? undefined : { y: -2, boxShadow: "0 8px 20px rgba(0,0,0,0.08)", borderColor: accent }} whileTap={{ scale: 0.99 }}
                     disabled={selectingType !== null}
                     style={{ ...S.tile, opacity: selectingType && selectingType !== t.id ? 0.5 : 1, cursor: selectingType ? "default" : "pointer" }}
-                    onClick={() => { if (selectingType) return; setSelectingType(t.id); setType(t); setStep("time"); loadSlots(t); }}>
+                    onClick={() => {
+                      if (selectingType) return;
+                      setType(t);
+                      const multi = config.show_resource_names && config.resources.length > 1;
+                      if (multi) { setStep("worker"); }
+                      else { setSelectingType(t.id); loadSlots(t, null); setStep("time"); }
+                    }}>
                     <div style={{ width: 44, height: 44, borderRadius: 12, background: `${accent}1a`, color: accent, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, flexShrink: 0 }}>
                       {t.duration_minutes}<span style={{ fontSize: 10, marginLeft: 1 }}>m</span>
                     </div>
@@ -251,6 +261,24 @@ export function BookingWidget({ slug }: { slug: string }) {
                       : <span style={{ color: "#cbd5e1", fontSize: 20 }}>›</span>}
                   </motion.button>
                 ))}
+              </motion.div>
+            )}
+
+            {/* STEP 1.5 — worker */}
+            {step === "worker" && type && (
+              <motion.div key="worker" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ duration: 0.25 }}>
+                {[{ id: null as string | null, name: "Any available" }, ...config.resources].map((r, i) => (
+                  <motion.button key={r.id ?? "any"} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
+                    whileHover={{ y: -2, boxShadow: "0 8px 20px rgba(0,0,0,0.08)", borderColor: accent }} whileTap={{ scale: 0.99 }} style={S.tile}
+                    onClick={() => { loadSlots(type, r.id); setStep("time"); }}>
+                    <div style={{ width: 44, height: 44, borderRadius: "50%", background: `${accent}1a`, color: accent, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, flexShrink: 0 }}>
+                      {r.id ? (r.name ?? "?").slice(0, 2).toUpperCase() : "★"}
+                    </div>
+                    <div style={{ flex: 1, fontWeight: 700 }}>{r.name ?? "Team member"}</div>
+                    <span style={{ color: "#cbd5e1", fontSize: 20 }}>›</span>
+                  </motion.button>
+                ))}
+                <button style={S.link} onClick={() => setStep("type")}>← Back to services</button>
               </motion.div>
             )}
 
@@ -282,7 +310,10 @@ export function BookingWidget({ slug }: { slug: string }) {
                     </div>
                   </div>
                 ))}
-                <button style={S.link} disabled={picking !== null} onClick={() => { setStep("type"); setSlots([]); setSelectingType(null); }}>← Back to services</button>
+                <button style={S.link} disabled={picking !== null} onClick={() => {
+                  const multi = config.show_resource_names && config.resources.length > 1;
+                  setStep(multi ? "worker" : "type"); setSlots([]); setSelectingType(null);
+                }}>← Back</button>
               </motion.div>
             )}
 

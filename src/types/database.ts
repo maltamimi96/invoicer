@@ -977,6 +977,7 @@ export interface BookingSettings {
   require_phone: boolean;
   require_email: boolean;
   require_address: boolean;
+  show_resource_names: boolean;
   confirmation_message: string | null;
   cancellation_window_hours: number;
   reminder_offsets: number[];

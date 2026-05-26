@@ -135,6 +135,16 @@ export async function deleteAppointmentType(id: string): Promise<void> {
 // ---------------------------------------------------------------------------
 // Resources
 // ---------------------------------------------------------------------------
+export interface TeamMemberLite { id: string; name: string | null; email: string | null }
+
+/** Team members (member_profiles) available to link a resource to. */
+export async function listBookingTeamMembers(): Promise<TeamMemberLite[]> {
+  const { supabase, businessId } = await ctx(false);
+  const { data } = await tbl(supabase, "member_profiles")
+    .select("id, name, email").eq("business_id", businessId).order("name");
+  return (data ?? []) as TeamMemberLite[];
+}
+
 export async function listResources(): Promise<BookingResource[]> {
   const { supabase, businessId } = await ctx(false);
   const { data } = await tbl(supabase, "booking_resources").select("*")
