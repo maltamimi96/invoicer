@@ -40,6 +40,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ mana
   const found = await load(sb, manage_token);
   if (!found) return publicError("Booking not found", 404);
   const { appt, settings } = found;
+  const { data: biz } = await sb.from("businesses")
+    .select("name, logo_url, primary_color").eq("id", appt.business_id).maybeSingle();
   return json({
     appointment: publicView(appt),
     slug: settings.slug,
@@ -47,6 +49,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ mana
     appointment_type_id: appt.appointment_type_id,
     cancellation_window_hours: settings.cancellation_window_hours,
     can_cancel: (new Date(appt.starts_at).getTime() - Date.now()) / 3_600_000 >= settings.cancellation_window_hours,
+    branding: {
+      business_name: biz?.name ?? null,
+      logo_url: settings.brand_logo_url ?? biz?.logo_url ?? null,
+      color: settings.brand_color ?? biz?.primary_color ?? null,
+    },
   });
 }
 
