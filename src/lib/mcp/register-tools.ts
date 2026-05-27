@@ -1206,6 +1206,14 @@ export function registerTools(server: McpServer): void {
       return text({ created: true, form: data });
     });
 
+  tool("set_block_untimed_jobs", "Business-level toggle: when true, a day is blocked from booking if a linked worker has an UNTIMED (all-day) job that day. Timed jobs always block their exact slot.",
+    { enabled: z.boolean() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "bookings:write");
+      await t(ctx, "booking_settings").upsert({ business_id: ctx.businessId, block_untimed_jobs: args.enabled }, { onConflict: "business_id" });
+      return text({ updated: true, block_untimed_jobs: args.enabled });
+    });
+
   tool("get_booking_settings", "Get the default booking form (enabled flag, public slug, timezone, rules, required fields, reminders). Use list_booking_forms for all forms.",
     {},
     async (_args, extra) => {

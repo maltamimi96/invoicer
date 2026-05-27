@@ -4,7 +4,7 @@ import { getActiveBizId } from "@/lib/active-business";
 import { canEdit, type Role } from "@/lib/permissions";
 import {
   listForms, listAppointmentTypes, listResources, listExceptions, listAppointments,
-  listBookingTeamMembers,
+  listBookingTeamMembers, getBlockUntimedJobs,
 } from "@/lib/actions/booking";
 import { BookingAdminClient } from "@/components/booking/booking-admin-client";
 
@@ -28,10 +28,10 @@ export default async function BookingSettingsPage() {
   }
   if (!canEdit(role)) redirect("/dashboard");
 
-  const [forms, types, resources, exceptions, appointments, teamMembers] = await Promise.all([
+  const [forms, types, resources, exceptions, appointments, teamMembers, bizSettings] = await Promise.all([
     listForms(), listAppointmentTypes(), listResources(), listExceptions(),
     listAppointments({ from: new Date().toISOString(), limit: 100 }),
-    listBookingTeamMembers(),
+    listBookingTeamMembers(), getBlockUntimedJobs(),
   ]);
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://kireihq.com";
@@ -44,6 +44,7 @@ export default async function BookingSettingsPage() {
       initialExceptions={exceptions}
       initialAppointments={appointments}
       teamMembers={teamMembers}
+      blockUntimedJobs={bizSettings}
       appUrl={appUrl}
     />
   );
