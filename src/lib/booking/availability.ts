@@ -156,7 +156,8 @@ export function computeSlots(args: {
             start: key,
             end: slotEnd.toISOString(),
             resource_id: w.resource.id,
-            resource_name: w.resource.display_name,
+            // Don't leak the worker's name when the form hides it.
+            resource_name: settings.show_resource_names ? w.resource.display_name : "Team member",
           });
           daySlotsAdded++;
         }

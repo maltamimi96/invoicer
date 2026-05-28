@@ -322,7 +322,7 @@ export function BookingWidget({ slug }: { slug: string }) {
               <motion.div key="details" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ duration: 0.25 }}>
                 <div style={{ background: `${accent}10`, border: `1px solid ${accent}33`, borderRadius: 14, padding: 14, fontSize: 14, marginBottom: 6 }}>
                   <strong>{type?.name}</strong><br />
-                  <span style={{ color: "#475569" }}>{tzFmt!.format(new Date(slot.start))} · {timeFmt!.format(new Date(slot.start))} · with {slot.resource_name}</span>
+                  <span style={{ color: "#475569" }}>{tzFmt!.format(new Date(slot.start))} · {timeFmt!.format(new Date(slot.start))}{config.show_resource_names ? ` · with ${slot.resource_name}` : ""}</span>
                 </div>
                 <label style={S.label} htmlFor="bk-name">Name *</label>
                 <input id="bk-name" style={S.input} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} autoComplete="name" />
