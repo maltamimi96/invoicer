@@ -41,18 +41,35 @@ export async function setWorkOrderStatus(id: string, status: WorkOrderStatus): P
 }
 
 /**
- * Append a photo to the work_orders.photos JSON array. We re-read the current
- * array, push, then write back — small race risk but acceptable for one-user-
- * per-job in the field.
+ * Persist a photo for a work order. Writes to TWO places:
+ *  - public.job_photos (canonical table — what the web admin / customer portal
+ *    / job-share page / PDF render read from), and
+ *  - work_orders.photos JSONB (legacy — still the mobile job screen's display
+ *    source, kept in sync until the mobile reader moves to job_photos).
+ *
+ * Writing to only work_orders.photos (as before) made worker uploads invisible
+ * everywhere outside the mobile app.
  */
 export async function addWorkOrderPhoto(id: string, photo: WorkOrderPhoto): Promise<void> {
   const { data: current, error: readErr } = await supabase
     .from("work_orders")
-    .select("photos")
+    .select("business_id, photos")
     .eq("id", id)
     .single();
   if (readErr) throw readErr;
 
+  // Canonical: insert into job_photos so web/portal/PDF see the photo.
+  const { data: { user } } = await supabase.auth.getUser();
+  const { error: jpErr } = await supabase.from("job_photos").insert({
+    business_id: current.business_id,
+    work_order_id: id,
+    url: photo.url,
+    taken_at: photo.taken_at ?? new Date().toISOString(),
+    taken_by: user?.id ?? null,
+  });
+  if (jpErr) throw jpErr;
+
+  // Legacy mirror so the mobile job screen keeps showing it without a reader change.
   const photos = Array.isArray(current?.photos) ? [...current.photos, photo] : [photo];
   const { error } = await supabase.from("work_orders").update({ photos }).eq("id", id);
   if (error) throw error;
@@ -99,6 +116,9 @@ type AccountContactRow = {
  * current array, filters by url, writes back.
  */
 export async function removeWorkOrderPhoto(id: string, url: string): Promise<void> {
+  // Remove from the canonical job_photos table.
+  await supabase.from("job_photos").delete().eq("work_order_id", id).eq("url", url);
+  // And from the legacy JSONB mirror so the mobile reader stays in sync.
   const { data: current, error: readErr } = await supabase
     .from("work_orders")
     .select("photos")
