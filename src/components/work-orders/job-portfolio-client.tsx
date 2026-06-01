@@ -832,7 +832,15 @@ function PhotosSection({
   onUpdate: (id: string, patch: Partial<JobPhoto>) => void;
   onDelete: (id: string) => void;
 }) {
-  const [activePhase, setActivePhase] = useState<JobPhotoPhase>("before");
+  // Default to the first phase that actually has photos — otherwise worker
+  // uploads (which default to "during") look invisible on an admin's first
+  // visit because "before" is empty.
+  const initialPhase = useMemo<JobPhotoPhase>(() => {
+    const populated = PHASE_TABS.find((t) => photos.some((p) => p.phase === t.key));
+    return populated?.key ?? "before";
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const [activePhase, setActivePhase] = useState<JobPhotoPhase>(initialPhase);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
