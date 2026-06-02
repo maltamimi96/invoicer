@@ -1206,6 +1206,66 @@ export function registerTools(server: McpServer): void {
       return text({ created: true, form: data });
     });
 
+  // ===== WORK-ORDER PHOTOS =====
+  tool("list_job_photos", "List the photos uploaded to a work order (metadata only — id, url, phase, taken_at, caption). Use view_job_photos to actually see the images.",
+    { work_order_id: UUID, phase: z.enum(["before", "during", "after"]).optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "work_orders:read");
+      let q = t(ctx, "job_photos").select("id, url, phase, taken_at, caption, lat, lng")
+        .eq("business_id", ctx.businessId).eq("work_order_id", args.work_order_id)
+        .order("taken_at", { ascending: true });
+      if (args.phase) q = q.eq("phase", args.phase);
+      const { data, error } = await q;
+      if (error) throw error;
+      return text({ total: data?.length ?? 0, photos: data });
+    });
+
+  tool("view_job_photos", "Fetch and return the actual images of a work order so Claude can see them. Returns up to `limit` images (default 5, max 10) starting at `offset`. For lots of photos, paginate or filter by phase. Use list_job_photos first to see counts.",
+    {
+      work_order_id: UUID,
+      limit: z.number().int().min(1).max(10).optional(),
+      offset: z.number().int().min(0).optional(),
+      phase: z.enum(["before", "during", "after"]).optional(),
+    },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "work_orders:read");
+      let q = t(ctx, "job_photos").select("id, url, phase, taken_at, caption")
+        .eq("business_id", ctx.businessId).eq("work_order_id", args.work_order_id)
+        .order("taken_at", { ascending: true });
+      if (args.phase) q = q.eq("phase", args.phase);
+      const { data, error } = await q;
+      if (error) throw error;
+      const all = (data ?? []) as Array<{ id: string; url: string; phase: string; taken_at: string; caption: string | null }>;
+      const limit = args.limit ?? 5;
+      const offset = args.offset ?? 0;
+      const slice = all.slice(offset, offset + limit);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const blocks: any[] = [{
+        type: "text", text: JSON.stringify({
+          work_order_id: args.work_order_id, total: all.length,
+          returning: slice.length, offset, limit, phase_filter: args.phase ?? null,
+          photos: slice.map((p) => ({ id: p.id, url: p.url, phase: p.phase, taken_at: p.taken_at, caption: p.caption })),
+        }, null, 2),
+      }];
+
+      for (const p of slice) {
+        try {
+          const res = await fetch(p.url);
+          if (!res.ok) continue;
+          const buf = Buffer.from(await res.arrayBuffer());
+          const lower = p.url.toLowerCase();
+          const mimeType = res.headers.get("content-type")
+            || (lower.endsWith(".png") ? "image/png"
+              : lower.endsWith(".webp") ? "image/webp"
+              : lower.endsWith(".heic") ? "image/heic"
+              : "image/jpeg");
+          blocks.push({ type: "image", data: buf.toString("base64"), mimeType });
+        } catch { /* skip unreachable photo */ }
+      }
+      return { content: blocks };
+    });
+
   // ===== WORK-ORDER TEMPLATES =====
   tool("list_work_order_templates", "List the saved work-order templates (e.g. Inspection, Rectification). Used to prefill the New Work Order form.",
     {},
