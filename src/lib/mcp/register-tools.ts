@@ -1206,6 +1206,67 @@ export function registerTools(server: McpServer): void {
       return text({ created: true, form: data });
     });
 
+  // ===== WORK-ORDER TEMPLATES =====
+  tool("list_work_order_templates", "List the saved work-order templates (e.g. Inspection, Rectification). Used to prefill the New Work Order form.",
+    {},
+    async (_args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "work_orders:read");
+      const { data, error } = await t(ctx, "work_order_templates").select("*").eq("business_id", ctx.businessId).order("sort_order");
+      if (error) throw error;
+      return text(data);
+    });
+
+  tool("create_work_order_template", "Create a work-order template (name + optional default fields applied to new work orders).",
+    {
+      name: z.string().min(1),
+      title: z.string().optional(), description: z.string().optional(),
+      scope_of_work: z.string().optional(), worker_notes: z.string().optional(),
+      reported_issue: z.string().optional(),
+      default_duration_minutes: z.number().int().min(0).nullable().optional(),
+      sort_order: z.number().int().optional(),
+    },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "work_orders:write");
+      const { data, error } = await t(ctx, "work_order_templates").insert({
+        business_id: ctx.businessId, name: args.name,
+        title: args.title ?? null, description: args.description ?? null,
+        scope_of_work: args.scope_of_work ?? null, worker_notes: args.worker_notes ?? null,
+        reported_issue: args.reported_issue ?? null,
+        default_duration_minutes: args.default_duration_minutes ?? null,
+        sort_order: args.sort_order ?? 0,
+      }).select().single();
+      if (error) throw error;
+      return text({ created: true, template: data });
+    });
+
+  tool("update_work_order_template", "Update a work-order template. Only provided fields change.",
+    {
+      template_id: UUID,
+      name: z.string().optional(),
+      title: z.string().nullable().optional(), description: z.string().nullable().optional(),
+      scope_of_work: z.string().nullable().optional(), worker_notes: z.string().nullable().optional(),
+      reported_issue: z.string().nullable().optional(),
+      default_duration_minutes: z.number().int().min(0).nullable().optional(),
+      sort_order: z.number().int().optional(),
+    },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "work_orders:write");
+      const { template_id, ...rest } = args;
+      const patch = Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== undefined));
+      const { data, error } = await t(ctx, "work_order_templates").update(patch).eq("id", template_id).eq("business_id", ctx.businessId).select().single();
+      if (error) throw error;
+      return text({ updated: true, template: data });
+    });
+
+  tool("delete_work_order_template", "Delete a work-order template.",
+    { template_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "work_orders:write");
+      const { error } = await t(ctx, "work_order_templates").delete().eq("id", args.template_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ deleted: true });
+    });
+
   tool("set_block_untimed_jobs", "Business-level toggle: when true, a day is blocked from booking if a linked worker has an UNTIMED (all-day) job that day. Timed jobs always block their exact slot.",
     { enabled: z.boolean() },
     async (args, extra) => {

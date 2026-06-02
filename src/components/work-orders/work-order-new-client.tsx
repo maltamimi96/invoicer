@@ -37,13 +37,14 @@ function initials(name: string) {
 interface WorkOrderNewClientProps {
   customers: Customer[];
   profiles: Pick<MemberProfile, 'id' | 'name' | 'email' | 'avatar_url' | 'role_title'>[];
+  templates?: import("@/types/database").WorkOrderTemplate[];
   defaultCustomerId?: string;
   defaultSiteId?: string;
   defaultSiteAddress?: string;
 }
 
 export function WorkOrderNewClient({
-  customers: initialCustomers, profiles, defaultCustomerId, defaultSiteId, defaultSiteAddress,
+  customers: initialCustomers, profiles, templates = [], defaultCustomerId, defaultSiteId, defaultSiteAddress,
 }: WorkOrderNewClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -52,6 +53,10 @@ export function WorkOrderNewClient({
   const [title,            setTitle]            = useState("");
   const [description,      setDescription]      = useState("");
   const [reportedIssue,    setReportedIssue]    = useState("");
+  // Templated fields carried through to createWorkOrder (no inline editor here).
+  const [scopeOfWork,      setScopeOfWork]      = useState<string | null>(null);
+  const [workerNotes,      setWorkerNotes]      = useState<string | null>(null);
+  const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
   const [customerId,       setCustomerId]       = useState(defaultCustomerId ?? "");
   const [propertyAddress,  setPropertyAddress]  = useState(defaultSiteAddress ?? "");
   const [scheduledDate,    setScheduledDate]    = useState("");
@@ -150,6 +155,27 @@ export function WorkOrderNewClient({
 
   const selectedProfiles = profiles.filter((p) => selectedWorkers.includes(p.id));
 
+  function applyTemplate(id: string | null) {
+    setActiveTemplateId(id);
+    if (!id) { setScopeOfWork(null); setWorkerNotes(null); return; }
+    const t = templates.find((x) => x.id === id);
+    if (!t) return;
+    // Only prefill empty fields so we never clobber what the user has typed.
+    if (!title.trim()         && t.title)          setTitle(t.title);
+    if (!description.trim()   && t.description)    setDescription(t.description);
+    if (!reportedIssue.trim() && t.reported_issue) setReportedIssue(t.reported_issue);
+    setScopeOfWork(t.scope_of_work);
+    setWorkerNotes(t.worker_notes);
+    // If a start time is already set and the template has a duration, compute end.
+    if (t.default_duration_minutes && startTime && !endTime) {
+      const [h, m] = startTime.split(":").map(Number);
+      const total = h * 60 + (m || 0) + t.default_duration_minutes;
+      const eh = Math.min(23, Math.floor(total / 60));
+      const em = total % 60;
+      setEndTime(`${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`);
+    }
+  }
+
   const handleSubmit = () => {
     if (!title.trim()) { toast.error("Title is required"); return; }
     startTransition(async () => {
@@ -159,6 +185,8 @@ export function WorkOrderNewClient({
           title: title.trim(),
           description: description.trim() || undefined,
           reported_issue: reportedIssue.trim() || null,
+          scope_of_work: scopeOfWork || null,
+          worker_notes: workerNotes || null,
           customer_id: customerId && customerId !== "none" ? customerId : null,
           site_id: siteId || null,
           booker_contact_id: bookerContactId || null,
@@ -192,6 +220,28 @@ export function WorkOrderNewClient({
         subtitle="Assign a job to your team — they'll submit photos from site"
         accent="linear-gradient(180deg, #fbbf24 0%, #b45309 100%)"
       />
+
+      {templates.length > 0 && (
+        <Card className="rounded-xl">
+          <CardContent className="p-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mr-1">Start from</span>
+              <button type="button" onClick={() => applyTemplate(null)}
+                className={`px-3 py-1.5 rounded-full text-sm font-medium border ${activeTemplateId === null ? "bg-primary text-primary-foreground border-primary" : "bg-card hover:bg-accent border-border"}`}>
+                Blank
+              </button>
+              {templates.map((t) => (
+                <button key={t.id} type="button" onClick={() => applyTemplate(t.id)}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium border ${activeTemplateId === t.id ? "bg-primary text-primary-foreground border-primary" : "bg-card hover:bg-accent border-border"}`}>
+                  {t.name}
+                </button>
+              ))}
+              <a href="/settings/work-order-templates" className="ml-auto text-xs text-primary hover:underline">Manage templates</a>
+            </div>
+            {activeTemplateId !== null && <p className="text-xs text-muted-foreground mt-2">Prefilled from this template — edit anything below before saving.</p>}
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="rounded-xl">
         <CardContent className="p-6 space-y-5">

@@ -77,6 +77,8 @@ export async function createWorkOrder(payload: {
   billing_profile_id?: string | null;
   cc_contact_ids?: string[];
   reported_issue?: string | null;
+  scope_of_work?: string | null;
+  worker_notes?: string | null;
 }): Promise<WorkOrder> {
   const supabase = await createClient();
   const user = await getUser();
@@ -123,6 +125,8 @@ export async function createWorkOrder(payload: {
     billing_profile_id: uid(payload.billing_profile_id),
     cc_contact_ids: (payload.cc_contact_ids ?? []).filter((id) => UUID_RE.test(id ?? "")),
     reported_issue: payload.reported_issue ?? null,
+    scope_of_work: payload.scope_of_work ?? null,
+    worker_notes: payload.worker_notes ?? null,
     status,
     photos: [],
   }).select().single();

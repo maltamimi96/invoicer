@@ -957,6 +957,24 @@ export interface BusinessMember {
 }
 
 // ============================================================================
+// Work-order templates — predefined starting points for new work orders.
+// ============================================================================
+export interface WorkOrderTemplate {
+  id: string;
+  business_id: string;
+  name: string;
+  title: string | null;
+  description: string | null;
+  scope_of_work: string | null;
+  worker_notes: string | null;
+  reported_issue: string | null;
+  default_duration_minutes: number | null;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// ============================================================================
 // Online Booking / Appointments
 // ============================================================================
 export type AppointmentStatus =
