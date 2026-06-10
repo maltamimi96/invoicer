@@ -86,8 +86,15 @@ export async function addMember(email: string, role: MemberRole): Promise<void> 
     const { data: biz } = await tbl(supabase, "businesses").select("name").eq("id", businessId).single();
     const inviterName = user.user_metadata?.full_name ?? user.email ?? "Your team owner";
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-    const params = new URLSearchParams({ email: email.toLowerCase().trim(), biz: businessId });
-    const inviteUrl = `${appUrl}/auth/register?${params.toString()}`;
+    // Point at /api/activate-invite — it handles both cases robustly:
+    //   - signed-in user → activates pending memberships, sets the new business
+    //     active and lands on /dashboard.
+    //   - signed-out user → redirects to /auth/login?biz=…&email=… (with the
+    //     email prefilled) and after sign-in routes back here. A brand-new
+    //     person can use the "Create account" link on /auth/login, which now
+    //     carries the invite params through to /auth/register.
+    const params = new URLSearchParams({ biz: businessId, email: email.toLowerCase().trim() });
+    const inviteUrl = `${appUrl}/api/activate-invite?${params.toString()}`;
 
     await sendEmail({
       to: email.toLowerCase().trim(),

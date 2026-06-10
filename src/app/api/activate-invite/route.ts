@@ -5,13 +5,17 @@ import { cookies } from "next/headers";
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const biz = searchParams.get("biz");
+  const email = searchParams.get("email");
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
+    // Bounce to login so we can finish activation after auth. Prefill the
+    // email so an existing-team-member invite doesn't make them re-type it.
     const loginUrl = new URL("/auth/login", request.url);
     if (biz) loginUrl.searchParams.set("biz", biz);
+    if (email) loginUrl.searchParams.set("email", email);
     return NextResponse.redirect(loginUrl);
   }
 

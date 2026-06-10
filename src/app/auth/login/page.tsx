@@ -139,7 +139,15 @@ export default function LoginPage() {
 
       <p className="text-center text-sm text-muted-foreground mt-6">
         Don&apos;t have an account?{" "}
-        <Link href="/auth/register" className="text-foreground font-medium hover:underline">
+        <Link
+          href={(() => {
+            const qp = new URLSearchParams();
+            if (inviteEmail) qp.set("email", inviteEmail);
+            if (inviteBiz)   qp.set("biz", inviteBiz);
+            const qs = qp.toString();
+            return qs ? `/auth/register?${qs}` : "/auth/register";
+          })()}
+          className="text-foreground font-medium hover:underline">
           Sign up
         </Link>
       </p>
