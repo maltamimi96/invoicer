@@ -5,7 +5,9 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { dispatchWebhook } from "@/lib/webhooks";
 import { sendEmail, buildBusinessFrom } from "@/lib/email";
-import { workOrderSubmittedEmailHtml } from "@/lib/emails/work-order-submitted";
+import { workOrderSubmittedEmailHtml, workOrderSubmittedEmailSubject } from "@/lib/emails/work-order-submitted";
+import { getResolvedEmailTemplate } from "@/lib/emails/templates";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getRecipientsForRoles } from "@/lib/notifications/recipients";
 import { logJobEvent } from "./job-timeline";
 import type { WorkOrder, WorkOrderPhoto, WorkOrderStatus, WorkOrderWithCustomer } from "@/types/database";
@@ -299,17 +301,24 @@ export async function submitWorkOrder(id: string, workerNotes: string): Promise<
 
     if (recipients.length > 0) {
       const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+      // Template lookup via admin client — the submitter is a worker, whose
+      // RLS blocks reading email_templates. Scoped by business_id.
+      const emailTemplate = await getResolvedEmailTemplate(createAdminClient(), businessId, "work_order_submitted");
+      const woArgs = {
+        businessName: bizRow?.name ?? "",
+        workerName: user.user_metadata?.full_name ?? user.email ?? "A worker",
+        workerEmail: user.email ?? "",
+        title: woRow?.title ?? id,
+        propertyAddress: woRow?.property_address,
+      };
       await sendEmail({
         to: recipients,
-        subject: `Work order submitted: ${woRow?.title ?? id}`,
+        subject: workOrderSubmittedEmailSubject(woArgs, emailTemplate),
         html: workOrderSubmittedEmailHtml({
-          businessName: bizRow?.name ?? "",
-          workerName: user.user_metadata?.full_name ?? user.email ?? "A worker",
-          workerEmail: user.email ?? "",
-          title: woRow?.title ?? id,
-          propertyAddress: woRow?.property_address,
+          ...woArgs,
           workerNotes: workerNotes || null,
           viewUrl: `${appUrl}/work-orders/${id}`,
+          template: emailTemplate,
         }),
         from: bizRow?.name ? buildBusinessFrom({ name: bizRow.name, localPart: "jobs" }) : undefined,
         tags: { business_id: businessId, doc_type: "custom" },

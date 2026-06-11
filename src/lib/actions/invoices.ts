@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { dispatchWebhook } from "@/lib/webhooks";
 import { sendEmail, buildBusinessFrom } from "@/lib/email";
-import { invoiceEmailHtml } from "@/lib/emails/invoice";
+import { invoiceEmailHtml, invoiceEmailSubject } from "@/lib/emails/invoice";
+import { getResolvedEmailTemplate } from "@/lib/emails/templates";
 import { appUrl } from "@/lib/app-url";
 import { randomBytes } from "node:crypto";
 import type { Customer, Invoice, InvoiceWithCustomer, LineItem, Payment } from "@/types/database";
@@ -552,10 +553,12 @@ export async function sendInvoiceEmail(id: string, opts?: { recipients?: string[
     }
   }
 
+  const emailTemplate = await getResolvedEmailTemplate(supabase, businessId, "invoice");
+
   await sendEmail({
     to: recipients,
-    subject: opts?.subject ?? `Invoice ${invoiceData.number} from ${businessData.name}`,
-    html: invoiceEmailHtml({ invoice: invoiceData, customer, business: businessData, lineItems, portalUrl, pdfUrl }),
+    subject: opts?.subject ?? invoiceEmailSubject({ invoice: invoiceData, customer, business: businessData }, emailTemplate),
+    html: invoiceEmailHtml({ invoice: invoiceData, customer, business: businessData, lineItems, portalUrl, pdfUrl, template: emailTemplate }),
     attachments: [{ filename: `${invoiceData.number}.pdf`, content: pdfBuffer }],
     from: buildBusinessFrom({ name: businessData.name, localPart: "invoices" }),
     replyTo: businessData.email || undefined,

@@ -13,8 +13,9 @@ import { randomBytes } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, buildBusinessFrom } from "@/lib/email";
 import { sendSms } from "@/lib/actions/sms";
-import { invoiceEmailHtml } from "@/lib/emails/invoice";
-import { quoteEmailHtml } from "@/lib/emails/quote";
+import { invoiceEmailHtml, invoiceEmailSubject } from "@/lib/emails/invoice";
+import { quoteEmailHtml, quoteEmailSubject } from "@/lib/emails/quote";
+import { getResolvedEmailTemplate } from "@/lib/emails/templates";
 import { appUrl } from "@/lib/app-url";
 import type { LineItem } from "@/types/database";
 
@@ -100,10 +101,12 @@ async function dispatchInvoice(
       if (base && token) portalUrl = `${base}/portal/${token}/invoice/${invoice.id}`;
     }
 
+    const emailTemplate = await getResolvedEmailTemplate(sb, row.business_id, "invoice");
+
     await sendEmail({
       to: recipients,
-      subject: row.subject ?? `Invoice ${invoice.number} from ${business?.name ?? ""}`,
-      html: invoiceEmailHtml({ invoice, customer: invoice.customers, business, lineItems, portalUrl }),
+      subject: row.subject ?? invoiceEmailSubject({ invoice, customer: invoice.customers, business }, emailTemplate),
+      html: invoiceEmailHtml({ invoice, customer: invoice.customers, business, lineItems, portalUrl, template: emailTemplate }),
       attachments: [{ filename: `${invoice.number}.pdf`, content: pdfBuffer }],
       from: business?.name ? buildBusinessFrom({ name: business.name, localPart: "invoices" }) : undefined,
       replyTo: business?.email || undefined,
@@ -163,10 +166,12 @@ async function dispatchQuote(
       if (base && token) acceptUrl = `${base}/portal/${token}/quote/${quote.id}`;
     }
 
+    const emailTemplate = await getResolvedEmailTemplate(sb, row.business_id, "quote");
+
     await sendEmail({
       to: recipients,
-      subject: row.subject ?? `Quote ${quote.number} from ${business?.name ?? ""}`,
-      html: quoteEmailHtml({ quote, customer: quote.customers, business, lineItems, acceptUrl }),
+      subject: row.subject ?? quoteEmailSubject({ quote, customer: quote.customers, business }, emailTemplate),
+      html: quoteEmailHtml({ quote, customer: quote.customers, business, lineItems, acceptUrl, template: emailTemplate }),
       attachments: [{ filename: `${quote.number}.pdf`, content: pdfBuffer }],
       from: business?.name ? buildBusinessFrom({ name: business.name, localPart: "quotes" }) : undefined,
       replyTo: business?.email || undefined,

@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { canManageTeam, isOwner, type Role } from "@/lib/permissions";
 import { sendEmail, buildBusinessFrom } from "@/lib/email";
-import { teamInviteEmailHtml } from "@/lib/emails/team-invite";
+import { teamInviteEmailHtml, teamInviteEmailSubject } from "@/lib/emails/team-invite";
+import { getResolvedEmailTemplate } from "@/lib/emails/templates";
 import type { BusinessMember, MemberRole } from "@/types/database";
 
 import { getUser } from "@/lib/auth";
@@ -96,16 +97,18 @@ export async function addMember(email: string, role: MemberRole): Promise<void> 
     const params = new URLSearchParams({ biz: businessId, email: email.toLowerCase().trim() });
     const inviteUrl = `${appUrl}/api/activate-invite?${params.toString()}`;
 
+    const emailTemplate = await getResolvedEmailTemplate(supabase, businessId, "team_invite");
+    const inviteArgs = {
+      businessName: biz?.name ?? "a team",
+      inviterName,
+      role,
+      inviteCode: inviteToken,
+    };
+
     await sendEmail({
       to: email.toLowerCase().trim(),
-      subject: `You've been invited to ${biz?.name ?? "a team"} on Kirei`,
-      html: teamInviteEmailHtml({
-        businessName: biz?.name ?? "a team",
-        inviterName,
-        role,
-        inviteUrl,
-        inviteCode: inviteToken,
-      }),
+      subject: teamInviteEmailSubject(inviteArgs, emailTemplate),
+      html: teamInviteEmailHtml({ ...inviteArgs, inviteUrl, template: emailTemplate }),
       from: biz?.name ? buildBusinessFrom({ name: biz.name, localPart: "team" }) : undefined,
       tags: { business_id: businessId, doc_type: "team_invite" },
     });

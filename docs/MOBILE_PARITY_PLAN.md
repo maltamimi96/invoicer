@@ -139,6 +139,7 @@ Status legend: ✅ done · 🟡 partial · ❌ missing · 🚫 not applicable on
 | API keys | 🟡 | 3f | /settings/advanced surfaces it with web deep-link (mint/revoke needs server endpoint) |
 | Webhooks | 🟡 | 3f | Same — /settings/advanced deep-links to web |
 | Email config | 🟡 | 3f | Same — IMAP creds belong on web |
+| Email templates (per-business) | 🟡 | 3f | Web editor at /settings/email-templates; templates apply automatically to mobile-triggered sends (server-side) |
 | Appearance / personalisation | ✅ | 3f | /settings/appearance — accent colour + bg pattern picker |
 | **Cross-cutting** |
 | Smart Organise (cleanup) | 🟡 | 3f | /settings/advanced deep-links to web (cross-entity dedupe lives there) |

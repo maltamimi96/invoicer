@@ -974,6 +974,24 @@ export interface WorkOrderTemplate {
   updated_at: string;
 }
 
+/** Per-business email template override — see src/lib/emails/templates.ts. */
+export interface EmailTemplate {
+  id: string;
+  business_id: string;
+  template_type: 'invoice' | 'quote' | 'team_invite' | 'work_order_submitted';
+  subject: string | null;
+  greeting: string | null;
+  intro: string | null;
+  footer_note: string | null;
+  accent_color: string | null;
+  show_line_items: boolean;
+  show_payment_details: boolean;
+  show_buttons: boolean;
+  custom_html: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // ============================================================================
 // Online Booking / Appointments
 // ============================================================================
