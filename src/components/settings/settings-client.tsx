@@ -585,7 +585,21 @@ export function SettingsClient({ business: initial, apiKeys, emailConfig, webhoo
         </TabsContent>
 
         {/* ── Email tab ── */}
-        <TabsContent value="email" className="mt-6">
+        <TabsContent value="email" className="mt-6 space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Email templates</CardTitle>
+            </CardHeader>
+            <CardContent className="flex items-center justify-between gap-4">
+              <p className="text-sm text-muted-foreground">
+                Customise the wording, colours and layout of the invoice, quote,
+                team-invite and work-order emails sent from your business.
+              </p>
+              <Button asChild variant="outline" className="shrink-0">
+                <a href="/settings/email-templates">Edit templates</a>
+              </Button>
+            </CardContent>
+          </Card>
           <EmailSettings config={emailConfig} />
         </TabsContent>
 

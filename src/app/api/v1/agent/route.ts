@@ -549,12 +549,14 @@ async function executeTool(name: string, input: Record<string, any>, ctx: BizCon
       const { data: business } = await tbl("businesses").select("*").eq("id", ctx.businessId).single();
 
       const { sendEmail } = await import("@/lib/email");
-      const { quoteEmailHtml } = await import("@/lib/emails/quote");
+      const { quoteEmailHtml, quoteEmailSubject } = await import("@/lib/emails/quote");
+      const { getResolvedEmailTemplate } = await import("@/lib/emails/templates");
+      const quoteTemplate = await getResolvedEmailTemplate(sb, ctx.businessId, "quote");
 
       await sendEmail({
         to: quote.customers.email,
-        subject: `Quote ${quote.number} from ${business.name}`,
-        html: quoteEmailHtml({ quote, customer: quote.customers, business, lineItems: quote.line_items ?? [] }),
+        subject: quoteEmailSubject({ quote, customer: quote.customers, business }, quoteTemplate),
+        html: quoteEmailHtml({ quote, customer: quote.customers, business, lineItems: quote.line_items ?? [], template: quoteTemplate }),
       });
 
       if (quote.status === "draft") {
@@ -685,11 +687,13 @@ async function executeTool(name: string, input: Record<string, any>, ctx: BizCon
       const pdfBuffer = Buffer.concat(chunks);
 
       const { sendEmail } = await import("@/lib/email");
-      const { invoiceEmailHtml } = await import("@/lib/emails/invoice");
+      const { invoiceEmailHtml, invoiceEmailSubject } = await import("@/lib/emails/invoice");
+      const { getResolvedEmailTemplate: getTpl } = await import("@/lib/emails/templates");
+      const invoiceTemplate = await getTpl(sb, ctx.businessId, "invoice");
       await sendEmail({
         to: invoice.customers.email,
-        subject: `Invoice ${invoice.number} from ${business.name}`,
-        html: invoiceEmailHtml({ invoice, customer: invoice.customers, business, lineItems: invoice.line_items ?? [] }),
+        subject: invoiceEmailSubject({ invoice, customer: invoice.customers, business }, invoiceTemplate),
+        html: invoiceEmailHtml({ invoice, customer: invoice.customers, business, lineItems: invoice.line_items ?? [], template: invoiceTemplate }),
         attachments: [{ filename: `${invoice.number}.pdf`, content: pdfBuffer }],
       });
 

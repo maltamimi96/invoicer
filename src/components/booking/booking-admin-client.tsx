@@ -15,7 +15,7 @@ import {
   createAppointmentType, updateAppointmentType, deleteAppointmentType,
   createResource, deleteResource, updateResource,
   listWorkingHours, setWorkingHours,
-  createException, deleteException, setAppointmentStatus,
+  createException, deleteException, setAppointmentStatus, setBlockUntimedJobs,
   type TeamMemberLite,
 } from "@/lib/actions/booking";
 import type {
@@ -31,7 +31,7 @@ const PILL: Record<string, string> = {
 };
 
 export function BookingAdminClient({
-  initialForms, initialTypes, initialResources, initialExceptions, initialAppointments, teamMembers, appUrl,
+  initialForms, initialTypes, initialResources, initialExceptions, initialAppointments, teamMembers, blockUntimedJobs, appUrl,
 }: {
   initialForms: BookingForm[];
   initialTypes: AppointmentType[];
@@ -39,8 +39,10 @@ export function BookingAdminClient({
   initialExceptions: BookingAvailabilityException[];
   initialAppointments: Appointment[];
   teamMembers: TeamMemberLite[];
+  blockUntimedJobs: boolean;
   appUrl: string;
 }) {
+  const [blockUntimed, setBlockUntimed] = useState(blockUntimedJobs);
   const [forms, setForms] = useState(initialForms);
   const [types, setTypes] = useState(initialTypes);
   const [resources, setResources] = useState(initialResources);
@@ -143,6 +145,10 @@ export function BookingAdminClient({
       <Card className="p-5 space-y-4">
         <div className="font-semibold flex items-center gap-1.5"><Users className="size-4" /> Team / resources & hours <span className="text-xs font-normal text-muted-foreground">(shared library)</span></div>
         <p className="text-xs text-muted-foreground -mt-1">Link a resource to a team member to auto-block their existing jobs and assign new bookings to them — or leave it generic (e.g. “Bay 1”).</p>
+        <div className="flex items-center justify-between rounded-md border p-3">
+          <span className="text-sm">Block the whole day when a linked worker has an <strong>untimed</strong> job<br /><span className="text-xs text-muted-foreground">Timed jobs always block their exact slot. Off = untimed/all-day jobs don’t affect availability.</span></span>
+          <Switch checked={blockUntimed} onCheckedChange={(v) => { setBlockUntimed(v); start(async () => { try { await setBlockUntimedJobs(v); toast.success(v ? "Untimed jobs now block the day" : "Untimed jobs no longer block"); } catch (e) { toast.error((e as Error).message); } }); }} />
+        </div>
         <div className="space-y-3">
           {resources.map((r) => (
             <ResourceRow key={r.id} resource={r} teamMembers={teamMembers}

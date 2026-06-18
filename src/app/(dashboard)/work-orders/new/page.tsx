@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { canEdit, type Role } from "@/lib/permissions";
 import { getAssignableProfiles } from "@/lib/actions/member-profiles";
+import { listWorkOrderTemplates } from "@/lib/actions/work-order-templates";
 import { WorkOrderNewClient } from "@/components/work-orders/work-order-new-client";
 import type { Customer, MemberProfile } from "@/types/database";
 
@@ -33,6 +34,7 @@ export default async function NewWorkOrderPage({ searchParams }: { searchParams:
     .order("name");
   const customers = (customersRaw ?? []) as Customer[];
   const profiles = await getAssignableProfiles().catch(() => []) as Pick<MemberProfile, 'id' | 'name' | 'email' | 'avatar_url' | 'role_title'>[];
+  const templates = await listWorkOrderTemplates().catch(() => []);
 
   // If a defaultSiteId was supplied, resolve its customer + address so the form can preselect.
   let resolvedDefaultCustomerId = defaultCustomerId;
@@ -55,6 +57,7 @@ export default async function NewWorkOrderPage({ searchParams }: { searchParams:
     <WorkOrderNewClient
       customers={customers}
       profiles={profiles}
+      templates={templates}
       defaultCustomerId={resolvedDefaultCustomerId}
       defaultSiteId={defaultSiteId}
       defaultSiteAddress={defaultSiteAddress}

@@ -957,6 +957,42 @@ export interface BusinessMember {
 }
 
 // ============================================================================
+// Work-order templates — predefined starting points for new work orders.
+// ============================================================================
+export interface WorkOrderTemplate {
+  id: string;
+  business_id: string;
+  name: string;
+  title: string | null;
+  description: string | null;
+  scope_of_work: string | null;
+  worker_notes: string | null;
+  reported_issue: string | null;
+  default_duration_minutes: number | null;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Per-business email template override — see src/lib/emails/templates.ts. */
+export interface EmailTemplate {
+  id: string;
+  business_id: string;
+  template_type: 'invoice' | 'quote' | 'team_invite' | 'work_order_submitted';
+  subject: string | null;
+  greeting: string | null;
+  intro: string | null;
+  footer_note: string | null;
+  accent_color: string | null;
+  show_line_items: boolean;
+  show_payment_details: boolean;
+  show_buttons: boolean;
+  custom_html: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// ============================================================================
 // Online Booking / Appointments
 // ============================================================================
 export type AppointmentStatus =

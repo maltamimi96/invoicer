@@ -18,8 +18,15 @@ import { v4 as uuidv4 } from "uuid";
 import { randomBytes } from "crypto";
 import { buildContext, assertScope, t, text, errorText, type McpContext } from "./context";
 import { sendEmail, buildBusinessFrom } from "@/lib/email";
-import { invoiceEmailHtml } from "@/lib/emails/invoice";
-import { quoteEmailHtml } from "@/lib/emails/quote";
+import { invoiceEmailHtml, invoiceEmailSubject } from "@/lib/emails/invoice";
+import { quoteEmailHtml, quoteEmailSubject } from "@/lib/emails/quote";
+import {
+  EMAIL_TEMPLATE_TYPES,
+  EMAIL_TEMPLATE_DEFAULTS,
+  EMAIL_TEMPLATE_VARIABLES,
+  resolveEmailTemplate,
+  type EmailTemplateType,
+} from "@/lib/emails/templates";
 import type { ApiScope, LineItem } from "@/types/database";
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -280,10 +287,12 @@ export function registerTools(server: McpServer): void {
         acceptUrl = `${appBase()}/portal/${token}/quote/${quote.id}`;
         pdfUrl = `${appBase()}/api/pdf/quote/${quote.id}?token=${token}`;
       }
+      const { data: quoteTplRow } = await t(ctx, "email_templates").select("*").eq("business_id", ctx.businessId).eq("template_type", "quote").maybeSingle();
+      const quoteTemplate = resolveEmailTemplate("quote", quoteTplRow);
       await sendEmail({
         to: recipients,
-        subject: args.subject ?? `Quote ${quote.number} from ${business?.name ?? ""}`,
-        html: quoteEmailHtml({ quote, customer, business, lineItems, acceptUrl, pdfUrl }),
+        subject: args.subject ?? quoteEmailSubject({ quote, customer, business }, quoteTemplate),
+        html: quoteEmailHtml({ quote, customer, business, lineItems, acceptUrl, pdfUrl, template: quoteTemplate }),
         attachments: [{ filename: `${quote.number}.pdf`, content: pdf }],
         from: business?.name ? buildBusinessFrom({ name: business.name, localPart: "quotes" }) : undefined,
         replyTo: business?.email || undefined,
@@ -360,10 +369,12 @@ export function registerTools(server: McpServer): void {
         portalUrl = `${appBase()}/portal/${token}/invoice/${invoice.id}`;
         pdfUrl = `${appBase()}/api/pdf/invoice/${invoice.id}?token=${token}`;
       }
+      const { data: invTplRow } = await t(ctx, "email_templates").select("*").eq("business_id", ctx.businessId).eq("template_type", "invoice").maybeSingle();
+      const invoiceTemplate = resolveEmailTemplate("invoice", invTplRow);
       await sendEmail({
         to: recipients,
-        subject: args.subject ?? `Invoice ${invoice.number} from ${business?.name ?? ""}`,
-        html: invoiceEmailHtml({ invoice, customer, business, lineItems, portalUrl, pdfUrl }),
+        subject: args.subject ?? invoiceEmailSubject({ invoice, customer, business }, invoiceTemplate),
+        html: invoiceEmailHtml({ invoice, customer, business, lineItems, portalUrl, pdfUrl, template: invoiceTemplate }),
         attachments: [{ filename: `${invoice.number}.pdf`, content: pdf }],
         from: business?.name ? buildBusinessFrom({ name: business.name, localPart: "invoices" }) : undefined,
         replyTo: business?.email || undefined,
@@ -572,6 +583,67 @@ export function registerTools(server: McpServer): void {
       const { data, error } = await t(ctx, "businesses").update(clean).eq("id", ctx.businessId).select().single();
       if (error) throw error;
       return text({ updated: true, settings: data });
+    });
+
+  // ===== EMAIL TEMPLATES =====
+  const EMAIL_TPL_TYPE = z.enum(EMAIL_TEMPLATE_TYPES as [EmailTemplateType, ...EmailTemplateType[]]);
+
+  tool("list_email_templates", "List the business's email templates (invoice / quote / team_invite / work_order_submitted). Shows the resolved value of every field (override merged onto defaults), whether each type is customised, and the {{variables}} available per type.",
+    {},
+    async (_args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "settings:read");
+      const { data: rows } = await t(ctx, "email_templates").select("*").eq("business_id", ctx.businessId);
+      const result = EMAIL_TEMPLATE_TYPES.map((type) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const row = (rows ?? []).find((r: any) => r.template_type === type) ?? null;
+        return {
+          type,
+          customised: !!row,
+          resolved: resolveEmailTemplate(type, row),
+          defaults: EMAIL_TEMPLATE_DEFAULTS[type],
+          variables: EMAIL_TEMPLATE_VARIABLES[type],
+        };
+      });
+      return text(result);
+    });
+
+  tool("update_email_template", "Customise an outbound email template for this business. Only provided fields change; text fields support {{variable}} placeholders (see list_email_templates for the variables per type). subject/greeting/intro/footer_note/accent_color set the standard layout; custom_html replaces the entire email body (the branded wrapper + subject still apply). Pass an empty string to reset a single field to its default.",
+    {
+      template_type: EMAIL_TPL_TYPE,
+      subject: z.string().optional(),
+      greeting: z.string().optional(),
+      intro: z.string().optional(),
+      footer_note: z.string().optional(),
+      accent_color: z.string().optional(),
+      show_line_items: z.boolean().optional(),
+      show_payment_details: z.boolean().optional(),
+      show_buttons: z.boolean().optional(),
+      custom_html: z.string().optional(),
+    },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "settings:write");
+      const { template_type, ...fields } = args;
+      // Empty string = "reset this field to default" (stored as NULL).
+      const clean = Object.fromEntries(
+        Object.entries(fields)
+          .filter(([, v]) => v !== undefined)
+          .map(([k, v]) => [k, typeof v === "string" && v.trim() === "" ? null : v]),
+      );
+      if (Object.keys(clean).length === 0) return errorText("No fields to update.");
+      const { data, error } = await t(ctx, "email_templates")
+        .upsert({ business_id: ctx.businessId, template_type, ...clean }, { onConflict: "business_id,template_type" })
+        .select().single();
+      if (error) throw error;
+      return text({ updated: true, resolved: resolveEmailTemplate(template_type, data) });
+    });
+
+  tool("reset_email_template", "Reset an email template back to the built-in default (deletes the business override).",
+    { template_type: EMAIL_TPL_TYPE },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "settings:write");
+      const { error } = await t(ctx, "email_templates").delete().eq("business_id", ctx.businessId).eq("template_type", args.template_type);
+      if (error) throw error;
+      return text({ reset: true, defaults: EMAIL_TEMPLATE_DEFAULTS[args.template_type as EmailTemplateType] });
     });
 
   // ===== STATS =====
@@ -1280,6 +1352,135 @@ export function registerTools(server: McpServer): void {
       const { data, error } = await t(ctx, "booking_forms").insert({ business_id: ctx.businessId, name: args.name }).select().single();
       if (error) throw error;
       return text({ created: true, form: data });
+    });
+
+  // ===== WORK-ORDER PHOTOS =====
+  tool("list_job_photos", "List the photos uploaded to a work order (metadata only — id, url, phase, taken_at, caption). Use view_job_photos to actually see the images.",
+    { work_order_id: UUID, phase: z.enum(["before", "during", "after"]).optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "work_orders:read");
+      let q = t(ctx, "job_photos").select("id, url, phase, taken_at, caption, lat, lng")
+        .eq("business_id", ctx.businessId).eq("work_order_id", args.work_order_id)
+        .order("taken_at", { ascending: true });
+      if (args.phase) q = q.eq("phase", args.phase);
+      const { data, error } = await q;
+      if (error) throw error;
+      return text({ total: data?.length ?? 0, photos: data });
+    });
+
+  tool("view_job_photos", "Fetch and return the actual images of a work order so Claude can see them. Returns up to `limit` images (default 5, max 10) starting at `offset`. For lots of photos, paginate or filter by phase. Use list_job_photos first to see counts.",
+    {
+      work_order_id: UUID,
+      limit: z.number().int().min(1).max(10).optional(),
+      offset: z.number().int().min(0).optional(),
+      phase: z.enum(["before", "during", "after"]).optional(),
+    },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "work_orders:read");
+      let q = t(ctx, "job_photos").select("id, url, phase, taken_at, caption")
+        .eq("business_id", ctx.businessId).eq("work_order_id", args.work_order_id)
+        .order("taken_at", { ascending: true });
+      if (args.phase) q = q.eq("phase", args.phase);
+      const { data, error } = await q;
+      if (error) throw error;
+      const all = (data ?? []) as Array<{ id: string; url: string; phase: string; taken_at: string; caption: string | null }>;
+      const limit = args.limit ?? 5;
+      const offset = args.offset ?? 0;
+      const slice = all.slice(offset, offset + limit);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const blocks: any[] = [{
+        type: "text", text: JSON.stringify({
+          work_order_id: args.work_order_id, total: all.length,
+          returning: slice.length, offset, limit, phase_filter: args.phase ?? null,
+          photos: slice.map((p) => ({ id: p.id, url: p.url, phase: p.phase, taken_at: p.taken_at, caption: p.caption })),
+        }, null, 2),
+      }];
+
+      for (const p of slice) {
+        try {
+          const res = await fetch(p.url);
+          if (!res.ok) continue;
+          const buf = Buffer.from(await res.arrayBuffer());
+          const lower = p.url.toLowerCase();
+          const mimeType = res.headers.get("content-type")
+            || (lower.endsWith(".png") ? "image/png"
+              : lower.endsWith(".webp") ? "image/webp"
+              : lower.endsWith(".heic") ? "image/heic"
+              : "image/jpeg");
+          blocks.push({ type: "image", data: buf.toString("base64"), mimeType });
+        } catch { /* skip unreachable photo */ }
+      }
+      return { content: blocks };
+    });
+
+  // ===== WORK-ORDER TEMPLATES =====
+  tool("list_work_order_templates", "List the saved work-order templates (e.g. Inspection, Rectification). Used to prefill the New Work Order form.",
+    {},
+    async (_args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "work_orders:read");
+      const { data, error } = await t(ctx, "work_order_templates").select("*").eq("business_id", ctx.businessId).order("sort_order");
+      if (error) throw error;
+      return text(data);
+    });
+
+  tool("create_work_order_template", "Create a work-order template (name + optional default fields applied to new work orders).",
+    {
+      name: z.string().min(1),
+      title: z.string().optional(), description: z.string().optional(),
+      scope_of_work: z.string().optional(), worker_notes: z.string().optional(),
+      reported_issue: z.string().optional(),
+      default_duration_minutes: z.number().int().min(0).nullable().optional(),
+      sort_order: z.number().int().optional(),
+    },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "work_orders:write");
+      const { data, error } = await t(ctx, "work_order_templates").insert({
+        business_id: ctx.businessId, name: args.name,
+        title: args.title ?? null, description: args.description ?? null,
+        scope_of_work: args.scope_of_work ?? null, worker_notes: args.worker_notes ?? null,
+        reported_issue: args.reported_issue ?? null,
+        default_duration_minutes: args.default_duration_minutes ?? null,
+        sort_order: args.sort_order ?? 0,
+      }).select().single();
+      if (error) throw error;
+      return text({ created: true, template: data });
+    });
+
+  tool("update_work_order_template", "Update a work-order template. Only provided fields change.",
+    {
+      template_id: UUID,
+      name: z.string().optional(),
+      title: z.string().nullable().optional(), description: z.string().nullable().optional(),
+      scope_of_work: z.string().nullable().optional(), worker_notes: z.string().nullable().optional(),
+      reported_issue: z.string().nullable().optional(),
+      default_duration_minutes: z.number().int().min(0).nullable().optional(),
+      sort_order: z.number().int().optional(),
+    },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "work_orders:write");
+      const { template_id, ...rest } = args;
+      const patch = Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== undefined));
+      const { data, error } = await t(ctx, "work_order_templates").update(patch).eq("id", template_id).eq("business_id", ctx.businessId).select().single();
+      if (error) throw error;
+      return text({ updated: true, template: data });
+    });
+
+  tool("delete_work_order_template", "Delete a work-order template.",
+    { template_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "work_orders:write");
+      const { error } = await t(ctx, "work_order_templates").delete().eq("id", args.template_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ deleted: true });
+    });
+
+  tool("set_block_untimed_jobs", "Business-level toggle: when true, a day is blocked from booking if a linked worker has an UNTIMED (all-day) job that day. Timed jobs always block their exact slot.",
+    { enabled: z.boolean() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "bookings:write");
+      await t(ctx, "booking_settings").upsert({ business_id: ctx.businessId, block_untimed_jobs: args.enabled }, { onConflict: "business_id" });
+      return text({ updated: true, block_untimed_jobs: args.enabled });
     });
 
   tool("get_booking_settings", "Get the default booking form (enabled flag, public slug, timezone, rules, required fields, reminders). Use list_booking_forms for all forms.",

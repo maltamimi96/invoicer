@@ -6,7 +6,8 @@ import { getActiveBizId } from "@/lib/active-business";
 import { dispatchWebhook } from "@/lib/webhooks";
 import { sendEmail, buildBusinessFrom } from "@/lib/email";
 import { appUrl } from "@/lib/app-url";
-import { quoteEmailHtml } from "@/lib/emails/quote";
+import { quoteEmailHtml, quoteEmailSubject } from "@/lib/emails/quote";
+import { getResolvedEmailTemplate } from "@/lib/emails/templates";
 import { randomBytes } from "node:crypto";
 import type { Customer, Quote, QuoteWithCustomer, Invoice, LineItem } from "@/types/database";
 
@@ -259,10 +260,12 @@ export async function sendQuoteEmail(id: string, opts?: { recipients?: string[];
     }
   }
 
+  const emailTemplate = await getResolvedEmailTemplate(supabase, businessId, "quote");
+
   await sendEmail({
     to: recipients,
-    subject: opts?.subject ?? `Quote ${quoteData.number} from ${businessData.name}`,
-    html: quoteEmailHtml({ quote: quoteData, customer, business: businessData, lineItems, acceptUrl, pdfUrl }),
+    subject: opts?.subject ?? quoteEmailSubject({ quote: quoteData, customer, business: businessData }, emailTemplate),
+    html: quoteEmailHtml({ quote: quoteData, customer, business: businessData, lineItems, acceptUrl, pdfUrl, template: emailTemplate }),
     attachments: [{ filename: `${quoteData.number}.pdf`, content: pdfBuffer }],
     from: buildBusinessFrom({ name: businessData.name, localPart: "quotes" }),
     replyTo: businessData.email || undefined,

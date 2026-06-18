@@ -87,6 +87,25 @@ export async function updateBookingSettings(patch: Partial<Omit<BookingSettings,
 }
 
 // ---------------------------------------------------------------------------
+// Business-level booking option: block bookings on days a linked worker has an
+// untimed (all-day) job. Stored on booking_settings (business-level record).
+// ---------------------------------------------------------------------------
+export async function getBlockUntimedJobs(): Promise<boolean> {
+  const { supabase, businessId } = await ctx(false);
+  await getBookingSettings(); // lazy-create
+  const { data } = await tbl(supabase, "booking_settings").select("block_untimed_jobs").eq("business_id", businessId).maybeSingle();
+  return Boolean(data?.block_untimed_jobs);
+}
+
+export async function setBlockUntimedJobs(value: boolean): Promise<void> {
+  const { supabase, businessId } = await ctx();
+  await getBookingSettings();
+  const { error } = await tbl(supabase, "booking_settings").update({ block_untimed_jobs: value }).eq("business_id", businessId);
+  if (error) throw new Error(error.message);
+  revalidate();
+}
+
+// ---------------------------------------------------------------------------
 // Booking forms (multiple per business) — each exposes a subset of the shared
 // services/resources with its own slug, rules and branding.
 // ---------------------------------------------------------------------------

@@ -2,19 +2,15 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { canEdit, type Role } from "@/lib/permissions";
-import {
-  listForms, listAppointmentTypes, listResources, listExceptions, listAppointments,
-  listBookingTeamMembers, getBlockUntimedJobs,
-} from "@/lib/actions/booking";
-import { BookingAdminClient } from "@/components/booking/booking-admin-client";
+import { getEmailTemplates } from "@/lib/actions/email-templates";
+import { EmailTemplatesClient } from "@/components/settings/email-templates-client";
 
 export const dynamic = "force-dynamic";
 
-export default async function BookingSettingsPage() {
+export default async function EmailTemplatesPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/auth/login");
-
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const businessId = await getActiveBizId(supabase as any, user.id);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -28,24 +24,6 @@ export default async function BookingSettingsPage() {
   }
   if (!canEdit(role)) redirect("/dashboard");
 
-  const [forms, types, resources, exceptions, appointments, teamMembers, bizSettings] = await Promise.all([
-    listForms(), listAppointmentTypes(), listResources(), listExceptions(),
-    listAppointments({ from: new Date().toISOString(), limit: 100 }),
-    listBookingTeamMembers(), getBlockUntimedJobs(),
-  ]);
-
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://kireihq.com";
-
-  return (
-    <BookingAdminClient
-      initialForms={forms}
-      initialTypes={types}
-      initialResources={resources}
-      initialExceptions={exceptions}
-      initialAppointments={appointments}
-      teamMembers={teamMembers}
-      blockUntimedJobs={bizSettings}
-      appUrl={appUrl}
-    />
-  );
+  const templates = await getEmailTemplates();
+  return <EmailTemplatesClient initial={templates} />;
 }

@@ -1,4 +1,36 @@
 import { emailBase, btn } from "./base";
+import {
+  renderTemplateVars,
+  resolveEmailTemplate,
+  type ResolvedEmailTemplate,
+} from "./templates";
+
+export function teamInviteEmailVars({
+  businessName,
+  inviterName,
+  role,
+  inviteCode,
+}: {
+  businessName: string;
+  inviterName: string;
+  role: string;
+  inviteCode?: string;
+}): Record<string, string> {
+  return {
+    business_name: businessName,
+    inviter_name: inviterName,
+    role: role.charAt(0).toUpperCase() + role.slice(1),
+    invite_code: inviteCode ?? "",
+  };
+}
+
+export function teamInviteEmailSubject(
+  args: { businessName: string; inviterName: string; role: string; inviteCode?: string },
+  template?: ResolvedEmailTemplate,
+): string {
+  const t = template ?? resolveEmailTemplate("team_invite", null);
+  return renderTemplateVars(t.subject, teamInviteEmailVars(args));
+}
 
 export function teamInviteEmailHtml({
   businessName,
@@ -6,6 +38,7 @@ export function teamInviteEmailHtml({
   role,
   inviteUrl,
   inviteCode,
+  template,
 }: {
   businessName: string;
   inviterName: string;
@@ -13,14 +46,23 @@ export function teamInviteEmailHtml({
   inviteUrl: string;
   /** Short human-typeable invite code for the Connected Hub mobile signup. */
   inviteCode?: string;
+  /** Per-business template override; defaults when omitted. */
+  template?: ResolvedEmailTemplate;
 }): string {
-  const roleLabel = role.charAt(0).toUpperCase() + role.slice(1);
   const isWorker  = role === "worker";
 
+  const t = template ?? resolveEmailTemplate("team_invite", null);
+  const vars = teamInviteEmailVars({ businessName, inviterName, role, inviteCode });
+  const subjectLine = renderTemplateVars(t.subject, vars);
+
+  if (t.custom_html) {
+    return emailBase(subjectLine, renderTemplateVars(t.custom_html, vars), t.accent_color);
+  }
+
   const body = `
+    ${t.greeting ? `<p style="margin:0 0 4px;font-size:14px;color:#71717a;">${renderTemplateVars(t.greeting, vars)}</p>` : ""}
     <p style="margin:0 0 16px;font-size:14px;color:#71717a;">
-      <strong style="color:#18181b;">${inviterName}</strong> has invited you to join
-      <strong style="color:#18181b;">${businessName}</strong> on Kirei as an <strong style="color:#18181b;">${roleLabel}</strong>.
+      ${renderTemplateVars(t.intro, vars)}
     </p>
     ${isWorker && inviteCode ? `
     <!-- Worker code (Connected Hub mobile) -->
@@ -39,15 +81,16 @@ export function teamInviteEmailHtml({
     </table>
     <p style="margin:0 0 12px;font-size:13px;color:#71717a;">Or use the web app:</p>
     ` : ""}
-    <p style="margin:0 0 32px;">${btn(isWorker ? "Sign up on the web" : "Accept invitation", inviteUrl)}</p>
+    <p style="margin:0 0 32px;">${btn(isWorker ? "Sign up on the web" : "Accept invitation", inviteUrl, t.accent_color)}</p>
     <p style="margin:0;font-size:12px;color:#a1a1aa;">
       Or copy this link into your browser:<br/>
-      <span style="color:#3b82f6;word-break:break-all;">${inviteUrl}</span>
+      <span style="color:${t.accent_color};word-break:break-all;">${inviteUrl}</span>
     </p>
     <p style="margin:16px 0 0;font-size:12px;color:#a1a1aa;">
       If you already have a Kirei account, the link will sign you in and grant access automatically.
     </p>
+    ${t.footer_note ? `<p style="margin:16px 0 0;font-size:12px;color:#a1a1aa;">${renderTemplateVars(t.footer_note, vars)}</p>` : ""}
   `;
 
-  return emailBase(`You've been invited to ${businessName}`, body);
+  return emailBase(subjectLine, body, t.accent_color);
 }

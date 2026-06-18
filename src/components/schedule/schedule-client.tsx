@@ -91,6 +91,9 @@ export function ScheduleClient({ initialJobs, initialStart, initialEnd, profiles
   const [loading, setLoading]     = useState(false);
   const [selectedDay, setSelectedDay] = useState<string | null>(null); // mobile day picker
   const [view, setView] = useState<"week" | "dispatch">("week");
+  // Sort order within each day: "soonest" = earliest start_time first (default,
+  // matches a working day's natural flow); "newest" = latest first.
+  const [sort, setSort] = useState<"soonest" | "newest">("soonest");
   const [modalState, setModalState] = useState<
     { open: false } |
     { open: true; mode: "create"; defaultDate?: string } |
@@ -123,8 +126,13 @@ export function ScheduleClient({ initialJobs, initialStart, initialEnd, profiles
     loadWeek(monday.toISOString().split("T")[0]);
   };
 
-  const jobsForDay = (dateStr: string) =>
-    jobs.filter((j) => j.scheduled_date === dateStr);
+  const jobsForDay = (dateStr: string) => {
+    const list = jobs.filter((j) => j.scheduled_date === dateStr);
+    const dir = sort === "soonest" ? 1 : -1;
+    return [...list].sort((a, b) =>
+      dir * (a.start_time ?? "23:59").localeCompare(b.start_time ?? "23:59"),
+    );
+  };
 
   const displayDays = selectedDay ? [selectedDay] : days;
 
@@ -154,6 +162,9 @@ export function ScheduleClient({ initialJobs, initialStart, initialEnd, profiles
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
+          <Button variant="outline" size="sm" className="h-8 px-2.5" onClick={() => setSort((s) => s === "soonest" ? "newest" : "soonest")} title="Toggle sort order">
+            {sort === "soonest" ? "Soonest first" : "Newest first"}
+          </Button>
           <Button size="sm" onClick={() => setModalState({ open: true, mode: "create" })}>
             <Plus className="h-4 w-4 mr-1.5" /> New Job
           </Button>

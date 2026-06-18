@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { canManageTeam, isOwner, type Role } from "@/lib/permissions";
 import { sendEmail, buildBusinessFrom } from "@/lib/email";
-import { teamInviteEmailHtml } from "@/lib/emails/team-invite";
+import { teamInviteEmailHtml, teamInviteEmailSubject } from "@/lib/emails/team-invite";
+import { getResolvedEmailTemplate } from "@/lib/emails/templates";
 import type { BusinessMember, MemberRole } from "@/types/database";
 
 import { getUser } from "@/lib/auth";
@@ -86,19 +87,28 @@ export async function addMember(email: string, role: MemberRole): Promise<void> 
     const { data: biz } = await tbl(supabase, "businesses").select("name").eq("id", businessId).single();
     const inviterName = user.user_metadata?.full_name ?? user.email ?? "Your team owner";
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-    const params = new URLSearchParams({ email: email.toLowerCase().trim(), biz: businessId });
-    const inviteUrl = `${appUrl}/auth/register?${params.toString()}`;
+    // Point at /api/activate-invite — it handles both cases robustly:
+    //   - signed-in user → activates pending memberships, sets the new business
+    //     active and lands on /dashboard.
+    //   - signed-out user → redirects to /auth/login?biz=…&email=… (with the
+    //     email prefilled) and after sign-in routes back here. A brand-new
+    //     person can use the "Create account" link on /auth/login, which now
+    //     carries the invite params through to /auth/register.
+    const params = new URLSearchParams({ biz: businessId, email: email.toLowerCase().trim() });
+    const inviteUrl = `${appUrl}/api/activate-invite?${params.toString()}`;
+
+    const emailTemplate = await getResolvedEmailTemplate(supabase, businessId, "team_invite");
+    const inviteArgs = {
+      businessName: biz?.name ?? "a team",
+      inviterName,
+      role,
+      inviteCode: inviteToken,
+    };
 
     await sendEmail({
       to: email.toLowerCase().trim(),
-      subject: `You've been invited to ${biz?.name ?? "a team"} on Kirei`,
-      html: teamInviteEmailHtml({
-        businessName: biz?.name ?? "a team",
-        inviterName,
-        role,
-        inviteUrl,
-        inviteCode: inviteToken,
-      }),
+      subject: teamInviteEmailSubject(inviteArgs, emailTemplate),
+      html: teamInviteEmailHtml({ ...inviteArgs, inviteUrl, template: emailTemplate }),
       from: biz?.name ? buildBusinessFrom({ name: biz.name, localPart: "team" }) : undefined,
       tags: { business_id: businessId, doc_type: "team_invite" },
     });
