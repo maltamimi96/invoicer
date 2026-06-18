@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { ArrowLeft, FileText, Download } from "@/components/ui/icons";
+import { ArrowLeft, FileText, Download, CreditCard } from "@/components/ui/icons";
 import type { LineItem } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +31,7 @@ export default async function PortalInvoicePage({ params }: { params: Promise<{ 
       .eq("business_id", link.business_id)
       .eq("customer_id", link.customer_id)
       .maybeSingle(),
-    tbl(sb, "businesses").select("name, logo_url, currency, bank_name, bank_account_name, bank_account_number, bank_sort_code, bank_iban, phone, email").eq("id", link.business_id).maybeSingle(),
+    tbl(sb, "businesses").select("name, logo_url, currency, bank_name, bank_account_name, bank_account_number, bank_sort_code, bank_iban, phone, email, stripe_charges_enabled").eq("id", link.business_id).maybeSingle(),
     tbl(sb, "customers").select("name, company, email, phone, address, city, postcode, country").eq("id", link.customer_id).maybeSingle(),
     tbl(sb, "payments")
       .select("amount, date, method, reference")
@@ -212,14 +212,24 @@ export default async function PortalInvoicePage({ params }: { params: Promise<{ 
               </p>
             </>
           )}
-          <a
-            href={`/api/pdf/invoice/${invoice.id}?token=${token}`}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md border border-border bg-card text-sm font-medium text-foreground hover:bg-muted transition-colors"
-          >
-            <Download className="w-3.5 h-3.5" /> Download PDF
-          </a>
+          <div className="flex items-center justify-center gap-2 flex-wrap">
+            {!isPaid && balance > 0 && business?.stripe_charges_enabled && (
+              <a
+                href={`/api/stripe/checkout?invoice=${invoice.id}&token=${token}`}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity shadow-sm"
+              >
+                <CreditCard className="w-4 h-4" /> Pay {formatCurrency(balance, currency)} with card
+              </a>
+            )}
+            <a
+              href={`/api/pdf/invoice/${invoice.id}?token=${token}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md border border-border bg-card text-sm font-medium text-foreground hover:bg-muted transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" /> Download PDF
+            </a>
+          </div>
         </Card>
 
         <footer className="text-center text-xs text-muted-foreground py-6 border-t">

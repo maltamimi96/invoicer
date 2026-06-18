@@ -135,6 +135,7 @@ Status legend: ✅ done · 🟡 partial · ❌ missing · 🚫 not applicable on
 | **Settings** |
 | Business profile | ✅ | 2d | Name, contact, ABN, currency, address — owner/admin only |
 | Bank details | ✅ | 3a | /settings/bank — name, account name/number, BSB/sort, IBAN |
+| Stripe card payments | 🟡 | 3f | Web: Settings → Payment connects Stripe (Standard, account_links), "Pay with card" on portal invoice. Mobile: deep-link `/settings/payments` to web for now; native onboarding requires WebView around accountLinks URL — follow-up. |
 | Team management | ✅ | 2g | List + add (email/role) + change role + remove; pending → active on first login |
 | API keys | 🟡 | 3f | /settings/advanced surfaces it with web deep-link (mint/revoke needs server endpoint) |
 | Webhooks | 🟡 | 3f | Same — /settings/advanced deep-links to web |

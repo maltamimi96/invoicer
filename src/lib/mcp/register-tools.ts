@@ -748,6 +748,82 @@ export function registerTools(server: McpServer): void {
       return text({ deleted: true });
     });
 
+  // ===== STRIPE PAYMENTS =====
+  tool("get_stripe_status", "Check whether this business has connected Stripe and whether it can accept card payments.",
+    {},
+    async (_args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "settings:read");
+      const { data: biz } = await t(ctx, "businesses")
+        .select("stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, stripe_details_submitted, stripe_country, platform_fee_percent, currency")
+        .eq("id", ctx.businessId).single();
+      const { defaultPlatformFeePercent } = await import("@/lib/stripe");
+      return text({
+        connected: !!biz?.stripe_account_id,
+        account_id: biz?.stripe_account_id ?? null,
+        charges_enabled: !!biz?.stripe_charges_enabled,
+        payouts_enabled: !!biz?.stripe_payouts_enabled,
+        details_submitted: !!biz?.stripe_details_submitted,
+        country: biz?.stripe_country ?? null,
+        currency: biz?.currency ?? null,
+        platform_fee_percent: biz?.platform_fee_percent != null ? Number(biz.platform_fee_percent) : defaultPlatformFeePercent(),
+      });
+    });
+
+  tool("create_stripe_payment_link", "Create a hosted Stripe Checkout Session for an unpaid invoice. Returns a URL the customer opens to pay with a card. Requires the business to have connected Stripe.",
+    { invoice_id: UUID, amount: z.number().positive().optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "invoices:write");
+      const { data: biz } = await t(ctx, "businesses")
+        .select("stripe_account_id, stripe_charges_enabled, currency, platform_fee_percent, name")
+        .eq("id", ctx.businessId).single();
+      if (!biz?.stripe_account_id || !biz.stripe_charges_enabled) {
+        return errorText("Stripe isn't connected or charges aren't enabled. Connect from Settings → Payment first.");
+      }
+      const { data: invoice } = await t(ctx, "invoices")
+        .select("id, number, total, amount_paid, customer_id")
+        .eq("id", args.invoice_id).eq("business_id", ctx.businessId).maybeSingle();
+      if (!invoice) return errorText("Invoice not found");
+
+      const balance = Math.max(0, Number(invoice.total) - Number(invoice.amount_paid ?? 0));
+      const requested = args.amount ?? balance;
+      if (requested <= 0) return errorText("Nothing left to pay");
+      if (requested > balance + 0.01) return errorText(`Amount exceeds balance (${balance.toFixed(2)})`);
+
+      const { data: customer } = await t(ctx, "customers")
+        .select("email").eq("id", invoice.customer_id).maybeSingle();
+
+      const { getStripe, toStripeAmount, computeApplicationFeeAmount } = await import("@/lib/stripe");
+      const stripe = getStripe();
+      const currency = (biz.currency || "GBP").toLowerCase();
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "https://kireihq.com";
+
+      const session = await stripe.checkout.sessions.create({
+        mode: "payment",
+        line_items: [{
+          price_data: {
+            currency,
+            product_data: { name: `Invoice ${invoice.number}` },
+            unit_amount: toStripeAmount(requested, currency),
+          },
+          quantity: 1,
+        }],
+        payment_intent_data: (() => {
+          const fee = computeApplicationFeeAmount(requested, currency, biz.platform_fee_percent != null ? Number(biz.platform_fee_percent) : null);
+          return fee > 0 ? { application_fee_amount: fee } : undefined;
+        })(),
+        customer_email: customer?.email || undefined,
+        success_url: `${baseUrl}/invoices/${invoice.id}?paid=1`,
+        cancel_url:  `${baseUrl}/invoices/${invoice.id}?cancelled=1`,
+        metadata: {
+          kirei_invoice_id: invoice.id,
+          kirei_business_id: ctx.businessId,
+          kirei_source: "mcp",
+        },
+      }, { stripeAccount: biz.stripe_account_id });
+
+      return text({ payment_url: session.url, expires_at: session.expires_at, amount: requested });
+    });
+
   // ===== LEADS (get / update / delete / convert) =====
   tool("get_lead", "Get one lead with all its fields.",
     { lead_id: UUID },
