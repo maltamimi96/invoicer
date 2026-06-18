@@ -114,7 +114,7 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: invoice } = await (sb as any).from("invoices")
-    .select("id, total, amount_paid, parent_invoice_id, user_id, status, number")
+    .select("id, total, amount_paid, parent_invoice_id, user_id, status, number, customer_id")
     .eq("id", invoiceId)
     .eq("business_id", businessId)
     .single();
@@ -161,6 +161,59 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
       stripe_payment_intent_id: piId,
     });
   } catch { /* never blocks */ }
+
+  // Email the customer a branded receipt — best-effort, never blocks the webhook.
+  try {
+    await sendPaymentReceipt(sb, {
+      businessId,
+      invoiceId,
+      amount,
+      portalToken: session.metadata?.kirei_portal_token ?? null,
+    });
+  } catch (err) {
+    console.warn("[stripe.webhook] receipt email failed", err);
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function sendPaymentReceipt(sb: any, opts: { businessId: string; invoiceId: string; amount: number; portalToken: string | null }) {
+  // Re-read the invoice AFTER recompute so the receipt shows the correct
+  // running total + remaining balance.
+  const { data: invoice } = await sb.from("invoices")
+    .select("id, number, total, amount_paid, customer_id")
+    .eq("id", opts.invoiceId).eq("business_id", opts.businessId).single();
+  if (!invoice) return;
+
+  const [{ data: business }, { data: customer }] = await Promise.all([
+    sb.from("businesses").select("name, email, phone, currency").eq("id", opts.businessId).single(),
+    invoice.customer_id
+      ? sb.from("customers").select("name, email").eq("id", invoice.customer_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+  if (!customer?.email) return; // nowhere to send it
+
+  const { getResolvedEmailTemplate } = await import("@/lib/emails/templates");
+  const { paymentReceiptEmailHtml, paymentReceiptEmailSubject } = await import("@/lib/emails/payment-receipt");
+  const { sendEmail, buildBusinessFrom } = await import("@/lib/email");
+
+  const template = await getResolvedEmailTemplate(sb, opts.businessId, "payment_receipt");
+  const base = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "";
+  const portalUrl = opts.portalToken && base ? `${base}/portal/${opts.portalToken}/invoice/${invoice.id}` : null;
+  const args = {
+    invoice, customer, business,
+    amount: opts.amount,
+    paymentDate: new Date().toISOString(),
+    paymentMethod: "Stripe (card)",
+  };
+
+  await sendEmail({
+    to: customer.email,
+    subject: paymentReceiptEmailSubject(args, template),
+    html: paymentReceiptEmailHtml({ ...args, portalUrl, template }),
+    from: business?.name ? buildBusinessFrom({ name: business.name, localPart: "invoices" }) : undefined,
+    replyTo: business?.email || undefined,
+    tags: { business_id: opts.businessId, doc_type: "payment_receipt", doc_id: invoice.id },
+  });
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

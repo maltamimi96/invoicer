@@ -95,10 +95,17 @@ async function dispatchInvoice(
     const pdfBuffer = Buffer.concat(chunks);
 
     let portalUrl: string | null = null;
+    let payUrl: string | null = null;
     if (invoice.customers?.id) {
       const token = await getOrMintPortalToken(sb, row.business_id, invoice.customers.id);
       const base = appUrl();
-      if (base && token) portalUrl = `${base}/portal/${token}/invoice/${invoice.id}`;
+      if (base && token) {
+        portalUrl = `${base}/portal/${token}/invoice/${invoice.id}`;
+        const balance = Number(invoice.total) - Number(invoice.amount_paid ?? 0);
+        if (business?.stripe_charges_enabled && balance > 0.01) {
+          payUrl = `${base}/api/stripe/checkout?invoice=${invoice.id}&token=${token}`;
+        }
+      }
     }
 
     const emailTemplate = await getResolvedEmailTemplate(sb, row.business_id, "invoice");
@@ -106,7 +113,7 @@ async function dispatchInvoice(
     await sendEmail({
       to: recipients,
       subject: row.subject ?? invoiceEmailSubject({ invoice, customer: invoice.customers, business }, emailTemplate),
-      html: invoiceEmailHtml({ invoice, customer: invoice.customers, business, lineItems, portalUrl, template: emailTemplate }),
+      html: invoiceEmailHtml({ invoice, customer: invoice.customers, business, lineItems, portalUrl, payUrl, template: emailTemplate }),
       attachments: [{ filename: `${invoice.number}.pdf`, content: pdfBuffer }],
       from: business?.name ? buildBusinessFrom({ name: business.name, localPart: "invoices" }) : undefined,
       replyTo: business?.email || undefined,

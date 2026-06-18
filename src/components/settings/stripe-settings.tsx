@@ -14,6 +14,7 @@ import {
   createStripeOnboardingLink,
   disconnectStripe,
   setPlatformFeePercent,
+  setDepositPercent,
   syncStripeAccountStatus,
   type StripeAccountStatus,
 } from "@/lib/actions/stripe";
@@ -28,6 +29,10 @@ export function StripeSettings({ initial }: Props) {
     status.platformFeePercent != null ? String(status.platformFeePercent) : ""
   );
   const [savingFee, setSavingFee] = useState(false);
+  const [depositPct, setDepositPct] = useState<string>(
+    status.depositPercent != null ? String(status.depositPercent) : ""
+  );
+  const [savingDeposit, setSavingDeposit] = useState(false);
 
   const handleConnect = async () => {
     setConnecting(true);
@@ -81,7 +86,26 @@ export function StripeSettings({ initial }: Props) {
     }
   };
 
+  const handleSaveDeposit = async () => {
+    setSavingDeposit(true);
+    try {
+      const trimmed = depositPct.trim();
+      const next = trimmed === "" ? null : Number(trimmed);
+      if (next != null && (!Number.isFinite(next) || next < 0 || next > 100)) {
+        throw new Error("Deposit must be between 0 and 100");
+      }
+      await setDepositPercent(next);
+      setStatus({ ...status, depositPercent: next });
+      toast.success(next == null ? "Reverted to default deposit" : next === 0 ? "Deposit option disabled" : "Deposit % saved");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't save deposit");
+    } finally {
+      setSavingDeposit(false);
+    }
+  };
+
   const liveFee = status.platformFeePercent ?? status.defaultFeePercent;
+  const liveDeposit = status.depositPercent ?? status.defaultDepositPercent;
 
   return (
     <Card>
@@ -153,6 +177,30 @@ export function StripeSettings({ initial }: Props) {
               </div>
               <p className="text-xs text-muted-foreground">
                 Leave blank to use the platform default ({status.defaultFeePercent}%). Currently charging <strong>{liveFee}%</strong> per transaction.
+              </p>
+            </div>
+
+            <Separator />
+
+            <div className="space-y-2 max-w-sm">
+              <Label>Quote deposit %</Label>
+              <div className="flex gap-2">
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="1"
+                  placeholder={String(status.defaultDepositPercent)}
+                  value={depositPct}
+                  onChange={(e) => setDepositPct(e.target.value)}
+                />
+                <Button type="button" onClick={handleSaveDeposit} disabled={savingDeposit}>
+                  {savingDeposit && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Save
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                When customers accept a quote online they can pay this deposit by card. Currently <strong>{liveDeposit}%</strong>. Set to <strong>0</strong> to hide the deposit option (full payment only). Blank = default ({status.defaultDepositPercent}%).
               </p>
             </div>
           </>

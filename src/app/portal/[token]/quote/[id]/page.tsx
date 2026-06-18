@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { ArrowLeft, FileCheck, Download } from "@/components/ui/icons";
 import { AcceptQuoteButton } from "@/components/customer-portal/accept-quote-button";
+import { AcceptAndDepositButton } from "@/components/customer-portal/accept-and-deposit-button";
+import { DEFAULT_DEPOSIT_PERCENT } from "@/lib/stripe";
 import type { LineItem } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +34,7 @@ export default async function PortalQuotePage({ params }: { params: Promise<{ to
       .eq("business_id", link.business_id)
       .eq("customer_id", link.customer_id)
       .maybeSingle(),
-    tbl(sb, "businesses").select("name, logo_url, currency, phone, email").eq("id", link.business_id).maybeSingle(),
+    tbl(sb, "businesses").select("name, logo_url, currency, phone, email, stripe_charges_enabled, deposit_percent").eq("id", link.business_id).maybeSingle(),
     tbl(sb, "customers").select("name, company, email, phone, address, city, postcode, country").eq("id", link.customer_id).maybeSingle(),
   ]);
 
@@ -41,6 +43,11 @@ export default async function PortalQuotePage({ params }: { params: Promise<{ to
   const currency = business?.currency || "GBP";
   const lineItems: LineItem[] = quote.line_items || [];
   const isAcceptable = quote.status !== "accepted" && quote.status !== "rejected" && quote.status !== "expired";
+
+  // Deposit-by-card option: business has Stripe enabled + a non-zero deposit %.
+  const depositPct = business?.deposit_percent != null ? Number(business.deposit_percent) : DEFAULT_DEPOSIT_PERCENT;
+  const canPayDeposit = !!business?.stripe_charges_enabled && depositPct > 0 && Number(quote.total) > 0;
+  const depositAmount = Math.round((Number(quote.total) * depositPct) / 100 * 100) / 100;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
@@ -160,7 +167,21 @@ export default async function PortalQuotePage({ params }: { params: Promise<{ to
         {isAcceptable ? (
           <Card className="p-6 border-emerald-500/30 bg-emerald-500/5 text-center space-y-3">
             <p className="text-sm">Happy with this quote? Accept and we&apos;ll get started.</p>
-            <AcceptQuoteButton token={token} quoteId={quote.id} />
+            <div className="flex flex-col items-center gap-3">
+              {canPayDeposit && (
+                <AcceptAndDepositButton
+                  token={token}
+                  quoteId={quote.id}
+                  label={`Accept & pay ${depositPct}% deposit (${formatCurrency(depositAmount, currency)})`}
+                />
+              )}
+              <AcceptQuoteButton token={token} quoteId={quote.id} />
+              {canPayDeposit && (
+                <p className="text-xs text-muted-foreground">
+                  Pay a deposit now by card, or accept and arrange payment separately.
+                </p>
+              )}
+            </div>
           </Card>
         ) : quote.status === "accepted" ? (
           <Card className="p-6 border-emerald-500/30 bg-emerald-500/5 text-center">

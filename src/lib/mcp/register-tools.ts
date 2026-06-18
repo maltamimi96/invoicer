@@ -363,18 +363,22 @@ export function registerTools(server: McpServer): void {
       if (recipients.length === 0) return errorText("No recipient email — pass recipients or set the customer's email.");
       const lineItems = (invoice.line_items ?? []) as LineItem[];
       const pdf = await renderPdf("invoice", invoice, customer, business, lineItems);
-      let portalUrl: string | null = null, pdfUrl: string | null = null;
+      let portalUrl: string | null = null, pdfUrl: string | null = null, payUrl: string | null = null;
       if (customer?.id) {
         const token = await getOrMintPortalToken(ctx, customer.id);
         portalUrl = `${appBase()}/portal/${token}/invoice/${invoice.id}`;
         pdfUrl = `${appBase()}/api/pdf/invoice/${invoice.id}?token=${token}`;
+        const balance = Number(invoice.total) - Number(invoice.amount_paid ?? 0);
+        if (business?.stripe_charges_enabled && balance > 0.01) {
+          payUrl = `${appBase()}/api/stripe/checkout?invoice=${invoice.id}&token=${token}`;
+        }
       }
       const { data: invTplRow } = await t(ctx, "email_templates").select("*").eq("business_id", ctx.businessId).eq("template_type", "invoice").maybeSingle();
       const invoiceTemplate = resolveEmailTemplate("invoice", invTplRow);
       await sendEmail({
         to: recipients,
         subject: args.subject ?? invoiceEmailSubject({ invoice, customer, business }, invoiceTemplate),
-        html: invoiceEmailHtml({ invoice, customer, business, lineItems, portalUrl, pdfUrl, template: invoiceTemplate }),
+        html: invoiceEmailHtml({ invoice, customer, business, lineItems, portalUrl, pdfUrl, payUrl, template: invoiceTemplate }),
         attachments: [{ filename: `${invoice.number}.pdf`, content: pdf }],
         from: business?.name ? buildBusinessFrom({ name: business.name, localPart: "invoices" }) : undefined,
         replyTo: business?.email || undefined,
@@ -575,6 +579,9 @@ export function registerTools(server: McpServer): void {
       bg_pattern: z.string().optional(), invoice_prefix: z.string().optional(), quote_prefix: z.string().optional(),
       bank_name: z.string().optional(), bank_account_number: z.string().optional(), bank_account_name: z.string().optional(),
       bank_sort_code: z.string().optional(), license_number: z.string().optional(),
+      // Stripe / payments: platform fee % and the quote-accept deposit %.
+      platform_fee_percent: z.number().min(0).max(30).nullable().optional(),
+      deposit_percent: z.number().min(0).max(100).nullable().optional(),
     },
     async (args, extra) => {
       const ctx = ctxFrom(extra); assertScope(ctx, "settings:write");
@@ -826,9 +833,9 @@ export function registerTools(server: McpServer): void {
     async (_args, extra) => {
       const ctx = ctxFrom(extra); assertScope(ctx, "settings:read");
       const { data: biz } = await t(ctx, "businesses")
-        .select("stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, stripe_details_submitted, stripe_country, platform_fee_percent, currency")
+        .select("stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, stripe_details_submitted, stripe_country, platform_fee_percent, deposit_percent, currency")
         .eq("id", ctx.businessId).single();
-      const { defaultPlatformFeePercent } = await import("@/lib/stripe");
+      const { defaultPlatformFeePercent, DEFAULT_DEPOSIT_PERCENT } = await import("@/lib/stripe");
       return text({
         connected: !!biz?.stripe_account_id,
         account_id: biz?.stripe_account_id ?? null,
@@ -838,6 +845,7 @@ export function registerTools(server: McpServer): void {
         country: biz?.stripe_country ?? null,
         currency: biz?.currency ?? null,
         platform_fee_percent: biz?.platform_fee_percent != null ? Number(biz.platform_fee_percent) : defaultPlatformFeePercent(),
+        deposit_percent: biz?.deposit_percent != null ? Number(biz.deposit_percent) : DEFAULT_DEPOSIT_PERCENT,
       });
     });
 

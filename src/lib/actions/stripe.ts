@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { getUser } from "@/lib/auth";
 import { canManageSettings, type Role } from "@/lib/permissions";
-import { getStripe } from "@/lib/stripe";
+import { getStripe, DEFAULT_DEPOSIT_PERCENT } from "@/lib/stripe";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: any, name: string) => sb.from(name);
@@ -40,6 +40,9 @@ export interface StripeAccountStatus {
   country: string | null;
   platformFeePercent: number | null;
   defaultFeePercent: number;
+  /** Up-front deposit % offered on quote accept. NULL = app default (50). */
+  depositPercent: number | null;
+  defaultDepositPercent: number;
 }
 
 /** Read the current Stripe connection state for the active business. */
@@ -49,7 +52,7 @@ export async function getStripeAccountStatus(): Promise<StripeAccountStatus> {
   const businessId = await getActiveBizId(supabase, user.id);
 
   const { data: biz } = await tbl(supabase, "businesses")
-    .select("stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, stripe_details_submitted, stripe_country, platform_fee_percent")
+    .select("stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, stripe_details_submitted, stripe_country, platform_fee_percent, deposit_percent")
     .eq("id", businessId)
     .single();
 
@@ -63,6 +66,8 @@ export async function getStripeAccountStatus(): Promise<StripeAccountStatus> {
     country: biz?.stripe_country ?? null,
     platformFeePercent: biz?.platform_fee_percent != null ? Number(biz.platform_fee_percent) : null,
     defaultFeePercent: defaultPlatformFeePercent(),
+    depositPercent: biz?.deposit_percent != null ? Number(biz.deposit_percent) : null,
+    defaultDepositPercent: DEFAULT_DEPOSIT_PERCENT,
   };
 }
 
@@ -179,5 +184,26 @@ export async function setPlatformFeePercent(percent: number | null): Promise<voi
   }
 
   await tbl(supabase, "businesses").update({ platform_fee_percent: value }).eq("id", businessId);
+  revalidatePath("/settings");
+}
+
+/** Set the up-front deposit % offered when a customer accepts a quote by card.
+ *  NULL = app default (50%). 0 = no deposit option (full payment only). */
+export async function setDepositPercent(percent: number | null): Promise<void> {
+  const supabase = await createClient();
+  const user = await getUser();
+  const businessId = await getActiveBizId(supabase, user.id);
+  const role = await resolveRole(supabase, user.id, businessId);
+  if (!canManageSettings(role)) throw new Error("Only owners and admins can change the deposit");
+
+  let value: number | null = null;
+  if (percent != null) {
+    if (!Number.isFinite(percent) || percent < 0 || percent > 100) {
+      throw new Error("Deposit percent must be between 0 and 100");
+    }
+    value = Math.round(percent * 100) / 100;
+  }
+
+  await tbl(supabase, "businesses").update({ deposit_percent: value }).eq("id", businessId);
   revalidatePath("/settings");
 }

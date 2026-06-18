@@ -15,13 +15,15 @@ export type EmailTemplateType =
   | "invoice"
   | "quote"
   | "team_invite"
-  | "work_order_submitted";
+  | "work_order_submitted"
+  | "payment_receipt";
 
 export const EMAIL_TEMPLATE_TYPES: EmailTemplateType[] = [
   "invoice",
   "quote",
   "team_invite",
   "work_order_submitted",
+  "payment_receipt",
 ];
 
 export interface EmailTemplateOverride {
@@ -97,6 +99,17 @@ export const EMAIL_TEMPLATE_DEFAULTS: Record<
     show_payment_details: true,
     show_buttons: true,
   },
+  payment_receipt: {
+    subject: "Payment received — invoice {{invoice_number}}",
+    greeting: "Hi {{customer_name}},",
+    intro:
+      "Thanks — we've received your payment of <strong>{{amount}}</strong>. Here's your receipt.",
+    footer_note: "",
+    accent_color: "#10b981",
+    show_line_items: false,
+    show_payment_details: false,
+    show_buttons: true,
+  },
 };
 
 /** Variables each template type can interpolate, for editor UI + MCP docs. */
@@ -115,6 +128,11 @@ export const EMAIL_TEMPLATE_VARIABLES: Record<EmailTemplateType, string[]> = {
     "business_name", "job_title", "worker_name", "worker_email",
     "property_address",
   ],
+  payment_receipt: [
+    "customer_name", "business_name", "invoice_number", "amount",
+    "amount_paid", "balance_due", "total", "payment_date", "payment_method",
+    "business_email", "business_phone",
+  ],
 };
 
 export const EMAIL_TEMPLATE_LABELS: Record<EmailTemplateType, string> = {
@@ -122,6 +140,7 @@ export const EMAIL_TEMPLATE_LABELS: Record<EmailTemplateType, string> = {
   quote: "Quote email",
   team_invite: "Team invite email",
   work_order_submitted: "Work order submitted email",
+  payment_receipt: "Payment receipt email",
 };
 
 /** Replace {{key}} placeholders. Unknown keys render as empty string. */

@@ -528,6 +528,7 @@ export async function sendInvoiceEmail(id: string, opts?: { recipients?: string[
   const businessId = await getActiveBizId(supabase, user.id);
   let portalUrl: string | null = null;
   let pdfUrl: string | null = null;
+  let payUrl: string | null = null;
   if (customer?.id) {
     const { data: existing } = await tbl(supabase, "customer_portal_tokens")
       .select("token")
@@ -550,6 +551,12 @@ export async function sendInvoiceEmail(id: string, opts?: { recipients?: string[
     if (base && token) {
       portalUrl = `${base}/portal/${token}/invoice/${invoiceData.id}`;
       pdfUrl    = `${base}/api/pdf/invoice/${invoiceData.id}?token=${token}`;
+      // Card-pay link only when the business has Stripe charges enabled and the
+      // invoice still has a balance to collect.
+      const balance = Number(invoiceData.total) - Number(invoiceData.amount_paid ?? 0);
+      if (businessData.stripe_charges_enabled && balance > 0.01) {
+        payUrl = `${base}/api/stripe/checkout?invoice=${invoiceData.id}&token=${token}`;
+      }
     }
   }
 
@@ -558,7 +565,7 @@ export async function sendInvoiceEmail(id: string, opts?: { recipients?: string[
   await sendEmail({
     to: recipients,
     subject: opts?.subject ?? invoiceEmailSubject({ invoice: invoiceData, customer, business: businessData }, emailTemplate),
-    html: invoiceEmailHtml({ invoice: invoiceData, customer, business: businessData, lineItems, portalUrl, pdfUrl, template: emailTemplate }),
+    html: invoiceEmailHtml({ invoice: invoiceData, customer, business: businessData, lineItems, portalUrl, pdfUrl, payUrl, template: emailTemplate }),
     attachments: [{ filename: `${invoiceData.number}.pdf`, content: pdfBuffer }],
     from: buildBusinessFrom({ name: businessData.name, localPart: "invoices" }),
     replyTo: businessData.email || undefined,

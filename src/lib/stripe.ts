@@ -47,6 +47,9 @@ export function fromStripeAmount(amount: number, currency: string): number {
   return amount / 100;
 }
 
+/** Deposit % to use when a business hasn't set one (quote-accept deposits). */
+export const DEFAULT_DEPOSIT_PERCENT = 50;
+
 /** Default platform fee percent. NULL on a business row → use this. */
 export function defaultPlatformFeePercent(): number {
   const raw = process.env.STRIPE_PLATFORM_FEE_PERCENT;

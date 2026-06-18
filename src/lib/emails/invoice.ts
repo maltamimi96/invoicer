@@ -54,6 +54,7 @@ export function invoiceEmailHtml({
   lineItems,
   portalUrl,
   pdfUrl,
+  payUrl,
   template,
 }: {
   invoice: Invoice;
@@ -65,6 +66,9 @@ export function invoiceEmailHtml({
    *  in the body so the customer can grab the PDF even when their email
    *  client strips attachments. */
   pdfUrl?: string | null;
+  /** Stripe Checkout link (tokenised). Renders a prominent 'Pay with card'
+   *  button when the business has card payments enabled. */
+  payUrl?: string | null;
   /** Per-business template override; defaults when omitted. */
   template?: ResolvedEmailTemplate;
 }): string {
@@ -126,10 +130,11 @@ export function invoiceEmailHtml({
       </tr>
     </table>
 
-    ${t.show_buttons && (portalUrl || pdfUrl) ? `
+    ${t.show_buttons && (payUrl || portalUrl || pdfUrl) ? `
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
       <tr><td align="center">
-        ${portalUrl ? `<a href="${portalUrl}" style="display:inline-block;background:${accent};color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 24px;border-radius:8px;margin:0 4px 8px;">View invoice online</a>` : ""}
+        ${payUrl ? `<a href="${payUrl}" style="display:inline-block;background:${accent};color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 24px;border-radius:8px;margin:0 4px 8px;">Pay ${fmt(balanceDue)} with card</a>` : ""}
+        ${portalUrl ? `<a href="${portalUrl}" style="display:inline-block;background:${payUrl ? "#ffffff" : accent};color:${payUrl ? accent : "#ffffff"};text-decoration:none;font-size:14px;font-weight:600;padding:12px 24px;border-radius:8px;${payUrl ? `border:1px solid ${accent};` : ""}margin:0 4px 8px;">View invoice online</a>` : ""}
         ${pdfUrl ? `<a href="${pdfUrl}" style="display:inline-block;background:#ffffff;color:${accent};text-decoration:none;font-size:14px;font-weight:600;padding:12px 24px;border-radius:8px;border:1px solid ${accent};margin:0 4px 8px;">Download PDF</a>` : ""}
       </td></tr>
     </table>` : ""}

@@ -978,7 +978,7 @@ export interface WorkOrderTemplate {
 export interface EmailTemplate {
   id: string;
   business_id: string;
-  template_type: 'invoice' | 'quote' | 'team_invite' | 'work_order_submitted';
+  template_type: 'invoice' | 'quote' | 'team_invite' | 'work_order_submitted' | 'payment_receipt';
   subject: string | null;
   greeting: string | null;
   intro: string | null;
