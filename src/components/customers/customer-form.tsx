@@ -5,8 +5,9 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Loader2, User, MapPin, StickyNote, Building2 } from "@/components/ui/icons";
+import { Loader2, User, MapPin, StickyNote, Building2, CreditCard } from "@/components/ui/icons";
 import { createCustomer, updateCustomer } from "@/lib/actions/customers";
+import { PAYMENT_METHODS, PAYMENT_METHOD_LABELS, type PaymentMethod } from "@/lib/payment-methods";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -53,6 +54,8 @@ const schema = z.object({
   postcode: z.string().optional(),
   country: z.string().optional(),
   notes: z.string().optional(),
+  // null = all methods the business supports; explicit list = exactly those.
+  allowed_payment_methods: z.array(z.string()).nullable().optional(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -85,6 +88,7 @@ export function CustomerForm({ customer, onSuccess, businessCountry }: CustomerF
       postcode: customer?.postcode ?? "",
       country: customer?.country ?? "",
       notes: customer?.notes ?? "",
+      allowed_payment_methods: customer?.allowed_payment_methods ?? null,
     },
   });
 
@@ -109,6 +113,10 @@ export function CustomerForm({ customer, onSuccess, businessCountry }: CustomerF
         postcode: data.postcode || null,
         country: data.country || null,
         notes: data.notes || null,
+        allowed_payment_methods:
+          data.allowed_payment_methods && data.allowed_payment_methods.length
+            ? data.allowed_payment_methods
+            : null,
       };
       const result = customer
         ? await updateCustomer(customer.id, payload)
@@ -232,6 +240,49 @@ export function CustomerForm({ customer, onSuccess, businessCountry }: CustomerF
             setValue("state",    next.state);
             setValue("postcode", next.postcode);
             setValue("country",  next.country);
+          }}
+        />
+      </FormSection>
+
+      <FormSection
+        icon={<CreditCard className="w-4 h-4" />}
+        gradient="blue"
+        title="Payment methods"
+        hint="Which ways this customer is allowed to pay. Leave all unticked to offer every method you support."
+      >
+        <Controller
+          name="allowed_payment_methods"
+          control={control}
+          render={({ field }) => {
+            const selected = field.value ?? [];
+            const toggle = (m: PaymentMethod, on: boolean) => {
+              const next = on ? [...selected, m] : selected.filter((x) => x !== m);
+              // Empty selection → null (= inherit all supported methods).
+              field.onChange(next.length ? next : null);
+            };
+            return (
+              <div className="space-y-2.5">
+                {PAYMENT_METHODS.map((m) => {
+                  const checked = selected.includes(m);
+                  return (
+                    <label key={m} className="flex items-center gap-3 cursor-pointer rounded-xl border border-border px-3.5 py-2.5 hover:bg-muted/50 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) => toggle(m, e.target.checked)}
+                        className="w-4 h-4 rounded accent-primary"
+                      />
+                      <span className="text-sm font-medium">{PAYMENT_METHOD_LABELS[m]}</span>
+                    </label>
+                  );
+                })}
+                <p className="text-xs text-muted-foreground">
+                  {selected.length === 0
+                    ? "All supported methods offered (card if Stripe is connected, bank transfer if bank details are set)."
+                    : `Only the ticked method${selected.length > 1 ? "s" : ""} will be offered to this customer.`}
+                </p>
+              </div>
+            );
           }}
         />
       </FormSection>

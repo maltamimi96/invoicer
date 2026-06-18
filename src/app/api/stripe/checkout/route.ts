@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe, toStripeAmount, computeApplicationFeeAmount } from "@/lib/stripe";
+import { customerAllowsCard } from "@/lib/payment-methods";
 
 /**
  * Public — token-gated. The customer portal hits this with ?invoice=<id>&token=<portal-token>
@@ -50,9 +51,14 @@ export async function GET(request: NextRequest) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: customer } = await (sb as any).from("customers")
-    .select("email, name")
+    .select("email, name, allowed_payment_methods")
     .eq("id", link.customer_id)
     .maybeSingle();
+
+  // Enforce the per-customer allow-list — card may be disabled for this customer.
+  if (!customerAllowsCard(customer?.allowed_payment_methods)) {
+    return NextResponse.json({ error: "Card payment isn't available for this account" }, { status: 403 });
+  }
 
   const balance = Math.max(0, Number(invoice.total) - Number(invoice.amount_paid ?? 0));
   if (balance < 0.5) {

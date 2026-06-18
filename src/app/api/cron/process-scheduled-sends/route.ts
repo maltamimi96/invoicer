@@ -16,6 +16,7 @@ import { sendSms } from "@/lib/actions/sms";
 import { invoiceEmailHtml, invoiceEmailSubject } from "@/lib/emails/invoice";
 import { quoteEmailHtml, quoteEmailSubject } from "@/lib/emails/quote";
 import { getResolvedEmailTemplate } from "@/lib/emails/templates";
+import { customerAllowsCard } from "@/lib/payment-methods";
 import { appUrl } from "@/lib/app-url";
 import type { LineItem } from "@/types/database";
 
@@ -102,7 +103,7 @@ async function dispatchInvoice(
       if (base && token) {
         portalUrl = `${base}/portal/${token}/invoice/${invoice.id}`;
         const balance = Number(invoice.total) - Number(invoice.amount_paid ?? 0);
-        if (business?.stripe_charges_enabled && balance > 0.01) {
+        if (business?.stripe_charges_enabled && balance > 0.01 && customerAllowsCard(invoice.customers?.allowed_payment_methods)) {
           payUrl = `${base}/api/stripe/checkout?invoice=${invoice.id}&token=${token}`;
         }
       }

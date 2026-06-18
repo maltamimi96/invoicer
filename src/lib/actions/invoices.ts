@@ -7,6 +7,7 @@ import { dispatchWebhook } from "@/lib/webhooks";
 import { sendEmail, buildBusinessFrom } from "@/lib/email";
 import { invoiceEmailHtml, invoiceEmailSubject } from "@/lib/emails/invoice";
 import { getResolvedEmailTemplate } from "@/lib/emails/templates";
+import { customerAllowsCard } from "@/lib/payment-methods";
 import { appUrl } from "@/lib/app-url";
 import { randomBytes } from "node:crypto";
 import type { Customer, Invoice, InvoiceWithCustomer, LineItem, Payment } from "@/types/database";
@@ -554,7 +555,7 @@ export async function sendInvoiceEmail(id: string, opts?: { recipients?: string[
       // Card-pay link only when the business has Stripe charges enabled and the
       // invoice still has a balance to collect.
       const balance = Number(invoiceData.total) - Number(invoiceData.amount_paid ?? 0);
-      if (businessData.stripe_charges_enabled && balance > 0.01) {
+      if (businessData.stripe_charges_enabled && balance > 0.01 && customerAllowsCard(customer?.allowed_payment_methods)) {
         payUrl = `${base}/api/stripe/checkout?invoice=${invoiceData.id}&token=${token}`;
       }
     }

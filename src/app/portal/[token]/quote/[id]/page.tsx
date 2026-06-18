@@ -8,6 +8,7 @@ import { ArrowLeft, FileCheck, Download } from "@/components/ui/icons";
 import { AcceptQuoteButton } from "@/components/customer-portal/accept-quote-button";
 import { AcceptAndDepositButton } from "@/components/customer-portal/accept-and-deposit-button";
 import { DEFAULT_DEPOSIT_PERCENT } from "@/lib/stripe";
+import { customerAllowsCard } from "@/lib/payment-methods";
 import type { LineItem } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -35,7 +36,7 @@ export default async function PortalQuotePage({ params }: { params: Promise<{ to
       .eq("customer_id", link.customer_id)
       .maybeSingle(),
     tbl(sb, "businesses").select("name, logo_url, currency, phone, email, stripe_charges_enabled, deposit_percent").eq("id", link.business_id).maybeSingle(),
-    tbl(sb, "customers").select("name, company, email, phone, address, city, postcode, country").eq("id", link.customer_id).maybeSingle(),
+    tbl(sb, "customers").select("name, company, email, phone, address, city, postcode, country, allowed_payment_methods").eq("id", link.customer_id).maybeSingle(),
   ]);
 
   if (!quote) notFound();
@@ -46,7 +47,8 @@ export default async function PortalQuotePage({ params }: { params: Promise<{ to
 
   // Deposit-by-card option: business has Stripe enabled + a non-zero deposit %.
   const depositPct = business?.deposit_percent != null ? Number(business.deposit_percent) : DEFAULT_DEPOSIT_PERCENT;
-  const canPayDeposit = !!business?.stripe_charges_enabled && depositPct > 0 && Number(quote.total) > 0;
+  const canPayDeposit = !!business?.stripe_charges_enabled && depositPct > 0 && Number(quote.total) > 0
+    && customerAllowsCard(customer?.allowed_payment_methods);
   const depositAmount = Math.round((Number(quote.total) * depositPct) / 100 * 100) / 100;
 
   return (

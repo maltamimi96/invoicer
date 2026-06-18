@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { ArrowLeft, FileText, Download, CreditCard } from "@/components/ui/icons";
+import { resolveOfferedMethods } from "@/lib/payment-methods";
 import type { LineItem } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +33,7 @@ export default async function PortalInvoicePage({ params }: { params: Promise<{ 
       .eq("customer_id", link.customer_id)
       .maybeSingle(),
     tbl(sb, "businesses").select("name, logo_url, currency, bank_name, bank_account_name, bank_account_number, bank_sort_code, bank_iban, phone, email, stripe_charges_enabled").eq("id", link.business_id).maybeSingle(),
-    tbl(sb, "customers").select("name, company, email, phone, address, city, postcode, country").eq("id", link.customer_id).maybeSingle(),
+    tbl(sb, "customers").select("name, company, email, phone, address, city, postcode, country, allowed_payment_methods").eq("id", link.customer_id).maybeSingle(),
     tbl(sb, "payments")
       .select("amount, date, method, reference")
       .eq("invoice_id", id)
@@ -45,6 +46,14 @@ export default async function PortalInvoicePage({ params }: { params: Promise<{ 
   const lineItems: LineItem[] = invoice.line_items || [];
   const balance = Math.max(0, Number(invoice.total) - Number(invoice.amount_paid ?? 0));
   const isPaid = invoice.status === "paid" || balance < 0.01;
+
+  // Which payment methods this customer may use (per-customer allow-list).
+  const hasBankDetails = !!(business?.bank_account_name || business?.bank_account_number || business?.bank_iban);
+  const offered = resolveOfferedMethods({
+    allowed: customer?.allowed_payment_methods,
+    stripeEnabled: !!business?.stripe_charges_enabled,
+    hasBankDetails,
+  });
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
@@ -157,7 +166,7 @@ export default async function PortalInvoicePage({ params }: { params: Promise<{ 
         )}
 
         {/* How to pay — bank transfer details */}
-        {!isPaid && balance > 0 && (business?.bank_account_name || business?.bank_account_number || business?.bank_iban) && (
+        {!isPaid && balance > 0 && offered.bank_transfer && (
           <Card className="p-5 space-y-3 border-primary/20 bg-primary/5">
             <div className="flex items-baseline justify-between gap-3">
               <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">How to pay</p>
@@ -212,8 +221,13 @@ export default async function PortalInvoicePage({ params }: { params: Promise<{ 
               </p>
             </>
           )}
+          {!isPaid && balance > 0 && offered.cash && (
+            <p className="text-sm text-muted-foreground">
+              This invoice is payable by cash / in person. Please contact us to arrange payment.
+            </p>
+          )}
           <div className="flex items-center justify-center gap-2 flex-wrap">
-            {!isPaid && balance > 0 && business?.stripe_charges_enabled && (
+            {!isPaid && balance > 0 && offered.card && (
               <a
                 href={`/api/stripe/checkout?invoice=${invoice.id}&token=${token}`}
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity shadow-sm"

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEFAULT_DEPOSIT_PERCENT } from "@/lib/stripe";
+import { customerAllowsCard } from "@/lib/payment-methods";
 
 /**
  * Public, token-gated. Customer accepts a quote AND pays a deposit by card:
@@ -70,6 +71,13 @@ export async function POST(
   const depositPct = business.deposit_percent != null ? Number(business.deposit_percent) : DEFAULT_DEPOSIT_PERCENT;
   if (!(depositPct > 0)) {
     return NextResponse.json({ error: "Deposits aren't enabled for this business" }, { status: 400 });
+  }
+
+  // Enforce the per-customer allow-list — card may be disabled for this customer.
+  const { data: cust } = await tbl(sb, "customers")
+    .select("allowed_payment_methods").eq("id", link.customer_id).maybeSingle();
+  if (!customerAllowsCard(cust?.allowed_payment_methods)) {
+    return NextResponse.json({ error: "Card payment isn't available for this account" }, { status: 403 });
   }
 
   const quoteTotal = Number(quote.total ?? 0);

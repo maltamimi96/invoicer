@@ -96,6 +96,8 @@ export interface Customer {
   secondary_phone: string | null;
   contact_role: string | null;
   preferred_contact: 'email' | 'phone' | 'sms' | 'any' | null;
+  /** Payment methods this customer may use. NULL = all the business supports. */
+  allowed_payment_methods: string[] | null;
   archived: boolean;
   created_at: string;
   updated_at: string;

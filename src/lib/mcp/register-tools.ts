@@ -27,6 +27,7 @@ import {
   resolveEmailTemplate,
   type EmailTemplateType,
 } from "@/lib/emails/templates";
+import { customerAllowsCard } from "@/lib/payment-methods";
 import type { ApiScope, LineItem } from "@/types/database";
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -192,6 +193,8 @@ export function registerTools(server: McpServer): void {
       name: z.string().min(1), email: z.string().email().optional(), phone: z.string().optional(),
       company: z.string().optional(), address: z.string().optional(), city: z.string().optional(),
       postcode: z.string().optional(), notes: z.string().optional(),
+      allowed_payment_methods: z.array(z.enum(["card", "bank_transfer", "cash"])).optional()
+        .describe("Restrict which methods this customer may pay with. Omit/empty = offer all the business supports."),
     },
     async (args, extra) => {
       const ctx = ctxFrom(extra); assertScope(ctx, "customers:write");
@@ -200,6 +203,7 @@ export function registerTools(server: McpServer): void {
         name: args.name, email: args.email ?? null, phone: args.phone ?? null,
         company: args.company ?? null, address: args.address ?? null, city: args.city ?? null,
         postcode: args.postcode ?? null, notes: args.notes ?? null, archived: false,
+        allowed_payment_methods: args.allowed_payment_methods?.length ? args.allowed_payment_methods : null,
       }).select().single();
       if (error) throw error;
       return text({ created: true, customer: data });
@@ -210,6 +214,8 @@ export function registerTools(server: McpServer): void {
       customer_id: UUID, name: z.string().optional(), email: z.string().optional(), phone: z.string().optional(),
       company: z.string().optional(), address: z.string().optional(), city: z.string().optional(),
       postcode: z.string().optional(), notes: z.string().optional(), archived: z.boolean().optional(),
+      allowed_payment_methods: z.array(z.enum(["card", "bank_transfer", "cash"])).nullable().optional()
+        .describe("Restrict which methods this customer may pay with. null/empty = offer all the business supports."),
     },
     async (args, extra) => {
       const ctx = ctxFrom(extra); assertScope(ctx, "customers:write");
@@ -369,7 +375,7 @@ export function registerTools(server: McpServer): void {
         portalUrl = `${appBase()}/portal/${token}/invoice/${invoice.id}`;
         pdfUrl = `${appBase()}/api/pdf/invoice/${invoice.id}?token=${token}`;
         const balance = Number(invoice.total) - Number(invoice.amount_paid ?? 0);
-        if (business?.stripe_charges_enabled && balance > 0.01) {
+        if (business?.stripe_charges_enabled && balance > 0.01 && customerAllowsCard(customer?.allowed_payment_methods)) {
           payUrl = `${appBase()}/api/stripe/checkout?invoice=${invoice.id}&token=${token}`;
         }
       }
