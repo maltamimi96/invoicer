@@ -55,6 +55,7 @@
     "recharts": "^3.8.1",
     "resend": "^4.5.1",
     "sonner": "^2.0.7",
+    "stripe": "^22.2.1",
     "svix": "^1.92.2",
     "tailwind-merge": "^3.2.0",
     "twilio": "^5.13.1",

@@ -69,6 +69,9 @@ export async function updateSession(request: NextRequest) {
     // redirects to login when needed, so it must not be auto-redirected here.
     pathname.startsWith("/api/oauth/") ||
     pathname.startsWith("/.well-known/") ||
+    // Stripe webhook (signed, owns its auth) + token-gated public Checkout route.
+    pathname === "/api/stripe/webhook" ||
+    pathname === "/api/stripe/checkout" ||
     (isBearerAuthRoute && hasBearer) ||
     (pathname.startsWith("/api/pdf/") && new URL(request.url).searchParams.get("token") !== null);
 

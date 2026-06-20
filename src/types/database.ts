@@ -96,6 +96,8 @@ export interface Customer {
   secondary_phone: string | null;
   contact_role: string | null;
   preferred_contact: 'email' | 'phone' | 'sms' | 'any' | null;
+  /** Payment methods this customer may use. NULL = all the business supports. */
+  allowed_payment_methods: string[] | null;
   archived: boolean;
   created_at: string;
   updated_at: string;
@@ -978,7 +980,7 @@ export interface WorkOrderTemplate {
 export interface EmailTemplate {
   id: string;
   business_id: string;
-  template_type: 'invoice' | 'quote' | 'team_invite' | 'work_order_submitted';
+  template_type: 'invoice' | 'quote' | 'team_invite' | 'work_order_submitted' | 'payment_receipt';
   subject: string | null;
   greeting: string | null;
   intro: string | null;

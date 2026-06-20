@@ -4,6 +4,7 @@ import { getBusiness } from "@/lib/actions/business";
 import { listApiKeys } from "@/lib/actions/api-keys";
 import { getEmailConfig } from "@/lib/actions/email-config";
 import { listWebhooks } from "@/lib/actions/webhooks";
+import { getStripeAccountStatus } from "@/lib/actions/stripe";
 import { getActiveBizId } from "@/lib/active-business";
 import { canManageSettings, type Role } from "@/lib/permissions";
 import { SettingsClient } from "@/components/settings/settings-client";
@@ -33,11 +34,12 @@ export default async function SettingsPage() {
 
   if (!canManageSettings(userRole)) redirect("/dashboard");
 
-  const [business, apiKeys, emailConfig, webhooks] = await Promise.all([
+  const [business, apiKeys, emailConfig, webhooks, stripeStatus] = await Promise.all([
     getBusiness(),
     listApiKeys(),
     getEmailConfig(),
     listWebhooks(),
+    getStripeAccountStatus(),
   ]);
 
   return (
@@ -46,6 +48,7 @@ export default async function SettingsPage() {
       apiKeys={apiKeys}
       emailConfig={emailConfig}
       webhooks={webhooks}
+      stripeStatus={stripeStatus}
       userRole={userRole}
     />
   );

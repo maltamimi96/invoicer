@@ -27,6 +27,7 @@ import {
   resolveEmailTemplate,
   type EmailTemplateType,
 } from "@/lib/emails/templates";
+import { customerAllowsCard } from "@/lib/payment-methods";
 import type { ApiScope, LineItem } from "@/types/database";
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -192,6 +193,8 @@ export function registerTools(server: McpServer): void {
       name: z.string().min(1), email: z.string().email().optional(), phone: z.string().optional(),
       company: z.string().optional(), address: z.string().optional(), city: z.string().optional(),
       postcode: z.string().optional(), notes: z.string().optional(),
+      allowed_payment_methods: z.array(z.enum(["card", "bank_transfer", "cash"])).optional()
+        .describe("Restrict which methods this customer may pay with. Omit/empty = offer all the business supports."),
     },
     async (args, extra) => {
       const ctx = ctxFrom(extra); assertScope(ctx, "customers:write");
@@ -200,6 +203,7 @@ export function registerTools(server: McpServer): void {
         name: args.name, email: args.email ?? null, phone: args.phone ?? null,
         company: args.company ?? null, address: args.address ?? null, city: args.city ?? null,
         postcode: args.postcode ?? null, notes: args.notes ?? null, archived: false,
+        allowed_payment_methods: args.allowed_payment_methods?.length ? args.allowed_payment_methods : null,
       }).select().single();
       if (error) throw error;
       return text({ created: true, customer: data });
@@ -210,6 +214,8 @@ export function registerTools(server: McpServer): void {
       customer_id: UUID, name: z.string().optional(), email: z.string().optional(), phone: z.string().optional(),
       company: z.string().optional(), address: z.string().optional(), city: z.string().optional(),
       postcode: z.string().optional(), notes: z.string().optional(), archived: z.boolean().optional(),
+      allowed_payment_methods: z.array(z.enum(["card", "bank_transfer", "cash"])).nullable().optional()
+        .describe("Restrict which methods this customer may pay with. null/empty = offer all the business supports."),
     },
     async (args, extra) => {
       const ctx = ctxFrom(extra); assertScope(ctx, "customers:write");
@@ -363,18 +369,22 @@ export function registerTools(server: McpServer): void {
       if (recipients.length === 0) return errorText("No recipient email — pass recipients or set the customer's email.");
       const lineItems = (invoice.line_items ?? []) as LineItem[];
       const pdf = await renderPdf("invoice", invoice, customer, business, lineItems);
-      let portalUrl: string | null = null, pdfUrl: string | null = null;
+      let portalUrl: string | null = null, pdfUrl: string | null = null, payUrl: string | null = null;
       if (customer?.id) {
         const token = await getOrMintPortalToken(ctx, customer.id);
         portalUrl = `${appBase()}/portal/${token}/invoice/${invoice.id}`;
         pdfUrl = `${appBase()}/api/pdf/invoice/${invoice.id}?token=${token}`;
+        const balance = Number(invoice.total) - Number(invoice.amount_paid ?? 0);
+        if (business?.stripe_charges_enabled && balance > 0.01 && customerAllowsCard(customer?.allowed_payment_methods)) {
+          payUrl = `${appBase()}/api/stripe/checkout?invoice=${invoice.id}&token=${token}`;
+        }
       }
       const { data: invTplRow } = await t(ctx, "email_templates").select("*").eq("business_id", ctx.businessId).eq("template_type", "invoice").maybeSingle();
       const invoiceTemplate = resolveEmailTemplate("invoice", invTplRow);
       await sendEmail({
         to: recipients,
         subject: args.subject ?? invoiceEmailSubject({ invoice, customer, business }, invoiceTemplate),
-        html: invoiceEmailHtml({ invoice, customer, business, lineItems, portalUrl, pdfUrl, template: invoiceTemplate }),
+        html: invoiceEmailHtml({ invoice, customer, business, lineItems, portalUrl, pdfUrl, payUrl, template: invoiceTemplate }),
         attachments: [{ filename: `${invoice.number}.pdf`, content: pdf }],
         from: business?.name ? buildBusinessFrom({ name: business.name, localPart: "invoices" }) : undefined,
         replyTo: business?.email || undefined,
@@ -575,6 +585,9 @@ export function registerTools(server: McpServer): void {
       bg_pattern: z.string().optional(), invoice_prefix: z.string().optional(), quote_prefix: z.string().optional(),
       bank_name: z.string().optional(), bank_account_number: z.string().optional(), bank_account_name: z.string().optional(),
       bank_sort_code: z.string().optional(), license_number: z.string().optional(),
+      // Stripe / payments: platform fee % and the quote-accept deposit %.
+      platform_fee_percent: z.number().min(0).max(30).nullable().optional(),
+      deposit_percent: z.number().min(0).max(100).nullable().optional(),
     },
     async (args, extra) => {
       const ctx = ctxFrom(extra); assertScope(ctx, "settings:write");
@@ -818,6 +831,83 @@ export function registerTools(server: McpServer): void {
       const { error } = await t(ctx, "invoices").delete().eq("id", args.invoice_id).eq("business_id", ctx.businessId);
       if (error) throw error;
       return text({ deleted: true });
+    });
+
+  // ===== STRIPE PAYMENTS =====
+  tool("get_stripe_status", "Check whether this business has connected Stripe and whether it can accept card payments.",
+    {},
+    async (_args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "settings:read");
+      const { data: biz } = await t(ctx, "businesses")
+        .select("stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, stripe_details_submitted, stripe_country, platform_fee_percent, deposit_percent, currency")
+        .eq("id", ctx.businessId).single();
+      const { defaultPlatformFeePercent, DEFAULT_DEPOSIT_PERCENT } = await import("@/lib/stripe");
+      return text({
+        connected: !!biz?.stripe_account_id,
+        account_id: biz?.stripe_account_id ?? null,
+        charges_enabled: !!biz?.stripe_charges_enabled,
+        payouts_enabled: !!biz?.stripe_payouts_enabled,
+        details_submitted: !!biz?.stripe_details_submitted,
+        country: biz?.stripe_country ?? null,
+        currency: biz?.currency ?? null,
+        platform_fee_percent: biz?.platform_fee_percent != null ? Number(biz.platform_fee_percent) : defaultPlatformFeePercent(),
+        deposit_percent: biz?.deposit_percent != null ? Number(biz.deposit_percent) : DEFAULT_DEPOSIT_PERCENT,
+      });
+    });
+
+  tool("create_stripe_payment_link", "Create a hosted Stripe Checkout Session for an unpaid invoice. Returns a URL the customer opens to pay with a card. Requires the business to have connected Stripe.",
+    { invoice_id: UUID, amount: z.number().positive().optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "invoices:write");
+      const { data: biz } = await t(ctx, "businesses")
+        .select("stripe_account_id, stripe_charges_enabled, currency, platform_fee_percent, name")
+        .eq("id", ctx.businessId).single();
+      if (!biz?.stripe_account_id || !biz.stripe_charges_enabled) {
+        return errorText("Stripe isn't connected or charges aren't enabled. Connect from Settings → Payment first.");
+      }
+      const { data: invoice } = await t(ctx, "invoices")
+        .select("id, number, total, amount_paid, customer_id")
+        .eq("id", args.invoice_id).eq("business_id", ctx.businessId).maybeSingle();
+      if (!invoice) return errorText("Invoice not found");
+
+      const balance = Math.max(0, Number(invoice.total) - Number(invoice.amount_paid ?? 0));
+      const requested = args.amount ?? balance;
+      if (requested <= 0) return errorText("Nothing left to pay");
+      if (requested > balance + 0.01) return errorText(`Amount exceeds balance (${balance.toFixed(2)})`);
+
+      const { data: customer } = await t(ctx, "customers")
+        .select("email").eq("id", invoice.customer_id).maybeSingle();
+
+      const { getStripe, toStripeAmount, computeApplicationFeeAmount } = await import("@/lib/stripe");
+      const stripe = getStripe();
+      const currency = (biz.currency || "GBP").toLowerCase();
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "https://kireihq.com";
+
+      const session = await stripe.checkout.sessions.create({
+        mode: "payment",
+        line_items: [{
+          price_data: {
+            currency,
+            product_data: { name: `Invoice ${invoice.number}` },
+            unit_amount: toStripeAmount(requested, currency),
+          },
+          quantity: 1,
+        }],
+        payment_intent_data: (() => {
+          const fee = computeApplicationFeeAmount(requested, currency, biz.platform_fee_percent != null ? Number(biz.platform_fee_percent) : null);
+          return fee > 0 ? { application_fee_amount: fee } : undefined;
+        })(),
+        customer_email: customer?.email || undefined,
+        success_url: `${baseUrl}/invoices/${invoice.id}?paid=1`,
+        cancel_url:  `${baseUrl}/invoices/${invoice.id}?cancelled=1`,
+        metadata: {
+          kirei_invoice_id: invoice.id,
+          kirei_business_id: ctx.businessId,
+          kirei_source: "mcp",
+        },
+      }, { stripeAccount: biz.stripe_account_id });
+
+      return text({ payment_url: session.url, expires_at: session.expires_at, amount: requested });
     });
 
   // ===== LEADS (get / update / delete / convert) =====

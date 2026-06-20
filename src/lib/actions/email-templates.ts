@@ -204,6 +204,27 @@ export async function previewEmailTemplate(
         html: workOrderSubmittedEmailHtml({ ...args, workerNotes: "Job done — before/after photos uploaded.", viewUrl: "#", template }),
       };
     }
+    case "payment_receipt": {
+      const { paymentReceiptEmailHtml, paymentReceiptEmailSubject } = await import("@/lib/emails/payment-receipt");
+      const sampleInvoice = {
+        number: `${business?.invoice_prefix ?? "INV"}-0042`,
+        total: 770, amount_paid: 770,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any;
+      const args = {
+        invoice: sampleInvoice,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        customer: sampleCustomer as any,
+        business,
+        amount: 770,
+        paymentDate: today.toISOString(),
+        paymentMethod: "Stripe (card)",
+      };
+      return {
+        subject: paymentReceiptEmailSubject(args, template),
+        html: paymentReceiptEmailHtml({ ...args, portalUrl: "#", template }),
+      };
+    }
     default: {
       // Exhaustive guard — render vars over the subject as a fallback.
       const subject = renderTemplateVars(template.subject, { business_name: business?.name ?? "" });

@@ -24,6 +24,8 @@ import { GradientTile } from "@/components/ui/kirei";
 import { ApiKeysSettings } from "@/components/settings/api-keys-settings";
 import { EmailSettings } from "@/components/settings/email-settings";
 import { WebhooksSettings } from "@/components/settings/webhooks-settings";
+import { StripeSettings } from "@/components/settings/stripe-settings";
+import type { StripeAccountStatus } from "@/lib/actions/stripe";
 import { AddressFields } from "@/components/addresses/address-fields";
 import type { Business, BusinessApiKey, BusinessEmailConfig, BusinessWebhook } from "@/types/database";
 import type { Role } from "@/lib/permissions";
@@ -111,10 +113,11 @@ interface SettingsClientProps {
   apiKeys: Omit<BusinessApiKey, "key_hash">[];
   emailConfig: (Omit<BusinessEmailConfig, "imap_pass"> & { imap_pass_masked: string }) | null;
   webhooks: BusinessWebhook[];
+  stripeStatus: StripeAccountStatus;
   userRole: Role;
 }
 
-export function SettingsClient({ business: initial, apiKeys, emailConfig, webhooks, userRole }: SettingsClientProps) {
+export function SettingsClient({ business: initial, apiKeys, emailConfig, webhooks, stripeStatus, userRole }: SettingsClientProps) {
   const [business, setBusiness] = useState(initial);
   const [logoPreview, setLogoPreview] = useState<string | null>(initial.logo_url);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -373,6 +376,7 @@ export function SettingsClient({ business: initial, apiKeys, emailConfig, webhoo
 
         {/* ── Payment tab ── */}
         <TabsContent value="payment" className="space-y-4 mt-6">
+          <StripeSettings initial={stripeStatus} />
           <Card>
             <CardHeader className="flex flex-row items-center gap-2.5 space-y-0">
               <GradientTile gradient="emerald" size={28} radius={8}><CreditCard className="w-3.5 h-3.5" /></GradientTile>
