@@ -99,19 +99,28 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
       ? (pi.latest_charge as Stripe.Charge)
       : null;
     if (charge) {
-      const bt = charge.balance_transaction && typeof charge.balance_transaction === "object"
-        ? (charge.balance_transaction as Stripe.BalanceTransaction)
-        : null;
-      if (bt) stripeFee = fromStripeAmount(bt.fee, bt.currency.toUpperCase());
+      // Platform fee — plain integer, always set when we charged a fee.
       if (charge.application_fee_amount != null) {
         applicationFee = fromStripeAmount(
           charge.application_fee_amount,
           (charge.currency || session.currency || "usd").toUpperCase(),
         );
       }
+      // Stripe processing fee — from the charge's balance transaction. It can
+      // arrive expanded, as a bare id, or not yet exist at webhook time; fetch
+      // it by id when we only got the id.
+      let bt = charge.balance_transaction && typeof charge.balance_transaction === "object"
+        ? (charge.balance_transaction as Stripe.BalanceTransaction)
+        : null;
+      if (!bt && typeof charge.balance_transaction === "string") {
+        bt = await stripe.balanceTransactions.retrieve(
+          charge.balance_transaction,
+          undefined,
+          connectedAcct ? { stripeAccount: connectedAcct } : undefined,
+        );
+      }
+      if (bt) stripeFee = fromStripeAmount(bt.fee, bt.currency.toUpperCase());
     }
-    // TEMP: confirm capture on the next test payment; removed once verified.
-    console.log("[stripe.webhook] fees", { connectedAcct: !!connectedAcct, charge: !!charge, stripeFee, applicationFee });
   } catch (err) {
     console.warn("[stripe.webhook] couldn't read fees", err);
   }
