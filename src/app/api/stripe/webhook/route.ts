@@ -80,23 +80,40 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
   const sb = createAdminClient();
   const stripe = getStripe();
 
-  // The session belongs to the connected account; expand fees there.
+  // Fees live on the connected account's charge. Read them robustly:
+  //  - Stripe processing fee → the charge's balance_transaction.fee
+  //  - Platform fee → charge.application_fee_amount (a plain integer that's
+  //    always set when we charged a fee — far more reliable than expanding the
+  //    application_fee OBJECT, which is platform-owned and often returns null
+  //    when fetched through the connected account).
   const connectedAcct = typeof event.account === "string" ? event.account : null;
   let stripeFee = 0;
   let applicationFee = 0;
   try {
     const pi = await stripe.paymentIntents.retrieve(
       piId,
-      { expand: ["latest_charge.balance_transaction", "latest_charge.application_fee"] },
+      { expand: ["latest_charge.balance_transaction"] },
       connectedAcct ? { stripeAccount: connectedAcct } : undefined,
     );
-    const charge = pi.latest_charge as Stripe.Charge | null;
-    const bt = (charge?.balance_transaction as Stripe.BalanceTransaction | null) ?? null;
-    if (bt) stripeFee = fromStripeAmount(bt.fee, bt.currency.toUpperCase());
-    const appFee = charge?.application_fee as Stripe.ApplicationFee | null;
-    if (appFee) applicationFee = fromStripeAmount(appFee.amount, appFee.currency.toUpperCase());
+    const charge = pi.latest_charge && typeof pi.latest_charge === "object"
+      ? (pi.latest_charge as Stripe.Charge)
+      : null;
+    if (charge) {
+      const bt = charge.balance_transaction && typeof charge.balance_transaction === "object"
+        ? (charge.balance_transaction as Stripe.BalanceTransaction)
+        : null;
+      if (bt) stripeFee = fromStripeAmount(bt.fee, bt.currency.toUpperCase());
+      if (charge.application_fee_amount != null) {
+        applicationFee = fromStripeAmount(
+          charge.application_fee_amount,
+          (charge.currency || session.currency || "usd").toUpperCase(),
+        );
+      }
+    }
+    // TEMP: confirm capture on the next test payment; removed once verified.
+    console.log("[stripe.webhook] fees", { connectedAcct: !!connectedAcct, charge: !!charge, stripeFee, applicationFee });
   } catch (err) {
-    console.warn("[stripe.webhook] couldn't expand fees", err);
+    console.warn("[stripe.webhook] couldn't read fees", err);
   }
 
   const currency = session.currency?.toUpperCase() ?? "USD";
