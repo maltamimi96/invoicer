@@ -505,6 +505,29 @@ export async function sendInvoiceEmail(id: string, opts?: { recipients?: string[
 
   const lineItems = (invoiceData.line_items ?? []) as LineItem[];
 
+  // Autopay — if the customer saved a card for automatic payments, charge it
+  // off-session now and skip the manual pay-request email (the charge path
+  // sends a receipt). Falls through to the normal email when the card needs
+  // authentication or is declined, so they can still pay via the link.
+  if (customer?.id && businessData?.stripe_charges_enabled) {
+    const { data: cust } = await tbl(supabase, "customers")
+      .select("autopay_enabled, stripe_payment_method_id").eq("id", customer.id).maybeSingle();
+    const balance = Number(invoiceData.total) - Number(invoiceData.amount_paid ?? 0);
+    if (cust?.autopay_enabled && cust?.stripe_payment_method_id && balance > 0.01) {
+      if (invoiceData.status === "draft") {
+        await tbl(supabase, "invoices").update({ status: "sent" }).eq("id", id);
+      }
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const { chargeInvoiceToSavedCard } = await import("@/lib/stripe-charge");
+      const res = await chargeInvoiceToSavedCard(createAdminClient(), id, businessData.id);
+      if (res.ok) {
+        revalidatePath(`/invoices/${id}`); revalidatePath("/invoices");
+        return; // charged off-session; receipt already emailed by the charge path
+      }
+      // else: fall through and email the invoice + pay link for manual payment
+    }
+  }
+
   // Generate PDF buffer
   const { renderToStream } = await import("@react-pdf/renderer");
   const { InvoicePDFDocument } = await import("@/components/invoices/invoice-pdf-document");

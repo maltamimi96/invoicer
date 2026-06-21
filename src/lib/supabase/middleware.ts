@@ -72,6 +72,7 @@ export async function updateSession(request: NextRequest) {
     // Stripe webhook (signed, owns its auth) + token-gated public Checkout route.
     pathname === "/api/stripe/webhook" ||
     pathname === "/api/stripe/checkout" ||
+    pathname === "/api/stripe/save-card" ||
     (isBearerAuthRoute && hasBearer) ||
     (pathname.startsWith("/api/pdf/") && new URL(request.url).searchParams.get("token") !== null);
 

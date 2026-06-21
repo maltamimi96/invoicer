@@ -138,6 +138,7 @@ Status legend: ✅ done · 🟡 partial · ❌ missing · 🚫 not applicable on
 | Stripe card payments | 🟡 | 3f | Web: Settings → Payment connects Stripe (Standard, account_links), "Pay with card" on portal invoice + in invoice emails, payment receipt email, quote-accept deposit. Mobile: deep-link `/settings/payments` to web for now; native onboarding requires WebView around accountLinks URL — follow-up. |
 | Pay link in invoice emails | 🟡 | 3f | Server-side — emails sent from mobile auto-include the card-pay button when Stripe is enabled |
 | Quote deposit by card | 🚫 | — | Customer-facing portal flow (accept quote → pay deposit); not the tradie's app |
+| Card on file / autopay | 🟡 | 3f | Customer saves a card (portal, SetupIntent) → invoices auto-charge off-session on send; "Charge saved card" on invoice detail (web). Mobile: surfaces autopay status; charge action could mirror later |
 | Team management | ✅ | 2g | List + add (email/role) + change role + remove; pending → active on first login |
 | API keys | 🟡 | 3f | /settings/advanced surfaces it with web deep-link (mint/revoke needs server endpoint) |
 | Webhooks | 🟡 | 3f | Same — /settings/advanced deep-links to web |
