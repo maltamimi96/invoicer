@@ -24,12 +24,6 @@ export async function POST(request: NextRequest) {
     event = stripe.webhooks.constructEvent(raw, sig, secret);
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Invalid signature";
-    // TEMP diagnostic — safe: logs only the secret's prefix + length, never its value.
-    console.error(
-      "[stripe.webhook] verify failed:", msg,
-      "| secretPrefix:", secret.slice(0, 6), "secretLen:", secret.length,
-      "| sigPresent:", !!sig,
-    );
     return NextResponse.json({ error: msg }, { status: 400 });
   }
 
