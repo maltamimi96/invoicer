@@ -33,7 +33,7 @@ export default async function PortalInvoicePage({ params }: { params: Promise<{ 
       .eq("customer_id", link.customer_id)
       .maybeSingle(),
     tbl(sb, "businesses").select("name, logo_url, currency, bank_name, bank_account_name, bank_account_number, bank_sort_code, bank_iban, phone, email, stripe_charges_enabled").eq("id", link.business_id).maybeSingle(),
-    tbl(sb, "customers").select("name, company, email, phone, address, city, postcode, country, allowed_payment_methods").eq("id", link.customer_id).maybeSingle(),
+    tbl(sb, "customers").select("name, company, email, phone, address, city, postcode, country, allowed_payment_methods, autopay_enabled, stripe_payment_method_id, stripe_pm_brand, stripe_pm_last4").eq("id", link.customer_id).maybeSingle(),
     tbl(sb, "payments")
       .select("amount, date, method, reference")
       .eq("invoice_id", id)
@@ -244,6 +244,24 @@ export default async function PortalInvoicePage({ params }: { params: Promise<{ 
               <Download className="w-3.5 h-3.5" /> Download PDF
             </a>
           </div>
+
+          {/* Autopay / card on file */}
+          {offered.card && (
+            customer?.autopay_enabled && customer?.stripe_payment_method_id ? (
+              <p className="text-xs text-muted-foreground pt-1">
+                Autopay is on — future invoices are charged automatically to your {customer.stripe_pm_brand ?? "card"}
+                {customer.stripe_pm_last4 ? ` ending ${customer.stripe_pm_last4}` : ""}.{" "}
+                <a href={`/api/stripe/save-card?token=${token}&invoice=${invoice.id}`} className="underline hover:text-foreground">Update card</a>
+              </p>
+            ) : (
+              <a
+                href={`/api/stripe/save-card?token=${token}&invoice=${invoice.id}`}
+                className="inline-block text-xs text-primary underline hover:opacity-80 pt-1"
+              >
+                Save a card for automatic payments
+              </a>
+            )
+          )}
         </Card>
 
         <footer className="text-center text-xs text-muted-foreground py-6 border-t">

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Edit, Send, Copy, Trash2, CheckCircle, DollarSign, MoreHorizontal, FileStack, ArrowRight, Link2, FileText, Calendar } from "@/components/ui/icons";
+import { Edit, Send, Copy, Trash2, CheckCircle, DollarSign, MoreHorizontal, FileStack, ArrowRight, Link2, FileText, Calendar, CreditCard, Loader2 } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { updateInvoice, deleteInvoice, duplicateInvoice, addPayment, sendInvoiceEmail, sendInvoiceSms, createProgressInvoice } from "@/lib/actions/invoices";
+import { chargeSavedCardNow } from "@/lib/actions/stripe";
 import { SendDocumentModal } from "@/components/send/send-document-modal";
 import { InvoiceEditor } from "./invoice-editor";
 import { InvoicePDFDownload } from "./invoice-pdf";
@@ -65,6 +66,7 @@ export function InvoiceDetailClient({
   const [paymentMethod, setPaymentMethod] = useState("bank_transfer");
   const [paymentRef, setPaymentRef] = useState("");
   const [saving, setSaving] = useState(false);
+  const [charging, setCharging] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [progressOpen, setProgressOpen] = useState(false);
@@ -496,6 +498,26 @@ export function InvoiceDetailClient({
                   className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-dashed border-border hover:border-primary/40 hover:bg-primary/5 text-sm font-medium text-primary cursor-pointer"
                 >
                   <DollarSign className="w-4 h-4" /> Record payment
+                </AnimatedPress>
+              )}
+              {invoice.status !== "paid" && invoice.status !== "cancelled" && customer?.stripe_payment_method_id && (
+                <AnimatedPress
+                  onClick={async () => {
+                    if (charging) return;
+                    if (!confirm(`Charge the saved card${customer.stripe_pm_last4 ? ` •••• ${customer.stripe_pm_last4}` : ""} for the outstanding balance?`)) return;
+                    setCharging(true);
+                    try {
+                      const res = await chargeSavedCardNow(invoice.id);
+                      if (res.ok) { toast.success(res.message); router.refresh(); }
+                      else toast.error(res.message);
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : "Charge failed");
+                    } finally { setCharging(false); }
+                  }}
+                  className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium cursor-pointer disabled:opacity-60"
+                >
+                  {charging ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
+                  Charge saved card{customer.stripe_pm_last4 ? ` •••• ${customer.stripe_pm_last4}` : ""}
                 </AnimatedPress>
               )}
             </div>

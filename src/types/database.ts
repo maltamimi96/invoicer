@@ -98,6 +98,13 @@ export interface Customer {
   preferred_contact: 'email' | 'phone' | 'sms' | 'any' | null;
   /** Payment methods this customer may use. NULL = all the business supports. */
   allowed_payment_methods: string[] | null;
+  /** Card-on-file / autopay (Stripe ids live on the business's connected account). */
+  stripe_customer_id: string | null;
+  stripe_payment_method_id: string | null;
+  stripe_pm_brand: string | null;
+  stripe_pm_last4: string | null;
+  stripe_pm_exp: string | null;
+  autopay_enabled: boolean;
   archived: boolean;
   created_at: string;
   updated_at: string;

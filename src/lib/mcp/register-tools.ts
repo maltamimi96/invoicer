@@ -910,6 +910,38 @@ export function registerTools(server: McpServer): void {
       return text({ payment_url: session.url, expires_at: session.expires_at, amount: requested });
     });
 
+  tool("get_save_card_link", "Get a secure link to send a customer so they can save a card on file for automatic payments (autopay). Requires the business to have connected Stripe.",
+    { customer_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "customers:write");
+      const { data: biz } = await t(ctx, "businesses").select("stripe_account_id, stripe_charges_enabled").eq("id", ctx.businessId).single();
+      if (!biz?.stripe_account_id || !biz.stripe_charges_enabled) return errorText("Stripe isn't connected / charges not enabled.");
+      const { data: cust } = await t(ctx, "customers").select("id").eq("id", args.customer_id).eq("business_id", ctx.businessId).maybeSingle();
+      if (!cust) return errorText("Customer not found");
+      const tok = await getOrMintPortalToken(ctx, args.customer_id);
+      return text({ save_card_url: `${appBase()}/api/stripe/save-card?token=${tok}` });
+    });
+
+  tool("set_customer_autopay", "Turn automatic card charging (autopay) on or off for a customer. Off keeps any saved card but stops auto-charging their invoices.",
+    { customer_id: UUID, enabled: z.boolean() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "customers:write");
+      const { error } = await t(ctx, "customers").update({ autopay_enabled: args.enabled }).eq("id", args.customer_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ updated: true, autopay_enabled: args.enabled });
+    });
+
+  tool("charge_saved_card", "Charge an invoice's outstanding balance to the customer's saved card right now (off-session). Fails cleanly if there's no saved card, the card needs authentication, or it's declined.",
+    { invoice_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "invoices:write");
+      const { chargeInvoiceToSavedCard } = await import("@/lib/stripe-charge");
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const res = await chargeInvoiceToSavedCard(createAdminClient(), args.invoice_id, ctx.businessId);
+      if (res.ok) return text({ charged: true, amount: res.amount, payment_intent_id: res.paymentIntentId });
+      return errorText(`Couldn't charge saved card (${res.reason}): ${res.message}`);
+    });
+
   // ===== LEADS (get / update / delete / convert) =====
   tool("get_lead", "Get one lead with all its fields.",
     { lead_id: UUID },

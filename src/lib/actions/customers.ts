@@ -45,7 +45,7 @@ export async function getCustomer(id: string): Promise<Customer> {
 }
 
 type CreateCustomerInput =
-  Omit<Customer, "id" | "created_at" | "updated_at" | "user_id" | "business_id" | "account_type" | "website" | "secondary_phone" | "contact_role" | "preferred_contact" | "state" | "allowed_payment_methods">
+  Omit<Customer, "id" | "created_at" | "updated_at" | "user_id" | "business_id" | "account_type" | "website" | "secondary_phone" | "contact_role" | "preferred_contact" | "state" | "allowed_payment_methods" | "stripe_customer_id" | "stripe_payment_method_id" | "stripe_pm_brand" | "stripe_pm_last4" | "stripe_pm_exp" | "autopay_enabled">
   & Partial<Pick<Customer, "account_type" | "website" | "secondary_phone" | "contact_role" | "preferred_contact" | "state" | "allowed_payment_methods">>;
 
 export async function createCustomer(payload: CreateCustomerInput): Promise<Customer> {
@@ -169,7 +169,7 @@ export async function getCustomerStats(): Promise<Record<string, {
 }
 
 export async function bulkImportCustomers(
-  rows: Array<Omit<Customer, "id" | "created_at" | "updated_at" | "user_id" | "business_id" | "archived">>
+  rows: Array<Omit<Customer, "id" | "created_at" | "updated_at" | "user_id" | "business_id" | "archived" | "allowed_payment_methods" | "stripe_customer_id" | "stripe_payment_method_id" | "stripe_pm_brand" | "stripe_pm_last4" | "stripe_pm_exp" | "autopay_enabled">>
 ): Promise<{ imported: number; errors: string[] }> {
   const supabase = await createClient();
   const user = await getUser();
