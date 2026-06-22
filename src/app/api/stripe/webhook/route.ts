@@ -88,11 +88,15 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
   }
 
   const currency = session.currency?.toUpperCase() ?? "USD";
-  const amount = fromStripeAmount(session.amount_total ?? 0, currency);
+  // Credit the invoice with the face amount; a card surcharge (kirei_amount <
+  // amount_total) just covers processing fees and isn't part of the invoice.
+  const faceAmount = session.metadata?.kirei_amount != null
+    ? Number(session.metadata.kirei_amount)
+    : fromStripeAmount(session.amount_total ?? 0, currency);
 
   const sb = createAdminClient();
   await recordStripePayment(sb, getStripe(), {
-    businessId, invoiceId, piId, sessionId: session.id, amount, currency,
+    businessId, invoiceId, piId, sessionId: session.id, amount: faceAmount, currency,
     connectedAcct, portalToken: session.metadata?.kirei_portal_token ?? null,
   });
 }
@@ -111,11 +115,13 @@ async function handlePaymentIntentSucceeded(event: Stripe.Event) {
 
   const connectedAcct = typeof event.account === "string" ? event.account : null;
   const currency = (pi.currency ?? "usd").toUpperCase();
-  const amount = fromStripeAmount(pi.amount_received ?? pi.amount ?? 0, currency);
+  const faceAmount = pi.metadata?.kirei_amount != null
+    ? Number(pi.metadata.kirei_amount)
+    : fromStripeAmount(pi.amount_received ?? pi.amount ?? 0, currency);
 
   const sb = createAdminClient();
   await recordStripePayment(sb, getStripe(), {
-    businessId, invoiceId, piId: pi.id, amount, currency,
+    businessId, invoiceId, piId: pi.id, amount: faceAmount, currency,
     connectedAcct, portalToken: pi.metadata?.kirei_portal_token ?? null,
   });
 }

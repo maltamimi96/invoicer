@@ -46,6 +46,11 @@ export interface StripeAccountStatus {
   /** Up-front deposit % offered on quote accept. NULL = app default (50). */
   depositPercent: number | null;
   defaultDepositPercent: number;
+  /** Card surcharge passed to the customer. */
+  surchargeEnabled: boolean;
+  surchargePercent: number;
+  surchargeFixed: number;
+  surchargeNote: string | null;
 }
 
 /** Read the current Stripe connection state for the active business. */
@@ -55,7 +60,7 @@ export async function getStripeAccountStatus(): Promise<StripeAccountStatus> {
   const businessId = await getActiveBizId(supabase, user.id);
 
   const { data: biz } = await tbl(supabase, "businesses")
-    .select("stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, stripe_details_submitted, stripe_country, platform_fee_percent, deposit_percent")
+    .select("stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, stripe_details_submitted, stripe_country, platform_fee_percent, deposit_percent, card_surcharge_enabled, card_surcharge_percent, card_surcharge_fixed, card_surcharge_note")
     .eq("id", businessId)
     .single();
 
@@ -71,7 +76,33 @@ export async function getStripeAccountStatus(): Promise<StripeAccountStatus> {
     defaultFeePercent: defaultPlatformFeePercent(),
     depositPercent: biz?.deposit_percent != null ? Number(biz.deposit_percent) : null,
     defaultDepositPercent: DEFAULT_DEPOSIT_PERCENT,
+    surchargeEnabled: !!biz?.card_surcharge_enabled,
+    surchargePercent: biz?.card_surcharge_percent != null ? Number(biz.card_surcharge_percent) : 0,
+    surchargeFixed: biz?.card_surcharge_fixed != null ? Number(biz.card_surcharge_fixed) : 0,
+    surchargeNote: biz?.card_surcharge_note ?? null,
   };
+}
+
+/** Configure the optional card surcharge passed to customers. */
+export async function setCardSurcharge(input: { enabled: boolean; percent: number; fixed: number; note: string | null }): Promise<void> {
+  const supabase = await createClient();
+  const user = await getUser();
+  const businessId = await getActiveBizId(supabase, user.id);
+  const role = await resolveRole(supabase, user.id, businessId);
+  if (!canManageSettings(role)) throw new Error("Only owners and admins can change the card surcharge");
+
+  const percent = Number(input.percent);
+  const fixed = Number(input.fixed);
+  if (!Number.isFinite(percent) || percent < 0 || percent > 30) throw new Error("Surcharge % must be between 0 and 30");
+  if (!Number.isFinite(fixed) || fixed < 0) throw new Error("Fixed surcharge can't be negative");
+
+  await tbl(supabase, "businesses").update({
+    card_surcharge_enabled: !!input.enabled,
+    card_surcharge_percent: Math.round(percent * 100) / 100,
+    card_surcharge_fixed: Math.round(fixed * 100) / 100,
+    card_surcharge_note: input.note?.trim() ? input.note.trim() : null,
+  }).eq("id", businessId);
+  revalidatePath("/settings");
 }
 
 /**

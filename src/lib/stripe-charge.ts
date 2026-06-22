@@ -9,7 +9,7 @@
  * the customer a manual pay link.
  */
 
-import { getStripe, toStripeAmount, computeApplicationFeeAmount } from "@/lib/stripe";
+import { getStripe, toStripeAmount, computeApplicationFeeAmount, computeSurcharge } from "@/lib/stripe";
 import { customerAllowsCard } from "@/lib/payment-methods";
 import { recordStripePayment } from "@/lib/stripe-payments";
 
@@ -40,7 +40,7 @@ export async function chargeInvoiceToSavedCard(
   if (balance < 0.5) return { ok: false, reason: "not_eligible", message: "Nothing left to charge" };
 
   const { data: biz } = await sb.from("businesses")
-    .select("stripe_account_id, stripe_charges_enabled, currency, platform_fee_percent")
+    .select("stripe_account_id, stripe_charges_enabled, currency, platform_fee_percent, card_surcharge_enabled, card_surcharge_percent, card_surcharge_fixed")
     .eq("id", businessId).single();
   if (!biz?.stripe_account_id || !biz.stripe_charges_enabled) {
     return { ok: false, reason: "not_eligible", message: "Card payments aren't enabled for this business" };
@@ -57,7 +57,13 @@ export async function chargeInvoiceToSavedCard(
   }
 
   const currency = (biz.currency || "GBP").toLowerCase();
-  const amountUnit = toStripeAmount(balance, currency);
+  const surcharge = computeSurcharge(balance, {
+    enabled: biz.card_surcharge_enabled,
+    percent: biz.card_surcharge_percent,
+    fixed: biz.card_surcharge_fixed,
+  });
+  const chargeTotal = balance + surcharge;
+  const amountUnit = toStripeAmount(chargeTotal, currency);
   const appFee = computeApplicationFeeAmount(
     balance, currency, biz.platform_fee_percent != null ? Number(biz.platform_fee_percent) : null,
   );
@@ -77,6 +83,9 @@ export async function chargeInvoiceToSavedCard(
           kirei_invoice_id: invoice.id,
           kirei_business_id: businessId,
           kirei_source: "autopay",
+          // Credit the invoice with the face amount; surcharge just covers fees.
+          kirei_amount: String(balance),
+          kirei_surcharge: String(surcharge),
         },
       },
       { stripeAccount: biz.stripe_account_id },

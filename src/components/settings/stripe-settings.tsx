@@ -15,9 +15,12 @@ import {
   disconnectStripe,
   setPlatformFeePercent,
   setDepositPercent,
+  setCardSurcharge,
   syncStripeAccountStatus,
   type StripeAccountStatus,
 } from "@/lib/actions/stripe";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Props { initial: StripeAccountStatus }
 
@@ -102,6 +105,27 @@ export function StripeSettings({ initial }: Props) {
     } finally {
       setSavingDeposit(false);
     }
+  };
+
+  const [surEnabled, setSurEnabled] = useState(status.surchargeEnabled);
+  const [surPct, setSurPct] = useState<string>(String(status.surchargePercent ?? 0));
+  const [surFixed, setSurFixed] = useState<string>(String(status.surchargeFixed ?? 0));
+  const [surNote, setSurNote] = useState<string>(status.surchargeNote ?? "");
+  const [savingSur, setSavingSur] = useState(false);
+
+  const handleSaveSurcharge = async () => {
+    setSavingSur(true);
+    try {
+      const percent = Number(surPct) || 0;
+      const fixed = Number(surFixed) || 0;
+      if (percent < 0 || percent > 30) throw new Error("Surcharge % must be 0–30");
+      if (fixed < 0) throw new Error("Fixed fee can't be negative");
+      await setCardSurcharge({ enabled: surEnabled, percent, fixed, note: surNote.trim() || null });
+      setStatus({ ...status, surchargeEnabled: surEnabled, surchargePercent: percent, surchargeFixed: fixed, surchargeNote: surNote.trim() || null });
+      toast.success("Card surcharge saved");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't save surcharge");
+    } finally { setSavingSur(false); }
   };
 
   const liveFee = status.platformFeePercent ?? status.defaultFeePercent;
@@ -202,6 +226,44 @@ export function StripeSettings({ initial }: Props) {
               <p className="text-xs text-muted-foreground">
                 When customers accept a quote online they can pay this deposit by card. Currently <strong>{liveDeposit}%</strong>. Set to <strong>0</strong> to hide the deposit option (full payment only). Blank = default ({status.defaultDepositPercent}%).
               </p>
+            </div>
+
+            <Separator />
+
+            {/* Card surcharge — pass the processing fee to the customer */}
+            <div className="space-y-3 max-w-md">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Pass card fee to customer</Label>
+                  <p className="text-xs text-muted-foreground">Add a card processing fee on top when customers pay by card.</p>
+                </div>
+                <Switch checked={surEnabled} onCheckedChange={setSurEnabled} />
+              </div>
+              {surEnabled && (
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Percent (%)</Label>
+                      <Input type="number" min="0" max="30" step="0.01" value={surPct} onChange={(e) => setSurPct(e.target.value)} placeholder="1.75" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Fixed fee</Label>
+                      <Input type="number" min="0" step="0.01" value={surFixed} onChange={(e) => setSurFixed(e.target.value)} placeholder="0.30" />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Note shown to the customer (optional)</Label>
+                    <Textarea rows={2} value={surNote} onChange={(e) => setSurNote(e.target.value)} placeholder="Auto-generated from the rate if left blank, e.g. “A card processing fee of 1.75% + 0.30 applies when paying by card.”" />
+                  </div>
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    ⚠️ Card surcharging is regulated — banned on consumer cards in the UK/EU and capped/regulated in AU &amp; parts of the US. Keep the rate at or below your actual cost of acceptance and follow your local rules.
+                  </p>
+                </>
+              )}
+              <Button type="button" onClick={handleSaveSurcharge} disabled={savingSur}>
+                {savingSur && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Save surcharge
+              </Button>
             </div>
           </>
         )}

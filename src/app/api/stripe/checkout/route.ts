@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getStripe, toStripeAmount, computeApplicationFeeAmount } from "@/lib/stripe";
+import { getStripe, toStripeAmount, computeApplicationFeeAmount, computeSurcharge } from "@/lib/stripe";
 import { customerAllowsCard } from "@/lib/payment-methods";
 
 /**
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: business } = await (sb as any).from("businesses")
-    .select("name, currency, stripe_account_id, stripe_charges_enabled, platform_fee_percent")
+    .select("name, currency, stripe_account_id, stripe_charges_enabled, platform_fee_percent, card_surcharge_enabled, card_surcharge_percent, card_surcharge_fixed")
     .eq("id", link.business_id)
     .single();
   if (!business?.stripe_account_id || !business.stripe_charges_enabled) {
@@ -69,21 +69,32 @@ export async function GET(request: NextRequest) {
   const amountUnit = toStripeAmount(balance, currency);
   const applicationFee = computeApplicationFeeAmount(balance, currency, business.platform_fee_percent != null ? Number(business.platform_fee_percent) : null);
 
+  // Optional card surcharge passed to the customer (added on top of the balance).
+  const surcharge = computeSurcharge(balance, {
+    enabled: business.card_surcharge_enabled,
+    percent: business.card_surcharge_percent,
+    fixed: business.card_surcharge_fixed,
+  });
+
   const stripe = getStripe();
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || `${url.protocol}//${url.host}`;
+
+  const lineItems: Array<{ price_data: { currency: string; product_data: { name: string }; unit_amount: number }; quantity: number }> = [{
+    price_data: { currency, product_data: { name: `Invoice ${invoice.number}` }, unit_amount: amountUnit },
+    quantity: 1,
+  }];
+  if (surcharge > 0) {
+    lineItems.push({
+      price_data: { currency, product_data: { name: "Card processing fee" }, unit_amount: toStripeAmount(surcharge, currency) },
+      quantity: 1,
+    });
+  }
 
   // Direct charge on the connected account — the merchant owns the payment,
   // Kirei takes application_fee. This is the standard Connect Standard flow.
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
-    line_items: [{
-      price_data: {
-        currency,
-        product_data: { name: `Invoice ${invoice.number}` },
-        unit_amount: amountUnit,
-      },
-      quantity: 1,
-    }],
+    line_items: lineItems,
     payment_intent_data: applicationFee > 0 ? { application_fee_amount: applicationFee } : undefined,
     customer_email: customer?.email || undefined,
     success_url: `${baseUrl}/portal/${token}/invoice/${invoice.id}?paid=1`,
@@ -93,6 +104,9 @@ export async function GET(request: NextRequest) {
       kirei_business_id: invoice.business_id,
       kirei_portal_token: token,
       kirei_balance: String(balance),
+      // Amount to credit the invoice (excludes the surcharge, which just covers fees).
+      kirei_amount: String(balance),
+      kirei_surcharge: String(surcharge),
     },
   }, {
     stripeAccount: business.stripe_account_id,
