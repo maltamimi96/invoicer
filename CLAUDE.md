@@ -310,9 +310,53 @@ User's accumulated preferences:
 - **Never trust empty input** — coerce, validate, soft-fail
 - Current accent name: **teal**; sidebar: **light**; canvas: warm off-white. Don't revert to flux lime unless explicitly asked.
 
+## Session log (June 2026) — Stripe payments + email templates (MOST RECENT — pick up here)
+
+Big multi-day push: per-business email templates, then a full Stripe Connect payments stack. All shipped to `main` (production = kireihq.com) and DB migrations applied + recorded on remote.
+
+### Per-business email templates
+- `email_templates` table — one row per `(business_id, template_type)`, type ∈ `invoice | quote | team_invite | work_order_submitted | payment_receipt`. NULL field = use built-in default. Migrations `20260611000001` + `20260618120000` (adds payment_receipt to the CHECK).
+- Engine: `src/lib/emails/templates.ts` — `EMAIL_TEMPLATE_DEFAULTS/VARIABLES/LABELS`, `renderTemplateVars` ({{var}}), `resolveEmailTemplate` (row→defaults), `getResolvedEmailTemplate(sb, bizId, type)`. Each builder (`invoice.ts`, `quote.ts`, `team-invite.ts`, `work-order-submitted.ts`, `payment-receipt.ts`) exports `…EmailVars` + `…EmailSubject` + `…EmailHtml({…, template})`, supports `custom_html` full override + section toggles (show_line_items/payment_details/buttons).
+- Wired into EVERY send path: `sendInvoiceEmail`/`sendQuoteEmail` actions, scheduled-send cron, `/api/v1/agent`, MCP `send_invoice_email`/`send_quote_email`, team invites, work-order-submitted.
+- Editor at `/settings/email-templates` (linked from Settings → Email): per-type editor + live preview (`previewEmailTemplate`) + reset. Server actions in `src/lib/actions/email-templates.ts`.
+- MCP: `list_email_templates`, `update_email_template`, `reset_email_template`.
+
+### Stripe Connect Standard — payments (the main work)
+**Architecture:** Connect **Standard**, **direct charges** on each business's own connected account + `application_fee` to the platform. Platform account = "Kirei Business Manager" (`acct_1TjgR1DbruxScmob`). The app key, the connected account, AND the webhook must all be in the **same Stripe environment** (test/sandbox vs live) or webhook signatures fail — this caused a long debug; see traps below.
+- **Env vars (Vercel, prod):** `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PLATFORM_FEE_PERCENT` (default 2). Currently set to **test/sandbox** keys → production runs Stripe in test mode. Going live = repeat in Stripe **Live mode** (live key + live webhook) and swap the two Vercel vars.
+- **Webhook:** ONE endpoint at `https://www.kireihq.com/api/stripe/webhook`, scope **Connected accounts** (critical — charges fire on connected accounts), events `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `account.updated`. `/api/stripe/{webhook,checkout,save-card}` are whitelisted in `src/lib/supabase/middleware.ts`.
+- **Files:** `src/lib/stripe.ts` (client + amount helpers + `DEFAULT_DEPOSIT_PERCENT` + `defaultPlatformFeePercent`), `src/lib/actions/stripe.ts` (onboarding/status/disconnect/fee/deposit + autopay actions), `src/app/api/stripe/{connect/return,connect/refresh,checkout,webhook,save-card}`.
+- **Migrations:** `20260618090626` (businesses stripe_* cols + payments provider_* cols + idempotency index), `20260618130000` (businesses.deposit_percent), `20260618140000` (customers.allowed_payment_methods), `20260621100000` (customers card-on-file cols).
+
+**Features built on top:**
+- **Pay-with-card in invoice emails** — `invoiceEmailHtml` gains `payUrl`; gated on stripe_charges_enabled + balance + customer allows card.
+- **Payment receipt email** — webhook → branded receipt (template type `payment_receipt`).
+- **Quote deposit by card** — `businesses.deposit_percent` (default 50); portal "Accept & pay deposit" → `/api/portal/[token]/quote/[id]/accept-with-deposit` converts quote→invoice + mints a deposit child invoice → reuses checkout; `trg_reconcile_parent_invoice` rolls up.
+- **Per-customer payment methods** — `customers.allowed_payment_methods` (NULL=all; explicit list=only those; 'cash' opt-in). `src/lib/payment-methods.ts` (`resolveOfferedMethods`, `customerAllowsCard`). Enforced on portal, email pay-link, checkout route (403), quote deposit.
+- **Card on file + autopay (recurring)** — `customers.stripe_customer_id/stripe_payment_method_id/stripe_pm_brand/last4/exp/autopay_enabled`. Save-card = `/api/stripe/save-card` (hosted SetupIntent Checkout on connected acct) → webhook `checkout.session.completed` mode=setup stores PM + enables autopay. **Off-session charge engine** `src/lib/stripe-charge.ts` (`chargeInvoiceToSavedCard`) — confirmed PaymentIntent off_session + application_fee; SCA/decline → typed failure → fall back to emailed pay link. **Shared recorder** `src/lib/stripe-payments.ts` (`recordStripePayment`, idempotent on `(business_id, provider_payment_id)`) used by BOTH the webhook and the inline autopay record — so autopay needs no extra webhook event. `sendInvoiceEmail` auto-charges autopay customers (skips dunning email on success). "Charge saved card" button on invoice detail. Actions: `chargeSavedCardNow`, `setCustomerAutopay`, `removeSavedCard` (detaches PM), `getSaveCardLink`. MCP: `get_save_card_link`, `set_customer_autopay`, `charge_saved_card`, `get_stripe_status`, `create_stripe_payment_link`.
+
+**Stripe MCP:** a Stripe MCP connector is available in-session (tools `mcp__…__stripe_api_*`, `get_stripe_account_info`) but it authed to a DIFFERENT environment than the app's keys (couldn't see the connected account / GetAccounts empty), so it can't inspect the app's sandbox. Verify payments via the **Supabase DB** (`payments` where `provider='stripe'`) and **Vercel runtime logs** (`/api/stripe/webhook` status) instead.
+
+**Verified working (test mode):** Connect onboarding, one-off card payment (invoice→paid), receipt email, platform fee capture (`provider_platform_fee`). `provider_fee` (Stripe processing fee, the connected account's cost) can be null at webhook time — best-effort. Autopay built + shipped, not yet user-tested end-to-end.
+
+### Not yet done / parked
+- **App Store submission** (iOS): mid-flight on App Store Connect for "Kirei Business Manager" (ASC App ID `6773209964`, bundle `com.kireihq.app`, build 5). Metadata/build/age-rating(4+)/pricing(free, 175 territories)/privacy-policy-URL filled; **demo account created** (`apple.review@kireihq.com` / `AppleReview2026!`, biz "Kirei Demo Services" seeded via SQL). STILL NEEDS: screenshots (1290×2796), App Privacy data-collection answers, accept Developer Program License Agreement, then "Add for Review". The browser tools BLOCK the Stripe dashboard (financial site) but App Store Connect was driveable via Chrome MCP. **Do NOT click "Add for Review" without explicit per-action user confirmation.**
+- **Recurring auto-INVOICING:** Kirei "Recurring" (`recurring_jobs` + `/api/cron/recurring-jobs`) generates **work orders, not invoices** — so autopay charges invoices you send, but nothing yet auto-generates a monthly invoice. Follow-up: add optional billing (line items + auto-bill flag) to recurring_jobs so the cron generates an invoice and auto-charges via the existing engine.
+- **Go live on Stripe:** swap test→live keys + live webhook when ready for real money.
+
+### Traps learned this session
+- **Stripe env consistency** — app `STRIPE_SECRET_KEY`, the connected account, and the webhook endpoint must all be in the SAME Stripe environment (sandbox vs test vs live). A duplicate/idle webhook endpoint (0 deliveries) whose secret was copied caused persistent webhook 400s ("No signatures found matching"). Fix: ONE endpoint, copy ITS signing secret, same env as the keys.
+- **Vercel env changes need a redeploy** to take effect; updating a var alone does nothing to the running deployment.
+- **`"use server"` files may only export async functions** — a `export const` in `src/lib/actions/stripe.ts` broke ALL its exports at build (moved the const to `src/lib/stripe.ts`).
+- **Vercel `invoicer` project = kireihq.com** (the Vercel project is named "invoicer", branded Kirei). Env vars go on that project.
+- **Browser tools block the Stripe dashboard** (financial site) — can't automate it; guide the user click-by-click.
+- **Stripe webhook signature** needs the raw body — handled by `await request.text()` in the route handler (don't add body parsing/middleware that consumes it).
+
+---
+
 ## Session log (late May 2026) — store launch, MCP, email agent, design system
 
-Most recent push. Pick up from here.
+(Superseded by the June 2026 log above — kept for history.)
 
 ### Mobile published to the stores (EAS)
 - **EAS project linked:** `@tim90six/kirei`, `projectId` in `mobile/app.json`. Expo account `tim90six` (m.altamimi96@outlook.com). Drive EAS non-interactively with `EXPO_TOKEN` (create at expo.dev/settings/access-tokens) — `eas login` itself can't be automated.
