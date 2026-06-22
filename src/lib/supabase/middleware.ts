@@ -73,8 +73,6 @@ export async function updateSession(request: NextRequest) {
     pathname === "/api/stripe/webhook" ||
     pathname === "/api/stripe/checkout" ||
     pathname === "/api/stripe/save-card" ||
-    // Dropbox Sign e-signature callbacks (verified via event_hash + API key).
-    pathname === "/api/contracts/dropbox-sign/webhook" ||
     (isBearerAuthRoute && hasBearer) ||
     (pathname.startsWith("/api/pdf/") && new URL(request.url).searchParams.get("token") !== null);
 

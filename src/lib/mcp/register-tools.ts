@@ -1455,6 +1455,37 @@ export function registerTools(server: McpServer): void {
       return text({ deleted: true });
     });
 
+  tool("send_contract", "Email a contract to its customer for in-app e-signature; returns the signing link and flips it to sent.",
+    { contract_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "contracts:write");
+      const { data: c } = await t(ctx, "contracts")
+        .select("id, status, customer_id, title, customers(name, email)")
+        .eq("id", args.contract_id).eq("business_id", ctx.businessId).maybeSingle();
+      if (!c) return errorText("Contract not found");
+      if (c.status === "signed") return errorText("Already signed");
+      if (c.status === "voided") return errorText("Contract is voided");
+      if (!c.customer_id) return errorText("Contract has no customer");
+      const email = c.customers?.email as string | undefined;
+      const signer = (c.customers?.name as string | undefined) ?? "Customer";
+      if (!email) return errorText("Customer has no email address");
+
+      const token = await getOrMintPortalToken(ctx, c.customer_id);
+      const url = `${appBase()}/portal/${token}/contract/${c.id}`;
+      const { data: biz } = await t(ctx, "businesses").select("name, slug, email").eq("id", ctx.businessId).single();
+      const html = `<!doctype html><html><body style="font-family:Arial,Helvetica,sans-serif;background:#f6f6f4;padding:24px;color:#111"><div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;border:1px solid #e5e3d9;padding:28px"><p style="font-size:13px;color:#666;margin:0 0 4px">${biz?.name ?? "Your provider"}</p><h1 style="font-size:20px;margin:0 0 12px">Please sign: ${c.title}</h1><p style="font-size:14px;line-height:1.6;color:#333">Hi ${signer}, you have a contract ready to sign.</p><p style="margin:24px 0"><a href="${url}" style="background:#2f6f73;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-size:14px;font-weight:600">Review &amp; sign</a></p><p style="font-size:12px;color:#888">${url}</p></div></body></html>`;
+      await sendEmail({
+        to: email, subject: `${biz?.name ?? "Contract"}: please sign “${c.title}”`, html,
+        from: buildBusinessFrom({ name: biz?.name ?? "Kirei", slug: biz?.slug, localPart: "contracts" }),
+        replyTo: biz?.email ?? undefined,
+        tags: { business_id: ctx.businessId, doc_type: "custom", doc_id: c.id },
+      });
+      await t(ctx, "contracts").update({
+        status: "sent", provider: "native", signer_name: signer, signer_email: email, sent_at: new Date().toISOString(),
+      }).eq("id", c.id).eq("business_id", ctx.businessId);
+      return text({ sent: true, sign_url: url });
+    });
+
   tool("list_contract_templates", "List reusable contract templates.",
     {},
     async (_args, extra) => {

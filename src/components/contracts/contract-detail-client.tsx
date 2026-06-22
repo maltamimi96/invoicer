@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Trash2, XCircle, Send, Download, Save, Loader2 } from "@/components/ui/icons";
+import { ArrowLeft, Trash2, XCircle, Send, Download, Save, Loader2, Copy } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { updateContract, deleteContract, voidContract, getContractPdfUrl, sendContractForSignature } from "@/lib/actions/contracts";
+import { updateContract, deleteContract, voidContract, getContractPdfUrl, sendContractForSignature, getContractSignLink } from "@/lib/actions/contracts";
 import { formatDate } from "@/lib/utils";
 import type { Contract } from "@/types/database";
 
@@ -32,12 +32,12 @@ interface Props {
   contract: Contract & { customers?: { name: string; email: string | null } | null };
   renderedHtml: string;
   canEdit: boolean;
-  signingEnabled: boolean;
 }
 
-export function ContractDetailClient({ contract, renderedHtml, canEdit, signingEnabled }: Props) {
+export function ContractDetailClient({ contract, renderedHtml, canEdit }: Props) {
   const router = useRouter();
   const isDraft = contract.status === "draft";
+  const isSignable = !["signed", "voided", "declined"].includes(contract.status);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(contract.title);
   const [content, setContent] = useState(contract.content_html ?? "");
@@ -70,14 +70,21 @@ export function ContractDetailClient({ contract, renderedHtml, canEdit, signingE
   };
 
   const sendForSignature = async () => {
-    if (!signingEnabled) { toast.error("E-signature isn't configured yet. Add Dropbox Sign in settings."); return; }
     if (!contract.customers?.email) { toast.error("This customer has no email address"); return; }
     setBusy(true);
     try {
       await sendContractForSignature(contract.id);
-      toast.success("Sent to customer for signature"); router.refresh();
+      toast.success(`Emailed to ${contract.customers.email} to sign`); router.refresh();
     } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't send"); }
     finally { setBusy(false); }
+  };
+
+  const copySignLink = async () => {
+    try {
+      const { url } = await getContractSignLink(contract.id);
+      await navigator.clipboard.writeText(url);
+      toast.success("Signing link copied");
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't get link"); }
   };
 
   return (
@@ -93,22 +100,18 @@ export function ContractDetailClient({ contract, renderedHtml, canEdit, signingE
         actions={
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className={STATUS_TONES[contract.status] ?? ""}>{contract.status}</Badge>
-            {canEdit && isDraft && (
-              <Button onClick={sendForSignature} disabled={busy}>
-                {busy ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Send className="w-4 h-4 mr-1.5" />} Send to sign
-              </Button>
+            {canEdit && isSignable && (
+              <>
+                <Button variant="outline" onClick={copySignLink}><Copy className="w-4 h-4 mr-1.5" /> Copy link</Button>
+                <Button onClick={sendForSignature} disabled={busy}>
+                  {busy ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Send className="w-4 h-4 mr-1.5" />}
+                  {contract.status === "draft" ? "Send to sign" : "Resend"}
+                </Button>
+              </>
             )}
           </div>
         }
       />
-
-      {!signingEnabled && isDraft && (
-        <Card className="mb-4 border-amber-500/30 bg-amber-500/5">
-          <CardContent className="py-3 text-sm text-amber-700 dark:text-amber-400">
-            E-signature isn&apos;t set up yet. Add your Dropbox Sign API key to enable sending contracts for signing.
-          </CardContent>
-        </Card>
-      )}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">

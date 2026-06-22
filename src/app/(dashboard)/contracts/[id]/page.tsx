@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { canEdit as roleCanEdit, type Role } from "@/lib/permissions";
-import { getContract, renderContractHtml, isSigningEnabled } from "@/lib/actions/contracts";
+import { getContract, renderContractHtml } from "@/lib/actions/contracts";
 import { ContractDetailClient } from "@/components/contracts/contract-detail-client";
 
 export const dynamic = "force-dynamic";
@@ -29,17 +29,13 @@ export default async function ContractDetailPage({ params }: { params: Promise<{
   try { contract = await getContract(id); } catch { notFound(); }
   if (!contract) notFound();
 
-  const [renderedHtml, signingEnabled] = await Promise.all([
-    contract.kind === "rich_text" ? renderContractHtml(id) : Promise.resolve(""),
-    isSigningEnabled(),
-  ]);
+  const renderedHtml = contract.kind === "rich_text" ? await renderContractHtml(id) : "";
 
   return (
     <ContractDetailClient
       contract={contract}
       renderedHtml={renderedHtml}
       canEdit={roleCanEdit(role)}
-      signingEnabled={signingEnabled}
     />
   );
 }

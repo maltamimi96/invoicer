@@ -7,6 +7,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveBizId } from "@/lib/active-business";
 import { getUser } from "@/lib/auth";
 import { renderTemplateVars } from "@/lib/emails/templates";
+import { appUrl } from "@/lib/app-url";
+import { sendEmail, buildBusinessFrom } from "@/lib/email";
 import type { Contract, ContractTemplate } from "@/types/database";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -173,77 +175,96 @@ export async function getContractPdfUrl(contractId: string, which: "source" | "s
   return data?.signedUrl ?? null;
 }
 
-/** True when the platform Dropbox Sign account is configured. */
+/** Native in-app signing is always available — no third-party setup required. */
 export async function isSigningEnabled(): Promise<boolean> {
-  return Boolean(process.env.DROPBOX_SIGN_API_KEY);
+  return true;
+}
+
+/** Mint (or reuse) a customer portal token and return the deep link to sign this contract. */
+async function contractSignUrl(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  businessId: string, customerId: string, userId: string, contractId: string,
+): Promise<{ token: string; url: string }> {
+  const { data: existing } = await tbl(supabase, "customer_portal_tokens")
+    .select("token").eq("business_id", businessId).eq("customer_id", customerId)
+    .is("revoked_at", null)
+    .or("expires_at.is.null,expires_at.gt." + new Date().toISOString())
+    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+
+  let token: string | null = existing?.token ?? null;
+  if (!token) {
+    token = "cust_" + randomBytes(24).toString("hex");
+    const { error } = await tbl(supabase, "customer_portal_tokens").insert({
+      token, business_id: businessId, customer_id: customerId, created_by: userId,
+      expires_at: new Date(Date.now() + 90 * 86_400_000).toISOString(),
+    });
+    if (error) throw error;
+  }
+  return { token, url: `${appUrl()}/portal/${token}/contract/${contractId}` };
+}
+
+/** Returns the signing link for a contract (mints a portal token if needed). */
+export async function getContractSignLink(contractId: string): Promise<{ url: string }> {
+  const supabase = await createClient();
+  const user = await getUser();
+  const businessId = await getActiveBizId(supabase, user.id);
+  const { data: c } = await tbl(supabase, "contracts")
+    .select("customer_id").eq("id", contractId).eq("business_id", businessId).single();
+  if (!c?.customer_id) throw new Error("This contract has no customer to sign it");
+  const { url } = await contractSignUrl(supabase, businessId, c.customer_id, user.id, contractId);
+  return { url };
 }
 
 /**
- * Send a contract to its customer for e-signature via Dropbox Sign (one platform account).
- * PDF contracts are sent as-is; rich-text contracts are flattened to a simple PDF.
- * Records the provider request id and flips the contract to "sent".
+ * Send a contract to its customer for native in-app e-signature: mints a portal
+ * link and emails it to the customer, then flips the contract to "sent".
  */
-export async function sendContractForSignature(contractId: string): Promise<{ ok: true }> {
-  const apiKey = process.env.DROPBOX_SIGN_API_KEY;
-  if (!apiKey) throw new Error("E-signature isn't configured. Add DROPBOX_SIGN_API_KEY to enable it.");
-
+export async function sendContractForSignature(contractId: string): Promise<{ ok: true; url: string }> {
   const supabase = await createClient();
   const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
   const { data: c } = await tbl(supabase, "contracts")
-    .select("*, customers(name, email)").eq("id", contractId).eq("business_id", businessId).single();
+    .select("id, status, customer_id, title, customers(name, email)")
+    .eq("id", contractId).eq("business_id", businessId).single();
   if (!c) throw new Error("Contract not found");
-  if (c.status !== "draft") throw new Error("Only draft contracts can be sent");
+  if (c.status === "signed") throw new Error("This contract is already signed");
+  if (c.status === "voided") throw new Error("This contract has been voided");
+  if (!c.customer_id) throw new Error("This contract has no customer");
   const signerEmail = c.customers?.email as string | undefined;
   const signerName = (c.customers?.name as string | undefined) ?? "Customer";
   if (!signerEmail) throw new Error("This customer has no email address");
 
-  const { data: biz } = await tbl(supabase, "businesses").select("name").eq("id", businessId).single();
+  const { data: biz } = await tbl(supabase, "businesses").select("name, slug, email").eq("id", businessId).single();
+  const { url } = await contractSignUrl(supabase, businessId, c.customer_id, user.id, contractId);
 
-  // Build the multipart request to Dropbox Sign.
-  const form = new FormData();
-  form.append("title", c.title);
-  form.append("subject", `${biz?.name ?? "Contract"}: ${c.title}`);
-  form.append("message", "Please review and sign this contract.");
-  form.append("signers[0][email_address]", signerEmail);
-  form.append("signers[0][name]", signerName);
-  if (process.env.DROPBOX_SIGN_TEST_MODE === "1") form.append("test_mode", "1");
+  const html = `<!doctype html><html><body style="font-family:Arial,Helvetica,sans-serif;background:#f6f6f4;padding:24px;color:#111">
+    <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;border:1px solid #e5e3d9;padding:28px">
+      <p style="font-size:13px;color:#666;margin:0 0 4px">${biz?.name ?? "Your provider"}</p>
+      <h1 style="font-size:20px;margin:0 0 12px">Please sign: ${c.title}</h1>
+      <p style="font-size:14px;line-height:1.6;color:#333">Hi ${signerName}, you have a contract ready to review and sign. Click below to open it and add your signature — it only takes a minute.</p>
+      <p style="margin:24px 0"><a href="${url}" style="background:#2f6f73;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-size:14px;font-weight:600">Review &amp; sign</a></p>
+      <p style="font-size:12px;color:#888">Or paste this link into your browser:<br>${url}</p>
+    </div></body></html>`;
 
-  const admin = createAdminClient();
-  if (c.kind === "pdf" && c.source_path) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: blob, error } = await (admin as any).storage.from("contracts").download(c.source_path);
-    if (error || !blob) throw new Error("Could not read the contract PDF");
-    form.append("file[0]", blob, "contract.pdf");
-  } else {
-    // Flatten rich-text to a minimal HTML "file" — Dropbox Sign accepts .html uploads.
-    const html = await renderContractHtml(contractId);
-    const doc = `<!doctype html><html><head><meta charset="utf-8"><style>body{font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.6;padding:40px;color:#111}</style></head><body><h1>${c.title}</h1>${html}</body></html>`;
-    form.append("file[0]", new Blob([doc], { type: "text/html" }), "contract.html");
-  }
-
-  const resp = await fetch("https://api.hellosign.com/v3/signature_request/send", {
-    method: "POST",
-    headers: { Authorization: "Basic " + Buffer.from(`${apiKey}:`).toString("base64") },
-    body: form,
+  await sendEmail({
+    to: signerEmail,
+    subject: `${biz?.name ?? "Contract"}: please sign “${c.title}”`,
+    html,
+    from: buildBusinessFrom({ name: biz?.name ?? "Kirei", slug: biz?.slug, localPart: "contracts" }),
+    replyTo: biz?.email ?? undefined,
+    tags: { business_id: businessId, doc_type: "custom", doc_id: contractId },
   });
-  if (!resp.ok) {
-    const txt = await resp.text();
-    throw new Error(`Dropbox Sign error (${resp.status}): ${txt.slice(0, 300)}`);
-  }
-  const json = await resp.json();
-  const requestId: string | undefined = json?.signature_request?.signature_request_id;
 
   const { error: upErr } = await tbl(supabase, "contracts").update({
-    status: "sent", provider: "dropbox_sign", provider_request_id: requestId ?? null,
+    status: "sent", provider: "native",
     signer_name: signerName, signer_email: signerEmail, sent_at: new Date().toISOString(),
   }).eq("id", contractId).eq("business_id", businessId);
   if (upErr) throw upErr;
 
   revalidatePath(`/contracts/${contractId}`);
   revalidatePath("/contracts");
-  return { ok: true };
+  return { ok: true, url };
 }
 
 /** Render contract HTML with merge fields filled, for preview / signing. */
