@@ -1199,6 +1199,75 @@ export function registerTools(server: McpServer): void {
       return text({ updated: true });
     });
 
+  tool("create_recurring_job", "Create a recurring job schedule. The cron generates a work order each cycle. Optionally auto_invoice (raise an invoice from invoice_line_items each time) and auto_charge (charge the customer's saved card off-session). next_occurrence_at is the first job date (YYYY-MM-DD).",
+    {
+      name: z.string().min(1), title: z.string().min(1),
+      description: z.string().optional(), customer_id: UUID.optional(), property_address: z.string().optional(),
+      cadence: z.enum(["weekly", "fortnightly", "monthly", "quarterly"]),
+      next_occurrence_at: z.string(),
+      generate_days_ahead: z.number().int().optional(),
+      ends_on: z.string().optional(),
+      auto_invoice: z.boolean().optional(),
+      auto_charge: z.boolean().optional(),
+      invoice_line_items: z.array(z.object({
+        name: z.string(), description: z.string().optional(), quantity: z.number().optional(),
+        unit_price: z.number(), tax_rate: z.number().optional(), discount_percent: z.number().optional(),
+      })).optional(),
+    },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "work_orders:write");
+      const items = args.invoice_line_items ? buildLineItems(args.invoice_line_items).items : [];
+      const { data, error } = await t(ctx, "recurring_jobs").insert({
+        business_id: ctx.businessId, user_id: ctx.userId,
+        name: args.name, title: args.title, description: args.description ?? null,
+        customer_id: args.customer_id ?? null, property_address: args.property_address ?? null,
+        member_profile_ids: [],
+        cadence: args.cadence, next_occurrence_at: args.next_occurrence_at,
+        generate_days_ahead: args.generate_days_ahead ?? 14, ends_on: args.ends_on ?? null,
+        active: true,
+        auto_invoice: args.auto_invoice ?? false,
+        auto_charge: args.auto_charge ?? false,
+        invoice_line_items: items,
+      }).select().single();
+      if (error) throw error;
+      return text({ created: true, recurring_job: data });
+    });
+
+  tool("update_recurring_job", "Update a recurring job. Only provided fields change. Set auto_invoice/auto_charge + invoice_line_items to turn on automatic billing for the generated jobs.",
+    {
+      recurring_id: UUID,
+      name: z.string().optional(), title: z.string().optional(), description: z.string().optional(),
+      customer_id: UUID.optional(), property_address: z.string().optional(),
+      cadence: z.enum(["weekly", "fortnightly", "monthly", "quarterly"]).optional(),
+      next_occurrence_at: z.string().optional(), ends_on: z.string().nullable().optional(),
+      active: z.boolean().optional(),
+      auto_invoice: z.boolean().optional(), auto_charge: z.boolean().optional(),
+      invoice_line_items: z.array(z.object({
+        name: z.string(), description: z.string().optional(), quantity: z.number().optional(),
+        unit_price: z.number(), tax_rate: z.number().optional(), discount_percent: z.number().optional(),
+      })).optional(),
+    },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "work_orders:write");
+      const { recurring_id, invoice_line_items, ...rest } = args;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const patch: Record<string, any> = Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== undefined));
+      if (invoice_line_items) patch.invoice_line_items = buildLineItems(invoice_line_items).items;
+      if (Object.keys(patch).length === 0) return errorText("No fields to update.");
+      const { data, error } = await t(ctx, "recurring_jobs").update(patch).eq("id", recurring_id).eq("business_id", ctx.businessId).select().single();
+      if (error) throw error;
+      return text({ updated: true, recurring_job: data });
+    });
+
+  tool("delete_recurring_job", "Delete a recurring job schedule (stops future job generation; existing jobs are unaffected).",
+    { recurring_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "work_orders:write");
+      const { error } = await t(ctx, "recurring_jobs").delete().eq("id", args.recurring_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ deleted: true });
+    });
+
   // ===== RECURRING INVOICES (subscriptions / automatic billing) =====
   tool("list_recurring_invoices", "List recurring invoice schedules (subscriptions that auto-generate + auto-charge an invoice each cycle).",
     {},
@@ -1272,6 +1341,47 @@ export function registerTools(server: McpServer): void {
       });
       await t(ctx, "recurring_invoices").update({ last_invoice_id: out.invoiceId, last_run_at: new Date().toISOString() }).eq("id", args.recurring_invoice_id);
       return text({ generated: true, invoice_number: out.number, charged: out.charged, emailed: out.emailed });
+    });
+
+  tool("update_recurring_invoice", "Update a recurring invoice schedule. Only provided fields change; passing line_items replaces them and recomputes totals.",
+    {
+      recurring_invoice_id: UUID,
+      name: z.string().optional(),
+      line_items: z.array(z.object({
+        name: z.string(), description: z.string().optional(), quantity: z.number().optional(),
+        unit_price: z.number(), tax_rate: z.number().optional(), discount_percent: z.number().optional(),
+      })).optional(),
+      cadence: z.enum(["weekly", "fortnightly", "monthly", "quarterly"]).optional(),
+      next_run_on: z.string().optional(),
+      due_days: z.number().int().optional(),
+      auto_charge: z.boolean().optional(),
+      send_email: z.boolean().optional(),
+      ends_on: z.string().nullable().optional(),
+      notes: z.string().optional(),
+      terms: z.string().optional(),
+    },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "invoices:write");
+      const { recurring_invoice_id, line_items, ...rest } = args;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const patch: Record<string, any> = Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== undefined));
+      if (line_items) {
+        const { items, subtotal, tax_total, total } = buildLineItems(line_items);
+        patch.line_items = items; patch.subtotal = subtotal; patch.tax_total = tax_total; patch.total = total;
+      }
+      if (Object.keys(patch).length === 0) return errorText("No fields to update.");
+      const { data, error } = await t(ctx, "recurring_invoices").update(patch).eq("id", recurring_invoice_id).eq("business_id", ctx.businessId).select().single();
+      if (error) throw error;
+      return text({ updated: true, recurring_invoice: data });
+    });
+
+  tool("delete_recurring_invoice", "Delete a recurring invoice schedule (stops future automatic invoices; already-created invoices are unaffected).",
+    { recurring_invoice_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "invoices:write");
+      const { error } = await t(ctx, "recurring_invoices").delete().eq("id", args.recurring_invoice_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ deleted: true });
     });
 
   // ===== SCHEDULE =====
