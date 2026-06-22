@@ -1389,6 +1389,92 @@ export function registerTools(server: McpServer): void {
       return text({ deleted: true });
     });
 
+  // ===== CONTRACTS =====
+  tool("list_contracts", "List customer contracts (status: draft/sent/viewed/signed/declined/voided).",
+    { status: z.string().optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "contracts:read");
+      let q = t(ctx, "contracts").select("id, title, kind, status, customer_id, signer_email, sent_at, signed_at, created_at")
+        .eq("business_id", ctx.businessId).order("created_at", { ascending: false }).limit(100);
+      if (args.status) q = q.eq("status", args.status);
+      const { data, error } = await q;
+      if (error) throw error;
+      return text(data);
+    });
+
+  tool("get_contract", "Get a contract including its content.",
+    { contract_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "contracts:read");
+      const { data } = await t(ctx, "contracts").select("*, customers(name, email)").eq("id", args.contract_id).eq("business_id", ctx.businessId).maybeSingle();
+      if (!data) return errorText("Contract not found");
+      return text(data);
+    });
+
+  tool("create_contract", "Create a rich-text contract for a customer (draft). content_html may use merge fields: {{customer_name}}, {{business_name}}, {{date}}, etc. Send it for signature separately once Dropbox Sign is configured.",
+    { customer_id: UUID, title: z.string().min(1), content_html: z.string().min(1) },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "contracts:write");
+      const { data, error } = await t(ctx, "contracts").insert({
+        business_id: ctx.businessId, user_id: ctx.userId, customer_id: args.customer_id,
+        title: args.title, kind: "rich_text", content_html: args.content_html, status: "draft",
+      }).select().single();
+      if (error) throw error;
+      return text({ created: true, contract: data });
+    });
+
+  tool("update_contract", "Update a draft contract's title/content.",
+    { contract_id: UUID, title: z.string().optional(), content_html: z.string().optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "contracts:write");
+      const { contract_id, ...rest } = args;
+      const clean = Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== undefined));
+      if (Object.keys(clean).length === 0) return errorText("No fields to update.");
+      const { data: c } = await t(ctx, "contracts").select("status").eq("id", contract_id).eq("business_id", ctx.businessId).maybeSingle();
+      if (c && c.status !== "draft") return errorText("Only draft contracts can be edited");
+      const { data, error } = await t(ctx, "contracts").update(clean).eq("id", contract_id).eq("business_id", ctx.businessId).select().single();
+      if (error) throw error;
+      return text({ updated: true, contract: data });
+    });
+
+  tool("void_contract", "Void a contract (no longer valid / not to be signed).",
+    { contract_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "contracts:write");
+      const { error } = await t(ctx, "contracts").update({ status: "voided" }).eq("id", args.contract_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ voided: true });
+    });
+
+  tool("delete_contract", "Delete a contract.",
+    { contract_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "contracts:write");
+      const { error } = await t(ctx, "contracts").delete().eq("id", args.contract_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ deleted: true });
+    });
+
+  tool("list_contract_templates", "List reusable contract templates.",
+    {},
+    async (_args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "contracts:read");
+      const { data, error } = await t(ctx, "contract_templates").select("id, name, created_at").eq("business_id", ctx.businessId).order("name");
+      if (error) throw error;
+      return text(data);
+    });
+
+  tool("create_contract_template", "Create a reusable contract template (content_html may use merge fields).",
+    { name: z.string().min(1), content_html: z.string().min(1) },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "contracts:write");
+      const { data, error } = await t(ctx, "contract_templates").insert({
+        business_id: ctx.businessId, name: args.name, content_html: args.content_html,
+      }).select().single();
+      if (error) throw error;
+      return text({ created: true, template: data });
+    });
+
   // ===== SCHEDULE =====
   tool("get_schedule", "Get jobs scheduled on a given date (YYYY-MM-DD), or today if omitted.",
     { date: z.string().optional() },
