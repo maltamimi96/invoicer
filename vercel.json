@@ -25,6 +25,10 @@
       "schedule": "30 19 * * *"
     },
     {
+      "path": "/api/cron/recurring-invoices",
+      "schedule": "0 6 * * *"
+    },
+    {
       "path": "/api/cron/process-scheduled-sends",
       "schedule": "0 8 * * *"
     },

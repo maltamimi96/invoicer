@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
-import type { RecurringJob, RecurringJobCadence } from "@/types/database";
+import type { RecurringJob, RecurringJobCadence, LineItem } from "@/types/database";
 
 import { getUser } from "@/lib/auth";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -27,6 +27,10 @@ export type RecurringJobInput = {
   next_occurrence_at: string;
   ends_on?: string | null;
   active?: boolean;
+  /** Billing: also generate (and optionally auto-charge) an invoice each occurrence. */
+  auto_invoice?: boolean;
+  invoice_line_items?: LineItem[];
+  auto_charge?: boolean;
 };
 
 export async function getRecurringJobs(): Promise<RecurringJob[]> {
@@ -67,6 +71,9 @@ export async function createRecurringJob(input: RecurringJobInput): Promise<Recu
     next_occurrence_at: input.next_occurrence_at,
     ends_on: input.ends_on ?? null,
     active: input.active ?? true,
+    auto_invoice: input.auto_invoice ?? false,
+    invoice_line_items: input.invoice_line_items ?? [],
+    auto_charge: input.auto_charge ?? false,
   }).select().single();
 
   if (error) throw error;

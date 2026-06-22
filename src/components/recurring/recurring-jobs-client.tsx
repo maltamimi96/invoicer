@@ -12,13 +12,15 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { Switch } from "@/components/ui/switch";
+import { LineItemsEditor } from "@/components/invoices/line-items-editor";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import {
   createRecurringJob, updateRecurringJob, deleteRecurringJob, setRecurringJobActive,
   type RecurringJobInput,
 } from "@/lib/actions/recurring-jobs";
-import type { RecurringJob, RecurringJobCadence, Customer, MemberProfile } from "@/types/database";
+import type { RecurringJob, RecurringJobCadence, Customer, MemberProfile, Product } from "@/types/database";
 
 const CADENCE_LABEL: Record<RecurringJobCadence, string> = {
   weekly: "Every week",
@@ -49,6 +51,9 @@ function emptyForm(): RecurringJobInput {
     next_occurrence_at: today,
     ends_on: null,
     active: true,
+    auto_invoice: false,
+    invoice_line_items: [],
+    auto_charge: false,
   };
 }
 
@@ -56,9 +61,11 @@ interface Props {
   initialSchedules: RecurringJob[];
   customers: Customer[];
   profiles: MemberProfile[];
+  products: Product[];
+  currency: string;
 }
 
-export function RecurringJobsClient({ initialSchedules, customers, profiles }: Props) {
+export function RecurringJobsClient({ initialSchedules, customers, profiles, products, currency }: Props) {
   const [schedules, setSchedules] = useState(initialSchedules);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<RecurringJob | null>(null);
@@ -92,6 +99,9 @@ export function RecurringJobsClient({ initialSchedules, customers, profiles }: P
       next_occurrence_at: s.next_occurrence_at,
       ends_on: s.ends_on,
       active: s.active,
+      auto_invoice: s.auto_invoice ?? false,
+      invoice_line_items: s.invoice_line_items ?? [],
+      auto_charge: s.auto_charge ?? false,
     });
     setOpen(true);
   }
@@ -332,6 +342,38 @@ export function RecurringJobsClient({ initialSchedules, customers, profiles }: P
               <Label className="text-xs">Ends on (optional)</Label>
               <Input type="date" value={form.ends_on ?? ""} onChange={(e) => setForm({ ...form, ends_on: e.target.value || null })} />
             </div>
+          </div>
+
+          {/* Billing — optionally invoice + auto-charge each generated job */}
+          <div className="space-y-3 rounded-lg border border-border p-3 mt-1">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="font-normal">Auto-create an invoice each time</Label>
+                <p className="text-xs text-muted-foreground">When this job is generated, also raise an invoice for the customer.</p>
+              </div>
+              <Switch checked={!!form.auto_invoice} onCheckedChange={(v) => setForm({ ...form, auto_invoice: v })} />
+            </div>
+            {form.auto_invoice && (
+              <>
+                {!form.customer_id && <p className="text-xs text-amber-600">Pick a customer above so the invoice has someone to bill.</p>}
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Invoice line items</Label>
+                  <LineItemsEditor
+                    items={form.invoice_line_items ?? []}
+                    products={products}
+                    currency={currency}
+                    onChange={(items) => setForm({ ...form, invoice_line_items: items })}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="font-normal">Auto-charge saved card</Label>
+                    <p className="text-xs text-muted-foreground">Charge the customer&apos;s card on file automatically (else the invoice is emailed).</p>
+                  </div>
+                  <Switch checked={!!form.auto_charge} onCheckedChange={(v) => setForm({ ...form, auto_charge: v })} />
+                </div>
+              </>
+            )}
           </div>
 
           <DialogFooter>

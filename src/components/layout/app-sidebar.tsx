@@ -39,6 +39,7 @@ const navSections: NavSection[] = [
     { label: "Invoices",      href: "/invoices",      icon: FileText                                       },
     { label: "Site Reports",  href: "/reports",       icon: ClipboardList                                  },
     { label: "Recurring",     href: "/recurring",     icon: Repeat                                         },
+    { label: "Recurring billing", href: "/recurring-invoices", icon: Repeat                                 },
   ]},
   { section: "Service", items: [
     { label: "Work Orders",    href: "/work-orders",     icon: Wrench,        worker: true },
