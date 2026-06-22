@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { advanceOccurrence } from "@/lib/recurring/cadence";
-import type { RecurringJob } from "@/types/database";
+import type { RecurringJob, LineItem } from "@/types/database";
 
 function todayISO(): string {
   return new Date().toISOString().split("T")[0];
@@ -99,6 +99,31 @@ export async function GET(req: NextRequest) {
             assigned_by: r.user_id,
           }))
         );
+      }
+
+      // Auto-bill: generate (and optionally auto-charge) an invoice for this job.
+      if (wo && r.auto_invoice && r.customer_id && (r.invoice_line_items?.length ?? 0) > 0) {
+        try {
+          const { generateRecurringInvoice } = await import("@/lib/recurring/generate-invoice");
+          const { totalsFromLineItems } = await import("@/lib/recurring/totals");
+          const items = r.invoice_line_items as LineItem[];
+          const totals = totalsFromLineItems(items);
+          await generateRecurringInvoice(sb, {
+            businessId: r.business_id,
+            userId: r.user_id,
+            customerId: r.customer_id,
+            lineItems: items,
+            subtotal: totals.subtotal, taxTotal: totals.tax_total, total: totals.total,
+            dueDays: 14,
+            notes: r.title ? `For ${r.title} (${number})` : null,
+            terms: null,
+            autoCharge: r.auto_charge,
+            sendEmail: true,
+            workOrderId: wo.id,
+          });
+        } catch (err) {
+          console.error("[cron.recurring-jobs] auto-bill failed", r.id, err);
+        }
       }
 
       generated++;

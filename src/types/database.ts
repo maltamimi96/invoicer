@@ -356,6 +356,37 @@ export interface RecurringJob {
   last_generated_at: string | null;
   active: boolean;
   ends_on: string | null;
+  /** Billing: generate + (optionally) auto-charge an invoice each occurrence. */
+  auto_invoice: boolean;
+  invoice_line_items: LineItem[];
+  auto_charge: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Subscription-style schedule: auto-generate + auto-charge an invoice each cycle. */
+export interface RecurringInvoice {
+  id: string;
+  business_id: string;
+  user_id: string;
+  name: string;
+  customer_id: string;
+  line_items: LineItem[];
+  subtotal: number;
+  tax_total: number;
+  total: number;
+  notes: string | null;
+  terms: string | null;
+  cadence: RecurringJobCadence;
+  preferred_day_of_month: number | null;
+  due_days: number;
+  next_run_on: string;
+  ends_on: string | null;
+  auto_charge: boolean;
+  send_email: boolean;
+  active: boolean;
+  last_invoice_id: string | null;
+  last_run_at: string | null;
   created_at: string;
   updated_at: string;
 }

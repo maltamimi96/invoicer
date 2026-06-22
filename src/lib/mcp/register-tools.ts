@@ -1199,6 +1199,81 @@ export function registerTools(server: McpServer): void {
       return text({ updated: true });
     });
 
+  // ===== RECURRING INVOICES (subscriptions / automatic billing) =====
+  tool("list_recurring_invoices", "List recurring invoice schedules (subscriptions that auto-generate + auto-charge an invoice each cycle).",
+    {},
+    async (_args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "invoices:read");
+      const { data, error } = await t(ctx, "recurring_invoices")
+        .select("id, name, customer_id, total, cadence, next_run_on, auto_charge, active, last_run_at")
+        .eq("business_id", ctx.businessId).order("next_run_on");
+      if (error) throw error;
+      return text(data);
+    });
+
+  tool("create_recurring_invoice", "Create a recurring invoice schedule. Each cycle it auto-generates an invoice from these line items and (if auto_charge) charges the customer's saved card off-session, else emails it with a pay link. next_run_on is the first billing date (YYYY-MM-DD).",
+    {
+      customer_id: UUID,
+      name: z.string().min(1),
+      line_items: z.array(z.object({
+        name: z.string(), description: z.string().optional(), quantity: z.number().optional(),
+        unit_price: z.number(), tax_rate: z.number().optional(), discount_percent: z.number().optional(),
+      })).min(1),
+      cadence: z.enum(["weekly", "fortnightly", "monthly", "quarterly"]),
+      next_run_on: z.string(),
+      due_days: z.number().int().optional(),
+      auto_charge: z.boolean().optional(),
+      send_email: z.boolean().optional(),
+      ends_on: z.string().optional(),
+      notes: z.string().optional(),
+      terms: z.string().optional(),
+    },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "invoices:write");
+      const { items, subtotal, tax_total, total } = buildLineItems(args.line_items);
+      const { data, error } = await t(ctx, "recurring_invoices").insert({
+        business_id: ctx.businessId, user_id: ctx.userId,
+        name: args.name, customer_id: args.customer_id,
+        line_items: items, subtotal, tax_total, total,
+        cadence: args.cadence, next_run_on: args.next_run_on,
+        due_days: args.due_days ?? 14,
+        auto_charge: args.auto_charge ?? true,
+        send_email: args.send_email ?? true,
+        ends_on: args.ends_on ?? null,
+        notes: args.notes ?? null, terms: args.terms ?? null,
+        active: true,
+      }).select().single();
+      if (error) throw error;
+      return text({ created: true, recurring_invoice: data });
+    });
+
+  tool("set_recurring_invoice_active", "Pause or resume a recurring invoice schedule.",
+    { recurring_invoice_id: UUID, active: z.boolean() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "invoices:write");
+      const { error } = await t(ctx, "recurring_invoices").update({ active: args.active }).eq("id", args.recurring_invoice_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ updated: true });
+    });
+
+  tool("run_recurring_invoice_now", "Generate this schedule's invoice immediately (auto-charge / email per its settings) without waiting for the daily cron. Does not change the schedule's next run date.",
+    { recurring_invoice_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "invoices:write");
+      const { data: r } = await t(ctx, "recurring_invoices").select("*").eq("id", args.recurring_invoice_id).eq("business_id", ctx.businessId).maybeSingle();
+      if (!r) return errorText("Recurring invoice not found");
+      const { generateRecurringInvoice } = await import("@/lib/recurring/generate-invoice");
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const out = await generateRecurringInvoice(createAdminClient(), {
+        businessId: ctx.businessId, userId: r.user_id, customerId: r.customer_id,
+        lineItems: r.line_items ?? [], subtotal: Number(r.subtotal), taxTotal: Number(r.tax_total), total: Number(r.total),
+        dueDays: r.due_days ?? 14, notes: r.notes, terms: r.terms,
+        autoCharge: r.auto_charge, sendEmail: r.send_email,
+      });
+      await t(ctx, "recurring_invoices").update({ last_invoice_id: out.invoiceId, last_run_at: new Date().toISOString() }).eq("id", args.recurring_invoice_id);
+      return text({ generated: true, invoice_number: out.number, charged: out.charged, emailed: out.emailed });
+    });
+
   // ===== SCHEDULE =====
   tool("get_schedule", "Get jobs scheduled on a given date (YYYY-MM-DD), or today if omitted.",
     { date: z.string().optional() },
