@@ -588,6 +588,11 @@ export function registerTools(server: McpServer): void {
       // Stripe / payments: platform fee % and the quote-accept deposit %.
       platform_fee_percent: z.number().min(0).max(30).nullable().optional(),
       deposit_percent: z.number().min(0).max(100).nullable().optional(),
+      // Card surcharge passed to the customer (regulated — keep compliant).
+      card_surcharge_enabled: z.boolean().optional(),
+      card_surcharge_percent: z.number().min(0).max(30).optional(),
+      card_surcharge_fixed: z.number().min(0).optional(),
+      card_surcharge_note: z.string().nullable().optional(),
     },
     async (args, extra) => {
       const ctx = ctxFrom(extra); assertScope(ctx, "settings:write");

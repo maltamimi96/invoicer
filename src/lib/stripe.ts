@@ -50,6 +50,36 @@ export function fromStripeAmount(amount: number, currency: string): number {
 /** Deposit % to use when a business hasn't set one (quote-accept deposits). */
 export const DEFAULT_DEPOSIT_PERCENT = 50;
 
+export interface SurchargeConfig {
+  enabled?: boolean | null;
+  percent?: number | null;
+  fixed?: number | null;
+}
+
+/** Card surcharge (processing fee passed to the customer) in major units. 0 when off. */
+export function computeSurcharge(amount: number, cfg: SurchargeConfig): number {
+  if (!cfg?.enabled) return 0;
+  const pct = Number(cfg.percent ?? 0);
+  const fixed = Number(cfg.fixed ?? 0);
+  const s = (amount * pct) / 100 + fixed;
+  return s > 0 ? Math.round(s * 100) / 100 : 0;
+}
+
+/** Customer-facing note describing the card fee (custom overrides the auto text). */
+export function surchargeNote(cfg: SurchargeConfig & { note?: string | null; currencySymbol?: string }): string | null {
+  if (!cfg?.enabled) return null;
+  if (cfg.note && cfg.note.trim()) return cfg.note.trim();
+  const pct = Number(cfg.percent ?? 0);
+  const fixed = Number(cfg.fixed ?? 0);
+  const bits: string[] = [];
+  if (pct > 0) bits.push(`${pct}%`);
+  if (fixed > 0) bits.push(`${cfg.currencySymbol ?? ""}${fixed.toFixed(2)}`);
+  const amt = bits.join(" + ");
+  return amt
+    ? `A card processing fee of ${amt} applies when paying by card.`
+    : "A card processing fee applies when paying by card.";
+}
+
 /** Default platform fee percent. NULL on a business row → use this. */
 export function defaultPlatformFeePercent(): number {
   const raw = process.env.STRIPE_PLATFORM_FEE_PERCENT;

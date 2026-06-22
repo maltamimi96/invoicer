@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { ArrowLeft, FileText, Download, CreditCard } from "@/components/ui/icons";
 import { resolveOfferedMethods } from "@/lib/payment-methods";
+import { computeSurcharge, surchargeNote } from "@/lib/stripe";
 import type { LineItem } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +33,7 @@ export default async function PortalInvoicePage({ params }: { params: Promise<{ 
       .eq("business_id", link.business_id)
       .eq("customer_id", link.customer_id)
       .maybeSingle(),
-    tbl(sb, "businesses").select("name, logo_url, currency, bank_name, bank_account_name, bank_account_number, bank_sort_code, bank_iban, phone, email, stripe_charges_enabled").eq("id", link.business_id).maybeSingle(),
+    tbl(sb, "businesses").select("name, logo_url, currency, bank_name, bank_account_name, bank_account_number, bank_sort_code, bank_iban, phone, email, stripe_charges_enabled, card_surcharge_enabled, card_surcharge_percent, card_surcharge_fixed, card_surcharge_note").eq("id", link.business_id).maybeSingle(),
     tbl(sb, "customers").select("name, company, email, phone, address, city, postcode, country, allowed_payment_methods, autopay_enabled, stripe_payment_method_id, stripe_pm_brand, stripe_pm_last4").eq("id", link.customer_id).maybeSingle(),
     tbl(sb, "payments")
       .select("amount, date, method, reference")
@@ -53,6 +54,19 @@ export default async function PortalInvoicePage({ params }: { params: Promise<{ 
     allowed: customer?.allowed_payment_methods,
     stripeEnabled: !!business?.stripe_charges_enabled,
     hasBankDetails,
+  });
+
+  // Optional card surcharge passed to the customer.
+  const surcharge = computeSurcharge(balance, {
+    enabled: business?.card_surcharge_enabled,
+    percent: business?.card_surcharge_percent,
+    fixed: business?.card_surcharge_fixed,
+  });
+  const cardNote = surchargeNote({
+    enabled: business?.card_surcharge_enabled,
+    percent: business?.card_surcharge_percent,
+    fixed: business?.card_surcharge_fixed,
+    note: business?.card_surcharge_note,
   });
 
   return (
@@ -226,13 +240,19 @@ export default async function PortalInvoicePage({ params }: { params: Promise<{ 
               This invoice is payable by cash / in person. Please contact us to arrange payment.
             </p>
           )}
+          {!isPaid && balance > 0 && offered.card && cardNote && (
+            <p className="text-xs text-muted-foreground">{cardNote}</p>
+          )}
           <div className="flex items-center justify-center gap-2 flex-wrap">
             {!isPaid && balance > 0 && offered.card && (
               <a
                 href={`/api/stripe/checkout?invoice=${invoice.id}&token=${token}`}
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity shadow-sm"
               >
-                <CreditCard className="w-4 h-4" /> Pay {formatCurrency(balance, currency)} with card
+                <CreditCard className="w-4 h-4" />
+                {surcharge > 0
+                  ? `Pay ${formatCurrency(balance + surcharge, currency)} with card (incl. ${formatCurrency(surcharge, currency)} fee)`
+                  : `Pay ${formatCurrency(balance, currency)} with card`}
               </a>
             )}
             <a
