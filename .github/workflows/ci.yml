@@ -1,0 +1,48 @@
+name: CI
+
+# Quality gate for every change. Runs on PRs into main (and on main itself).
+# Branch protection requires the "build" job to pass before a PR can merge,
+# so broken typechecks / tests / builds can't reach production.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Test
+        run: npm test
+
+      # Advisory — surfaces lint issues without blocking the merge.
+      - name: Lint
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+          # Build is env-resilient (src/lib/supabase/client.ts falls back to
+          # placeholders), so no secrets are needed to verify it compiles.

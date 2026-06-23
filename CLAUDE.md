@@ -277,10 +277,28 @@ The big perf overhaul landed in May 2026 — context for anyone tempted to rever
 
 ## Working flow
 
-- Branch per change (`feat/...`, `fix/...`, `chore/...`); squash-merge to `main`
-- After merge, Vercel auto-redeploys production. Occasionally a merge doesn't trigger — `vercel --prod --yes` from root forces it.
-- For DB changes: ship the migration in the same PR + apply via `supabase db query --linked --file <path>` before merging
-- Preview deploys exist; production won't update until the build is green
+**🔴 STANDING RULE — never push features straight to production. Local → preview → prod, always.**
+
+1. **Branch** off `main` (`feat/...`, `fix/...`, `chore/...`). Never commit to `main` directly.
+2. **Verify locally before pushing** — all of these must pass:
+   ```bash
+   npx tsc --noEmit     # typecheck (what prod runs)
+   npm test             # vitest (DB-backed tests auto-skip without Supabase env)
+   npm run lint         # advisory
+   npm run build        # full production build
+   ```
+3. **Push the branch → open a PR.** CI (`.github/workflows/ci.yml`) runs typecheck + test + build and **must pass** — branch protection on `main` blocks merge otherwise. Each branch also gets its own **Vercel preview URL**; test the feature there like a real user.
+4. **Squash-merge** the PR → Vercel auto-deploys production. (If a merge doesn't trigger a deploy, `vercel --prod --yes` from root forces it.)
+
+- **CI is the gate.** `main` requires the `build` check + a PR (no direct pushes). Don't bypass it; if CI fails, fix the cause.
+- For DB changes: ship the migration in the same PR. **Migrations still apply to the LIVE Supabase project** (see Staging database below) — apply via `supabase db query --linked --file <path>` and record in `schema_migrations`. Treat schema changes as production changes until a staging DB exists.
+
+### Staging database (the remaining direct-to-live exposure)
+
+Code is gated by CI + previews, but there is **one Supabase project** (`huwlasrvbtbyxvmmfpwm`) and local `.env.local` + previews all point at it — so local dev reads/writes **prod data** and migrations hit prod immediately. To close this:
+- **Local-only dev (free):** add `supabase/config.toml` + run `supabase start` (Docker) so local dev uses a throwaway local Postgres; test migrations there first.
+- **Per-PR ephemeral DBs (paid):** enable **Supabase branching** (Pro plan + GitHub integration) so each PR gets an isolated database, or stand up a separate **staging project** that local + preview point at, promoting migrations prod-ward only after they pass on staging.
+- Until one of these is in place, **a migration = a production change** — review it with the same care as a prod deploy.
 
 ## Known traps (each cost a production fire to learn)
 
