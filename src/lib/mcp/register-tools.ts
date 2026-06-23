@@ -1389,6 +1389,32 @@ export function registerTools(server: McpServer): void {
       return text({ deleted: true });
     });
 
+  // ===== CUSTOMER PORTAL LINKS =====
+  tool("get_portal_links",
+    "Get shareable customer-portal (hub) links for a customer, plus optional deep links to a specific invoice / quote / report. The customer opens these without logging in. Pass a customer_id, or an invoice_id / quote_id / report_id to resolve the customer automatically.",
+    { customer_id: UUID.optional(), invoice_id: UUID.optional(), quote_id: UUID.optional(), report_id: UUID.optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "customers:read");
+      let customerId = args.customer_id ?? null;
+      const resolve = async (table: string, id?: string) => {
+        if (!id || customerId) return;
+        const { data } = await t(ctx, table).select("customer_id").eq("id", id).eq("business_id", ctx.businessId).maybeSingle();
+        if (data?.customer_id) customerId = data.customer_id as string;
+      };
+      await resolve("invoices", args.invoice_id);
+      await resolve("quotes", args.quote_id);
+      await resolve("reports", args.report_id);
+      if (!customerId) return errorText("Provide a customer_id, or an invoice/quote/report id that belongs to a customer.");
+
+      const token = await getOrMintPortalToken(ctx, customerId);
+      const base = appBase();
+      const out: Record<string, string> = { customer_id: customerId, hub_url: `${base}/portal/${token}` };
+      if (args.invoice_id) out.invoice_url = `${base}/portal/${token}/invoice/${args.invoice_id}`;
+      if (args.quote_id) out.quote_url = `${base}/portal/${token}/quote/${args.quote_id}`;
+      if (args.report_id) out.report_url = `${base}/portal/${token}/report/${args.report_id}`;
+      return text(out);
+    });
+
   // ===== CONTRACTS =====
   tool("list_contracts", "List customer contracts (status: draft/sent/viewed/signed/declined/voided).",
     { status: z.string().optional() },
