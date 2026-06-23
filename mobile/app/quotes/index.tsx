@@ -110,10 +110,10 @@ export default function QuotesList() {
         />
       ) : (
         <FlatList
+          style={{ flex: 1 }}
           initialNumToRender={12}
           maxToRenderPerBatch={12}
           windowSize={7}
-          removeClippedSubviews
           data={filtered!}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ paddingHorizontal: space.lg, paddingBottom: space.xxl }}
@@ -134,12 +134,12 @@ export default function QuotesList() {
                     <Text style={{ fontFamily: "monospace", fontSize: 12, color: colors.muted }}>{item.number}</Text>
                     <StatusPill tone={item.status} />
                   </View>
-                  <Text style={{ fontSize: 15, fontWeight: "700", color: colors.text }}>{item.customers?.name ?? "No customer"}</Text>
-                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                    <Text style={{ fontSize: 11, color: colors.muted }}>
+                  <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: "700", color: colors.text }}>{item.customers?.name ?? "No customer"}</Text>
+                  <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: 8 }}>
+                    <Text numberOfLines={1} style={{ flex: 1, fontSize: 11, color: colors.muted }}>
                       {item.issue_date ?? "Draft"}{item.expiry_date ? ` · expires ${item.expiry_date}` : ""}
                     </Text>
-                    <Text style={{ fontSize: 16, fontWeight: "800", color: colors.text, letterSpacing: -0.4 }}>{fmtMoney(num(item.total), currency)}</Text>
+                    <Text style={{ fontSize: 16, fontWeight: "800", color: colors.text, letterSpacing: -0.4, flexShrink: 0 }}>{fmtMoney(num(item.total), currency)}</Text>
                   </View>
                 </Pressable>
               </FadeIn>
