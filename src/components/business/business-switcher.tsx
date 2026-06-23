@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronsUpDown, Check, Plus, Building2 } from "@/components/ui/icons";
 import {
@@ -28,22 +28,34 @@ export function BusinessSwitcher({ business, businesses, onClose }: BusinessSwit
   const [isPending, startTransition] = useTransition();
   const [addOpen, setAddOpen] = useState(false);
   const { setBusy } = useAppLoading();
+  const pendingSwitch = useRef(false);
 
   const handleSwitch = (biz: Business) => {
     if (biz.id === business.id) return;
     setBusy(`Switching to ${biz.name}…`);
+    pendingSwitch.current = true;
+    onClose?.();
+    // setActiveBusiness flips the cookie, then router.refresh() refetches the
+    // whole tree for the new business. Both run inside the transition, so
+    // `isPending` stays true until the refreshed dashboard has committed.
     startTransition(async () => {
-      try {
-        await setActiveBusiness(biz.id);
-        router.refresh();
-        onClose?.();
-      } finally {
-        // Clear the overlay shortly after refresh kicks off so the new
-        // route's RSC payload arrives behind the spinner without flashing.
-        setTimeout(() => setBusy(null), 350);
-      }
+      await setActiveBusiness(biz.id);
+      router.refresh();
     });
+    // Safety net: never let the overlay get stuck if the refresh stalls.
+    window.setTimeout(() => {
+      if (pendingSwitch.current) { pendingSwitch.current = false; setBusy(null); }
+    }, 15000);
   };
+
+  // Hold the full-screen loader until the switch transition fully resolves
+  // (new dashboard data fetched + committed), then clear it.
+  useEffect(() => {
+    if (!isPending && pendingSwitch.current) {
+      pendingSwitch.current = false;
+      setBusy(null);
+    }
+  }, [isPending, setBusy]);
 
   return (
     <>
