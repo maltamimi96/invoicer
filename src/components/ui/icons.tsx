@@ -116,6 +116,7 @@ export {
   DotsThree as MoreHorizontal,
   CursorClick as MousePointer2,
   ArrowsOutCardinal as Move,
+  ArrowsOut as Maximize2,
   NavigationArrow as Navigation,
   XCircle as OctagonX,
   Sidebar as PanelLeft,

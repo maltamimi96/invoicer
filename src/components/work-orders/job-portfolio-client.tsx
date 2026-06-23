@@ -20,7 +20,7 @@ import {
   ArrowLeft, Camera, Clock, Package, FileText, PenLine, Receipt, History,
   Play, Square, Plus, Trash2, ExternalLink, MapPin, User, Calendar,
   CheckCircle2, Loader2, Image as ImageIcon, Upload, Eye, EyeOff, X, RotateCcw,
-  Share2, FileDown, Copy, Link2Off, Phone,
+  Share2, FileDown, Copy, Link2Off, Phone, Download, Maximize2, ChevronLeft, ChevronRight,
 } from "@/components/ui/icons";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -821,6 +821,55 @@ const PHASE_TABS: { key: JobPhotoPhase; label: string }[] = [
   { key: "reference", label: "Reference" },
 ];
 
+type PhotoFilter = JobPhotoPhase | "all";
+
+// ── Photo download helpers ─────────────────────────────────────────────────
+function extFromUrl(url: string, fallback = "jpg"): string {
+  const m = url.split("?")[0].match(/\.([a-z0-9]{2,5})$/i);
+  return m ? m[1].toLowerCase() : fallback;
+}
+function triggerBlobDownload(blob: Blob, filename: string) {
+  const u = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = u; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(u);
+}
+async function fetchAsBlob(url: string): Promise<Blob> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Failed (${res.status})`);
+  return res.blob();
+}
+/** Zip a set of photos client-side (STORE — images are already compressed). */
+async function downloadPhotosAsZip(
+  photos: JobPhoto[], zipName: string, onProgress?: (done: number, total: number) => void,
+): Promise<number> {
+  const JSZip = (await import("jszip")).default;
+  const zip = new JSZip();
+  let done = 0, ok = 0;
+  const CONCURRENCY = 6;
+  const queue = [...photos.entries()];
+  async function worker() {
+    for (;;) {
+      const next = queue.shift();
+      if (!next) break;
+      const [i, p] = next;
+      try {
+        const blob = await fetchAsBlob(p.url);
+        const name = `${p.phase || "photo"}-${String(i + 1).padStart(2, "0")}.${extFromUrl(p.url)}`;
+        zip.file(name, blob);
+        ok++;
+      } catch { /* skip unreachable image */ }
+      done++; onProgress?.(done, photos.length);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, photos.length) }, worker));
+  if (ok === 0) throw new Error("None of the images could be downloaded");
+  const out = await zip.generateAsync({ type: "blob" });
+  triggerBlobDownload(out, zipName);
+  return ok;
+}
+
 function PhotosSection({
   workOrderId, photos, editable, currentUserId, onAdd, onUpdate, onDelete,
 }: {
@@ -835,21 +884,63 @@ function PhotosSection({
   // Default to the first phase that actually has photos — otherwise worker
   // uploads (which default to "during") look invisible on an admin's first
   // visit because "before" is empty.
-  const initialPhase = useMemo<JobPhotoPhase>(() => {
+  const initialPhase = useMemo<PhotoFilter>(() => {
     const populated = PHASE_TABS.find((t) => photos.some((p) => p.phase === t.key));
     return populated?.key ?? "before";
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const [activePhase, setActivePhase] = useState<JobPhotoPhase>(initialPhase);
+  const [activePhase, setActivePhase] = useState<PhotoFilter>(initialPhase);
   const [uploading, setUploading] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [zip, setZip] = useState<{ done: number; total: number } | null>(null);
+  const [lightbox, setLightbox] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const filtered = photos.filter((p) => p.phase === activePhase);
+  const uploadPhase: JobPhotoPhase = activePhase === "all" ? "during" : activePhase;
+  const filtered = useMemo(
+    () => (activePhase === "all" ? photos : photos.filter((p) => p.phase === activePhase)),
+    [photos, activePhase],
+  );
   const counts = useMemo(() => {
     const c: Record<string, number> = {};
     PHASE_TABS.forEach((t) => { c[t.key] = photos.filter((p) => p.phase === t.key).length; });
     return c;
   }, [photos]);
+
+  const selectedPhotos = useMemo(() => photos.filter((p) => selected.has(p.id)), [photos, selected]);
+  const allVisibleSelected = filtered.length > 0 && filtered.every((p) => selected.has(p.id));
+
+  const toggleSelect = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  const selectAllVisible = () =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) filtered.forEach((p) => next.delete(p.id));
+      else filtered.forEach((p) => next.add(p.id));
+      return next;
+    });
+
+  const runZip = async (list: JobPhoto[], label: string) => {
+    if (list.length === 0) return;
+    if (list.length === 1) {
+      // Single image → download directly, no zip.
+      try {
+        const blob = await fetchAsBlob(list[0].url);
+        triggerBlobDownload(blob, `${list[0].phase || "photo"}.${extFromUrl(list[0].url)}`);
+      } catch { toast.error("Couldn't download image"); }
+      return;
+    }
+    setZip({ done: 0, total: list.length });
+    try {
+      const n = await downloadPhotosAsZip(list, `${label}.zip`, (done, total) => setZip({ done, total }));
+      toast.success(`Downloaded ${n} photo${n > 1 ? "s" : ""}`);
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Download failed"); }
+    finally { setZip(null); }
+  };
 
   const handleUpload = async (files: FileList | null) => {
     if (!files?.length) return;
@@ -865,7 +956,7 @@ function PhotosSection({
         const newPhoto = await addJobPhoto({
           work_order_id: workOrderId,
           url: data.publicUrl,
-          phase: activePhase,
+          phase: uploadPhase,
         });
         onAdd(newPhoto);
       }
@@ -874,27 +965,47 @@ function PhotosSection({
     finally { setUploading(false); if (fileRef.current) fileRef.current.value = ""; }
   };
 
+  const busy = zip !== null;
+
   return (
     <Section
       id="photos"
       title="Photos"
       icon={Camera}
-      action={editable && (
-        <>
-          <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleUpload(e.target.files)} />
-          <Button size="sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
-            {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Upload className="w-3.5 h-3.5 mr-1.5" />}
-            Upload to {activePhase}
-          </Button>
-        </>
-      )}
+      action={
+        <div className="flex items-center gap-2">
+          {photos.length > 0 && (
+            <Button size="sm" variant="outline" onClick={() => runZip(photos, `${workOrderId}-all-photos`)} disabled={busy}>
+              {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Download className="w-3.5 h-3.5 mr-1.5" />}
+              Download all ({photos.length})
+            </Button>
+          )}
+          {editable && (
+            <>
+              <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleUpload(e.target.files)} />
+              <Button size="sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
+                {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Upload className="w-3.5 h-3.5 mr-1.5" />}
+                Upload{activePhase === "all" ? "" : ` to ${activePhase}`}
+              </Button>
+            </>
+          )}
+        </div>
+      }
     >
-      <div className="flex gap-1 mb-4 border-b">
+      <div className="flex gap-1 mb-4 border-b overflow-x-auto">
+        <button
+          onClick={() => setActivePhase("all")}
+          className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+            activePhase === "all" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          All {photos.length > 0 && <span className="ml-1 text-xs text-muted-foreground">({photos.length})</span>}
+        </button>
         {PHASE_TABS.map((t) => (
           <button
             key={t.key}
             onClick={() => setActivePhase(t.key)}
-            className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
+            className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
               activePhase === t.key ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -903,52 +1014,204 @@ function PhotosSection({
         ))}
       </div>
 
+      {/* Selection toolbar */}
+      {filtered.length > 0 && (
+        <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="ghost" className="h-8 gap-1.5" onClick={selectAllVisible}>
+              <div className={`w-4 h-4 rounded border flex items-center justify-center ${allVisibleSelected ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/40"}`}>
+                {allVisibleSelected && <Check className="w-3 h-3" />}
+              </div>
+              {allVisibleSelected ? "Clear" : "Select all"}
+            </Button>
+            {selected.size > 0 && (
+              <span className="text-xs text-muted-foreground">{selected.size} selected</span>
+            )}
+          </div>
+          {selected.size > 0 && (
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="ghost" className="h-8" onClick={() => setSelected(new Set())} disabled={busy}>Cancel</Button>
+              <Button size="sm" className="h-8" onClick={() => runZip(selectedPhotos, `${workOrderId}-photos`)} disabled={busy}>
+                {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Download className="w-3.5 h-3.5 mr-1.5" />}
+                Download {selected.size}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {busy && zip && (
+        <div className="mb-3">
+          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+            <div className="h-full bg-primary transition-all" style={{ width: `${Math.round((zip.done / zip.total) * 100)}%` }} />
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">Preparing zip… {zip.done}/{zip.total}</p>
+        </div>
+      )}
+
       {filtered.length === 0 ? (
         <div className="py-8 text-center">
           <ImageIcon className="w-8 h-8 mx-auto text-muted-foreground/50 mb-2" />
-          <p className="text-sm text-muted-foreground">No {activePhase} photos yet</p>
+          <p className="text-sm text-muted-foreground">No {activePhase === "all" ? "" : activePhase} photos yet</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-          {filtered.map((p) => (
+          {filtered.map((p, i) => (
             <PhotoCard
               key={p.id}
               photo={p}
               editable={editable}
+              selected={selected.has(p.id)}
+              onToggleSelect={() => toggleSelect(p.id)}
+              onExpand={() => setLightbox(i)}
               onPhaseChange={(phase) => { onUpdate(p.id, { phase }); updateJobPhoto(p.id, { phase }).catch(() => toast.error("Failed to re-tag")); }}
               onDelete={() => {
                 if (!confirm("Delete this photo?")) return;
                 onDelete(p.id);
+                setSelected((prev) => { const n = new Set(prev); n.delete(p.id); return n; });
                 deleteJobPhoto(p.id).catch(() => toast.error("Delete failed"));
               }}
             />
           ))}
         </div>
       )}
+
+      {lightbox !== null && filtered[lightbox] && (
+        <PhotoLightbox
+          photos={filtered}
+          index={lightbox}
+          onIndex={setLightbox}
+          onClose={() => setLightbox(null)}
+          onDownload={(p) => runZip([p], "photo")}
+        />
+      )}
     </Section>
   );
 }
 
-function PhotoCard({ photo, editable, onPhaseChange, onDelete }: {
+function PhotoCard({ photo, editable, selected, onToggleSelect, onExpand, onPhaseChange, onDelete }: {
   photo: JobPhoto; editable: boolean;
+  selected: boolean;
+  onToggleSelect: () => void;
+  onExpand: () => void;
   onPhaseChange: (phase: JobPhotoPhase) => void; onDelete: () => void;
 }) {
   return (
-    <div className="group relative rounded-lg overflow-hidden border bg-muted aspect-square">
+    <div className={`group relative rounded-lg overflow-hidden border bg-muted aspect-square ${selected ? "ring-2 ring-primary ring-offset-1" : ""}`}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={photo.url} alt={photo.caption ?? ""} className="w-full h-full object-cover" />
+      <img
+        src={photo.url}
+        alt={photo.caption ?? ""}
+        className="w-full h-full object-cover cursor-zoom-in"
+        onClick={onExpand}
+      />
+
+      {/* Selection checkbox — always visible top-left */}
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onToggleSelect(); }}
+        className="absolute top-2 left-2 z-10"
+        aria-label={selected ? "Deselect photo" : "Select photo"}
+      >
+        <span className={`w-6 h-6 rounded-md border-2 flex items-center justify-center shadow-sm transition-colors ${
+          selected ? "bg-primary border-primary text-primary-foreground" : "bg-white/85 border-white/90 text-transparent hover:bg-white"
+        }`}>
+          <Check className="w-4 h-4" />
+        </span>
+      </button>
+
+      {/* Expand button — top-right on hover */}
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onExpand(); }}
+        className="absolute top-2 right-2 z-10 w-7 h-7 rounded-md bg-black/45 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+        aria-label="Expand photo"
+      >
+        <Maximize2 className="w-3.5 h-3.5" />
+      </button>
+
       {editable && (
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex flex-col justify-between p-2 opacity-0 group-hover:opacity-100">
-          <Select value={photo.phase} onValueChange={(v) => onPhaseChange(v as JobPhotoPhase)}>
-            <SelectTrigger className="h-7 text-xs bg-white/90"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {PHASE_TABS.map((t) => <SelectItem key={t.key} value={t.key}>{t.label}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={onDelete}>
-            <Trash2 className="w-3 h-3 mr-1" /> Delete
-          </Button>
+        <div className="absolute inset-x-0 bottom-0 p-2 flex items-end justify-between gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-t from-black/55 to-transparent pt-8 pointer-events-none">
+          <div className="pointer-events-auto w-[60%]" onClick={(e) => e.stopPropagation()}>
+            <Select value={photo.phase} onValueChange={(v) => onPhaseChange(v as JobPhotoPhase)}>
+              <SelectTrigger className="h-7 text-xs bg-white/90"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {PHASE_TABS.map((t) => <SelectItem key={t.key} value={t.key}>{t.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            className="pointer-events-auto w-7 h-7 rounded-md bg-destructive text-destructive-foreground flex items-center justify-center shrink-0"
+            aria-label="Delete photo"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
         </div>
+      )}
+    </div>
+  );
+}
+
+function PhotoLightbox({ photos, index, onIndex, onClose, onDownload }: {
+  photos: JobPhoto[];
+  index: number;
+  onIndex: (i: number) => void;
+  onClose: () => void;
+  onDownload: (p: JobPhoto) => void;
+}) {
+  const photo = photos[index];
+  const go = (delta: number) => {
+    const n = index + delta;
+    if (n >= 0 && n < photos.length) onIndex(n);
+  };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      else if (e.key === "ArrowLeft") go(-1);
+      else if (e.key === "ArrowRight") go(1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index, photos.length]);
+
+  if (!photo) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/90 flex flex-col" onClick={onClose}>
+      {/* Top bar */}
+      <div className="flex items-center justify-between p-3 text-white/90" onClick={(e) => e.stopPropagation()}>
+        <span className="text-sm">{index + 1} / {photos.length}{photo.phase ? ` · ${photo.phase}` : ""}</span>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="secondary" className="h-8 gap-1.5" onClick={() => onDownload(photo)}>
+            <Download className="w-3.5 h-3.5" /> Download
+          </Button>
+          <button onClick={onClose} className="w-8 h-8 rounded-md bg-white/10 hover:bg-white/20 flex items-center justify-center" aria-label="Close">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Image */}
+      <div className="flex-1 flex items-center justify-center px-2 pb-4 min-h-0" onClick={(e) => e.stopPropagation()}>
+        {index > 0 && (
+          <button onClick={() => go(-1)} className="absolute left-2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center" aria-label="Previous">
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+        )}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={photo.url} alt={photo.caption ?? ""} className="max-h-full max-w-full object-contain rounded" />
+        {index < photos.length - 1 && (
+          <button onClick={() => go(1)} className="absolute right-2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center" aria-label="Next">
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        )}
+      </div>
+      {photo.caption && (
+        <p className="text-center text-white/70 text-sm pb-4 px-4" onClick={(e) => e.stopPropagation()}>{photo.caption}</p>
       )}
     </div>
   );
