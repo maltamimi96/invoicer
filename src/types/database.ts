@@ -391,6 +391,41 @@ export interface RecurringInvoice {
   updated_at: string;
 }
 
+export type ContractStatus = 'draft' | 'sent' | 'viewed' | 'signed' | 'declined' | 'voided';
+
+export interface ContractTemplate {
+  id: string;
+  business_id: string;
+  name: string;
+  content_html: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Contract {
+  id: string;
+  business_id: string;
+  user_id: string;
+  customer_id: string | null;
+  title: string;
+  kind: 'rich_text' | 'pdf';
+  content_html: string | null;
+  source_path: string | null;
+  status: ContractStatus;
+  signer_name: string | null;
+  signer_email: string | null;
+  provider: string | null;
+  provider_request_id: string | null;
+  signed_path: string | null;
+  sent_at: string | null;
+  viewed_at: string | null;
+  signed_at: string | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  audit: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface CustomerPortalToken {
   token: string;
   business_id: string;
@@ -934,6 +969,8 @@ export type ApiScope =
   | 'settings:write'
   | 'bookings:read'
   | 'bookings:write'
+  | 'contracts:read'
+  | 'contracts:write'
   | 'email:send'
   | 'agent:access'
   | 'admin';  // wildcard — grants every scope (use for trusted Claude Code keys)
@@ -958,6 +995,8 @@ export const ALL_API_SCOPES: { value: ApiScope; label: string; group: string }[]
   { value: 'settings:write',   label: 'Edit settings & preferences', group: 'Settings' },
   { value: 'bookings:read',    label: 'Read bookings & config', group: 'Bookings' },
   { value: 'bookings:write',   label: 'Manage bookings & config', group: 'Bookings' },
+  { value: 'contracts:read',   label: 'Read contracts',    group: 'Contracts' },
+  { value: 'contracts:write',  label: 'Create / send contracts', group: 'Contracts' },
   { value: 'email:send',       label: 'Send emails to customers', group: 'Email' },
   { value: 'agent:access',     label: 'AI Agent access',   group: 'Agent' },
 ];

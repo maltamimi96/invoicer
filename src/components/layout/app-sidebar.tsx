@@ -37,6 +37,7 @@ const navSections: NavSection[] = [
     { label: "Quoting Agent", href: "/quoting-agent", icon: Sparkles,    feature: "quotingAgent"          },
     { label: "Quotes",        href: "/quotes",        icon: FileCheck                                      },
     { label: "Invoices",      href: "/invoices",      icon: FileText                                       },
+    { label: "Contracts",     href: "/contracts",     icon: FileStack                                      },
     { label: "Site Reports",  href: "/reports",       icon: ClipboardList                                  },
     { label: "Recurring",     href: "/recurring",     icon: Repeat                                         },
     { label: "Recurring billing", href: "/recurring-invoices", icon: Repeat                                 },

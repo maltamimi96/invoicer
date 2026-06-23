@@ -1389,6 +1389,123 @@ export function registerTools(server: McpServer): void {
       return text({ deleted: true });
     });
 
+  // ===== CONTRACTS =====
+  tool("list_contracts", "List customer contracts (status: draft/sent/viewed/signed/declined/voided).",
+    { status: z.string().optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "contracts:read");
+      let q = t(ctx, "contracts").select("id, title, kind, status, customer_id, signer_email, sent_at, signed_at, created_at")
+        .eq("business_id", ctx.businessId).order("created_at", { ascending: false }).limit(100);
+      if (args.status) q = q.eq("status", args.status);
+      const { data, error } = await q;
+      if (error) throw error;
+      return text(data);
+    });
+
+  tool("get_contract", "Get a contract including its content.",
+    { contract_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "contracts:read");
+      const { data } = await t(ctx, "contracts").select("*, customers(name, email)").eq("id", args.contract_id).eq("business_id", ctx.businessId).maybeSingle();
+      if (!data) return errorText("Contract not found");
+      return text(data);
+    });
+
+  tool("create_contract", "Create a rich-text contract for a customer (draft). content_html may use merge fields: {{customer_name}}, {{business_name}}, {{date}}, etc. Send it for signature separately once Dropbox Sign is configured.",
+    { customer_id: UUID, title: z.string().min(1), content_html: z.string().min(1) },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "contracts:write");
+      const { data, error } = await t(ctx, "contracts").insert({
+        business_id: ctx.businessId, user_id: ctx.userId, customer_id: args.customer_id,
+        title: args.title, kind: "rich_text", content_html: args.content_html, status: "draft",
+      }).select().single();
+      if (error) throw error;
+      return text({ created: true, contract: data });
+    });
+
+  tool("update_contract", "Update a draft contract's title/content.",
+    { contract_id: UUID, title: z.string().optional(), content_html: z.string().optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "contracts:write");
+      const { contract_id, ...rest } = args;
+      const clean = Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== undefined));
+      if (Object.keys(clean).length === 0) return errorText("No fields to update.");
+      const { data: c } = await t(ctx, "contracts").select("status").eq("id", contract_id).eq("business_id", ctx.businessId).maybeSingle();
+      if (c && c.status !== "draft") return errorText("Only draft contracts can be edited");
+      const { data, error } = await t(ctx, "contracts").update(clean).eq("id", contract_id).eq("business_id", ctx.businessId).select().single();
+      if (error) throw error;
+      return text({ updated: true, contract: data });
+    });
+
+  tool("void_contract", "Void a contract (no longer valid / not to be signed).",
+    { contract_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "contracts:write");
+      const { error } = await t(ctx, "contracts").update({ status: "voided" }).eq("id", args.contract_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ voided: true });
+    });
+
+  tool("delete_contract", "Delete a contract.",
+    { contract_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "contracts:write");
+      const { error } = await t(ctx, "contracts").delete().eq("id", args.contract_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ deleted: true });
+    });
+
+  tool("send_contract", "Email a contract to its customer for in-app e-signature; returns the signing link and flips it to sent.",
+    { contract_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "contracts:write");
+      const { data: c } = await t(ctx, "contracts")
+        .select("id, status, customer_id, title, customers(name, email)")
+        .eq("id", args.contract_id).eq("business_id", ctx.businessId).maybeSingle();
+      if (!c) return errorText("Contract not found");
+      if (c.status === "signed") return errorText("Already signed");
+      if (c.status === "voided") return errorText("Contract is voided");
+      if (!c.customer_id) return errorText("Contract has no customer");
+      const email = c.customers?.email as string | undefined;
+      const signer = (c.customers?.name as string | undefined) ?? "Customer";
+      if (!email) return errorText("Customer has no email address");
+
+      const token = await getOrMintPortalToken(ctx, c.customer_id);
+      const url = `${appBase()}/portal/${token}/contract/${c.id}`;
+      const { data: biz } = await t(ctx, "businesses").select("name, slug, email").eq("id", ctx.businessId).single();
+      const html = `<!doctype html><html><body style="font-family:Arial,Helvetica,sans-serif;background:#f6f6f4;padding:24px;color:#111"><div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;border:1px solid #e5e3d9;padding:28px"><p style="font-size:13px;color:#666;margin:0 0 4px">${biz?.name ?? "Your provider"}</p><h1 style="font-size:20px;margin:0 0 12px">Please sign: ${c.title}</h1><p style="font-size:14px;line-height:1.6;color:#333">Hi ${signer}, you have a contract ready to sign.</p><p style="margin:24px 0"><a href="${url}" style="background:#2f6f73;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-size:14px;font-weight:600">Review &amp; sign</a></p><p style="font-size:12px;color:#888">${url}</p></div></body></html>`;
+      await sendEmail({
+        to: email, subject: `${biz?.name ?? "Contract"}: please sign “${c.title}”`, html,
+        from: buildBusinessFrom({ name: biz?.name ?? "Kirei", slug: biz?.slug, localPart: "contracts" }),
+        replyTo: biz?.email ?? undefined,
+        tags: { business_id: ctx.businessId, doc_type: "custom", doc_id: c.id },
+      });
+      await t(ctx, "contracts").update({
+        status: "sent", provider: "native", signer_name: signer, signer_email: email, sent_at: new Date().toISOString(),
+      }).eq("id", c.id).eq("business_id", ctx.businessId);
+      return text({ sent: true, sign_url: url });
+    });
+
+  tool("list_contract_templates", "List reusable contract templates.",
+    {},
+    async (_args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "contracts:read");
+      const { data, error } = await t(ctx, "contract_templates").select("id, name, created_at").eq("business_id", ctx.businessId).order("name");
+      if (error) throw error;
+      return text(data);
+    });
+
+  tool("create_contract_template", "Create a reusable contract template (content_html may use merge fields).",
+    { name: z.string().min(1), content_html: z.string().min(1) },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "contracts:write");
+      const { data, error } = await t(ctx, "contract_templates").insert({
+        business_id: ctx.businessId, name: args.name, content_html: args.content_html,
+      }).select().single();
+      if (error) throw error;
+      return text({ created: true, template: data });
+    });
+
   // ===== SCHEDULE =====
   tool("get_schedule", "Get jobs scheduled on a given date (YYYY-MM-DD), or today if omitted.",
     { date: z.string().optional() },
