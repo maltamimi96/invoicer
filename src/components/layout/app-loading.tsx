@@ -1,10 +1,11 @@
 "use client";
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
-import { Loader2 } from "@/components/ui/icons";
+import Image from "next/image";
 
 interface AppLoadingValue {
-  /** Show a full-screen scrim with a spinner + label (e.g. while switching business). */
+  /** Show a full-screen takeover with the Kirei logo + spinner and a label
+   *  (e.g. while switching business). Pass null to dismiss. */
   setBusy: (label: string | null) => void;
   busy: string | null;
 }
@@ -24,14 +25,23 @@ export function AppLoadingProvider({ children }: { children: ReactNode }) {
       {children}
       {busy && (
         <div
-          className="fixed inset-0 z-[90] flex items-center justify-center bg-background/70 backdrop-blur-[1px]"
+          className="fixed inset-0 z-[200] flex flex-col items-center justify-center gap-6 bg-background"
           role="status"
           aria-live="polite"
         >
-          <div className="flex items-center gap-3 px-5 py-3 rounded-xl bg-card border border-border shadow-lg">
-            <Loader2 className="w-4 h-4 animate-spin text-primary" />
-            <span className="text-sm font-medium">{busy}</span>
+          {/* Kirei logo inside a spinning accent ring */}
+          <div className="relative flex items-center justify-center w-24 h-24">
+            <span className="absolute inset-0 rounded-full border-[3px] border-primary/15 border-t-primary animate-spin" />
+            <Image
+              src="/kirei-logo.png"
+              alt="Kirei"
+              width={56}
+              height={56}
+              priority
+              className="object-contain"
+            />
           </div>
+          {busy && <span className="text-sm font-medium text-muted-foreground">{busy}</span>}
         </div>
       )}
     </AppLoadingCtx.Provider>
