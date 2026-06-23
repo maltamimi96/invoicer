@@ -117,10 +117,10 @@ export default function InvoicesList() {
         />
       ) : (
         <FlatList
+          style={{ flex: 1 }}
           initialNumToRender={12}
           maxToRenderPerBatch={12}
           windowSize={7}
-          removeClippedSubviews
           data={filtered!}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ paddingHorizontal: space.lg, paddingBottom: space.xxl }}
@@ -145,12 +145,12 @@ export default function InvoicesList() {
                     <Text style={{ fontFamily: "monospace", fontSize: 12, color: colors.muted }}>{item.number}</Text>
                     <StatusPill tone={tone} />
                   </View>
-                  <Text style={{ fontSize: 15, fontWeight: "700", color: colors.text }}>{item.customers?.name ?? "No customer"}</Text>
-                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                    <Text style={{ fontSize: 11, color: colors.muted }}>
+                  <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: "700", color: colors.text }}>{item.customers?.name ?? "No customer"}</Text>
+                  <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: 8 }}>
+                    <Text numberOfLines={1} style={{ flex: 1, fontSize: 11, color: colors.muted }}>
                       {item.issue_date ?? "—"}{item.due_date ? ` · due ${item.due_date}` : ""}
                     </Text>
-                    <View style={{ alignItems: "flex-end" }}>
+                    <View style={{ alignItems: "flex-end", flexShrink: 0 }}>
                       <Text style={{ fontSize: 16, fontWeight: "800", color: colors.text, letterSpacing: -0.4 }}>{fmtMoney(num(item.total), currency)}</Text>
                       {balance > 0 && balance < num(item.total) && (
                         <Text style={{ fontSize: 11, color: "#dc2626", fontWeight: "700" }}>{fmtMoney(balance, currency)} due</Text>
