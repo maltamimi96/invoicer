@@ -50,6 +50,18 @@ export const AGENT_CATALOG: AgentDefinition[] = [
     badge: "new",
   },
   {
+    id: "form-builder",
+    name: "Form Builder",
+    description: "Build public lead-capture forms to share or embed on your website.",
+    longDescription:
+      "Design public forms with the drag-and-drop builder and share them via a link or embed them on any website with an iframe snippet. Every submission is captured, and can automatically create a lead in your sales pipeline. Enabling adds a Forms tab under Sales.",
+    icon: "list-checks",
+    category: "leads",
+    configType: "inline",
+    configPath: "/forms",
+    badge: "new",
+  },
+  {
     id: "daily-digest",
     name: "Daily Business Digest",
     description: "Receive a morning email summary of revenue, leads, overdue invoices, and today's jobs.",

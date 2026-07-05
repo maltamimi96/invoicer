@@ -61,13 +61,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
 
   // Feature flags — kept cheap (parallel single lookups). Used to gate sidebar items.
-  const [{ data: quotingSettings }, { data: onboardingSettings }] = await Promise.all([
+  const [{ data: quotingSettings }, { data: onboardingSettings }, { data: formBuilderSettings }] = await Promise.all([
     sb.from("quoting_agent_settings").select("enabled").eq("business_id", business.id).maybeSingle(),
     sb.from("onboarding_settings").select("enabled").eq("business_id", business.id).maybeSingle(),
+    sb.from("form_builder_settings").select("enabled").eq("business_id", business.id).maybeSingle(),
   ]);
   const features = {
     quotingAgent: !!quotingSettings?.enabled,
     onboarding: !!onboardingSettings?.enabled,
+    formBuilder: !!formBuilderSettings?.enabled,
   };
 
   return (

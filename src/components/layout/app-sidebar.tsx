@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, FileText, FileCheck, Users,
-  Package, Settings, FileStack, X, ClipboardList, Wrench, Users2, UserPlus, CalendarDays, MessageSquare, Bot, Repeat, HelpCircle, Columns3, TrendingUp, Sparkles,
+  Package, Settings, FileStack, X, ClipboardList, Wrench, Users2, UserPlus, CalendarDays, MessageSquare, Bot, Repeat, HelpCircle, Columns3, TrendingUp, Sparkles, ListChecks,
 } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 import type { Business } from "@/types/database";
@@ -14,7 +14,7 @@ import { canManageSettings, isWorker, ROLE_LABELS } from "@/lib/permissions";
 import Image from "next/image";
 import { BusinessSwitcher } from "@/components/business/business-switcher";
 
-type FeatureFlag = "quotingAgent" | "onboarding";
+type FeatureFlag = "quotingAgent" | "onboarding" | "formBuilder";
 type NavItem = {
   label: string;
   href: string;
@@ -34,6 +34,7 @@ const navSections: NavSection[] = [
   ]},
   { section: "Sales", items: [
     { label: "Leads",         href: "/leads",         icon: UserPlus                                       },
+    { label: "Forms",         href: "/forms",         icon: ListChecks,  feature: "formBuilder"           },
     { label: "Quoting Agent", href: "/quoting-agent", icon: Sparkles,    feature: "quotingAgent"          },
     { label: "Quotes",        href: "/quotes",        icon: FileCheck                                      },
     { label: "Invoices",      href: "/invoices",      icon: FileText                                       },
@@ -73,7 +74,7 @@ interface AppSidebarProps {
   businesses: Business[];
   userRole: Role;
   /** Server-fetched flags driving conditional nav items. */
-  features?: { quotingAgent?: boolean; onboarding?: boolean };
+  features?: { quotingAgent?: boolean; onboarding?: boolean; formBuilder?: boolean };
   open: boolean;
   onClose: () => void;
 }

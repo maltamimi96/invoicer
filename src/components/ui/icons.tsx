@@ -119,6 +119,8 @@ export {
   ArrowsOutCardinal as Move,
   ArrowsOut as Maximize2,
   DotsSixVertical as GripVertical,
+  ListChecks,
+  Code as CodeIcon,
   NavigationArrow as Navigation,
   XCircle as OctagonX,
   Sidebar as PanelLeft,
