@@ -504,6 +504,51 @@ export interface OnboardingResponse {
   updated_at: string;
 }
 
+// ── Public form builder (lead-capture / embeddable forms, feature-flagged) ──
+
+export type PublicFormStatus = 'draft' | 'published' | 'archived';
+
+export interface PublicFormSettings {
+  submit_text?: string;
+  thank_you_message?: string;
+  redirect_url?: string | null;
+  /** Create a lead in the sales pipeline on submit. */
+  create_lead?: boolean;
+  /** Which field ids map onto lead name / email / phone. */
+  lead_map?: { name?: string; email?: string; phone?: string };
+  /** Email addresses notified on each submission. */
+  notify_emails?: string[];
+}
+
+export interface PublicFormTheme {
+  accent?: string;          // hex
+  show_branding?: boolean;  // "Powered by Kirei"
+}
+
+export interface PublicForm {
+  id: string;
+  business_id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  status: PublicFormStatus;
+  schema: OnboardingField[];   // reuses the onboarding field model
+  settings: PublicFormSettings;
+  theme: PublicFormTheme;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PublicFormSubmission {
+  id: string;
+  business_id: string;
+  form_id: string;
+  answers: OnboardingAnswers;
+  lead_id: string | null;
+  meta: { ip?: string | null; user_agent?: string | null; referrer?: string | null };
+  created_at: string;
+}
+
 export interface CustomerPortalToken {
   token: string;
   business_id: string;
@@ -1051,6 +1096,8 @@ export type ApiScope =
   | 'contracts:write'
   | 'onboarding:read'
   | 'onboarding:write'
+  | 'forms:read'
+  | 'forms:write'
   | 'email:send'
   | 'agent:access'
   | 'admin';  // wildcard — grants every scope (use for trusted Claude Code keys)
@@ -1079,6 +1126,8 @@ export const ALL_API_SCOPES: { value: ApiScope; label: string; group: string }[]
   { value: 'contracts:write',  label: 'Create / send contracts', group: 'Contracts' },
   { value: 'onboarding:read',  label: 'Read onboarding forms & responses (secure fields redacted)', group: 'Onboarding' },
   { value: 'onboarding:write', label: 'Create / send onboarding forms', group: 'Onboarding' },
+  { value: 'forms:read',       label: 'Read public forms & submissions', group: 'Forms' },
+  { value: 'forms:write',      label: 'Create / publish public forms', group: 'Forms' },
   { value: 'email:send',       label: 'Send emails to customers', group: 'Email' },
   { value: 'agent:access',     label: 'AI Agent access',   group: 'Agent' },
 ];

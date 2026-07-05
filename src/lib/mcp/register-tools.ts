@@ -1415,6 +1415,116 @@ export function registerTools(server: McpServer): void {
       return text(out);
     });
 
+  // ===== PUBLIC FORM BUILDER (feature-flagged, lead-capture / embeddable) =====
+  const FORM_FIELD = z.object({
+    id: z.string().min(1),
+    type: z.enum([
+      "short_text", "long_text", "instructions", "email", "phone", "url", "address",
+      "abn", "company", "dropdown", "multi_select", "radio", "checkboxes", "yes_no",
+      "number", "currency", "date", "time", "opening_hours", "file", "image",
+      "rating", "consent", "heading", "divider",
+    ]),
+    label: z.string(),
+    help_text: z.string().optional(),
+    placeholder: z.string().optional(),
+    required: z.boolean().optional(),
+    options: z.array(z.string()).optional(),
+    preset: z.string().optional(),
+    validation: z.object({ pattern: z.string(), message: z.string() }).optional(),
+    show_if: z.object({ field_id: z.string(), equals: z.string() }).nullable().optional(),
+  });
+
+  tool("set_form_builder_enabled", "Enable or disable the Public Form Builder plugin for this business.",
+    { enabled: z.boolean() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "forms:write");
+      const { error } = await t(ctx, "form_builder_settings")
+        .upsert({ business_id: ctx.businessId, enabled: args.enabled }, { onConflict: "business_id" });
+      if (error) throw error;
+      return text({ enabled: args.enabled });
+    });
+
+  tool("list_public_forms", "List public/embeddable forms with their status and public URL slug.",
+    {},
+    async (_args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "forms:read");
+      const { data, error } = await t(ctx, "public_forms")
+        .select("id, name, slug, status, created_at").eq("business_id", ctx.businessId).order("created_at", { ascending: false });
+      if (error) throw error;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return text((data ?? []).map((f: any) => ({ ...f, public_url: `${appBase()}/f/${f.slug}`, embed_url: `${appBase()}/embed/${f.slug}` })));
+    });
+
+  tool("get_public_form", "Get one public form including its full field schema and settings.",
+    { form_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "forms:read");
+      const { data } = await t(ctx, "public_forms").select("*").eq("id", args.form_id).eq("business_id", ctx.businessId).maybeSingle();
+      if (!data) return errorText("Form not found");
+      return text({ ...data, public_url: `${appBase()}/f/${data.slug}`, embed_url: `${appBase()}/embed/${data.slug}` });
+    });
+
+  tool("create_public_form",
+    "Create a public/embeddable form (draft). fields is an ordered array (same field model as onboarding, minus secure). Set activate:true to publish immediately. create_lead (default true) makes each submission a lead in the sales pipeline.",
+    { name: z.string().min(1), description: z.string().optional(), fields: z.array(FORM_FIELD).optional(), activate: z.boolean().optional(), create_lead: z.boolean().optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "forms:write");
+      const base = args.name.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48) || "form";
+      let slug = base;
+      for (let i = 1; i < 200; i++) {
+        const { data: hit } = await t(ctx, "public_forms").select("id").eq("slug", slug).maybeSingle();
+        if (!hit) break;
+        slug = `${base}-${i + 1}`;
+      }
+      const { data, error } = await t(ctx, "public_forms").insert({
+        business_id: ctx.businessId, name: args.name, description: args.description ?? null, slug,
+        schema: args.fields ?? [], status: args.activate ? "published" : "draft",
+        settings: { submit_text: "Submit", create_lead: args.create_lead ?? true },
+        theme: { show_branding: true },
+      }).select("id, name, slug, status").single();
+      if (error) throw error;
+      return text({ created: true, form: data, public_url: `${appBase()}/f/${slug}`, embed_url: `${appBase()}/embed/${slug}` });
+    });
+
+  tool("update_public_form", "Update a public form's name/description/status/fields.",
+    {
+      form_id: UUID, name: z.string().optional(), description: z.string().optional(),
+      status: z.enum(["draft", "published", "archived"]).optional(),
+      fields: z.array(FORM_FIELD).optional(),
+    },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "forms:write");
+      const { form_id, fields, ...rest } = args;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const clean: Record<string, any> = Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== undefined));
+      if (fields !== undefined) clean.schema = fields;
+      if (Object.keys(clean).length === 0) return errorText("No fields to update.");
+      const { error } = await t(ctx, "public_forms").update(clean).eq("id", form_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ updated: true });
+    });
+
+  tool("delete_public_form", "Delete a public form and all its submissions.",
+    { form_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "forms:write");
+      const { error } = await t(ctx, "public_forms").delete().eq("id", args.form_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ deleted: true });
+    });
+
+  tool("list_form_submissions", "List submissions to a public form (newest first).",
+    { form_id: UUID, limit: z.number().optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "forms:read");
+      const { data, error } = await t(ctx, "public_form_submissions")
+        .select("id, answers, lead_id, created_at, leads(name)")
+        .eq("business_id", ctx.businessId).eq("form_id", args.form_id)
+        .order("created_at", { ascending: false }).limit(args.limit ?? 100);
+      if (error) throw error;
+      return text(data);
+    });
+
   // ===== CLIENT ONBOARDING (feature-flagged form builder) =====
   const ONBOARDING_FIELD = z.object({
     id: z.string().min(1),
