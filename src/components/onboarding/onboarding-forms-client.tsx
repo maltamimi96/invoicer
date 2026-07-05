@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Plus, ClipboardList, Send, Trash2, Copy, Loader2 } from "@/components/ui/icons";
+import { Plus, ClipboardList, Send, Trash2, Copy, Loader2, Eye } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -175,6 +175,9 @@ export function OnboardingFormsClient({ enabled, forms, requests, customers }: P
                     {f.schema.length} field{f.schema.length === 1 ? "" : "s"} · {f.completed_count}/{f.request_count} completed
                   </p>
                   <div className="flex items-center gap-2 pt-1">
+                    <Button size="sm" variant="outline" className="h-8" disabled={f.schema.length === 0} asChild>
+                      <Link href={`/onboarding-forms/${f.id}?view=1`}><Eye className="w-3.5 h-3.5 mr-1" /> View</Link>
+                    </Button>
                     <Button size="sm" variant="outline" className="h-8" asChild>
                       <Link href={`/onboarding-forms/${f.id}`}>Edit</Link>
                     </Button>

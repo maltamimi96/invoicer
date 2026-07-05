@@ -9,10 +9,10 @@ export const dynamic = "force-dynamic";
 
 export default async function OnboardingFormBuilderPage({ params, searchParams }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ response?: string }>;
+  searchParams: Promise<{ response?: string; view?: string }>;
 }) {
   const { id } = await params;
-  const { response: responseRequestId } = await searchParams;
+  const { response: responseRequestId, view } = await searchParams;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/auth/login");
@@ -45,5 +45,5 @@ export default async function OnboardingFormBuilderPage({ params, searchParams }
   }
 
   const secureAvailable = await getSecureFieldsAvailable();
-  return <FormBuilderClient form={form} secureAvailable={secureAvailable} />;
+  return <FormBuilderClient form={form} secureAvailable={secureAvailable} startInPreview={view === "1"} />;
 }
