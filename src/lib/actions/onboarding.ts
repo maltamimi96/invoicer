@@ -173,7 +173,7 @@ export async function sendOnboardingRequest(formId: string, customerId: string, 
   const [{ data: form }, { data: customer }, { data: biz }] = await Promise.all([
     tbl(supabase, "onboarding_forms").select("id, name, status, schema").eq("id", formId).eq("business_id", businessId).maybeSingle(),
     tbl(supabase, "customers").select("id, name, email").eq("id", customerId).eq("business_id", businessId).maybeSingle(),
-    tbl(supabase, "businesses").select("name, slug, email").eq("id", businessId).single(),
+    tbl(supabase, "businesses").select("name, email").eq("id", businessId).single(),
   ]);
   if (!form) throw new Error("Form not found");
   if (!customer) throw new Error("Customer not found");

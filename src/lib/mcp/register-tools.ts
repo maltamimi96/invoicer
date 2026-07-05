@@ -1623,7 +1623,7 @@ export function registerTools(server: McpServer): void {
       const [{ data: form }, { data: customer }, { data: biz }] = await Promise.all([
         t(ctx, "onboarding_forms").select("id, name, schema").eq("id", args.form_id).eq("business_id", ctx.businessId).maybeSingle(),
         t(ctx, "customers").select("id, name, email").eq("id", args.customer_id).eq("business_id", ctx.businessId).maybeSingle(),
-        t(ctx, "businesses").select("name, slug, email").eq("id", ctx.businessId).single(),
+        t(ctx, "businesses").select("name, email").eq("id", ctx.businessId).single(),
       ]);
       if (!form) return errorText("Form not found");
       if (!customer) return errorText("Customer not found");
@@ -1776,7 +1776,7 @@ export function registerTools(server: McpServer): void {
 
       const token = await getOrMintPortalToken(ctx, c.customer_id);
       const url = `${appBase()}/portal/${token}/contract/${c.id}`;
-      const { data: biz } = await t(ctx, "businesses").select("name, slug, email").eq("id", ctx.businessId).single();
+      const { data: biz } = await t(ctx, "businesses").select("name, email").eq("id", ctx.businessId).single();
       const html = `<!doctype html><html><body style="font-family:Arial,Helvetica,sans-serif;background:#f6f6f4;padding:24px;color:#111"><div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;border:1px solid #e5e3d9;padding:28px"><p style="font-size:13px;color:#666;margin:0 0 4px">${biz?.name ?? "Your provider"}</p><h1 style="font-size:20px;margin:0 0 12px">Please sign: ${c.title}</h1><p style="font-size:14px;line-height:1.6;color:#333">Hi ${signer}, you have a contract ready to sign.</p><p style="margin:24px 0"><a href="${url}" style="background:#2f6f73;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-size:14px;font-weight:600">Review &amp; sign</a></p><p style="font-size:12px;color:#888">${url}</p></div></body></html>`;
       await sendEmail({
         to: email, subject: `${biz?.name ?? "Contract"}: please sign “${c.title}”`, html,
