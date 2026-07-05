@@ -62,21 +62,45 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
 
     if (name || email || phone) {
       const { data: biz } = await tbl(sb, "businesses").select("user_id, name, slug, email").eq("id", form.business_id).single();
+      const leadName = name || email || phone || "Website enquiry";
+      // leads.user_id is NOT NULL — always have a valid owner id.
+      const ownerId: string | null = biz?.user_id ?? null;
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: created } = await (sb as any).rpc("upsert_lead", {
+        const { data: created, error: leadErr } = await (sb as any).rpc("upsert_lead", {
           p_business_id: form.business_id,
-          p_user_id: biz?.user_id ?? null,
-          p_name: name || email || phone || "Website enquiry",
+          p_user_id: ownerId,
+          p_name: leadName,
           p_email: email || null,
           p_phone: phone || null,
+          p_address: null, p_suburb: null, p_service: null,
+          p_property_type: null, p_timing: null,
           p_notes: `Submitted via form "${form.name}"`,
           p_source: "form",
           p_source_ref: slug,
         }).single();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        leadId = (created as any)?.id ?? null;
-      } catch { /* lead creation best-effort — never block the submission */ }
+        if (leadErr) {
+          console.error("[form-submit] upsert_lead failed:", leadErr.message ?? leadErr, leadErr.details ?? "", leadErr.hint ?? "");
+          // Fallback: dedup-aware insert isn't available, so do a plain insert
+          // (still better than losing the lead). Skip if we have no owner id.
+          if (ownerId) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data: ins, error: insErr } = await tbl(sb, "leads").insert({
+              business_id: form.business_id, user_id: ownerId, name: leadName,
+              email: email || null, phone: phone || null, status: "new",
+              source: "form", notes: `Submitted via form "${form.name}" (${slug})`,
+            }).select("id").single();
+            if (insErr) console.error("[form-submit] lead insert fallback failed:", insErr.message);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            else leadId = (ins as any)?.id ?? null;
+          }
+        } else {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          leadId = (created as any)?.id ?? null;
+        }
+      } catch (e) {
+        console.error("[form-submit] lead creation threw:", e instanceof Error ? e.message : e);
+      }
     }
   }
 
