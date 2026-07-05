@@ -235,7 +235,7 @@ export async function sendContractForSignature(contractId: string): Promise<{ ok
   const signerName = (c.customers?.name as string | undefined) ?? "Customer";
   if (!signerEmail) throw new Error("This customer has no email address");
 
-  const { data: biz } = await tbl(supabase, "businesses").select("name, slug, email").eq("id", businessId).single();
+  const { data: biz } = await tbl(supabase, "businesses").select("name, email").eq("id", businessId).single();
   const { url } = await contractSignUrl(supabase, businessId, c.customer_id, user.id, contractId);
 
   const html = `<!doctype html><html><body style="font-family:Arial,Helvetica,sans-serif;background:#f6f6f4;padding:24px;color:#111">

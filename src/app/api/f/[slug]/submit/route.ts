@@ -61,7 +61,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     const phone = val(phoneFieldId);
 
     if (name || email || phone) {
-      const { data: biz } = await tbl(sb, "businesses").select("user_id, name, slug, email").eq("id", form.business_id).single();
+      const { data: biz } = await tbl(sb, "businesses").select("user_id, name, email").eq("id", form.business_id).single();
       const leadName = name || email || phone || "Website enquiry";
       // leads.user_id is NOT NULL — always have a valid owner id.
       const ownerId: string | null = biz?.user_id ?? null;
@@ -113,7 +113,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
   const notify = settings.notify_emails ?? [];
   if (notify.length > 0) {
     try {
-      const { data: biz } = await tbl(sb, "businesses").select("name, slug, email").eq("id", form.business_id).single();
+      const { data: biz } = await tbl(sb, "businesses").select("name, email").eq("id", form.business_id).single();
       const rows = schema.filter((f) => !["heading", "divider", "instructions"].includes(f.type))
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .map((f) => `<tr><td style="padding:4px 10px;color:#666">${f.label}</td><td style="padding:4px 10px"><strong>${fmt((answers as any)[f.id])}</strong></td></tr>`).join("");
