@@ -426,6 +426,79 @@ export interface Contract {
   updated_at: string;
 }
 
+// ── Client onboarding (per-business form builder, feature-flagged) ──────────
+
+export type OnboardingFieldType =
+  | 'short_text' | 'long_text' | 'instructions'
+  | 'email' | 'phone' | 'url' | 'address'
+  | 'abn' | 'company'
+  | 'dropdown' | 'multi_select' | 'radio' | 'checkboxes' | 'yes_no'
+  | 'number' | 'currency' | 'date' | 'time' | 'opening_hours'
+  | 'file' | 'image'
+  | 'rating' | 'secure' | 'consent'
+  | 'heading' | 'divider';
+
+export interface OnboardingField {
+  id: string;                       // stable key answers are stored under
+  type: OnboardingFieldType;
+  label: string;
+  help_text?: string;
+  placeholder?: string;
+  required?: boolean;
+  options?: string[];               // dropdown / multi_select / radio / checkboxes
+  /** Simple conditional visibility: show when another field equals a value. */
+  show_if?: { field_id: string; equals: string } | null;
+}
+
+export type OnboardingFormStatus = 'draft' | 'active' | 'archived';
+
+export interface OnboardingForm {
+  id: string;
+  business_id: string;
+  name: string;
+  description: string | null;
+  status: OnboardingFormStatus;
+  schema: OnboardingField[];
+  settings: { thank_you_message?: string; allow_edit_after_submit?: boolean };
+  created_at: string;
+  updated_at: string;
+}
+
+export type OnboardingRequestStatus = 'pending' | 'viewed' | 'completed';
+
+export interface OnboardingRequest {
+  id: string;
+  business_id: string;
+  form_id: string;
+  customer_id: string;
+  status: OnboardingRequestStatus;
+  sent_at: string;
+  viewed_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Secure ("secure" type) answers are stored as { enc: string } — AES-256-GCM,
+ *  decrypted only server-side on explicit reveal. Files/images store the
+ *  storage path; everything else stores the raw value. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type OnboardingAnswers = Record<string, any>;
+
+export interface OnboardingResponse {
+  id: string;
+  business_id: string;
+  request_id: string;
+  form_id: string;
+  customer_id: string;
+  answers: OnboardingAnswers;
+  schema_snapshot: OnboardingField[];
+  draft: boolean;
+  submitted_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface CustomerPortalToken {
   token: string;
   business_id: string;
@@ -971,6 +1044,8 @@ export type ApiScope =
   | 'bookings:write'
   | 'contracts:read'
   | 'contracts:write'
+  | 'onboarding:read'
+  | 'onboarding:write'
   | 'email:send'
   | 'agent:access'
   | 'admin';  // wildcard — grants every scope (use for trusted Claude Code keys)
@@ -997,6 +1072,8 @@ export const ALL_API_SCOPES: { value: ApiScope; label: string; group: string }[]
   { value: 'bookings:write',   label: 'Manage bookings & config', group: 'Bookings' },
   { value: 'contracts:read',   label: 'Read contracts',    group: 'Contracts' },
   { value: 'contracts:write',  label: 'Create / send contracts', group: 'Contracts' },
+  { value: 'onboarding:read',  label: 'Read onboarding forms & responses (secure fields redacted)', group: 'Onboarding' },
+  { value: 'onboarding:write', label: 'Create / send onboarding forms', group: 'Onboarding' },
   { value: 'email:send',       label: 'Send emails to customers', group: 'Email' },
   { value: 'agent:access',     label: 'AI Agent access',   group: 'Agent' },
 ];
