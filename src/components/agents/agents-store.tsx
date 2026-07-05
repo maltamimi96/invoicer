@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import {
   Bot, MailSearch, PlugZap, BellRing, Send,
   Settings, Trash2, Plus,
-  Zap, Newspaper, MailCheck, UserRoundCheck, FileClock, CheckCircle, Star, ClipboardList,
+  Zap, Newspaper, MailCheck, UserRoundCheck, FileClock, CheckCircle, Star, ClipboardList, ListChecks,
 } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -52,6 +52,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
   "check-circle": CheckCircle,
   star: Star,
   "clipboard-list": ClipboardList,
+  "list-checks": ListChecks,
 };
 
 function AgentIcon({ name, className }: { name: string; className?: string }) {

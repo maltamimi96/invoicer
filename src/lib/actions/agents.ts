@@ -128,4 +128,9 @@ async function syncSideEffects(sb: any, businessId: string, agentId: string, ena
       .upsert({ business_id: businessId, enabled }, { onConflict: "business_id" });
     revalidatePath("/", "layout"); // sidebar tab appears/disappears
   }
+  if (agentId === "form-builder") {
+    await tbl(sb, "form_builder_settings")
+      .upsert({ business_id: businessId, enabled }, { onConflict: "business_id" });
+    revalidatePath("/", "layout");
+  }
 }
