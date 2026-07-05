@@ -56,6 +56,10 @@ export async function updateSession(request: NextRequest) {
     // These own their tenant resolution (by slug) and bot protection.
     pathname.startsWith("/book/") ||
     pathname.startsWith("/booking/") ||
+    // Public form builder: hosted form, iframe embed, and public submit/upload.
+    pathname.startsWith("/f/") ||
+    pathname.startsWith("/embed/") ||
+    pathname.startsWith("/api/f/") ||
     pathname.startsWith("/api/public/") ||
     pathname === "/api/auth/signup" ||
     pathname.startsWith("/api/v1/") ||
