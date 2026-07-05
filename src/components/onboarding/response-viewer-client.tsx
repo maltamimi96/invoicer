@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/layout/page-header";
 import { revealSecureAnswer, getOnboardingUploadUrl } from "@/lib/actions/onboarding";
+import { socialProfileUrl } from "@/lib/onboarding/presets";
 import { formatDate } from "@/lib/utils";
 import type { OnboardingResponse, OnboardingField } from "@/types/database";
 
@@ -119,8 +120,18 @@ function AnswerValue({ field: f, value, responseId }: { field: OnboardingField; 
       return <a href={href} target="_blank" rel="noopener noreferrer" className="text-sm text-primary underline break-all">{String(value)}</a>;
     }
 
-    default:
+    default: {
+      // Social-handle presets (instagram / tiktok / x) become profile links.
+      const social = typeof value === "string" ? socialProfileUrl(f.preset, value) : null;
+      if (social) {
+        return (
+          <a href={social} target="_blank" rel="noopener noreferrer" className="text-sm text-primary underline break-all">
+            {String(value)}
+          </a>
+        );
+      }
       return <p className="text-sm whitespace-pre-wrap break-words">{String(value)}</p>;
+    }
   }
 }
 

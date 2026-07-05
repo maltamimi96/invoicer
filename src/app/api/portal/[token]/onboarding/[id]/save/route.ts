@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { processAnswersForStorage, missingRequiredFields } from "@/lib/onboarding/answers";
+import { processAnswersForStorage, missingRequiredFields, invalidAnswerFields } from "@/lib/onboarding/answers";
 import type { OnboardingField } from "@/types/database";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -41,8 +41,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
 
   if (body.submit) {
     const missing = missingRequiredFields(schema, merged);
-    if (missing.length > 0) {
-      return NextResponse.json({ error: "Please fill in all required fields", missing }, { status: 422 });
+    const invalid = invalidAnswerFields(schema, merged);
+    if (missing.length > 0 || invalid.length > 0) {
+      return NextResponse.json({
+        error: missing.length > 0 ? "Please fill in all required fields" : "Please fix the highlighted fields",
+        missing, invalid,
+      }, { status: 422 });
     }
   }
 

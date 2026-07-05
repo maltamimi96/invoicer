@@ -25,6 +25,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { updateOnboardingForm } from "@/lib/actions/onboarding";
+import { PRESET_LIBRARY, PRESET_GROUPS, fieldFromPreset } from "@/lib/onboarding/presets";
 import type { OnboardingForm, OnboardingField, OnboardingFieldType } from "@/types/database";
 
 // ── Field palette definition ─────────────────────────────────────────────────
@@ -196,6 +197,36 @@ export function FormBuilderClient({ form, secureAvailable }: Props) {
           {/* Palette */}
           <Card className="h-fit lg:sticky lg:top-4">
             <CardContent className="p-3 space-y-3 max-h-[75vh] overflow-y-auto">
+              {/* Quick-add presets — ready-made fields with validation baked in */}
+              <div>
+                <p className="text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground px-1 mb-1">Ready-made</p>
+                <Select value="" onValueChange={(key) => {
+                  const p = PRESET_LIBRARY.find((x) => x.key === key);
+                  if (!p) return;
+                  if (p.type === "secure" && !secureAvailable) {
+                    toast.error("Secure fields need ONBOARDING_SECRET_KEY set on the server first.");
+                    return;
+                  }
+                  const f = fieldFromPreset(p, newId());
+                  setFields((prev) => [...prev, f]);
+                  setSelectedId(f.id);
+                  setPreview(false);
+                }}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Add a preset field…" /></SelectTrigger>
+                  <SelectContent className="max-h-[320px]">
+                    {PRESET_GROUPS.map((g) => (
+                      <div key={g}>
+                        <p className="px-2 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{g}</p>
+                        {PRESET_LIBRARY.filter((p) => p.group === g).map((p) => (
+                          <SelectItem key={p.key} value={p.key} className="text-xs">{p.label}</SelectItem>
+                        ))}
+                      </div>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-muted-foreground px-1 mt-1">Presets include the right format checks (ABN checksum, handle rules…)</p>
+              </div>
+
               {PALETTE.map((group) => (
                 <div key={group.group}>
                   <p className="text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground px-1 mb-1">{group.group}</p>
