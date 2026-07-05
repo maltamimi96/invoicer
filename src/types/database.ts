@@ -448,6 +448,11 @@ export interface OnboardingField {
   options?: string[];               // dropdown / multi_select / radio / checkboxes
   /** Simple conditional visibility: show when another field equals a value. */
   show_if?: { field_id: string; equals: string } | null;
+  /** Preset key (e.g. "instagram", "abn") — drives format validation and
+   *  smart rendering (handle → profile link) in the response viewer. */
+  preset?: string;
+  /** Custom regex validation applied on submit (in addition to type/preset checks). */
+  validation?: { pattern?: string; message?: string };
 }
 
 export type OnboardingFormStatus = 'draft' | 'active' | 'archived';

@@ -288,10 +288,27 @@ export function OnboardingFormsClient({ enabled, forms, requests, customers }: P
               They&apos;ll get an email with a secure portal link — no login needed. The link is also copied to your clipboard.
             </p>
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setSendForm(null)}>Cancel</Button>
+            <Button
+              variant="outline" disabled={busy || !sendCustomer}
+              onClick={async () => {
+                if (!sendForm || !sendCustomer) return;
+                setBusy(true);
+                try {
+                  const { url } = await sendOnboardingRequest(sendForm.id, sendCustomer, { email: false });
+                  await navigator.clipboard.writeText(url);
+                  toast.success("Share link copied — send it however you like");
+                  setSendForm(null); setSendCustomer("");
+                  router.refresh();
+                } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't create link"); }
+                finally { setBusy(false); }
+              }}
+            >
+              <Copy className="w-4 h-4 mr-1.5" /> Copy link
+            </Button>
             <Button onClick={send} disabled={busy || !sendCustomer}>
-              {busy ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Send className="w-4 h-4 mr-1.5" />} Send
+              {busy ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Send className="w-4 h-4 mr-1.5" />} Send email
             </Button>
           </DialogFooter>
         </DialogContent>

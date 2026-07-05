@@ -7,12 +7,37 @@ import { getWorkOrders } from "@/lib/actions/work-orders";
 import { getReports } from "@/lib/actions/reports";
 import { getCustomerProperties, getCustomerContacts, getCustomerNotes } from "@/lib/actions/customer-hub";
 import { getBillingProfilesForAccount } from "@/lib/actions/billing-profiles";
-import { CustomerDetailClient } from "@/components/customers/customer-detail-client";
+import {
+  getOnboardingSettings, getOnboardingRequests, getOnboardingResponsesForCustomer, getOnboardingForms,
+} from "@/lib/actions/onboarding";
+import { CustomerDetailClient, type CustomerOnboardingData } from "@/components/customers/customer-detail-client";
+
+/** Onboarding tab data — only when the plugin is enabled; never break the page. */
+async function loadOnboarding(customerId: string): Promise<CustomerOnboardingData | null> {
+  try {
+    const settings = await getOnboardingSettings();
+    if (!settings.enabled) return null;
+    const [requests, responses, forms] = await Promise.all([
+      getOnboardingRequests({ customer_id: customerId }),
+      getOnboardingResponsesForCustomer(customerId),
+      getOnboardingForms(),
+    ]);
+    return {
+      requests,
+      responses,
+      activeForms: forms
+        .filter((f) => f.status !== "archived" && f.schema.length > 0)
+        .map((f) => ({ id: f.id, name: f.name })),
+    };
+  } catch {
+    return null;
+  }
+}
 
 export default async function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   try {
-    const [customer, invoices, quotes, business, workOrders, reports, properties, contacts, notes, billingProfiles] = await Promise.all([
+    const [customer, invoices, quotes, business, workOrders, reports, properties, contacts, notes, billingProfiles, onboarding] = await Promise.all([
       getCustomer(id),
       getInvoices({ customer_id: id }),
       getQuotes({ customer_id: id }),
@@ -23,6 +48,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
       getCustomerContacts(id).catch(() => []),
       getCustomerNotes(id).catch(() => []),
       getBillingProfilesForAccount(id).catch(() => []),
+      loadOnboarding(id),
     ]);
     return (
       <CustomerDetailClient
@@ -37,6 +63,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
         billingProfiles={billingProfiles}
         currency={business.currency}
         businessCountry={business.country ?? null}
+        onboarding={onboarding}
       />
     );
   } catch {

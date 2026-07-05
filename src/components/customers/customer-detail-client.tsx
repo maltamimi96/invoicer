@@ -42,11 +42,21 @@ import {
   createBillingProfile, updateBillingProfile, archiveBillingProfile,
   type BillingProfilePayload,
 } from "@/lib/actions/billing-profiles";
+import { CustomerOnboardingCard } from "@/components/onboarding/customer-onboarding-card";
+import type { OnboardingRequestRow } from "@/lib/actions/onboarding";
 import type {
   Customer, InvoiceWithCustomer, QuoteWithCustomer,
   WorkOrderWithCustomer, ReportWithCustomer,
   CustomerProperty, CustomerContact, CustomerNote, BillingProfile,
+  OnboardingForm, OnboardingResponse,
 } from "@/types/database";
+
+/** Onboarding tab payload — null hides the tab (plugin disabled). */
+export interface CustomerOnboardingData {
+  requests: OnboardingRequestRow[];
+  responses: OnboardingResponse[];
+  activeForms: Pick<OnboardingForm, "id" | "name">[];
+}
 
 interface Props {
   customer: Customer;
@@ -61,6 +71,8 @@ interface Props {
   currency?: string;
   /** Country of the active business — drives address-field layout. */
   businessCountry?: string | null;
+  /** Client-onboarding tab data; null/undefined when the plugin is disabled. */
+  onboarding?: CustomerOnboardingData | null;
 }
 
 // ── Property Modal ─────────────────────────────────────────────────────────────
@@ -459,6 +471,7 @@ export function CustomerDetailClient({
   billingProfiles: initialBillingProfiles,
   currency = "AUD",
   businessCountry = null,
+  onboarding = null,
 }: Props) {
   const [customer, setCustomer] = useState(initial);
   const [editing, setEditing] = useState(false);
@@ -675,7 +688,24 @@ export function CustomerDetailClient({
                 <TabsTrigger value="notes" className="gap-1.5">
                   <StickyNote className="w-3.5 h-3.5" />Notes ({notes.length})
                 </TabsTrigger>
+                {onboarding && (
+                  <TabsTrigger value="onboarding" className="gap-1.5">
+                    <ClipboardList className="w-3.5 h-3.5" />Onboarding ({onboarding.requests.length})
+                  </TabsTrigger>
+                )}
               </TabsList>
+
+              {/* ── Onboarding ── */}
+              {onboarding && (
+                <TabsContent value="onboarding" className="mt-3">
+                  <CustomerOnboardingCard
+                    customerId={customer.id}
+                    requests={onboarding.requests}
+                    responses={onboarding.responses}
+                    activeForms={onboarding.activeForms}
+                  />
+                </TabsContent>
+              )}
 
               {/* ── Properties ── */}
               <TabsContent value="properties" className="mt-3 space-y-3">

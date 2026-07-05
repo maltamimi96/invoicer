@@ -1430,6 +1430,8 @@ export function registerTools(server: McpServer): void {
     required: z.boolean().optional(),
     options: z.array(z.string()).optional(),
     show_if: z.object({ field_id: z.string(), equals: z.string() }).nullable().optional(),
+    preset: z.string().optional().describe("Preset key enabling smart validation/links: instagram, tiktok, x_handle, abn, acn, website, facebook, linkedin, youtube, google_business, logo…"),
+    validation: z.object({ pattern: z.string(), message: z.string() }).optional().describe("Custom regex validation applied on submit"),
   });
 
   tool("set_onboarding_enabled", "Enable or disable the Client Onboarding plugin for this business.",

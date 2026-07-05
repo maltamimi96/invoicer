@@ -266,6 +266,21 @@ export async function getOnboardingResponse(requestId: string): Promise<(Onboard
   return { ...data, answers: redactSecureAnswers(schema, data.answers ?? {}), redacted: true };
 }
 
+/** All of a customer's responses (secure answers redacted) — for the profile tab. */
+export async function getOnboardingResponsesForCustomer(customerId: string): Promise<OnboardingResponse[]> {
+  const supabase = await createClient();
+  const user = await getUser();
+  const businessId = await getActiveBizId(supabase, user.id);
+  const { data } = await tbl(supabase, "onboarding_responses")
+    .select("*").eq("customer_id", customerId).eq("business_id", businessId)
+    .order("created_at", { ascending: false });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return ((data ?? []) as any[]).map((r) => ({
+    ...r,
+    answers: redactSecureAnswers((r.schema_snapshot ?? []) as OnboardingField[], r.answers ?? {}),
+  })) as OnboardingResponse[];
+}
+
 /** Explicit owner/admin-only reveal of ONE secure answer. */
 export async function revealSecureAnswer(responseId: string, fieldId: string): Promise<string> {
   const supabase = await createClient();

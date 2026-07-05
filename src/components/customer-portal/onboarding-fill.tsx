@@ -38,7 +38,7 @@ export function OnboardingFill({ token, requestId, fields, initialAnswers, alrea
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(alreadySubmitted);
   const [error, setError] = useState<string | null>(null);
-  const [missing, setMissing] = useState<Set<string>>(new Set());
+  const [problems, setProblems] = useState<Record<string, string>>({});
   const [savedTick, setSavedTick] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirtyRef = useRef<OnboardingAnswers>({});
@@ -58,7 +58,10 @@ export function OnboardingFill({ token, requestId, fields, initialAnswers, alrea
 
   const setAnswer = (id: string, value: unknown) => {
     setAnswers((prev) => ({ ...prev, [id]: value }));
-    setMissing((prev) => { if (!prev.has(id)) return prev; const n = new Set(prev); n.delete(id); return n; });
+    setProblems((prev) => {
+      if (!(id in prev)) return prev;
+      const n = { ...prev }; delete n[id]; return n;
+    });
     dirtyRef.current[id] = value;
     // Debounced autosave of just the changed keys.
     if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -89,7 +92,10 @@ export function OnboardingFill({ token, requestId, fields, initialAnswers, alrea
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok) {
-        if (Array.isArray(j.missing)) setMissing(new Set(j.missing));
+        const next: Record<string, string> = {};
+        if (Array.isArray(j.missing)) for (const id of j.missing) next[id] = "This field is required";
+        if (Array.isArray(j.invalid)) for (const e of j.invalid) if (e?.field_id) next[e.field_id] = e.message || "Doesn't match the expected format";
+        if (Object.keys(next).length > 0) setProblems(next);
         setError(j.error || "Couldn't submit — please try again.");
         return;
       }
@@ -128,7 +134,7 @@ export function OnboardingFill({ token, requestId, fields, initialAnswers, alrea
 
       <Card className="p-6 space-y-5">
         {visible.map((f) => (
-          <FillField key={f.id} field={f} value={answers[f.id]} invalid={missing.has(f.id)}
+          <FillField key={f.id} field={f} value={answers[f.id]} problem={problems[f.id]}
             endpoint={endpoint} onChange={(v) => setAnswer(f.id, v)} />
         ))}
       </Card>
@@ -145,10 +151,10 @@ export function OnboardingFill({ token, requestId, fields, initialAnswers, alrea
 
 // ── Individual field controls ────────────────────────────────────────────────
 
-function FillField({ field: f, value, invalid, endpoint, onChange }: {
+function FillField({ field: f, value, problem, endpoint, onChange }: {
   field: OnboardingField;
   value: unknown;
-  invalid: boolean;
+  problem?: string;
   endpoint: string;
   onChange: (v: unknown) => void;
 }) {
@@ -157,7 +163,7 @@ function FillField({ field: f, value, invalid, endpoint, onChange }: {
   if (f.type === "instructions") return <p className="text-sm text-muted-foreground bg-muted/40 rounded-md p-3 whitespace-pre-wrap">{f.label}</p>;
 
   return (
-    <div className={`space-y-1.5 ${invalid ? "rounded-lg ring-1 ring-rose-400 p-2 -m-2" : ""}`}>
+    <div className={`space-y-1.5 ${problem ? "rounded-lg ring-1 ring-rose-400 p-2 -m-2" : ""}`}>
       {f.type !== "consent" && (
         <Label className="text-sm">
           {f.label}{f.required && <span className="text-rose-500 ml-0.5">*</span>}
@@ -165,7 +171,7 @@ function FillField({ field: f, value, invalid, endpoint, onChange }: {
       )}
       {f.help_text && <p className="text-xs text-muted-foreground">{f.help_text}</p>}
       <FieldControl field={f} value={value} endpoint={endpoint} onChange={onChange} />
-      {invalid && <p className="text-xs text-rose-600">This field is required</p>}
+      {problem && <p className="text-xs text-rose-600">{problem}</p>}
     </div>
   );
 }
