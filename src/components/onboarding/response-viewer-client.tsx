@@ -16,6 +16,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/layout/page-header";
 import { revealSecureAnswer, getOnboardingUploadUrl } from "@/lib/actions/onboarding";
 import { socialProfileUrl } from "@/lib/onboarding/presets";
+import { AnswerImageThumb } from "@/components/onboarding/answer-image-thumb";
 import { formatDate } from "@/lib/utils";
 import type { OnboardingResponse, OnboardingField } from "@/types/database";
 
@@ -80,8 +81,12 @@ function AnswerValue({ field: f, value, responseId }: { field: OnboardingField; 
     case "secure":
       return <SecureAnswer responseId={responseId} fieldId={f.id} />;
 
+    case "image": {
+      const meta = value as { path?: string; name?: string };
+      if (!meta?.path) return <p className="text-sm text-muted-foreground italic">Not answered</p>;
+      return <AnswerImageThumb path={meta.path} name={meta.name} size="md" />;
+    }
     case "file":
-    case "image":
       return <UploadAnswer value={value} />;
 
     case "multi_select":
