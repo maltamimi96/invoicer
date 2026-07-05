@@ -343,6 +343,22 @@ function UploadControl({ field: f, value, endpoint, onChange }: {
   };
 
   if (meta?.path) {
+    if (f.type === "image") {
+      // Serve the customer's own upload back through the token-gated file route.
+      const src = `${endpoint}/file?path=${encodeURIComponent(meta.path)}`;
+      return (
+        <div className="relative inline-block">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={src} alt={meta.name ?? "Uploaded image"}
+            className="max-h-48 max-w-full rounded-lg border border-border object-contain bg-muted/30" />
+          <button type="button" onClick={() => onChange(null)} aria-label="Remove image"
+            className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-background border border-border shadow-sm flex items-center justify-center text-muted-foreground hover:text-destructive">
+            <X className="w-3.5 h-3.5" />
+          </button>
+          {meta.name && <p className="text-[11px] text-muted-foreground mt-1 truncate max-w-[240px]">{meta.name}</p>}
+        </div>
+      );
+    }
     return (
       <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
         <span className="truncate">📎 {meta.name ?? "Uploaded"}{meta.size ? ` · ${(meta.size / 1024 / 1024).toFixed(1)} MB` : ""}</span>

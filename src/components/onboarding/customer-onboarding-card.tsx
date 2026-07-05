@@ -19,6 +19,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { sendOnboardingRequest, type OnboardingRequestRow } from "@/lib/actions/onboarding";
+import { AnswerImageThumb } from "@/components/onboarding/answer-image-thumb";
 import { formatDate } from "@/lib/utils";
 import type { OnboardingForm, OnboardingResponse, OnboardingField } from "@/types/database";
 
@@ -151,6 +152,7 @@ function CompactValue({ field: f, value }: { field: OnboardingField; value: unkn
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const v = value as any;
   if (f.type === "secure" || v?.secure) return <span className="inline-flex items-center gap-1 text-muted-foreground"><Lock className="w-3 h-3" /> hidden</span>;
+  if (f.type === "image" && v?.path) return <AnswerImageThumb path={v.path} name={v.name} size="sm" />;
   if (f.type === "file" || f.type === "image") return <span>📎 {v?.name ?? "Uploaded"}</span>;
   if (f.type === "consent") return v === true ? <span className="inline-flex items-center gap-1 text-emerald-600"><Check className="w-3.5 h-3.5" /> Agreed</span> : <span>No</span>;
   if (f.type === "rating") return <span>{"★".repeat(Number(v) || 0)} ({String(v)}/5)</span>;
