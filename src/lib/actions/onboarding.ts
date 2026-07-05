@@ -41,7 +41,18 @@ export async function setOnboardingEnabled(enabled: boolean): Promise<void> {
   const { error } = await tbl(supabase, "onboarding_settings")
     .upsert({ business_id: businessId, enabled }, { onConflict: "business_id" });
   if (error) throw error;
-  revalidatePath("/onboarding");
+  // Mirror into the Agents store so the "Client Onboarding" card reflects state
+  // no matter which side was toggled. Best-effort.
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (createAdminClient() as any).from("business_agent_installs").upsert(
+      { business_id: businessId, agent_id: "client-onboarding", enabled, updated_at: new Date().toISOString() },
+      { onConflict: "business_id,agent_id" },
+    );
+  } catch { /* non-fatal */ }
+  revalidatePath("/onboarding-forms");
+  revalidatePath("/agents");
   revalidatePath("/", "layout"); // sidebar flag
 }
 
@@ -100,7 +111,7 @@ export async function createOnboardingForm(input: {
     schema: input.schema ?? [], status: "draft",
   }).select().single();
   if (error) throw error;
-  revalidatePath("/onboarding");
+  revalidatePath("/onboarding-forms");
   return data as OnboardingForm;
 }
 
@@ -117,8 +128,8 @@ export async function updateOnboardingForm(id: string, updates: {
   const { error } = await tbl(supabase, "onboarding_forms")
     .update(clean).eq("id", id).eq("business_id", businessId);
   if (error) throw error;
-  revalidatePath("/onboarding");
-  revalidatePath(`/onboarding/${id}`);
+  revalidatePath("/onboarding-forms");
+  revalidatePath(`/onboarding-forms/${id}`);
 }
 
 export async function deleteOnboardingForm(id: string): Promise<void> {
@@ -128,7 +139,7 @@ export async function deleteOnboardingForm(id: string): Promise<void> {
   const { error } = await tbl(supabase, "onboarding_forms")
     .delete().eq("id", id).eq("business_id", businessId);
   if (error) throw error;
-  revalidatePath("/onboarding");
+  revalidatePath("/onboarding-forms");
 }
 
 // ── Requests (send a form to a customer via the portal) ─────────────────────
@@ -207,7 +218,7 @@ export async function sendOnboardingRequest(formId: string, customerId: string, 
     });
   }
 
-  revalidatePath("/onboarding");
+  revalidatePath("/onboarding-forms");
   revalidatePath(`/customers/${customerId}`);
   return { request_id: requestId, url };
 }
@@ -238,7 +249,7 @@ export async function deleteOnboardingRequest(id: string): Promise<void> {
   const { error } = await tbl(supabase, "onboarding_requests")
     .delete().eq("id", id).eq("business_id", businessId);
   if (error) throw error;
-  revalidatePath("/onboarding");
+  revalidatePath("/onboarding-forms");
 }
 
 // ── Responses ───────────────────────────────────────────────────────────────

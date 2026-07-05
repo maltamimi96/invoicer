@@ -114,6 +114,7 @@ export async function toggleAgent(agentId: string, enabled: boolean): Promise<vo
 /**
  * Keep downstream tables in sync when agent state changes.
  * email-lead-scanner ↔ business_email_config.enabled
+ * client-onboarding ↔ onboarding_settings.enabled (drives the sidebar tab)
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function syncSideEffects(sb: any, businessId: string, agentId: string, enabled: boolean) {
@@ -121,5 +122,10 @@ async function syncSideEffects(sb: any, businessId: string, agentId: string, ena
     await tbl(sb, "business_email_config")
       .update({ enabled })
       .eq("business_id", businessId);
+  }
+  if (agentId === "client-onboarding") {
+    await tbl(sb, "onboarding_settings")
+      .upsert({ business_id: businessId, enabled }, { onConflict: "business_id" });
+    revalidatePath("/", "layout"); // sidebar tab appears/disappears
   }
 }
