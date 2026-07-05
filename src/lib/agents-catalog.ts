@@ -38,6 +38,18 @@ export const AGENT_CATALOG: AgentDefinition[] = [
     badge: "new",
   },
   {
+    id: "client-onboarding",
+    name: "Client Onboarding",
+    description: "Build custom intake forms and send them to customers to complete.",
+    longDescription:
+      "Design your own onboarding form with a drag-and-drop builder — ABN, social accounts, opening hours, brand images, even securely-encrypted credentials — then send customers a link to fill it in. Answers are stored on the customer's profile. Enabling adds an Onboarding tab under Contacts.",
+    icon: "clipboard-list",
+    category: "productivity",
+    configType: "inline",
+    configPath: "/onboarding-forms",
+    badge: "new",
+  },
+  {
     id: "daily-digest",
     name: "Daily Business Digest",
     description: "Receive a morning email summary of revenue, leads, overdue invoices, and today's jobs.",

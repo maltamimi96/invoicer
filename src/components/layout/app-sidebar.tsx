@@ -14,7 +14,7 @@ import { canManageSettings, isWorker, ROLE_LABELS } from "@/lib/permissions";
 import Image from "next/image";
 import { BusinessSwitcher } from "@/components/business/business-switcher";
 
-type FeatureFlag = "quotingAgent";
+type FeatureFlag = "quotingAgent" | "onboarding";
 type NavItem = {
   label: string;
   href: string;
@@ -51,6 +51,7 @@ const navSections: NavSection[] = [
   { section: "Contacts", items: [
     { label: "Customers",  href: "/customers",  icon: Users                         },
     { label: "Contacts",   href: "/contacts",   icon: Users2                        },
+    { label: "Onboarding", href: "/onboarding-forms", icon: ClipboardList, feature: "onboarding" },
   ]},
   { section: "Catalog", items: [
     { label: "Products",   href: "/products",   icon: Package                       },
@@ -72,7 +73,7 @@ interface AppSidebarProps {
   businesses: Business[];
   userRole: Role;
   /** Server-fetched flags driving conditional nav items. */
-  features?: { quotingAgent?: boolean };
+  features?: { quotingAgent?: boolean; onboarding?: boolean };
   open: boolean;
   onClose: () => void;
 }
@@ -85,7 +86,7 @@ export function AppSidebar({ business, businesses, userRole, features, open, onC
       ...s,
       items: s.items.filter((i) => {
         if (workerView && !i.worker) return false;
-        if (i.feature === "quotingAgent" && !features?.quotingAgent) return false;
+        if (i.feature && !features?.[i.feature]) return false;
         return true;
       }),
     }))
