@@ -1455,6 +1455,26 @@ export function registerTools(server: McpServer): void {
       return text(data);
     });
 
+  tool("get_onboarding_form", "Get one onboarding form including its full field list (schema) — use before updating a form's fields.",
+    { form_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "onboarding:read");
+      const { data } = await t(ctx, "onboarding_forms")
+        .select("*").eq("id", args.form_id).eq("business_id", ctx.businessId).maybeSingle();
+      if (!data) return errorText("Form not found");
+      return text(data);
+    });
+
+  tool("delete_onboarding_form", "Delete an onboarding form and all its requests/responses.",
+    { form_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "onboarding:write");
+      const { error } = await t(ctx, "onboarding_forms")
+        .delete().eq("id", args.form_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ deleted: true });
+    });
+
   tool("create_onboarding_form",
     "Create a client-onboarding form. fields is an ordered array; each field needs a unique id, a type (short_text/long_text/email/phone/url/address/abn/company/dropdown/multi_select/radio/checkboxes/yes_no/number/currency/date/time/opening_hours/file/image/rating/secure/consent/heading/divider/instructions) and a label. Use type 'secure' for credentials — those answers are encrypted and never readable via the API.",
     { name: z.string().min(1), description: z.string().optional(), fields: z.array(ONBOARDING_FIELD), activate: z.boolean().optional() },
@@ -1536,6 +1556,16 @@ export function registerTools(server: McpServer): void {
       const { data, error } = await q;
       if (error) throw error;
       return text(data);
+    });
+
+  tool("delete_onboarding_request", "Delete a sent onboarding request (and any answers submitted to it).",
+    { request_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "onboarding:write");
+      const { error } = await t(ctx, "onboarding_requests")
+        .delete().eq("id", args.request_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ deleted: true });
     });
 
   tool("get_onboarding_response",
