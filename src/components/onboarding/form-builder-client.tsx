@@ -94,16 +94,16 @@ function newId() { return "f_" + Math.random().toString(36).slice(2, 10); }
 
 // ── Main builder ─────────────────────────────────────────────────────────────
 
-interface Props { form: OnboardingForm; secureAvailable: boolean }
+interface Props { form: OnboardingForm; secureAvailable: boolean; startInPreview?: boolean }
 
-export function FormBuilderClient({ form, secureAvailable }: Props) {
+export function FormBuilderClient({ form, secureAvailable, startInPreview = false }: Props) {
   const router = useRouter();
   const [name, setName] = useState(form.name);
   const [description, setDescription] = useState(form.description ?? "");
   const [status, setStatus] = useState(form.status);
   const [fields, setFields] = useState<OnboardingField[]>(form.schema ?? []);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [preview, setPreview] = useState(false);
+  const [preview, setPreview] = useState(startInPreview);
   const [saving, setSaving] = useState(false);
 
   const selected = fields.find((f) => f.id === selectedId) ?? null;
