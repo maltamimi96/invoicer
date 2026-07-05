@@ -1415,6 +1415,142 @@ export function registerTools(server: McpServer): void {
       return text(out);
     });
 
+  // ===== CLIENT ONBOARDING (feature-flagged form builder) =====
+  const ONBOARDING_FIELD = z.object({
+    id: z.string().min(1),
+    type: z.enum([
+      "short_text", "long_text", "instructions", "email", "phone", "url", "address",
+      "abn", "company", "dropdown", "multi_select", "radio", "checkboxes", "yes_no",
+      "number", "currency", "date", "time", "opening_hours", "file", "image",
+      "rating", "secure", "consent", "heading", "divider",
+    ]),
+    label: z.string(),
+    help_text: z.string().optional(),
+    placeholder: z.string().optional(),
+    required: z.boolean().optional(),
+    options: z.array(z.string()).optional(),
+    show_if: z.object({ field_id: z.string(), equals: z.string() }).nullable().optional(),
+  });
+
+  tool("set_onboarding_enabled", "Enable or disable the Client Onboarding plugin for this business.",
+    { enabled: z.boolean() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "onboarding:write");
+      const { error } = await t(ctx, "onboarding_settings")
+        .upsert({ business_id: ctx.businessId, enabled: args.enabled }, { onConflict: "business_id" });
+      if (error) throw error;
+      return text({ enabled: args.enabled });
+    });
+
+  tool("list_onboarding_forms", "List this business's client-onboarding forms.",
+    {},
+    async (_args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "onboarding:read");
+      const { data, error } = await t(ctx, "onboarding_forms")
+        .select("id, name, description, status, created_at")
+        .eq("business_id", ctx.businessId).order("created_at", { ascending: false });
+      if (error) throw error;
+      return text(data);
+    });
+
+  tool("create_onboarding_form",
+    "Create a client-onboarding form. fields is an ordered array; each field needs a unique id, a type (short_text/long_text/email/phone/url/address/abn/company/dropdown/multi_select/radio/checkboxes/yes_no/number/currency/date/time/opening_hours/file/image/rating/secure/consent/heading/divider/instructions) and a label. Use type 'secure' for credentials — those answers are encrypted and never readable via the API.",
+    { name: z.string().min(1), description: z.string().optional(), fields: z.array(ONBOARDING_FIELD), activate: z.boolean().optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "onboarding:write");
+      const { data, error } = await t(ctx, "onboarding_forms").insert({
+        business_id: ctx.businessId, name: args.name, description: args.description ?? null,
+        schema: args.fields, status: args.activate ? "active" : "draft",
+      }).select("id, name, status").single();
+      if (error) throw error;
+      return text({ created: true, form: data });
+    });
+
+  tool("update_onboarding_form", "Update an onboarding form's name/description/status/fields.",
+    {
+      form_id: UUID, name: z.string().optional(), description: z.string().optional(),
+      status: z.enum(["draft", "active", "archived"]).optional(),
+      fields: z.array(ONBOARDING_FIELD).optional(),
+    },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "onboarding:write");
+      const { form_id, fields, ...rest } = args;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const clean: Record<string, any> = Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== undefined));
+      if (fields !== undefined) clean.schema = fields;
+      if (Object.keys(clean).length === 0) return errorText("No fields to update.");
+      const { error } = await t(ctx, "onboarding_forms").update(clean).eq("id", form_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ updated: true });
+    });
+
+  tool("send_onboarding_form", "Send an onboarding form to a customer — emails them a portal link and returns it.",
+    { form_id: UUID, customer_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "onboarding:write");
+      const [{ data: form }, { data: customer }, { data: biz }] = await Promise.all([
+        t(ctx, "onboarding_forms").select("id, name, schema").eq("id", args.form_id).eq("business_id", ctx.businessId).maybeSingle(),
+        t(ctx, "customers").select("id, name, email").eq("id", args.customer_id).eq("business_id", ctx.businessId).maybeSingle(),
+        t(ctx, "businesses").select("name, slug, email").eq("id", ctx.businessId).single(),
+      ]);
+      if (!form) return errorText("Form not found");
+      if (!customer) return errorText("Customer not found");
+      if (!customer.email) return errorText("Customer has no email address");
+      if ((form.schema ?? []).length === 0) return errorText("Form has no fields yet");
+
+      const { data: openReq } = await t(ctx, "onboarding_requests")
+        .select("id").eq("business_id", ctx.businessId).eq("form_id", args.form_id)
+        .eq("customer_id", args.customer_id).neq("status", "completed")
+        .order("created_at", { ascending: false }).limit(1).maybeSingle();
+      let requestId: string = openReq?.id ?? "";
+      if (!requestId) {
+        const { data: created, error } = await t(ctx, "onboarding_requests").insert({
+          business_id: ctx.businessId, form_id: args.form_id, customer_id: args.customer_id,
+        }).select("id").single();
+        if (error) throw error;
+        requestId = created.id;
+      }
+      const token = await getOrMintPortalToken(ctx, args.customer_id);
+      const url = `${appBase()}/portal/${token}/onboarding/${requestId}`;
+      const html = `<!doctype html><html><body style="font-family:Arial,Helvetica,sans-serif;background:#f6f6f4;padding:24px;color:#111"><div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;border:1px solid #e5e3d9;padding:28px"><p style="font-size:13px;color:#666;margin:0 0 4px">${biz?.name ?? "Your provider"}</p><h1 style="font-size:20px;margin:0 0 12px">${form.name}</h1><p style="font-size:14px;line-height:1.6;color:#333">Hi ${customer.name ?? "there"}, please fill in a few details so we can get you set up.</p><p style="margin:24px 0"><a href="${url}" style="background:#2f6f73;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-size:14px;font-weight:600">Open the form</a></p><p style="font-size:12px;color:#888">${url}</p></div></body></html>`;
+      await sendEmail({
+        to: customer.email, subject: `${biz?.name ?? "Onboarding"}: ${form.name}`, html,
+        from: buildBusinessFrom({ name: biz?.name ?? "Kirei", slug: biz?.slug, localPart: "onboarding" }),
+        replyTo: biz?.email ?? undefined,
+        tags: { business_id: ctx.businessId, doc_type: "custom", doc_id: requestId },
+      });
+      return text({ sent: true, request_id: requestId, url });
+    });
+
+  tool("list_onboarding_requests", "List onboarding requests (optionally by form or customer) with status.",
+    { form_id: UUID.optional(), customer_id: UUID.optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "onboarding:read");
+      let q = t(ctx, "onboarding_requests")
+        .select("id, form_id, customer_id, status, sent_at, completed_at, customers(name), onboarding_forms(name)")
+        .eq("business_id", ctx.businessId).order("created_at", { ascending: false }).limit(100);
+      if (args.form_id) q = q.eq("form_id", args.form_id);
+      if (args.customer_id) q = q.eq("customer_id", args.customer_id);
+      const { data, error } = await q;
+      if (error) throw error;
+      return text(data);
+    });
+
+  tool("get_onboarding_response",
+    "Get a customer's submitted onboarding answers. Secure (credential) fields are ALWAYS redacted here — they can only be revealed by an owner/admin in the web app.",
+    { request_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "onboarding:read");
+      const { data } = await t(ctx, "onboarding_responses")
+        .select("*").eq("request_id", args.request_id).eq("business_id", ctx.businessId).maybeSingle();
+      if (!data) return errorText("No response yet for this request");
+      const { redactSecureAnswers } = await import("@/lib/onboarding/answers");
+      return text({
+        ...data,
+        answers: redactSecureAnswers(data.schema_snapshot ?? [], data.answers ?? {}),
+      });
+    });
+
   // ===== CONTRACTS =====
   tool("list_contracts", "List customer contracts (status: draft/sent/viewed/signed/declined/voided).",
     { status: z.string().optional() },
