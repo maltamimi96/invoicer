@@ -162,7 +162,7 @@ export function LeadDetailClient({ lead: initial }: { lead: Lead }) {
       {/* Status changer */}
       <FadeIn delay={80}>
         <div className="rounded-xl border border-border bg-card p-4">
-          <p className="text-[11px] uppercase tracking-wide font-bold text-muted-foreground mb-2.5">Pipeline stage</p>
+          <p className="text-[11px] uppercase tracking-wide font-semibold text-muted-foreground mb-2.5">Pipeline stage</p>
           <div className="flex flex-wrap gap-2">
             {STATUSES.map((s) => {
               const active = s === lead.status;
@@ -188,7 +188,7 @@ export function LeadDetailClient({ lead: initial }: { lead: Lead }) {
       {/* Details */}
       <FadeIn delay={140}>
         <div>
-          <p className="text-[11px] uppercase tracking-wide font-bold text-muted-foreground mb-2.5">Details</p>
+          <p className="text-[11px] uppercase tracking-wide font-semibold text-muted-foreground mb-2.5">Details</p>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {lead.service       && <FactCard gradient="primary" icon={<Wrench    className="w-4 h-4" />} label="Service"  value={lead.service} />}
             {lead.property_type && <FactCard gradient="blue"    icon={<MapPin    className="w-4 h-4" />} label="Property" value={lead.property_type} />}
@@ -223,7 +223,7 @@ export function LeadDetailClient({ lead: initial }: { lead: Lead }) {
       {/* Convert actions */}
       <FadeIn delay={260}>
         <div>
-          <p className="text-[11px] uppercase tracking-wide font-bold text-muted-foreground mb-2.5">Convert</p>
+          <p className="text-[11px] uppercase tracking-wide font-semibold text-muted-foreground mb-2.5">Convert</p>
           <div className="flex flex-wrap gap-2">
             <button onClick={convertCustomer} disabled={pending || !!lead.customer_id} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-card hover:bg-muted text-sm font-medium disabled:opacity-50">
               <GradientTile gradient="blue" size={28} radius={8}><UserPlus className="w-3.5 h-3.5" /></GradientTile>

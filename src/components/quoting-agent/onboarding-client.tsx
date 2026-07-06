@@ -123,7 +123,7 @@ export function QuotingAgentOnboardingClient({ initialSettings, currency }: Prop
           <Sparkles className="w-6 h-6" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Set up Quoting Agent</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Set up Quoting Agent</h1>
           <p className="text-sm text-muted-foreground">Teach it how you price. Edit any time.</p>
         </div>
       </div>

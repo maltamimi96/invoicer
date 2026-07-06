@@ -92,7 +92,7 @@ export function BookingsPageClient({ initialAppointments, timezone }: { initialA
         {filtered.length === 0 && <div className="p-8 text-center text-sm text-muted-foreground">No bookings here.</div>}
         {filtered.map((a) => (
           <button key={a.id} onClick={() => openDetail(a.id)} className="w-full flex items-center gap-3 p-4 text-left hover:bg-accent/50 transition-colors">
-            <div className="size-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold shrink-0">
+            <div className="size-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold shrink-0">
               {a.customer_name.slice(0, 2).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">

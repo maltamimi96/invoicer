@@ -178,13 +178,13 @@ export function QuoteDetailClient({ quote: initial, customers, products, busines
             <CardContent className="p-6 space-y-6">
               <div className="flex flex-col sm:flex-row justify-between gap-6">
                 <div>
-                  <p className="font-bold text-lg">{business.name}</p>
+                  <p className="font-semibold text-lg">{business.name}</p>
                   {business.address && <p className="text-sm text-muted-foreground">{business.address}</p>}
                   {business.email && <p className="text-sm text-muted-foreground">{business.email}</p>}
                 </div>
                 <div className="text-left sm:text-right">
-                  <p className="font-bold text-xl text-blue-600 dark:text-blue-400">QUOTE</p>
-                  <p className="text-2xl font-bold mt-1">{quote.number}</p>
+                  <p className="font-semibold text-xl text-blue-600 dark:text-blue-400">QUOTE</p>
+                  <p className="text-2xl font-semibold mt-1">{quote.number}</p>
                 </div>
               </div>
 
@@ -228,7 +228,7 @@ export function QuoteDetailClient({ quote: initial, customers, products, busines
                   {quote.discount_amount > 0 && <div className="flex justify-between text-sm text-muted-foreground"><span>Discount</span><span>- {formatCurrency(quote.discount_amount, business.currency)}</span></div>}
                   <div className="flex justify-between text-sm"><span className="text-muted-foreground">Tax</span><span>{formatCurrency(quote.tax_total, business.currency)}</span></div>
                   <Separator />
-                  <div className="flex justify-between font-bold text-lg"><span>Total</span><span>{formatCurrency(quote.total, business.currency)}</span></div>
+                  <div className="flex justify-between font-semibold text-lg"><span>Total</span><span>{formatCurrency(quote.total, business.currency)}</span></div>
                 </div>
               </div>
 

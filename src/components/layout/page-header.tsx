@@ -29,7 +29,7 @@ export function PageHeader({ title, subtitle, actions, accent }: Props) {
           aria-hidden
         />
         <div className="min-w-0">
-          <h1 className="text-3xl font-bold tracking-tight truncate">{title}</h1>
+          <h1 className="text-3xl font-semibold tracking-tight truncate">{title}</h1>
           {subtitle && (
             <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
           )}

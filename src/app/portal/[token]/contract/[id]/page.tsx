@@ -72,7 +72,7 @@ export default async function PortalContractPage({ params }: { params: Promise<{
           <div>
             <div className="flex items-center gap-2">
               <FileStack className="w-6 h-6 text-indigo-500" />
-              <h1 className="text-2xl font-bold">{contract.title}</h1>
+              <h1 className="text-2xl font-semibold">{contract.title}</h1>
             </div>
             <p className="text-sm text-muted-foreground mt-1">From {business?.name}</p>
           </div>

@@ -55,7 +55,7 @@ export function TasksWidget() {
             <h3 className="text-sm font-semibold flex items-center gap-2">
               Your todos
               {tasks && tasks.length > 0 && (
-                <span className="text-[10px] uppercase tracking-wide font-bold bg-violet-100 text-violet-900 dark:bg-violet-900/40 dark:text-violet-200 px-1.5 py-0.5 rounded-full">
+                <span className="text-[10px] uppercase tracking-wide font-semibold bg-violet-100 text-violet-900 dark:bg-violet-900/40 dark:text-violet-200 px-1.5 py-0.5 rounded-full">
                   {tasks.length}
                 </span>
               )}

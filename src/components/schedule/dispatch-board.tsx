@@ -117,7 +117,7 @@ export function DispatchBoard({ jobs, weekStart, profiles, onJobClick, onChanged
             return (
               <div key={d} className={`p-2 text-center border-l ${today ? "bg-primary/10" : ""}`}>
                 <div className="text-[10px] font-semibold text-muted-foreground">{DAY_LABELS[dt.getDay() === 0 ? 6 : dt.getDay() - 1]}</div>
-                <div className={`text-sm font-bold ${today ? "text-primary" : ""}`}>{dt.getDate()}</div>
+                <div className={`text-sm font-semibold ${today ? "text-primary" : ""}`}>{dt.getDate()}</div>
               </div>
             );
           })}
@@ -128,7 +128,7 @@ export function DispatchBoard({ jobs, weekStart, profiles, onJobClick, onChanged
           <div key={row.id || "unassigned"} className="grid grid-cols-[180px_repeat(7,minmax(0,1fr))] border-b last:border-b-0">
             <div className="p-2 flex items-center gap-2 border-r bg-muted/10">
               {row.profile ? (
-                <div className={`h-7 w-7 rounded-full ${avatarColor(row.id)} flex items-center justify-center text-white text-[10px] font-bold shrink-0`}>
+                <div className={`h-7 w-7 rounded-full ${avatarColor(row.id)} flex items-center justify-center text-white text-[10px] font-semibold shrink-0`}>
                   {initials(row.name)}
                 </div>
               ) : (

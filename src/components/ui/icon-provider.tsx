@@ -4,13 +4,15 @@ import { IconContext } from "@phosphor-icons/react";
 
 /**
  * Sets the global Phosphor icon weight + sizing baseline.
- * "regular" gives a 1.5px-style stroke that suits a modern SaaS UI.
- * Components still control size via Tailwind className (w-4 h-4 etc.) — Phosphor
- * inherits font-size which the className overrides.
+ * "duotone" adds a soft accent-tinted fill layer under the stroke, so icons
+ * read as designed rather than plain outlines. Components still control size
+ * via Tailwind className (w-4 h-4 etc.) — Phosphor inherits font-size which the
+ * className overrides. The duotone secondary layer follows currentColor, so
+ * icons rendered in the teal accent pick up a teal wash automatically.
  */
 export function IconProvider({ children }: { children: React.ReactNode }) {
   return (
-    <IconContext.Provider value={{ weight: "regular", size: "1em" }}>
+    <IconContext.Provider value={{ weight: "duotone", size: "1em" }}>
       {children}
     </IconContext.Provider>
   );

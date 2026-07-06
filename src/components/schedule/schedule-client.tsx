@@ -199,7 +199,7 @@ export function ScheduleClient({ initialJobs, initialStart, initialEnd, profiles
               }`}
             >
               <span className="text-xs">{day}</span>
-              <span className="text-base font-bold leading-tight">{num}</span>
+              <span className="text-base font-semibold leading-tight">{num}</span>
               {count > 0 && (
                 <span className={`text-xs mt-0.5 ${active ? "text-primary-foreground/80" : "text-primary"}`}>
                   {count}
@@ -222,7 +222,7 @@ export function ScheduleClient({ initialJobs, initialStart, initialEnd, profiles
                 today ? "bg-primary text-primary-foreground" : "bg-muted/50"
               }`}>
                 <span className="text-xs font-semibold">{day}</span>
-                <span className={`text-lg font-bold leading-none ${today ? "" : "text-muted-foreground"}`}>{num}</span>
+                <span className={`text-lg font-semibold leading-none ${today ? "" : "text-muted-foreground"}`}>{num}</span>
               </div>
 
               {/* Jobs */}
@@ -333,14 +333,14 @@ function JobCard({ job, onClick }: { job: ScheduledJob; onClick: () => void }) {
                 <div
                   key={a.id}
                   title={name}
-                  className={`h-5 w-5 rounded-full ${color} flex items-center justify-center text-white text-[9px] font-bold ring-1 ring-background`}
+                  className={`h-5 w-5 rounded-full ${color} flex items-center justify-center text-white text-[9px] font-semibold ring-1 ring-background`}
                 >
                   {initials(name)}
                 </div>
               );
             })}
             {workers.length > 4 && (
-              <div className="h-5 w-5 rounded-full bg-muted flex items-center justify-center text-[9px] font-bold ring-1 ring-background">
+              <div className="h-5 w-5 rounded-full bg-muted flex items-center justify-center text-[9px] font-semibold ring-1 ring-background">
                 +{workers.length - 4}
               </div>
             )}

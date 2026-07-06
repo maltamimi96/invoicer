@@ -48,7 +48,7 @@ export function FormsListClient({ enabled, forms, baseUrl }: Props) {
               <ListChecks className="w-8 h-8" />
             </div>
             <div>
-              <h1 className="text-xl font-bold">Form Builder</h1>
+              <h1 className="text-xl font-semibold">Form Builder</h1>
               <p className="text-sm text-muted-foreground mt-2 max-w-sm mx-auto">
                 Build public lead-capture forms, share them with a link or embed them on your
                 website. Every submission is captured and can auto-create a lead in your pipeline.

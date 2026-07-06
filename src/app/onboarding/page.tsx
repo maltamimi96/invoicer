@@ -132,7 +132,7 @@ export default function OnboardingPage() {
           {step === 1 && (
             <motion.div key="step1" variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }}>
               <div className="mb-6">
-                <h1 className="text-2xl font-bold">Your business details</h1>
+                <h1 className="text-2xl font-semibold">Your business details</h1>
                 <p className="text-sm text-muted-foreground mt-1">This will appear on your invoices and quotes</p>
               </div>
 
@@ -210,7 +210,7 @@ export default function OnboardingPage() {
           {step === 2 && (
             <motion.div key="step2" variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }}>
               <div className="mb-6">
-                <h1 className="text-2xl font-bold">Payment information</h1>
+                <h1 className="text-2xl font-semibold">Payment information</h1>
                 <p className="text-sm text-muted-foreground mt-1">Shown on invoices to help clients pay you</p>
               </div>
               <form onSubmit={form2.handleSubmit(handleStep2)} className="space-y-4">
@@ -256,7 +256,7 @@ export default function OnboardingPage() {
               <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 200, damping: 15 }} className="w-20 h-20 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mx-auto mb-6">
                 <CheckCircle className="w-10 h-10 text-emerald-600 dark:text-emerald-400" />
               </motion.div>
-              <h1 className="text-2xl font-bold mb-2">You&apos;re all set!</h1>
+              <h1 className="text-2xl font-semibold mb-2">You&apos;re all set!</h1>
               <p className="text-muted-foreground mb-8">Your workspace is ready. Start creating professional invoices right away.</p>
               <Button className="w-full" size="lg" onClick={() => router.push("/dashboard")}>
                 Go to dashboard

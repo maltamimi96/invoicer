@@ -87,7 +87,7 @@ export function DashboardClient({ stats, currency = "GBP", todayJobs }: Dashboar
       <FadeIn>
         <div className="flex items-end justify-between gap-3 flex-wrap">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">{greeting}.</h1>
+            <h1 className="text-3xl font-semibold tracking-tight">{greeting}.</h1>
             <p className="text-sm text-muted-foreground mt-1">Here&apos;s what&apos;s happening today.</p>
           </div>
           <Link href="/invoices/new">
@@ -145,7 +145,7 @@ export function DashboardClient({ stats, currency = "GBP", todayJobs }: Dashboar
       {/* ── Quick actions (mobile-style hub tiles) ─────────────────────────── */}
       <FadeIn delay={320}>
         <div>
-          <h2 className="text-[11px] uppercase tracking-wide font-bold text-muted-foreground mb-2">Quick actions</h2>
+          <h2 className="text-[11px] uppercase tracking-wide font-semibold text-muted-foreground mb-2">Quick actions</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <HubTile href="/invoices/new"    gradient="emerald" icon={<FileText  className="w-5 h-5" />} label="New invoice"  hint="Bill a customer" />
             <HubTile href="/quotes/new"      gradient="violet"  icon={<FileCheck className="w-5 h-5" />} label="New quote"    hint="Send an estimate" />
@@ -271,7 +271,7 @@ export function DashboardClient({ stats, currency = "GBP", todayJobs }: Dashboar
                 {tomorrow.length > 0 && (
                   <>
                     <div className="border-t border-border my-2" />
-                    <div className="text-[10px] uppercase tracking-wide font-bold text-muted-foreground px-2 pb-1">Tomorrow</div>
+                    <div className="text-[10px] uppercase tracking-wide font-semibold text-muted-foreground px-2 pb-1">Tomorrow</div>
                     {tomorrow.slice(0, 3).map((wo) => <ScheduleCard key={wo.id} wo={wo} />)}
                   </>
                 )}

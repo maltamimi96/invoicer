@@ -350,15 +350,15 @@ export function InvoiceDetailClient({
               {/* Business + Client */}
               <div className="flex flex-col sm:flex-row justify-between gap-6">
                 <div>
-                  <p className="font-bold text-lg">{business.name}</p>
+                  <p className="font-semibold text-lg">{business.name}</p>
                   {business.address && <p className="text-sm text-muted-foreground">{business.address}</p>}
                   {business.city && <p className="text-sm text-muted-foreground">{business.city}, {business.postcode}</p>}
                   {business.email && <p className="text-sm text-muted-foreground">{business.email}</p>}
                   {business.tax_number && <p className="text-xs text-muted-foreground mt-1">VAT: {business.tax_number}</p>}
                 </div>
                 <div className="text-left sm:text-right">
-                  <p className="font-bold text-xl text-blue-600 dark:text-blue-400">INVOICE</p>
-                  <p className="text-2xl font-bold mt-1">{invoice.number}</p>
+                  <p className="font-semibold text-xl text-blue-600 dark:text-blue-400">INVOICE</p>
+                  <p className="text-2xl font-semibold mt-1">{invoice.number}</p>
                 </div>
               </div>
 
@@ -416,7 +416,7 @@ export function InvoiceDetailClient({
                   {invoice.discount_amount > 0 && <div className="flex justify-between text-sm text-muted-foreground"><span>Discount</span><span>- {formatCurrency(invoice.discount_amount, business.currency)}</span></div>}
                   <div className="flex justify-between text-sm"><span className="text-muted-foreground">Tax</span><span>{formatCurrency(invoice.tax_total, business.currency)}</span></div>
                   <Separator />
-                  <div className="flex justify-between font-bold text-lg"><span>Total</span><span>{formatCurrency(invoice.total, business.currency)}</span></div>
+                  <div className="flex justify-between font-semibold text-lg"><span>Total</span><span>{formatCurrency(invoice.total, business.currency)}</span></div>
                   {invoice.amount_paid > 0 && (
                     <div className="flex justify-between text-sm text-emerald-600"><span>Paid</span><span>{formatCurrency(invoice.amount_paid, business.currency)}</span></div>
                   )}

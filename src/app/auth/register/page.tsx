@@ -140,7 +140,7 @@ export default function RegisterPage() {
       )}
 
       <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">Create an account</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Create an account</h1>
         <p className="text-sm text-muted-foreground mt-1">
           {inviteEmail ? "Set a password to join your team" : "Start running your trade business with Kirei"}
         </p>

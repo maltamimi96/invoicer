@@ -65,7 +65,7 @@ export default async function PortalReportPage({ params }: { params: Promise<{ t
           <div>
             <div className="flex items-center gap-2">
               <FileText className="w-6 h-6 text-primary" />
-              <h1 className="text-2xl font-bold">{r.title}</h1>
+              <h1 className="text-2xl font-semibold">{r.title}</h1>
             </div>
             <p className="text-sm text-muted-foreground mt-1">
               From {business?.name} · {r.report_date ? `Report ${formatDate(r.report_date)}` : ""}

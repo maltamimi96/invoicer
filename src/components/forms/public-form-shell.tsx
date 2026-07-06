@@ -31,7 +31,7 @@ export async function PublicFormShell({ slug, embed }: { slug: string; embed?: b
           <span className="font-semibold">{business?.name}</span>
         </div>
       )}
-      <h1 className="text-2xl font-bold">{form.name}</h1>
+      <h1 className="text-2xl font-semibold">{form.name}</h1>
       {form.description && <p className="text-sm text-muted-foreground mt-1 mb-5">{form.description}</p>}
       <div className={form.description ? "" : "mt-5"}>
         <PublicFormFill

@@ -89,7 +89,7 @@ export function BriefingBell() {
           <Sparkles className="w-4 h-4" />
           {totalCount > 0 && (
             <span
-              className={`absolute -top-0.5 -right-0.5 inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full text-[10px] font-bold leading-none ${
+              className={`absolute -top-0.5 -right-0.5 inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full text-[10px] font-semibold leading-none ${
                 highCount > 0
                   ? "bg-rose-500 text-white"
                   : "bg-primary text-primary-foreground"

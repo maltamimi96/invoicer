@@ -350,9 +350,9 @@
   flex-wrap: wrap;
 }
 .ch-page-title {
-  font-size: 24px;
-  font-weight: 700;
-  letter-spacing: -0.015em;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
   color: hsl(var(--foreground));
   margin: 0;
 }
@@ -389,9 +389,9 @@
   gap: 6px;
 }
 .ch-stat-value {
-  font-size: 26px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
   color: hsl(var(--foreground));
 }

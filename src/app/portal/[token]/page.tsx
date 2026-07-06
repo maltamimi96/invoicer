@@ -95,7 +95,7 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
             )}
             <div className="min-w-0">
               <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Customer portal</p>
-              <h1 className="text-xl sm:text-2xl font-bold truncate">{business?.name ?? "Your provider"}</h1>
+              <h1 className="text-xl sm:text-2xl font-semibold truncate">{business?.name ?? "Your provider"}</h1>
               {business?.license_number && (
                 <p className="text-xs text-muted-foreground">Licence {business.license_number}</p>
               )}
@@ -111,7 +111,7 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
       <main className="max-w-5xl mx-auto px-6 py-8 space-y-8">
         {/* Greeting */}
         <section>
-          <h2 className="text-2xl font-bold">Hi {customer.name?.split(" ")[0] ?? customer.name} 👋</h2>
+          <h2 className="text-2xl font-semibold">Hi {customer.name?.split(" ")[0] ?? customer.name} 👋</h2>
           <p className="text-sm text-muted-foreground mt-1">
             Everything you have with {business?.name ?? "us"} in one place.
           </p>
@@ -129,7 +129,7 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <div>
                 <p className="text-xs uppercase tracking-wider text-amber-600 dark:text-amber-400 font-semibold">Outstanding balance</p>
-                <p className="text-2xl font-bold mt-1">{formatCurrency(totalOwing, business?.currency)}</p>
+                <p className="text-2xl font-semibold mt-1">{formatCurrency(totalOwing, business?.currency)}</p>
               </div>
               <Badge variant="secondary" className="bg-amber-500/15 text-amber-600 dark:text-amber-400">Across {invs.filter((i: {status: string}) => i.status !== "paid" && i.status !== "cancelled").length} invoice(s)</Badge>
             </div>
@@ -316,7 +316,7 @@ function SummaryCard({ icon: Icon, label, count, accent }: { icon: React.Compone
       </div>
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
-        <p className="text-2xl font-bold tabular-nums">{count}</p>
+        <p className="text-2xl font-semibold tabular-nums">{count}</p>
       </div>
     </Card>
   );

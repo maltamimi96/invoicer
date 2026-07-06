@@ -151,7 +151,7 @@ export function QuotesClient({ quotes: initial, currency = "GBP" }: { quotes: Qu
         />
       ) : (
         <div className="rounded-xl border border-border bg-card overflow-hidden">
-          <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border bg-muted/40 text-[10px] uppercase tracking-wide font-bold text-muted-foreground">
+          <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border bg-muted/40 text-[10px] uppercase tracking-wide font-semibold text-muted-foreground">
             <span className="flex-1">Quote</span>
             <span className="hidden md:block w-32">Issued</span>
             <span className="hidden md:block w-32">Expires</span>

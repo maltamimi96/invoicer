@@ -95,7 +95,7 @@ export default async function PortalInvoicePage({ params }: { params: Promise<{ 
           <div>
             <div className="flex items-center gap-2">
               <FileText className="w-6 h-6 text-primary" />
-              <h1 className="text-2xl font-bold">Invoice #{invoice.number}</h1>
+              <h1 className="text-2xl font-semibold">Invoice #{invoice.number}</h1>
             </div>
             <p className="text-sm text-muted-foreground mt-1">
               From {business?.name} · Issued {formatDate(invoice.issue_date)} · Due {formatDate(invoice.due_date)}
@@ -193,7 +193,7 @@ export default async function PortalInvoicePage({ params }: { params: Promise<{ 
               {business?.bank_sort_code && (<><span className="text-muted-foreground">Sort code</span><span className="font-mono font-medium">{business.bank_sort_code}</span></>)}
               {business?.bank_iban && (<><span className="text-muted-foreground">IBAN</span><span className="font-mono font-medium">{business.bank_iban}</span></>)}
               <span className="text-muted-foreground">Reference</span><span className="font-mono font-medium">{invoice.number}</span>
-              <span className="text-muted-foreground">Amount</span><span className="font-bold">{formatCurrency(balance, currency)}</span>
+              <span className="text-muted-foreground">Amount</span><span className="font-semibold">{formatCurrency(balance, currency)}</span>
             </div>
           </Card>
         )}
@@ -294,7 +294,7 @@ export default async function PortalInvoicePage({ params }: { params: Promise<{ 
 
 function Row({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
   return (
-    <div className={`flex justify-between text-sm ${bold ? "font-bold text-base" : ""}`}>
+    <div className={`flex justify-between text-sm ${bold ? "font-semibold text-base" : ""}`}>
       <span className="text-muted-foreground">{label}</span>
       <span>{value}</span>
     </div>

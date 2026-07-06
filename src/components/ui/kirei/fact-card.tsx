@@ -31,7 +31,7 @@ export function FactCard({ icon, gradient = "primary", label, value, href, onCli
         </GradientTile>
       )}
       <div className="min-w-0">
-        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{label}</p>
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
         <div className="text-sm font-semibold text-foreground break-words mt-0.5">{value}</div>
       </div>
     </AnimatedPress>

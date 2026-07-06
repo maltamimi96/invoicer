@@ -172,7 +172,7 @@ export function AgentsStore({ installs: initialInstalls }: AgentsStoreProps) {
               aria-hidden
             />
             <div className="min-w-0">
-              <h1 className="text-3xl font-bold tracking-tight">Agents</h1>
+              <h1 className="text-3xl font-semibold tracking-tight">Agents</h1>
               <p className="text-sm text-muted-foreground mt-1">
                 Add AI agents to automate tasks for your business
               </p>

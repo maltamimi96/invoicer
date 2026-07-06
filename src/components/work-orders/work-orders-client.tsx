@@ -123,7 +123,7 @@ export function WorkOrdersClient({ workOrders, userRole }: WorkOrdersClientProps
         />
       ) : (
         <div className="rounded-xl border border-border bg-card overflow-hidden">
-          <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border bg-muted/40 text-[10px] uppercase tracking-wide font-bold text-muted-foreground">
+          <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border bg-muted/40 text-[10px] uppercase tracking-wide font-semibold text-muted-foreground">
             <span className="flex-1">Job</span>
             <span className="hidden lg:block w-44">Customer</span>
             <span className="hidden md:block w-44">Address</span>

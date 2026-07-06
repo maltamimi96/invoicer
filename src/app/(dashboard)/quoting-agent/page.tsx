@@ -19,7 +19,7 @@ export default async function QuotingAgentPage() {
               <Sparkles className="w-8 h-8" />
             </div>
             <div>
-              <h1 className="text-xl font-bold">Quoting Agent</h1>
+              <h1 className="text-xl font-semibold">Quoting Agent</h1>
               <p className="text-sm text-muted-foreground mt-2 max-w-sm mx-auto">
                 Turn natural-language briefs into accurate quotes. The agent learns your pricing, applies your margins, and writes the line items for you.
               </p>

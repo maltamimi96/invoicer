@@ -48,7 +48,7 @@ export default function ResetPasswordPage() {
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">Set a new password</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Set a new password</h1>
         <p className="text-sm text-muted-foreground mt-1">Choose something you&apos;ll remember.</p>
       </div>
 

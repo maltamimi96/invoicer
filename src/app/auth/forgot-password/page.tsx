@@ -39,7 +39,7 @@ export default function ForgotPasswordPage() {
           >
             <span className="text-2xl">✉️</span>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight">Check your email</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">Check your email</h1>
           <p className="text-sm text-muted-foreground">We sent a password reset link to your email address.</p>
           <Link href="/auth/login">
             <Button variant="outline" className="w-full h-11 rounded-xl">Back to sign in</Button>
@@ -48,7 +48,7 @@ export default function ForgotPasswordPage() {
       ) : (
         <>
           <div className="mb-8">
-            <h1 className="text-3xl font-bold tracking-tight">Reset password</h1>
+            <h1 className="text-3xl font-semibold tracking-tight">Reset password</h1>
             <p className="text-sm text-muted-foreground mt-1">We&apos;ll email you a reset link</p>
           </div>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">

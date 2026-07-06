@@ -77,7 +77,7 @@ export default async function PortalQuotePage({ params }: { params: Promise<{ to
           <div>
             <div className="flex items-center gap-2">
               <FileCheck className="w-6 h-6 text-violet-500" />
-              <h1 className="text-2xl font-bold">Quote #{quote.number}</h1>
+              <h1 className="text-2xl font-semibold">Quote #{quote.number}</h1>
             </div>
             <p className="text-sm text-muted-foreground mt-1">
               From {business?.name} · Issued {formatDate(quote.issue_date)} · Expires {formatDate(quote.expiry_date)}
@@ -202,7 +202,7 @@ export default async function PortalQuotePage({ params }: { params: Promise<{ to
 
 function Row({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
   return (
-    <div className={`flex justify-between text-sm ${bold ? "font-bold text-base" : ""}`}>
+    <div className={`flex justify-between text-sm ${bold ? "font-semibold text-base" : ""}`}>
       <span className="text-muted-foreground">{label}</span>
       <span>{value}</span>
     </div>

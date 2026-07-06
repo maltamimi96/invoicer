@@ -184,7 +184,7 @@ export function FormsBuilderClient({ form, submissions, baseUrl }: Props) {
           {preview ? (
             <div className="max-w-xl mx-auto">
               <Card><CardContent className="p-6 space-y-5">
-                <div><h2 className="text-xl font-bold">{name}</h2>{description && <p className="text-sm text-muted-foreground mt-1">{description}</p>}</div>
+                <div><h2 className="text-xl font-semibold">{name}</h2>{description && <p className="text-sm text-muted-foreground mt-1">{description}</p>}</div>
                 {fields.map((f) => <FormFieldPreview key={f.id} field={f} />)}
                 <Button disabled className="w-full">{settings.submit_text || "Submit"}</Button>
               </CardContent></Card>

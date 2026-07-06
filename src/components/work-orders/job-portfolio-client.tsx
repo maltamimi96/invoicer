@@ -374,7 +374,7 @@ function PortfolioHeader({
             <span className="text-xs font-mono text-muted-foreground">{workOrder.number}</span>
             <Badge className={`${STATUS_COLORS[status]} border-0`}>{STATUS_LABELS[status]}</Badge>
           </div>
-          <h1 className="text-2xl font-bold break-words">{workOrder.title}</h1>
+          <h1 className="text-2xl font-semibold break-words">{workOrder.title}</h1>
         </div>
         <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
           <a href={`/api/pdf/work-order/${workOrder.id}`} target="_blank" rel="noopener noreferrer">

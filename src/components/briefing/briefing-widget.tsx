@@ -82,7 +82,7 @@ export function BriefingWidget({ compact = false }: Props) {
             <h3 className="text-sm font-semibold flex items-center gap-2">
               Your briefing
               {summary.items.length > 0 && (
-                <span className="text-[10px] uppercase tracking-wide font-bold bg-violet-100 text-violet-900 dark:bg-violet-900/40 dark:text-violet-200 px-1.5 py-0.5 rounded-full">
+                <span className="text-[10px] uppercase tracking-wide font-semibold bg-violet-100 text-violet-900 dark:bg-violet-900/40 dark:text-violet-200 px-1.5 py-0.5 rounded-full">
                   {summary.items.length}
                 </span>
               )}
@@ -127,7 +127,7 @@ function Row({ item, onSnooze }: { item: BriefingItem; onSnooze: (item: Briefing
   return (
     <div className="flex flex-wrap items-center gap-3 p-3 rounded-lg bg-card border border-border/70 hover:border-primary/30 transition-colors group">
       <GradientTile gradient={PRIORITY_GRADIENT[item.priority]} size={36} radius={10}>
-        <span className="text-[9px] font-bold uppercase tracking-wider">
+        <span className="text-[9px] font-semibold uppercase tracking-wider">
           {TYPE_LABEL[item.type].slice(0, 4)}
         </span>
       </GradientTile>

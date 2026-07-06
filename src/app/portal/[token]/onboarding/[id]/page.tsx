@@ -64,7 +64,7 @@ export default async function PortalOnboardingPage({ params }: { params: Promise
       <main className="max-w-2xl mx-auto px-6 py-8">
         <div className="flex items-center gap-2 mb-1">
           <ClipboardList className="w-5 h-5 text-teal-600" />
-          <h1 className="text-2xl font-bold">{form.name}</h1>
+          <h1 className="text-2xl font-semibold">{form.name}</h1>
         </div>
         {form.description && <p className="text-sm text-muted-foreground mb-6">{form.description}</p>}
 

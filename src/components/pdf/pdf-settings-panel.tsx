@@ -26,7 +26,7 @@ const INVOICE_TEMPLATES: { id: PdfSettings["invoice_template"]; label: string; p
       <div className="w-full h-16 bg-white border rounded overflow-hidden text-[5px] p-1.5 flex flex-col gap-0.5">
         <div className="flex justify-between items-start">
           <div className="w-5 h-3 bg-gray-200 rounded-sm" />
-          <div className="text-blue-600 font-bold text-[7px]">INVOICE</div>
+          <div className="text-blue-600 font-semibold text-[7px]">INVOICE</div>
         </div>
         <div className="h-0.5 bg-gray-100 mt-0.5" />
         <div className="flex-1 space-y-0.5 mt-0.5">
@@ -44,7 +44,7 @@ const INVOICE_TEMPLATES: { id: PdfSettings["invoice_template"]; label: string; p
       <div className="w-full h-16 bg-white border rounded overflow-hidden text-[5px] p-0 flex flex-col">
         <div className="bg-gray-900 px-1.5 py-1 flex justify-between items-center">
           <div className="w-5 h-3 bg-gray-600 rounded-sm" />
-          <div className="text-white font-bold text-[7px]">INVOICE</div>
+          <div className="text-white font-semibold text-[7px]">INVOICE</div>
         </div>
         <div className="flex-1 p-1.5 space-y-0.5">
           <div className="h-0.5 bg-gray-100 w-full" />
@@ -61,7 +61,7 @@ const INVOICE_TEMPLATES: { id: PdfSettings["invoice_template"]; label: string; p
       <div className="w-full h-16 bg-white border rounded overflow-hidden text-[5px] p-1.5 flex flex-col gap-0.5">
         <div className="flex justify-between items-start">
           <div className="w-5 h-3 bg-gray-200 rounded-sm" />
-          <div className="font-bold text-[7px] text-gray-800">INVOICE</div>
+          <div className="font-semibold text-[7px] text-gray-800">INVOICE</div>
         </div>
         <div className="h-px bg-gray-800 mt-0.5" />
         <div className="flex-1 space-y-0.5 mt-0.5">
@@ -81,7 +81,7 @@ const QUOTE_TEMPLATES: { id: PdfSettings["quote_template"]; label: string; previ
     preview: (
       <div className="w-full h-16 bg-white border rounded overflow-hidden flex flex-col">
         <div className="h-4 bg-gray-900 flex items-center justify-center">
-          <div className="text-amber-400 font-bold text-[6px] tracking-widest">QUOTATION</div>
+          <div className="text-amber-400 font-semibold text-[6px] tracking-widest">QUOTATION</div>
         </div>
         <div className="flex-1 p-1.5 space-y-0.5">
           <div className="h-0.5 bg-gray-100 w-full" />
@@ -98,7 +98,7 @@ const QUOTE_TEMPLATES: { id: PdfSettings["quote_template"]; label: string; previ
       <div className="w-full h-16 bg-white border rounded overflow-hidden text-[5px] p-1.5 flex flex-col gap-0.5">
         <div className="flex justify-between items-start">
           <div className="w-5 h-3 bg-gray-200 rounded-sm" />
-          <div className="text-blue-600 font-bold text-[7px]">QUOTE</div>
+          <div className="text-blue-600 font-semibold text-[7px]">QUOTE</div>
         </div>
         <div className="h-0.5 bg-gray-100 mt-0.5" />
         <div className="flex-1 space-y-0.5 mt-0.5">

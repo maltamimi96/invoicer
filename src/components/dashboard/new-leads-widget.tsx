@@ -65,7 +65,7 @@ export function NewLeadsWidget() {
             <h3 className="text-sm font-semibold flex items-center gap-2">
               New leads
               {leads && leads.length > 0 && (
-                <span className="text-[10px] uppercase tracking-wide font-bold bg-blue-100 text-blue-900 dark:bg-blue-900/40 dark:text-blue-200 px-1.5 py-0.5 rounded-full">
+                <span className="text-[10px] uppercase tracking-wide font-semibold bg-blue-100 text-blue-900 dark:bg-blue-900/40 dark:text-blue-200 px-1.5 py-0.5 rounded-full">
                   {leads.length}
                 </span>
               )}
@@ -99,7 +99,7 @@ export function NewLeadsWidget() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm font-semibold break-words">{lead.name}</p>
                     {lead.status === "contacted" && (
-                      <span className="text-[10px] uppercase tracking-wide font-bold text-muted-foreground">contacted</span>
+                      <span className="text-[10px] uppercase tracking-wide font-semibold text-muted-foreground">contacted</span>
                     )}
                   </div>
                   <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">

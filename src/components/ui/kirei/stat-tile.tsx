@@ -61,7 +61,7 @@ export function StatTile({ gradient, toneColor, icon, label, value, sub, href }:
           {label}
         </p>
       </div>
-      <p className="text-2xl font-bold mt-3 text-foreground tabular-nums">{value}</p>
+      <p className="text-2xl font-semibold mt-3 text-foreground tabular-nums">{value}</p>
       {sub && <p className="text-xs text-muted-foreground mt-1">{sub}</p>}
     </div>
   );

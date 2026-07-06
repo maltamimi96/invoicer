@@ -284,7 +284,7 @@ export function QuoteEditor({ customers, products, business, quote, defaultCusto
                 {discountAmount > 0 && <div className="flex justify-between text-muted-foreground"><span>Discount</span><span>- {formatCurrency(discountAmount, business.currency)}</span></div>}
                 <div className="flex justify-between"><span className="text-muted-foreground">Tax</span><span>{formatCurrency(taxTotal, business.currency)}</span></div>
                 <Separator />
-                <div className="flex justify-between font-bold text-base"><span>Total</span><span>{formatCurrency(total, business.currency)}</span></div>
+                <div className="flex justify-between font-semibold text-base"><span>Total</span><span>{formatCurrency(total, business.currency)}</span></div>
               </div>
             </CardContent>
           </Card>

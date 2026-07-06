@@ -58,7 +58,7 @@ export function OnboardingFormsClient({ enabled, forms, requests, customers }: P
               <ClipboardList className="w-8 h-8" />
             </div>
             <div>
-              <h1 className="text-xl font-bold">Client Onboarding</h1>
+              <h1 className="text-xl font-semibold">Client Onboarding</h1>
               <p className="text-sm text-muted-foreground mt-2 max-w-sm mx-auto">
                 Build custom intake forms — ABN, social accounts, opening hours, brand images,
                 even securely-stored credentials — and send customers a link to fill them in.

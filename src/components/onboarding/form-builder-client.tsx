@@ -387,7 +387,7 @@ function FormPreview({ name, description, fields }: { name: string; description:
       <Card>
         <CardContent className="p-6 space-y-5">
           <div>
-            <h2 className="text-xl font-bold">{name}</h2>
+            <h2 className="text-xl font-semibold">{name}</h2>
             {description && <p className="text-sm text-muted-foreground mt-1">{description}</p>}
           </div>
           {fields.map((f) => <PreviewField key={f.id} field={f} />)}

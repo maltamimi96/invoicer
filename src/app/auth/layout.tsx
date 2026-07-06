@@ -20,7 +20,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <div className="w-14 h-14 rounded-2xl bg-white/15 backdrop-blur flex items-center justify-center mr-3">
             <Image src="/kirei-logo.png" alt="Kirei" width={42} height={42} className="object-contain" priority />
           </div>
-          <span className="text-2xl font-bold tracking-tight">Kirei</span>
+          <span className="text-2xl font-semibold tracking-tight">Kirei</span>
         </div>
 
         <div className="relative z-10 space-y-6 max-w-md">
@@ -49,7 +49,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             >
               <Image src="/kirei-logo.png" alt="Kirei" width={36} height={36} className="object-contain" priority />
             </div>
-            <span className="text-xl font-bold tracking-tight">Kirei</span>
+            <span className="text-xl font-semibold tracking-tight">Kirei</span>
           </div>
           {children}
         </div>
