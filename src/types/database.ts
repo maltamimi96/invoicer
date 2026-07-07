@@ -614,6 +614,10 @@ export interface SeoOpportunity {
   updated_at: string;
 }
 
+export type SeoContentType = 'blog' | 'landing' | 'email' | 'social';
+export type SeoPipelineStatus = 'idle' | 'running' | 'awaiting_approval' | 'done' | 'failed';
+export interface SeoArtifact { content: string; created_at?: string }
+
 export interface SeoContentPiece {
   id: string;
   business_id: string;
@@ -625,6 +629,13 @@ export interface SeoContentPiece {
   brief: Record<string, unknown>;
   html: string | null;
   published_url: string | null;
+  // Pipeline execution (migration 20260708160000)
+  content_type: SeoContentType;
+  topic: string | null;
+  current_stage: string | null;
+  pipeline_status: SeoPipelineStatus;
+  job_id: string | null;
+  artifacts: Record<string, SeoArtifact>;
   created_at: string;
   updated_at: string;
 }
