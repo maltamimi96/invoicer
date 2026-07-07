@@ -112,25 +112,12 @@ export async function toggleAgent(agentId: string, enabled: boolean): Promise<vo
 }
 
 /**
- * Keep downstream tables in sync when agent state changes.
- * email-lead-scanner ↔ business_email_config.enabled
- * client-onboarding ↔ onboarding_settings.enabled (drives the sidebar tab)
+ * Keep downstream tables in sync when agent/plugin state changes. Shared
+ * logic lives in src/lib/plugins/sync.ts (plain module) so MCP reuses it.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function syncSideEffects(sb: any, businessId: string, agentId: string, enabled: boolean) {
-  if (agentId === "email-lead-scanner") {
-    await tbl(sb, "business_email_config")
-      .update({ enabled })
-      .eq("business_id", businessId);
-  }
-  if (agentId === "client-onboarding") {
-    await tbl(sb, "onboarding_settings")
-      .upsert({ business_id: businessId, enabled }, { onConflict: "business_id" });
-    revalidatePath("/", "layout"); // sidebar tab appears/disappears
-  }
-  if (agentId === "form-builder") {
-    await tbl(sb, "form_builder_settings")
-      .upsert({ business_id: businessId, enabled }, { onConflict: "business_id" });
-    revalidatePath("/", "layout");
-  }
+  const { syncPluginSideEffects } = await import("@/lib/plugins/sync");
+  await syncPluginSideEffects(sb, businessId, agentId, enabled);
+  revalidatePath("/", "layout"); // sidebar items appear/disappear with plugin state
 }

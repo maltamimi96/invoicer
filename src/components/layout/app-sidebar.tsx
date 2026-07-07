@@ -14,14 +14,13 @@ import { canManageSettings, isWorker, ROLE_LABELS } from "@/lib/permissions";
 import Image from "next/image";
 import { BusinessSwitcher } from "@/components/business/business-switcher";
 
-type FeatureFlag = "quotingAgent" | "onboarding" | "formBuilder";
 type NavItem = {
   label: string;
   href: string;
   icon: typeof LayoutDashboard;
   worker?: boolean;
-  /** Only show when this feature is enabled for the business. */
-  feature?: FeatureFlag;
+  /** Owning plugin id (src/lib/plugins/registry.ts). Untagged = core, always shown. */
+  plugin?: string;
 };
 type NavSection = { section: string; items: NavItem[] };
 
@@ -29,40 +28,40 @@ const navSections: NavSection[] = [
   { section: "Workspace", items: [
     { label: "Dashboard",  href: "/dashboard",  icon: LayoutDashboard, worker: true },
     { label: "Assistant",  href: "/assistant",  icon: Sparkles                      },
-    { label: "Messages",   href: "/messages",   icon: MessageSquare                 },
+    { label: "Messages",   href: "/messages",   icon: MessageSquare,   plugin: "messages" },
     { label: "Tasks",      href: "/tasks",      icon: Columns3                      },
   ]},
   { section: "Sales", items: [
-    { label: "Leads",         href: "/leads",         icon: UserPlus                                       },
-    { label: "Forms",         href: "/forms",         icon: ListChecks,  feature: "formBuilder"           },
-    { label: "Quoting Agent", href: "/quoting-agent", icon: Sparkles,    feature: "quotingAgent"          },
-    { label: "Quotes",        href: "/quotes",        icon: FileCheck                                      },
-    { label: "Invoices",      href: "/invoices",      icon: FileText                                       },
-    { label: "Contracts",     href: "/contracts",     icon: FileStack                                      },
-    { label: "Site Reports",  href: "/reports",       icon: ClipboardList                                  },
-    { label: "Recurring",     href: "/recurring",     icon: Repeat                                         },
-    { label: "Recurring billing", href: "/recurring-invoices", icon: Repeat                                 },
+    { label: "Leads",         href: "/leads",         icon: UserPlus,     plugin: "leads"             },
+    { label: "Forms",         href: "/forms",         icon: ListChecks,   plugin: "form-builder"      },
+    { label: "Quoting Agent", href: "/quoting-agent", icon: Sparkles,     plugin: "quoting-agent"     },
+    { label: "Quotes",        href: "/quotes",        icon: FileCheck,    plugin: "quotes"            },
+    { label: "Invoices",      href: "/invoices",      icon: FileText,     plugin: "invoicing"         },
+    { label: "Contracts",     href: "/contracts",     icon: FileStack,    plugin: "contracts"         },
+    { label: "Site Reports",  href: "/reports",       icon: ClipboardList, plugin: "site-reports"     },
+    { label: "Recurring",     href: "/recurring",     icon: Repeat,       plugin: "recurring-jobs"    },
+    { label: "Recurring billing", href: "/recurring-invoices", icon: Repeat, plugin: "recurring-billing" },
   ]},
   { section: "Service", items: [
-    { label: "Work Orders",    href: "/work-orders",     icon: Wrench,        worker: true },
-    { label: "Schedule",       href: "/schedule",        icon: CalendarDays,  worker: true },
-    { label: "Bookings",       href: "/bookings",        icon: CalendarDays                 },
-    { label: "Online Booking", href: "/settings/booking", icon: CalendarDays                 },
+    { label: "Work Orders",    href: "/work-orders",     icon: Wrench,        worker: true, plugin: "jobs" },
+    { label: "Schedule",       href: "/schedule",        icon: CalendarDays,  worker: true, plugin: "scheduling" },
+    { label: "Bookings",       href: "/bookings",        icon: CalendarDays,  plugin: "booking" },
+    { label: "Online Booking", href: "/settings/booking", icon: CalendarDays,  plugin: "booking" },
   ]},
   { section: "Contacts", items: [
     { label: "Customers",  href: "/customers",  icon: Users                         },
     { label: "Contacts",   href: "/contacts",   icon: Users2                        },
-    { label: "Onboarding", href: "/onboarding-forms", icon: ClipboardList, feature: "onboarding" },
+    { label: "Onboarding", href: "/onboarding-forms", icon: ClipboardList, plugin: "client-onboarding" },
   ]},
   { section: "Catalog", items: [
-    { label: "Products",   href: "/products",   icon: Package                       },
+    { label: "Products",   href: "/products",   icon: Package,       plugin: "products" },
   ]},
   { section: "Workforce", items: [
     { label: "Team",       href: "/team",       icon: Users2                        },
     { label: "Agents",     href: "/agents",     icon: Bot                           },
   ]},
   { section: "Insights", items: [
-    { label: "Analytics",  href: "/analytics",  icon: TrendingUp                    },
+    { label: "Analytics",  href: "/analytics",  icon: TrendingUp,    plugin: "analytics" },
   ]},
   { section: "Account", items: [
     { label: "Help",       href: "/help",       icon: HelpCircle,    worker: true   },
@@ -73,8 +72,8 @@ interface AppSidebarProps {
   business: Business;
   businesses: Business[];
   userRole: Role;
-  /** Server-fetched flags driving conditional nav items. */
-  features?: { quotingAgent?: boolean; onboarding?: boolean; formBuilder?: boolean };
+  /** Enabled-plugin map from the layout resolver (plugin id → enabled). */
+  features?: Record<string, boolean>;
   open: boolean;
   onClose: () => void;
 }
@@ -87,7 +86,7 @@ export function AppSidebar({ business, businesses, userRole, features, open, onC
       ...s,
       items: s.items.filter((i) => {
         if (workerView && !i.worker) return false;
-        if (i.feature && !features?.[i.feature]) return false;
+        if (i.plugin && !features?.[i.plugin]) return false;
         return true;
       }),
     }))

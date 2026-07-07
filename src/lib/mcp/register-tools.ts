@@ -1415,6 +1415,69 @@ export function registerTools(server: McpServer): void {
       return text(out);
     });
 
+  // ===== PLUGINS (module system — docs/SEO_AGENCY_PLAN.md P0) =====
+  tool("list_plugins",
+    "List Kirei's plugins (modules) and whether each is enabled for this business. Core plugins are always on. Disabling a plugin only hides it — no data is ever deleted.",
+    {},
+    async (_args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "settings:read");
+      const { PLUGIN_REGISTRY, resolveEnabledPlugins } = await import("@/lib/plugins/registry");
+      const [{ data: rows }, { data: qa }, { data: ob }, { data: fb }] = await Promise.all([
+        t(ctx, "business_agent_installs").select("agent_id, enabled").eq("business_id", ctx.businessId),
+        t(ctx, "quoting_agent_settings").select("enabled").eq("business_id", ctx.businessId).maybeSingle(),
+        t(ctx, "onboarding_settings").select("enabled").eq("business_id", ctx.businessId).maybeSingle(),
+        t(ctx, "form_builder_settings").select("enabled").eq("business_id", ctx.businessId).maybeSingle(),
+      ]);
+      const enabled = resolveEnabledPlugins(rows ?? [], {
+        quoting_agent_settings: qa ? !!qa.enabled : null,
+        onboarding_settings: ob ? !!ob.enabled : null,
+        form_builder_settings: fb ? !!fb.enabled : null,
+      });
+      return text(PLUGIN_REGISTRY.filter((p) => p.kind === "module").map((p) => ({
+        id: p.id, name: p.name, category: p.category, core: !!p.core,
+        enabled: enabled[p.id], dependencies: p.dependencies ?? [],
+      })));
+    });
+
+  tool("set_plugin_enabled",
+    "Enable or disable a plugin (module) for this business. Core plugins can't be disabled; plugins that other enabled plugins depend on are blocked. Disabling hides the module — data is preserved and re-enabling restores it.",
+    { plugin_id: z.string().min(1), enabled: z.boolean() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "settings:write");
+      const { PLUGINS_BY_ID, resolveEnabledPlugins, dependentsOf } = await import("@/lib/plugins/registry");
+      const plugin = PLUGINS_BY_ID[args.plugin_id];
+      if (!plugin) return errorText(`Unknown plugin "${args.plugin_id}"`);
+      if (plugin.core) return errorText(`"${plugin.name}" is a core module and can't be disabled`);
+
+      if (!args.enabled) {
+        // Block disabling something an enabled plugin depends on.
+        const [{ data: rows }, { data: qa }, { data: ob }, { data: fb }] = await Promise.all([
+          t(ctx, "business_agent_installs").select("agent_id, enabled").eq("business_id", ctx.businessId),
+          t(ctx, "quoting_agent_settings").select("enabled").eq("business_id", ctx.businessId).maybeSingle(),
+          t(ctx, "onboarding_settings").select("enabled").eq("business_id", ctx.businessId).maybeSingle(),
+          t(ctx, "form_builder_settings").select("enabled").eq("business_id", ctx.businessId).maybeSingle(),
+        ]);
+        const enabled = resolveEnabledPlugins(rows ?? [], {
+          quoting_agent_settings: qa ? !!qa.enabled : null,
+          onboarding_settings: ob ? !!ob.enabled : null,
+          form_builder_settings: fb ? !!fb.enabled : null,
+        });
+        const deps = dependentsOf(plugin.id, enabled);
+        if (deps.length > 0) {
+          return errorText(`Disable ${deps.map((d) => `"${d.name}"`).join(", ")} first — ${deps.length > 1 ? "they depend" : "it depends"} on "${plugin.name}".`);
+        }
+      }
+
+      const { error } = await t(ctx, "business_agent_installs").upsert(
+        { business_id: ctx.businessId, agent_id: plugin.id, enabled: args.enabled, updated_at: new Date().toISOString() },
+        { onConflict: "business_id,agent_id" },
+      );
+      if (error) throw error;
+      const { syncPluginSideEffects } = await import("@/lib/plugins/sync");
+      await syncPluginSideEffects(ctx.sb, ctx.businessId, plugin.id, args.enabled);
+      return text({ plugin: plugin.id, enabled: args.enabled });
+    });
+
   // ===== PUBLIC FORM BUILDER (feature-flagged, lead-capture / embeddable) =====
   const FORM_FIELD = z.object({
     id: z.string().min(1),
