@@ -71,11 +71,18 @@ export async function runAgent(agentId: string, piece: PieceLike): Promise<RunRe
   const agent = SEO_AGENTS_BY_ID[agentId];
   const model = MODEL[agent?.model ?? "sonnet"];
 
+  // Research / audit agents get live web search (server-side tool — Anthropic
+  // runs the searches and returns the grounded answer in one call).
+  const tools = agent?.tools?.includes("web_search")
+    ? ([{ type: "web_search_20250305", name: "web_search", max_uses: 6 }] as Anthropic.Messages.MessageCreateParams["tools"])
+    : undefined;
+
   const res = await anthropic.messages.create({
     model,
     max_tokens: 8192,
     system,
     messages: [{ role: "user", content: buildInput(agentId, piece) }],
+    ...(tools ? { tools } : {}),
   });
 
   const content = res.content
