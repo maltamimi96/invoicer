@@ -6,6 +6,7 @@
 import { z } from "zod";
 import { assertScope, t, text, errorText } from "../context";
 import { ctxFrom, UUID, type ToolFn } from "./shared";
+import { advanceContentJob } from "@/lib/seo/engine";
 
 const DOMAIN = z.string().min(1).describe("Client site domain, e.g. example.com");
 
@@ -93,5 +94,79 @@ export function registerSeoTools(tool: ToolFn): void {
       const { error } = await t(ctx, "seo_sites").delete().eq("id", args.site_id).eq("business_id", ctx.businessId);
       if (error) throw error;
       return text({ deleted: true });
+    });
+
+  // ── Content pipeline ────────────────────────────────────────────────────────
+  tool("start_content_pipeline",
+    "Kick off the SEO content pipeline for a client site: creates a content piece and queues the agent chain (keyword research → SERP → brief → draft → voice → humanize → optimize → edit). content_type = blog | landing | email | social.",
+    {
+      site_id: UUID,
+      topic: z.string().min(1),
+      content_type: z.enum(["blog", "landing", "email", "social"]).optional(),
+      title: z.string().optional(),
+    },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "seo:write");
+      const contentType = args.content_type ?? "blog";
+      const { data: piece, error } = await t(ctx, "seo_content_pieces").insert({
+        business_id: ctx.businessId, site_id: args.site_id,
+        title: args.title?.trim() || args.topic.trim(), topic: args.topic.trim(),
+        content_type: contentType, status: "brief", pipeline_status: "running", artifacts: {},
+      }).select("id").single();
+      if (error) throw error;
+      const { data: job, error: jErr } = await t(ctx, "seo_jobs").insert({
+        business_id: ctx.businessId, site_id: args.site_id, type: "content_pipeline",
+        status: "queued", step: 0, input: { content_piece_id: piece.id },
+      }).select("id").single();
+      if (jErr) throw jErr;
+      await t(ctx, "seo_content_pieces").update({ job_id: job.id }).eq("id", piece.id);
+      return text({ started: true, piece_id: piece.id, note: "The cron advances it, or call advance_content_pipeline to run the next step now." });
+    });
+
+  tool("advance_content_pipeline", "Run the next agent step for a content piece now (one step per call). Returns the new status/stage.",
+    { piece_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "seo:write");
+      const { data: piece } = await t(ctx, "seo_content_pieces")
+        .select("id, job_id").eq("id", args.piece_id).eq("business_id", ctx.businessId).maybeSingle();
+      if (!piece?.job_id) return errorText("No pipeline job for this piece");
+      const { data: job } = await t(ctx, "seo_jobs").select("*").eq("id", piece.job_id).eq("business_id", ctx.businessId).maybeSingle();
+      if (!job) return errorText("Job not found");
+      if (job.status === "awaiting_approval" || job.status === "done") return text({ status: job.status });
+      const result = await advanceContentJob(ctx.sb, job);
+      return text(result);
+    });
+
+  tool("list_content_pieces", "List content pieces (articles/pages) and their pipeline status for this business or one site.",
+    { site_id: UUID.optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "seo:read");
+      let q = t(ctx, "seo_content_pieces")
+        .select("id, site_id, title, topic, content_type, status, pipeline_status, current_stage, created_at")
+        .eq("business_id", ctx.businessId).order("created_at", { ascending: false }).limit(200);
+      if (args.site_id) q = q.eq("site_id", args.site_id);
+      const { data, error } = await q;
+      if (error) throw error;
+      return text(data);
+    });
+
+  tool("get_content_piece", "Get a content piece including every agent artifact produced so far (keyword research, brief, draft, final, …).",
+    { piece_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "seo:read");
+      const { data } = await t(ctx, "seo_content_pieces").select("*").eq("id", args.piece_id).eq("business_id", ctx.businessId).maybeSingle();
+      if (!data) return errorText("Content piece not found");
+      return text(data);
+    });
+
+  tool("approve_content_piece", "Approve a finished content piece (past the edit gate) — marks it done and ready to publish.",
+    { piece_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "seo:write");
+      const { data: piece } = await t(ctx, "seo_content_pieces").select("id, job_id").eq("id", args.piece_id).eq("business_id", ctx.businessId).maybeSingle();
+      if (!piece) return errorText("Piece not found");
+      await t(ctx, "seo_content_pieces").update({ pipeline_status: "done", status: "approved" }).eq("id", args.piece_id);
+      if (piece.job_id) await t(ctx, "seo_jobs").update({ status: "done" }).eq("id", piece.job_id);
+      return text({ approved: true });
     });
 }

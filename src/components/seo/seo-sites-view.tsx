@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Search, Plus, Trash2, Globe, Workflow } from "@/components/ui/icons";
+import { Search, Plus, Trash2, Globe, Workflow, FileText } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -97,6 +97,12 @@ export function SeoSitesView({ sites, customers }: Props) {
         accent="linear-gradient(180deg, #10b981 0%, #047857 100%)"
         actions={
           <>
+            <Link
+              href="/seo/content"
+              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md border border-border px-3 py-1.5"
+            >
+              <FileText className="w-4 h-4" /> Content
+            </Link>
             <Link
               href="/seo/pipeline"
               className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md border border-border px-3 py-1.5"

@@ -225,3 +225,27 @@ export const SEO_ARTIFACTS: Record<SeoArtifactKey, { label: string; file: string
 /** Ordered stage list a content piece moves through (for progress + status). */
 export const PIPELINE_STAGE_ORDER: SeoStage[] =
   CONTENT_PIPELINE.map((c) => c.stage);
+
+/**
+ * The executable agent sequence for one content piece (research → edit gate).
+ * Discovery + publish are separate tracks; the copywriter is resolved from the
+ * content type. Client-safe — the engine and the UI both read it from here.
+ */
+export function executableSteps(
+  contentType: "blog" | "landing" | "email" | "social",
+): string[] {
+  const copywriter =
+    contentType === "landing" ? "conversion-copywriter"
+    : contentType === "email" || contentType === "social" ? "email-social-copywriter"
+    : "long-form-copywriter";
+  return [
+    "keyword-strategist",
+    "serp-competitor-analyst",
+    "content-brief-architect",
+    copywriter,
+    "brand-voice-guardian",
+    "humanizer",
+    "on-page-seo-optimizer",
+    "content-editor-fact-checker",
+  ];
+}
