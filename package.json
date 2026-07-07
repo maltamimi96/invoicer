@@ -9,6 +9,7 @@
     "lint": "next lint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "bundle:check": "node scripts/check-bundle-size.mjs",
     "env:pull": "vercel env pull .env.local --environment=production --yes"
   },
   "dependencies": {
