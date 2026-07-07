@@ -75,6 +75,9 @@ export const PLUGIN_REGISTRY: PluginDefinition[] = [
   { id: "quoting-agent", icon: "sparkles",     name: "Quoting Agent",     description: "AI that learns your pricing and writes quotes.", kind: "module", category: "automation", defaultEnabled: false, settingsTable: "quoting_agent_settings", routePrefixes: ["/quoting-agent"] },
   { id: "client-onboarding", icon: "clipboard-list", name: "Client Onboarding", description: "Custom intake forms customers fill in via the portal.", kind: "module", category: "contacts", defaultEnabled: false, settingsTable: "onboarding_settings", routePrefixes: ["/onboarding-forms"] },
   { id: "form-builder", icon: "list-checks",      name: "Form Builder",      description: "Public lead-capture forms to share or embed.", kind: "module", category: "sales", defaultEnabled: false, settingsTable: "form_builder_settings", routePrefixes: ["/forms"] },
+
+  // ── SEO vertical (docs/SEO_AGENCY_PLAN.md, Phase 2) ─────────────────────────
+  { id: "seo-production", icon: "trending-up", name: "SEO Production", description: "Manage client sites: connectors, opportunity queue, content pipeline and reporting.", kind: "module", category: "seo", defaultEnabled: false, routePrefixes: ["/seo"] },
 ];
 
 export const PLUGINS_BY_ID: Record<string, PluginDefinition> =

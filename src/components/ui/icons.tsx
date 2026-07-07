@@ -27,6 +27,7 @@ export {
   CreditCard,
   Crown,
   Database,
+  Globe,
   Eye,
   Lock,
   FileText,

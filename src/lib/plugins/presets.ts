@@ -43,6 +43,21 @@ export const INDUSTRY_PRESETS: IndustryPreset[] = [
       "/customers": "Clients",
     },
   },
+  {
+    id: "seo-agency-local",
+    label: "SEO agency (local services)",
+    description: "Local-business SEO: client sites, GSC connector, opportunity queue, content pipeline and white-label reporting.",
+    // Agency operating layer + the SEO production engine. Field-ops modules off.
+    plugins: [
+      "leads", "quotes", "invoicing", "recurring-billing", "contracts",
+      "messages", "analytics", "client-onboarding", "form-builder",
+      "seo-production",
+    ],
+    vocab: {
+      "/customers": "Clients",
+      "/quotes": "Proposals",
+    },
+  },
 ];
 
 export const PRESETS_BY_ID: Record<string, IndustryPreset> =

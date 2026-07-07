@@ -31,6 +31,7 @@ import { customerAllowsCard } from "@/lib/payment-methods";
 import type { LineItem } from "@/types/database";
 import { ctxFrom, appBase, UUID, getOrMintPortalToken } from "./tools/shared";
 import { registerPluginFormTools } from "./tools/plugin-form-tools";
+import { registerSeoTools } from "./tools/seo-tools";
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -1387,6 +1388,9 @@ export function registerTools(server: McpServer): void {
   // ===== PLUGINS · PRESETS · FORM BUILDER · ONBOARDING · CONTRACTS =====
   // Registered from ./tools/plugin-form-tools to keep this file focused.
   registerPluginFormTools(tool);
+
+  // ===== SEO PRODUCTION (docs/SEO_AGENCY_PLAN.md, Phase 2) =====
+  registerSeoTools(tool);
 
   // ===== SCHEDULE =====
   tool("get_schedule", "Get jobs scheduled on a given date (YYYY-MM-DD), or today if omitted.",
