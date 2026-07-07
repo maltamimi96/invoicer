@@ -38,8 +38,9 @@ import {
   toggleAgent,
   type AgentInstall,
 } from "@/lib/actions/agents";
-import { setPluginEnabled } from "@/lib/actions/plugins";
-import { PLUGIN_REGISTRY, type PluginDefinition } from "@/lib/plugins/registry";
+import { setPluginEnabled, applyPresetToActiveBusiness } from "@/lib/actions/plugins";
+import { PLUGIN_REGISTRY, PLUGINS_BY_ID, OPTIONAL_PLUGINS, type PluginDefinition } from "@/lib/plugins/registry";
+import { INDUSTRY_PRESETS, type IndustryPreset } from "@/lib/plugins/presets";
 
 // ── Icon map ──────────────────────────────────────────────────────────────────
 
@@ -105,15 +106,36 @@ interface AgentsStoreProps {
   installs: AgentInstall[];
   /** Resolved plugin-enabled map (plugin id → enabled) from the server. */
   pluginEnabled: Record<string, boolean>;
+  /** businesses.industry_preset — the preset currently applied, if any. */
+  activePreset: string | null;
 }
 
-export function AgentsStore({ installs: initialInstalls, pluginEnabled }: AgentsStoreProps) {
+export function AgentsStore({ installs: initialInstalls, pluginEnabled, activePreset }: AgentsStoreProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [installs, setInstalls] = useState<AgentInstall[]>(initialInstalls);
   const [activeCategory, setActiveCategory] = useState<AgentCategory | "all">("all");
   const [uninstallTarget, setUninstallTarget] = useState<AgentDefinition | null>(null);
   const [modules, setModules] = useState<Record<string, boolean>>(pluginEnabled);
+  const [presetTarget, setPresetTarget] = useState<IndustryPreset | null>(null);
+
+  function handleApplyPreset(preset: IndustryPreset) {
+    startTransition(async () => {
+      try {
+        await applyPresetToActiveBusiness(preset.id);
+        // Reflect the new enabled set locally so the Modules toggles update at once.
+        const next: Record<string, boolean> = { ...modules };
+        for (const p of OPTIONAL_PLUGINS) next[p.id] = preset.plugins.includes(p.id);
+        setModules(next);
+        toast.success(`${preset.label} preset applied`);
+        router.refresh();
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Couldn't apply preset");
+      } finally {
+        setPresetTarget(null);
+      }
+    });
+  }
 
   function handleModuleToggle(plugin: PluginDefinition, enabled: boolean) {
     setModules((prev) => ({ ...prev, [plugin.id]: enabled }));
@@ -250,6 +272,47 @@ export function AgentsStore({ installs: initialInstalls, pluginEnabled }: Agents
         </div>
       </div>
 
+      {/* Industry presets — one click to shape the whole app for a business type */}
+      <div className="mb-10">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">Industry preset</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {INDUSTRY_PRESETS.map((preset) => {
+            const isActive = activePreset === preset.id;
+            return (
+              <div
+                key={preset.id}
+                className={cn(
+                  "rounded-xl border bg-card p-4 flex items-start gap-3",
+                  isActive ? "border-primary/40 shadow-sm" : "border-border"
+                )}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-semibold break-words">{preset.label}</p>
+                    {isActive && (
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Active</Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{preset.description}</p>
+                </div>
+                <Button
+                  size="sm"
+                  variant={isActive ? "ghost" : "outline"}
+                  className="h-7 px-3 text-xs shrink-0"
+                  onClick={() => setPresetTarget(preset)}
+                  disabled={isPending}
+                >
+                  {isActive ? "Re-apply" : "Apply"}
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+        <p className="text-[11px] text-muted-foreground mt-2">
+          A preset turns a bundle of modules on and hides the rest. Nothing is deleted — you can fine-tune individual modules below.
+        </p>
+      </div>
+
       {/* Modules — the app's building blocks */}
       <div className="mb-10">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">Modules</h2>
@@ -314,6 +377,47 @@ export function AgentsStore({ installs: initialInstalls, pluginEnabled }: Agents
           );
         })}
       </div>
+
+      {/* Apply-preset confirm dialog */}
+      <AlertDialog
+        open={!!presetTarget}
+        onOpenChange={(open) => !open && setPresetTarget(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apply the {presetTarget?.label} preset?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm">
+                <p>This sets which modules are on for this business. Hidden modules keep all their data — re-enable any of them anytime.</p>
+                {presetTarget && (() => {
+                  const on = OPTIONAL_PLUGINS.filter((p) => presetTarget.plugins.includes(p.id));
+                  const off = OPTIONAL_PLUGINS.filter((p) => !presetTarget.plugins.includes(p.id));
+                  return (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-600 mb-1">Turned on</p>
+                        <p className="text-xs text-muted-foreground">{on.map((p) => PLUGINS_BY_ID[p.id].name).join(", ") || "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Hidden</p>
+                        <p className="text-xs text-muted-foreground">{off.map((p) => PLUGINS_BY_ID[p.id].name).join(", ") || "—"}</p>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => presetTarget && handleApplyPreset(presetTarget)}
+            >
+              Apply preset
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Uninstall confirm dialog */}
       <AlertDialog
