@@ -98,6 +98,22 @@ export async function runAgent(agentId: string, piece: PieceLike): Promise<RunRe
   return { content, costCents };
 }
 
+/** Month-to-date SEO spend vs. the business's monthly budget (cents).
+ *  budgetCents === 0 means unlimited (explicit opt-out). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function seoSpendStatus(sb: any, businessId: string): Promise<{ spentCents: number; budgetCents: number; ok: boolean }> {
+  const now = new Date();
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+  const [{ data: biz }, { data: jobs }] = await Promise.all([
+    sb.from("businesses").select("seo_monthly_budget_cents").eq("id", businessId).maybeSingle(),
+    sb.from("seo_jobs").select("cost_cents").eq("business_id", businessId).gte("created_at", monthStart),
+  ]);
+  const budgetCents = biz?.seo_monthly_budget_cents ?? 2000;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const spentCents = (jobs ?? []).reduce((s: number, r: any) => s + (r.cost_cents ?? 0), 0);
+  return { spentCents, budgetCents, ok: budgetCents === 0 || spentCents < budgetCents };
+}
+
 interface Job { id: string; business_id: string; step: number; input: { content_piece_id?: string }; cost_cents: number }
 
 /**
@@ -126,6 +142,15 @@ export async function advanceContentJob(sb: any, job: Job): Promise<{ status: st
     await sb.from("seo_content_pieces").update({ pipeline_status: "awaiting_approval" }).eq("id", pieceId);
     await sb.from("seo_jobs").update({ status: "awaiting_approval" }).eq("id", job.id);
     return { status: "awaiting_approval" };
+  }
+
+  // Budget gate — the non-negotiable cost cap. Stop before spending more.
+  const budget = await seoSpendStatus(sb, job.business_id);
+  if (!budget.ok) {
+    const msg = `Monthly SEO budget reached ($${(budget.budgetCents / 100).toFixed(2)}). Raise it in SEO settings to continue.`;
+    await sb.from("seo_content_pieces").update({ pipeline_status: "failed" }).eq("id", pieceId);
+    await sb.from("seo_jobs").update({ status: "failed", error: msg }).eq("id", job.id);
+    return { status: "failed" };
   }
 
   const agentId = steps[idx];
