@@ -46,3 +46,7 @@ jobs:
           NEXT_TELEMETRY_DISABLED: "1"
           # Build is env-resilient (src/lib/supabase/client.ts falls back to
           # placeholders), so no secrets are needed to verify it compiles.
+
+      # Anti-bloat guard — fails if client JS grows past budget (blocking).
+      - name: Bundle budget
+        run: node scripts/check-bundle-size.mjs
