@@ -19,10 +19,12 @@ interface DashboardShellProps {
   /** Feature flags fetched on the server. Drives conditional sidebar items
    *  (e.g. the Quoting Agent tab only shows when enabled). */
   features?: Record<string, boolean>;
+  /** Sidebar label overrides keyed by href (industry-preset vocabulary). */
+  vocab?: Record<string, string> | null;
   children: React.ReactNode;
 }
 
-export function DashboardShell({ business, businesses, user, userRole, features, children }: DashboardShellProps) {
+export function DashboardShell({ business, businesses, user, userRole, features, vocab, children }: DashboardShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
@@ -36,6 +38,7 @@ export function DashboardShell({ business, businesses, user, userRole, features,
           businesses={businesses}
           userRole={userRole}
           features={features}
+          vocab={vocab}
           open={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
         />

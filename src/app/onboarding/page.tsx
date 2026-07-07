@@ -12,6 +12,8 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { INDUSTRY_PRESETS } from "@/lib/plugins/presets";
+import { applyIndustryPreset } from "@/lib/actions/plugins";
 import Image from "next/image";
 
 const steps = [
@@ -48,6 +50,7 @@ export default function OnboardingPage() {
   const supabase = createClient();
   const [step, setStep] = useState(1);
   const [step1Data, setStep1Data] = useState<Step1Data | null>(null);
+  const [industry, setIndustry] = useState<string>("trades");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -89,14 +92,21 @@ export default function OnboardingPage() {
       }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from("businesses") as any).upsert({
+      const { data: created, error } = await (supabase.from("businesses") as any).upsert({
         user_id: user.id,
         ...step1Data,
         ...data,
         logo_url,
-      });
+        industry_preset: industry === "other" ? null : industry,
+      }).select("id").single();
 
       if (error) throw error;
+
+      // Shape the app for their business type (plugin bundle + labels).
+      // Best-effort: a preset failure must never block signup.
+      if (created?.id && industry !== "other") {
+        try { await applyIndustryPreset(created.id, industry); } catch { /* defaults apply */ }
+      }
       setStep(3);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : (typeof err === "object" && err !== null && "message" in err ? String((err as Record<string, unknown>).message) : JSON.stringify(err));
@@ -134,6 +144,29 @@ export default function OnboardingPage() {
               <div className="mb-6">
                 <h1 className="text-2xl font-bold">Your business details</h1>
                 <p className="text-sm text-muted-foreground mt-1">This will appear on your invoices and quotes</p>
+              </div>
+
+              {/* Industry — shapes which modules the app starts with */}
+              <div className="mb-6">
+                <Label>What kind of business are you?</Label>
+                <div className="mt-2 grid gap-2">
+                  {[...INDUSTRY_PRESETS.map((p) => ({ id: p.id, label: p.label, description: p.description })),
+                    { id: "other", label: "Something else", description: "Start with everything on — tailor it later from the Plugins page." },
+                  ].map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setIndustry(opt.id)}
+                      className={`text-left rounded-xl border p-3 transition-colors ${
+                        industry === opt.id ? "border-blue-500 ring-1 ring-blue-500/40 bg-blue-500/5" : "border-border hover:border-blue-300"
+                      }`}
+                    >
+                      <p className="text-sm font-medium">{opt.label}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{opt.description}</p>
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1.5">This just picks your starting toolset — you can turn any module on or off later.</p>
               </div>
 
               {/* Logo upload */}

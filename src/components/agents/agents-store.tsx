@@ -6,8 +6,10 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import {
   Bot, MailSearch, PlugZap, BellRing, Send,
-  Settings, Trash2, Plus,
+  Settings, Trash2, Plus, Lock,
   Zap, Newspaper, MailCheck, UserRoundCheck, FileClock, CheckCircle, Star, ClipboardList, ListChecks,
+  LayoutDashboard, Users, Columns3, Users2, UserPlus, FileCheck, FileText, Repeat, FileStack,
+  Wrench, CalendarDays, Package, MessageSquare, TrendingUp, Sparkles,
 } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +38,8 @@ import {
   toggleAgent,
   type AgentInstall,
 } from "@/lib/actions/agents";
+import { setPluginEnabled } from "@/lib/actions/plugins";
+import { PLUGIN_REGISTRY, type PluginDefinition } from "@/lib/plugins/registry";
 
 // ── Icon map ──────────────────────────────────────────────────────────────────
 
@@ -53,7 +57,31 @@ const ICON_MAP: Record<string, React.ElementType> = {
   star: Star,
   "clipboard-list": ClipboardList,
   "list-checks": ListChecks,
+  "layout-dashboard": LayoutDashboard,
+  users: Users,
+  columns: Columns3,
+  "users-2": Users2,
+  settings: Settings,
+  "user-plus": UserPlus,
+  "file-check": FileCheck,
+  "file-text": FileText,
+  repeat: Repeat,
+  "file-stack": FileStack,
+  wrench: Wrench,
+  "calendar-days": CalendarDays,
+  package: Package,
+  "message-square": MessageSquare,
+  "trending-up": TrendingUp,
+  sparkles: Sparkles,
 };
+
+// Module plugins shown in the Modules section. The two verticals that already
+// have agent-store cards keep those cards (same table, same sync) — exclude
+// them here so they don't appear twice.
+const AGENT_CARD_IDS = new Set(AGENT_CATALOG.map((a) => a.id));
+const MODULES: PluginDefinition[] = PLUGIN_REGISTRY.filter(
+  (p) => p.kind === "module" && !AGENT_CARD_IDS.has(p.id)
+);
 
 function AgentIcon({ name, className }: { name: string; className?: string }) {
   const Icon = ICON_MAP[name] ?? Zap;
@@ -75,14 +103,31 @@ const ALL_CATEGORIES: (AgentCategory | "all")[] = [
 
 interface AgentsStoreProps {
   installs: AgentInstall[];
+  /** Resolved plugin-enabled map (plugin id → enabled) from the server. */
+  pluginEnabled: Record<string, boolean>;
 }
 
-export function AgentsStore({ installs: initialInstalls }: AgentsStoreProps) {
+export function AgentsStore({ installs: initialInstalls, pluginEnabled }: AgentsStoreProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [installs, setInstalls] = useState<AgentInstall[]>(initialInstalls);
   const [activeCategory, setActiveCategory] = useState<AgentCategory | "all">("all");
   const [uninstallTarget, setUninstallTarget] = useState<AgentDefinition | null>(null);
+  const [modules, setModules] = useState<Record<string, boolean>>(pluginEnabled);
+
+  function handleModuleToggle(plugin: PluginDefinition, enabled: boolean) {
+    setModules((prev) => ({ ...prev, [plugin.id]: enabled }));
+    startTransition(async () => {
+      try {
+        await setPluginEnabled(plugin.id, enabled);
+        toast.success(enabled ? `${plugin.name} enabled` : `${plugin.name} hidden — data kept, re-enable anytime`);
+        router.refresh();
+      } catch (e) {
+        setModules((prev) => ({ ...prev, [plugin.id]: !enabled }));
+        toast.error(e instanceof Error ? e.message : "Couldn't update module");
+      }
+    });
+  }
 
   const installMap = new Map(installs.map((i) => [i.agent_id, i]));
 
@@ -172,9 +217,9 @@ export function AgentsStore({ installs: initialInstalls }: AgentsStoreProps) {
               aria-hidden
             />
             <div className="min-w-0">
-              <h1 className="text-3xl font-bold tracking-tight">Agents</h1>
+              <h1 className="text-3xl font-bold tracking-tight">Plugins</h1>
               <p className="text-sm text-muted-foreground mt-1">
-                Add AI agents to automate tasks for your business
+                Shape Kirei to your business — turn modules on or off, and add AI agents
               </p>
             </div>
           </div>
@@ -205,6 +250,41 @@ export function AgentsStore({ installs: initialInstalls }: AgentsStoreProps) {
         </div>
       </div>
 
+      {/* Modules — the app's building blocks */}
+      <div className="mb-10">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">Modules</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {MODULES.map((m) => {
+            const enabled = m.core ? true : (modules[m.id] ?? m.defaultEnabled);
+            return (
+              <div key={m.id} className="rounded-xl border border-border bg-card p-4 flex items-start gap-3">
+                <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                  <AgentIcon name={m.icon ?? "zap"} className="w-4.5 h-4.5 text-foreground/70" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold break-words">{m.name}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{m.description}</p>
+                </div>
+                {m.core ? (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground bg-muted rounded-full px-2 py-1 shrink-0">
+                    <Lock className="w-3 h-3" /> Core
+                  </span>
+                ) : (
+                  <Switch
+                    checked={enabled}
+                    onCheckedChange={(v) => handleModuleToggle(m, v)}
+                    disabled={isPending}
+                    aria-label={enabled ? `Disable ${m.name}` : `Enable ${m.name}`}
+                  />
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <p className="text-[11px] text-muted-foreground mt-2">Turning a module off only hides it — nothing is deleted, and re-enabling brings everything back.</p>
+      </div>
+
+      <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">AI Agents</h2>
       {/* Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.map((agent, i) => {

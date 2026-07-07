@@ -5,6 +5,7 @@ import { getUserOrNull } from "@/lib/auth";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { isWorker, isPathAllowedForWorker, type Role } from "@/lib/permissions";
 import { resolveEnabledPlugins, ROUTE_GATES } from "@/lib/plugins/registry";
+import { PRESETS_BY_ID } from "@/lib/plugins/presets";
 import type { Business } from "@/types/database";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -87,8 +88,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
     if (gate && !plugins[gate.pluginId]) redirect("/dashboard");
   }
 
+  // Vocabulary v1 — sidebar label overrides from the business's industry preset.
+  const vocab = business.industry_preset ? PRESETS_BY_ID[business.industry_preset]?.vocab ?? null : null;
+
   return (
-    <DashboardShell business={business} businesses={allBusinesses} user={user} userRole={userRole} features={plugins}>
+    <DashboardShell business={business} businesses={allBusinesses} user={user} userRole={userRole} features={plugins} vocab={vocab}>
       {children}
     </DashboardShell>
   );

@@ -58,7 +58,7 @@ const navSections: NavSection[] = [
   ]},
   { section: "Workforce", items: [
     { label: "Team",       href: "/team",       icon: Users2                        },
-    { label: "Agents",     href: "/agents",     icon: Bot                           },
+    { label: "Plugins",    href: "/agents",     icon: Bot                           },
   ]},
   { section: "Insights", items: [
     { label: "Analytics",  href: "/analytics",  icon: TrendingUp,    plugin: "analytics" },
@@ -74,11 +74,13 @@ interface AppSidebarProps {
   userRole: Role;
   /** Enabled-plugin map from the layout resolver (plugin id → enabled). */
   features?: Record<string, boolean>;
+  /** Label overrides keyed by href (industry-preset vocabulary, e.g. Work Orders → Projects). */
+  vocab?: Record<string, string> | null;
   open: boolean;
   onClose: () => void;
 }
 
-export function AppSidebar({ business, businesses, userRole, features, open, onClose }: AppSidebarProps) {
+export function AppSidebar({ business, businesses, userRole, features, vocab, open, onClose }: AppSidebarProps) {
   const pathname = usePathname();
   const workerView = isWorker(userRole);
   const visibleSections = navSections
@@ -179,7 +181,7 @@ export function AppSidebar({ business, businesses, userRole, features, open, onC
                       "w-4 h-4 flex-shrink-0 transition-colors",
                       active ? "text-sidebar-primary" : "text-sidebar-foreground/55 group-hover:text-sidebar-foreground"
                     )} />
-                    <span>{item.label}</span>
+                    <span>{vocab?.[item.href] ?? item.label}</span>
                   </Link>
                 </motion.div>
               );

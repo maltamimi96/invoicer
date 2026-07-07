@@ -1478,6 +1478,37 @@ export function registerTools(server: McpServer): void {
       return text({ plugin: plugin.id, enabled: args.enabled });
     });
 
+  tool("list_industry_presets", "List industry presets — plugin bundles + vocabulary a business can apply (trades, agency, …).",
+    {},
+    async (_args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "settings:read");
+      const { INDUSTRY_PRESETS } = await import("@/lib/plugins/presets");
+      return text(INDUSTRY_PRESETS.map((p) => ({ id: p.id, label: p.label, description: p.description, plugins: p.plugins, vocab: p.vocab ?? {} })));
+    });
+
+  tool("apply_industry_preset",
+    "Apply an industry preset to this business: sets the plugin bundle (explicit enable/disable rows for every optional module) and its vocabulary. Data is never deleted — disabled modules are only hidden.",
+    { preset_id: z.string().min(1) },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "settings:write");
+      const { PRESETS_BY_ID, presetInstallRows } = await import("@/lib/plugins/presets");
+      const { PLUGINS_BY_ID: byId } = await import("@/lib/plugins/registry");
+      const { syncPluginSideEffects: syncFx } = await import("@/lib/plugins/sync");
+      const preset = PRESETS_BY_ID[args.preset_id];
+      if (!preset) return errorText(`Unknown preset "${args.preset_id}". Use list_industry_presets.`);
+      const { error: bizErr } = await t(ctx, "businesses").update({ industry_preset: preset.id }).eq("id", ctx.businessId);
+      if (bizErr) throw bizErr;
+      const rows = presetInstallRows(ctx.businessId, preset);
+      const { error } = await t(ctx, "business_agent_installs").upsert(rows, { onConflict: "business_id,agent_id" });
+      if (error) throw error;
+      for (const row of rows) {
+        if (byId[row.agent_id]?.settingsTable) {
+          await syncFx(ctx.sb, ctx.businessId, row.agent_id, row.enabled);
+        }
+      }
+      return text({ applied: preset.id, enabled: preset.plugins, vocab: preset.vocab ?? {} });
+    });
+
   // ===== PUBLIC FORM BUILDER (feature-flagged, lead-capture / embeddable) =====
   const FORM_FIELD = z.object({
     id: z.string().min(1),
