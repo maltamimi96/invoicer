@@ -16,7 +16,7 @@ export default async function AgentsPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: biz } = await (supabase as any)
     .from("businesses")
-    .select("user_id")
+    .select("user_id, industry_preset")
     .eq("id", businessId)
     .single();
 
@@ -42,7 +42,11 @@ export default async function AgentsPage() {
 
   return (
     <div className="">
-      <AgentsStore installs={installs} pluginEnabled={pluginEnabled} />
+      <AgentsStore
+        installs={installs}
+        pluginEnabled={pluginEnabled}
+        activePreset={(biz?.industry_preset as string | null) ?? null}
+      />
     </div>
   );
 }

@@ -75,6 +75,16 @@ export async function setPluginEnabled(pluginId: string, enabled: boolean): Prom
   revalidatePath("/", "layout");
 }
 
+/** Apply a preset to the ACTIVE business — the Plugins-page entry point (the
+ *  core applyIndustryPreset takes an explicit id for the signup path, before an
+ *  active-business cookie exists). */
+export async function applyPresetToActiveBusiness(presetId: string): Promise<void> {
+  const supabase = await createClient();
+  const user = await getUser();
+  const businessId = await getActiveBizId(supabase, user.id);
+  await applyIndustryPreset(businessId, presetId);
+}
+
 /** Apply an industry preset to a business: sets businesses.industry_preset and
  *  writes explicit enable/disable rows for every optional module. Explicit
  *  action only (signup step or Plugins page) — never automatic. */
