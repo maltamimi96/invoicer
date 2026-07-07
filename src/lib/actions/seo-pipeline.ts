@@ -13,7 +13,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveBizId } from "@/lib/active-business";
 import { getUser } from "@/lib/auth";
-import { advanceContentJob, type ContentType } from "@/lib/seo/engine";
+import { advanceContentJob, seoSpendStatus, type ContentType } from "@/lib/seo/engine";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: any, name: string) => sb.from(name);
@@ -112,4 +112,22 @@ export async function getContentPiece(pieceId: string) {
   const { data } = await tbl(supabase, "seo_content_pieces")
     .select("*, seo_sites(domain)").eq("id", pieceId).eq("business_id", businessId).maybeSingle();
   return data ?? null;
+}
+
+/** Month-to-date SEO spend vs. the monthly budget cap (cents). */
+export async function getSeoBudget(): Promise<{ spentCents: number; budgetCents: number; ok: boolean }> {
+  const businessId = await biz();
+  const supabase = await createClient();
+  return seoSpendStatus(supabase, businessId);
+}
+
+/** Set the monthly SEO budget (cents; 0 = unlimited). RLS gates this to owners. */
+export async function setSeoBudget(cents: number): Promise<void> {
+  const businessId = await biz();
+  const supabase = await createClient();
+  const v = Math.max(0, Math.round(cents));
+  const { error } = await tbl(supabase, "businesses").update({ seo_monthly_budget_cents: v }).eq("id", businessId);
+  if (error) throw error;
+  revalidatePath("/seo");
+  revalidatePath("/seo/content");
 }

@@ -6,7 +6,7 @@
 import { z } from "zod";
 import { assertScope, t, text, errorText } from "../context";
 import { ctxFrom, UUID, type ToolFn } from "./shared";
-import { advanceContentJob } from "@/lib/seo/engine";
+import { advanceContentJob, seoSpendStatus } from "@/lib/seo/engine";
 
 const DOMAIN = z.string().min(1).describe("Client site domain, e.g. example.com");
 
@@ -168,5 +168,22 @@ export function registerSeoTools(tool: ToolFn): void {
       await t(ctx, "seo_content_pieces").update({ pipeline_status: "done", status: "approved" }).eq("id", args.piece_id);
       if (piece.job_id) await t(ctx, "seo_jobs").update({ status: "done" }).eq("id", piece.job_id);
       return text({ approved: true });
+    });
+
+  // ── Budget cap ──────────────────────────────────────────────────────────────
+  tool("get_seo_budget", "Get this month's SEO agent spend vs. the monthly budget cap (cents).",
+    {},
+    async (_args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "seo:read");
+      return text(await seoSpendStatus(ctx.sb, ctx.businessId));
+    });
+
+  tool("set_seo_budget", "Set the monthly SEO agent budget cap in cents (0 = unlimited). The engine stops running agents once the month's spend reaches it.",
+    { cents: z.number().int().min(0) },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "seo:write");
+      const { error } = await t(ctx, "businesses").update({ seo_monthly_budget_cents: args.cents }).eq("id", ctx.businessId);
+      if (error) throw error;
+      return text({ budget_cents: args.cents });
     });
 }
