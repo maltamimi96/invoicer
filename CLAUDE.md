@@ -10,6 +10,7 @@ Pile of docs / scope artifacts:
 - `SCOPE.md` (on the `claude/dreamy-robinson-9fcc52` branch in PR #162) — authoritative ServiceM8+GHL scope
 - `scripts/sync-scope.mjs` — reconciles `SCOPE.md` checkboxes with GitHub Issues
 - `docs/invoicer-scope-and-flow.{html,pdf}` — recent printable scope & flow checklist
+- `docs/SEO_AGENCY_PLAN.md` — **NEXT BIG INITIATIVE (July 2026)**: plugin system + industry presets (P0), agency preset (P1), then the SEO-agency vertical (agent job engine, GSC/Shopify connectors, white-label reporting) as Kirei plugins. Read before starting any plugin/preset/SEO work.
 
 ## Commands
 
