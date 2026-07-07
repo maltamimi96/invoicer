@@ -18,7 +18,7 @@ interface DashboardShellProps {
   userRole: Role;
   /** Feature flags fetched on the server. Drives conditional sidebar items
    *  (e.g. the Quoting Agent tab only shows when enabled). */
-  features?: { quotingAgent?: boolean; onboarding?: boolean; formBuilder?: boolean };
+  features?: Record<string, boolean>;
   children: React.ReactNode;
 }
 

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getUserOrNull } from "@/lib/auth";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { isWorker, isPathAllowedForWorker, type Role } from "@/lib/permissions";
+import { resolveEnabledPlugins, ROUTE_GATES } from "@/lib/plugins/registry";
 import type { Business } from "@/types/database";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -60,20 +61,34 @@ export default async function DashboardLayout({ children }: { children: React.Re
     }
   }
 
-  // Feature flags — kept cheap (parallel single lookups). Used to gate sidebar items.
-  const [{ data: quotingSettings }, { data: onboardingSettings }, { data: formBuilderSettings }] = await Promise.all([
+  // Plugin system (docs/SEO_AGENCY_PLAN.md P0) — resolve which modules this
+  // business has enabled. No install row = the plugin's default (legacy
+  // modules default ON), so existing businesses see zero change until they
+  // explicitly toggle something. Legacy settings tables stay authoritative
+  // for the three original feature-flagged verticals.
+  const [{ data: installRows }, { data: quotingSettings }, { data: onboardingSettings }, { data: formBuilderSettings }] = await Promise.all([
+    sb.from("business_agent_installs").select("agent_id, enabled").eq("business_id", business.id),
     sb.from("quoting_agent_settings").select("enabled").eq("business_id", business.id).maybeSingle(),
     sb.from("onboarding_settings").select("enabled").eq("business_id", business.id).maybeSingle(),
     sb.from("form_builder_settings").select("enabled").eq("business_id", business.id).maybeSingle(),
   ]);
-  const features = {
-    quotingAgent: !!quotingSettings?.enabled,
-    onboarding: !!onboardingSettings?.enabled,
-    formBuilder: !!formBuilderSettings?.enabled,
-  };
+  const plugins = resolveEnabledPlugins(installRows ?? [], {
+    quoting_agent_settings: quotingSettings ? !!quotingSettings.enabled : null,
+    onboarding_settings: onboardingSettings ? !!onboardingSettings.enabled : null,
+    form_builder_settings: formBuilderSettings ? !!formBuilderSettings.enabled : null,
+  });
+
+  // Route-level gating: visiting a disabled plugin's URL redirects home
+  // (hiding nav alone would leave features reachable by direct link).
+  {
+    const h = await headers();
+    const path = h.get("x-pathname") ?? "";
+    const gate = ROUTE_GATES.find((g) => path === g.prefix || path.startsWith(g.prefix + "/"));
+    if (gate && !plugins[gate.pluginId]) redirect("/dashboard");
+  }
 
   return (
-    <DashboardShell business={business} businesses={allBusinesses} user={user} userRole={userRole} features={features}>
+    <DashboardShell business={business} businesses={allBusinesses} user={user} userRole={userRole} features={plugins}>
       {children}
     </DashboardShell>
   );
