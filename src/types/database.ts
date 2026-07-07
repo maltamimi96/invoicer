@@ -551,6 +551,114 @@ export interface PublicFormSubmission {
   created_at: string;
 }
 
+// ── SEO Production (docs/SEO_AGENCY_PLAN.md, Phase 2) ─────────────────────────
+export type SeoPlatform = 'wordpress' | 'shopify' | 'other';
+export type SeoPlaybook = 'local' | 'ecommerce';
+export type SeoSiteStatus = 'active' | 'paused' | 'archived';
+export type SeoProvider = 'gsc' | 'shopify' | 'wordpress' | 'gbp';
+export type SeoConnectionStatus = 'connected' | 'disconnected' | 'error';
+export type SeoOpportunityStatus = 'queued' | 'in_progress' | 'done' | 'dismissed';
+export type SeoContentStatus = 'brief' | 'draft' | 'approved' | 'published';
+export type SeoJobStatus = 'queued' | 'running' | 'awaiting_approval' | 'done' | 'failed';
+
+export interface SeoSite {
+  id: string;
+  business_id: string;
+  customer_id: string | null;
+  domain: string;
+  platform: SeoPlatform;
+  playbook: SeoPlaybook;
+  status: SeoSiteStatus;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SeoConnection {
+  id: string;
+  business_id: string;
+  site_id: string;
+  provider: SeoProvider;
+  status: SeoConnectionStatus;
+  account_ref: string | null;
+  secret: string | null;   // AES-256-GCM ciphertext — never exposed to the client
+  meta: Record<string, unknown>;
+  connected_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SeoKeywordSnapshot {
+  id: string;
+  business_id: string;
+  site_id: string;
+  keyword: string;
+  position: number | null;
+  clicks: number;
+  impressions: number;
+  ctr: number | null;
+  captured_at: string;
+  created_at: string;
+}
+
+export interface SeoOpportunity {
+  id: string;
+  business_id: string;
+  site_id: string;
+  type: string;
+  title: string;
+  detail: string | null;
+  priority: number;
+  status: SeoOpportunityStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SeoContentPiece {
+  id: string;
+  business_id: string;
+  site_id: string;
+  opportunity_id: string | null;
+  title: string;
+  target_keyword: string | null;
+  status: SeoContentStatus;
+  brief: Record<string, unknown>;
+  html: string | null;
+  published_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SeoJob {
+  id: string;
+  business_id: string;
+  site_id: string | null;
+  type: string;
+  status: SeoJobStatus;
+  step: number;
+  checkpoint: Record<string, unknown>;
+  input: Record<string, unknown>;
+  output: Record<string, unknown>;
+  cost_cents: number;
+  error: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SeoBrandProfile {
+  id: string;
+  business_id: string;
+  customer_id: string | null;
+  site_id: string | null;
+  voice: string | null;
+  tone: string | null;
+  audience: string | null;
+  notes: string | null;
+  profile: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface CustomerPortalToken {
   token: string;
   business_id: string;
@@ -1100,6 +1208,8 @@ export type ApiScope =
   | 'onboarding:write'
   | 'forms:read'
   | 'forms:write'
+  | 'seo:read'
+  | 'seo:write'
   | 'email:send'
   | 'agent:access'
   | 'admin';  // wildcard — grants every scope (use for trusted Claude Code keys)
@@ -1130,6 +1240,8 @@ export const ALL_API_SCOPES: { value: ApiScope; label: string; group: string }[]
   { value: 'onboarding:write', label: 'Create / send onboarding forms', group: 'Onboarding' },
   { value: 'forms:read',       label: 'Read public forms & submissions', group: 'Forms' },
   { value: 'forms:write',      label: 'Create / publish public forms', group: 'Forms' },
+  { value: 'seo:read',         label: 'Read SEO sites & pipeline', group: 'SEO' },
+  { value: 'seo:write',        label: 'Manage SEO sites & content', group: 'SEO' },
   { value: 'email:send',       label: 'Send emails to customers', group: 'Email' },
   { value: 'agent:access',     label: 'AI Agent access',   group: 'Agent' },
 ];
