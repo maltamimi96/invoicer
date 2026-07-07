@@ -57,6 +57,8 @@ export interface Business {
   accent_color: string;
   bg_pattern: string;
   sidebar_theme: string;
+  /** Industry preset id (src/lib/plugins/presets.ts); null = no preset applied. */
+  industry_preset?: string | null;
   invoice_prefix: string;
   invoice_next_number: number;
   quote_prefix: string;

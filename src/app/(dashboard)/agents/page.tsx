@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { canManageSettings, type Role } from "@/lib/permissions";
 import { listAgentInstalls } from "@/lib/actions/agents";
+import { getEnabledPlugins } from "@/lib/actions/plugins";
 import { AgentsStore } from "@/components/agents/agents-store";
 
 export default async function AgentsPage() {
@@ -34,11 +35,14 @@ export default async function AgentsPage() {
 
   if (!canManageSettings(userRole)) redirect("/dashboard");
 
-  const installs = await listAgentInstalls();
+  const [installs, pluginEnabled] = await Promise.all([
+    listAgentInstalls(),
+    getEnabledPlugins(),
+  ]);
 
   return (
     <div className="">
-      <AgentsStore installs={installs} />
+      <AgentsStore installs={installs} pluginEnabled={pluginEnabled} />
     </div>
   );
 }
