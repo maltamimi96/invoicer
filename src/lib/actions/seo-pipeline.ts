@@ -14,6 +14,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveBizId } from "@/lib/active-business";
 import { getUser } from "@/lib/auth";
 import { advanceContentJob, seoSpendStatus, type ContentType } from "@/lib/seo/engine";
+import { publishContent } from "@/lib/seo/publish";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: any, name: string) => sb.from(name);
@@ -64,6 +65,17 @@ export async function startContentPipeline(input: {
   });
   revalidatePath("/seo");
   return { piece_id: piece.id };
+}
+
+/** Publish an approved piece through a connected gateway. */
+export async function publishContentPiece(pieceId: string, connectionId: string): Promise<{ url: string | null; ref?: string }> {
+  const businessId = await biz();
+  const admin = createAdminClient();
+  const { data: piece } = await tbl(admin, "seo_content_pieces").select("id").eq("id", pieceId).eq("business_id", businessId).maybeSingle();
+  if (!piece) throw new Error("Piece not found");
+  const res = await publishContent(admin, { businessId, pieceId, connectionId });
+  revalidatePath(`/seo/content/${pieceId}`);
+  return res;
 }
 
 /** Agent activity events for a site (chronological) — powers the terminal. */
