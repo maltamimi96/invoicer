@@ -58,8 +58,23 @@ export async function startContentPipeline(input: {
   if (jobErr) throw jobErr;
 
   await tbl(admin, "seo_content_pieces").update({ job_id: job.id }).eq("id", piece.id);
+  await tbl(admin, "seo_job_events").insert({
+    business_id: businessId, site_id: input.site_id, job_id: job.id, level: "info",
+    message: `Queued "${input.topic.trim()}" (${contentType})`,
+  });
   revalidatePath("/seo");
   return { piece_id: piece.id };
+}
+
+/** Agent activity events for a site (chronological) — powers the terminal. */
+export async function listSeoActivity(siteId: string, limit = 80) {
+  const businessId = await biz();
+  const supabase = await createClient();
+  const { data } = await tbl(supabase, "seo_job_events")
+    .select("id, agent_id, level, message, cost_cents, created_at")
+    .eq("business_id", businessId).eq("site_id", siteId)
+    .order("created_at", { ascending: false }).limit(limit);
+  return ((data ?? []) as Array<{ id: string; agent_id: string | null; level: string; message: string; cost_cents: number; created_at: string }>).reverse();
 }
 
 /** Advance a piece's pipeline by one agent step (returns the new status). */

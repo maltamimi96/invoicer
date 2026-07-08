@@ -120,6 +120,10 @@ export function registerSeoTools(tool: ToolFn): void {
       }).select("id").single();
       if (jErr) throw jErr;
       await t(ctx, "seo_content_pieces").update({ job_id: job.id }).eq("id", piece.id);
+      await t(ctx, "seo_job_events").insert({
+        business_id: ctx.businessId, site_id: args.site_id, job_id: job.id, level: "info",
+        message: `Queued "${args.topic.trim()}" (${contentType})`,
+      });
       return text({ started: true, piece_id: piece.id, note: "The cron advances it, or call advance_content_pipeline to run the next step now." });
     });
 
@@ -185,5 +189,17 @@ export function registerSeoTools(tool: ToolFn): void {
       const { error } = await t(ctx, "businesses").update({ seo_monthly_budget_cents: args.cents }).eq("id", ctx.businessId);
       if (error) throw error;
       return text({ budget_cents: args.cents });
+    });
+
+  tool("list_seo_activity", "Read the agent activity log for a site (chronological) — what the agents have been doing.",
+    { site_id: UUID, limit: z.number().int().min(1).max(200).optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "seo:read");
+      const { data, error } = await t(ctx, "seo_job_events")
+        .select("agent_id, level, message, cost_cents, created_at")
+        .eq("business_id", ctx.businessId).eq("site_id", args.site_id)
+        .order("created_at", { ascending: false }).limit(args.limit ?? 80);
+      if (error) throw error;
+      return text((data ?? []).reverse());
     });
 }

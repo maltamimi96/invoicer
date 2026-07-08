@@ -114,6 +114,21 @@ export async function seoSpendStatus(sb: any, businessId: string): Promise<{ spe
   return { spentCents, budgetCents, ok: budgetCents === 0 || spentCents < budgetCents };
 }
 
+/** Append an agent-activity event (the "terminal" feed). Never throws — logging
+ *  must not break the pipeline. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function logEvent(sb: any, e: {
+  business_id: string; site_id?: string | null; job_id?: string; agent_id?: string;
+  level?: "info" | "success" | "error"; message: string; cost_cents?: number;
+}): Promise<void> {
+  try {
+    await sb.from("seo_job_events").insert({
+      business_id: e.business_id, site_id: e.site_id ?? null, job_id: e.job_id ?? null,
+      agent_id: e.agent_id ?? null, level: e.level ?? "info", message: e.message, cost_cents: e.cost_cents ?? 0,
+    });
+  } catch { /* best-effort */ }
+}
+
 interface Job { id: string; business_id: string; step: number; input: { content_piece_id?: string }; cost_cents: number }
 
 /**
@@ -134,6 +149,7 @@ export async function advanceContentJob(sb: any, job: Job): Promise<{ status: st
   if (!piece) throw new Error("Content piece not found");
 
   const contentType = (piece.content_type ?? "blog") as ContentType;
+  const siteId = piece.site_id as string | null;
   const steps = resolveSteps(contentType);
   const idx = job.step;
 
@@ -150,16 +166,20 @@ export async function advanceContentJob(sb: any, job: Job): Promise<{ status: st
     const msg = `Monthly SEO budget reached ($${(budget.budgetCents / 100).toFixed(2)}). Raise it in SEO settings to continue.`;
     await sb.from("seo_content_pieces").update({ pipeline_status: "failed" }).eq("id", pieceId);
     await sb.from("seo_jobs").update({ status: "failed", error: msg }).eq("id", job.id);
+    await logEvent(sb, { business_id: job.business_id, site_id: siteId, job_id: job.id, level: "error", message: `Budget cap reached — ${msg}` });
     return { status: "failed" };
   }
 
   const agentId = steps[idx];
+  const agentName = SEO_AGENTS_BY_ID[agentId]?.name ?? agentId;
   const pieceLike: PieceLike = {
     topic: piece.topic,
     content_type: contentType,
     artifacts: piece.artifacts ?? {},
     domain: piece.seo_sites?.domain ?? null,
   };
+
+  await logEvent(sb, { business_id: job.business_id, site_id: siteId, job_id: job.id, agent_id: agentId, message: `▶ ${agentName} — step ${idx + 1}/${steps.length}` });
 
   try {
     const { content, costCents } = await runAgent(agentId, pieceLike);
@@ -170,6 +190,9 @@ export async function advanceContentJob(sb: any, job: Job): Promise<{ status: st
     }
 
     const isLast = idx + 1 >= steps.length;
+    const producedLabels = (agent?.produces ?? []).map((k) => SEO_ARTIFACTS[k as SeoArtifactKey]?.label ?? k).join(", ");
+    await logEvent(sb, { business_id: job.business_id, site_id: siteId, job_id: job.id, agent_id: agentId, level: "success", cost_cents: costCents, message: `✓ ${agentName} → ${producedLabels} · $${(costCents / 100).toFixed(2)}` });
+    if (isLast) await logEvent(sb, { business_id: job.business_id, site_id: siteId, job_id: job.id, level: "success", message: "✓ Draft complete — awaiting your approval" });
     await sb.from("seo_content_pieces").update({
       artifacts,
       current_stage: agent?.stage ?? null,
@@ -189,6 +212,7 @@ export async function advanceContentJob(sb: any, job: Job): Promise<{ status: st
     const msg = e instanceof Error ? e.message : String(e);
     await sb.from("seo_content_pieces").update({ pipeline_status: "failed" }).eq("id", pieceId);
     await sb.from("seo_jobs").update({ status: "failed", error: msg }).eq("id", job.id);
+    await logEvent(sb, { business_id: job.business_id, site_id: siteId, job_id: job.id, agent_id: agentId, level: "error", message: `✗ ${agentName} failed — ${msg}` });
     return { status: "failed" };
   }
 }

@@ -12,7 +12,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { startContentPipeline } from "@/lib/actions/seo-pipeline";
-import { executableSteps, SEO_AGENTS_BY_ID } from "@/lib/seo/pipeline";
+import { SeoActivityTerminal } from "@/components/seo/seo-activity-terminal";
 import type { SeoSite, SeoContentType } from "@/types/database";
 
 interface Piece {
@@ -20,13 +20,11 @@ interface Piece {
   status: string; pipeline_status: string; current_stage: string | null; created_at: string;
 }
 interface Connection { provider: string; status: string; account_ref: string | null; connected_at: string | null }
-interface Job { id: string; type: string; status: string; step: number; cost_cents: number; error: string | null; created_at: string }
 
 interface Props {
   site: SeoSite & { seo_sites?: unknown };
   pieces: Piece[];
   connections: Connection[];
-  jobs: Job[];
   budget: { spentCents: number; budgetCents: number; ok: boolean };
 }
 
@@ -50,7 +48,7 @@ const CONNECTORS = [
   { provider: "gbp", name: "Google Business Profile", desc: "Local-pack signals and profile posts.", ready: false },
 ];
 
-export function SeoSiteHub({ site, pieces, connections, jobs, budget }: Props) {
+export function SeoSiteHub({ site, pieces, connections, budget }: Props) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("overview");
   const [isPending, startTransition] = useTransition();
@@ -192,31 +190,7 @@ export function SeoSiteHub({ site, pieces, connections, jobs, budget }: Props) {
       )}
 
       {/* ── Activity ── */}
-      {tab === "activity" && (
-        jobs.length === 0 ? (
-          <EmptyState icon={Activity} title="No runs yet" body="When you start a content piece, each agent run shows up here." />
-        ) : (
-          <div className="rounded-xl border border-border bg-[#0c0d0f] text-[#d6d3ca] font-mono text-xs overflow-x-auto">
-            <div className="px-4 py-2 border-b border-white/10 text-[11px] uppercase tracking-wider text-white/50">Agent activity · {site.domain}</div>
-            <div className="p-4 space-y-1.5">
-              {jobs.map((j) => {
-                const steps = executableSteps("blog");
-                const agent = SEO_AGENTS_BY_ID[steps[Math.min(j.step, steps.length - 1)]];
-                return (
-                  <div key={j.id} className="flex items-start gap-2">
-                    <span className="text-white/40 shrink-0">{new Date(j.created_at).toLocaleTimeString()}</span>
-                    <span className={cn("shrink-0", j.status === "failed" ? "text-red-400" : j.status === "done" || j.status === "awaiting_approval" ? "text-emerald-400" : "text-blue-400")}>[{j.status}]</span>
-                    <span className="min-w-0">
-                      {j.type} · step {j.step}{agent ? ` (${agent.name})` : ""}{j.cost_cents > 0 ? ` · ${money(j.cost_cents)}` : ""}
-                      {j.error && <span className="text-red-400 block break-words">↳ {j.error}</span>}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )
-      )}
+      {tab === "activity" && <SeoActivityTerminal siteId={site.id} />}
 
       {/* New content dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
