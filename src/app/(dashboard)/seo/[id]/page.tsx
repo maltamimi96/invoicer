@@ -18,13 +18,11 @@ export default async function SeoSiteHubPage({ params }: { params: Promise<{ id:
   const site = await getSeoSite(id);
   if (!site) notFound();
 
-  const [pieces, budget, connectionsRes, jobsRes] = await Promise.all([
+  const [pieces, budget, connectionsRes] = await Promise.all([
     listContentPieces(id),
     getSeoBudget(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any).from("seo_connections").select("provider, status, account_ref, connected_at").eq("business_id", businessId).eq("site_id", id),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any).from("seo_jobs").select("id, type, status, step, cost_cents, error, created_at, updated_at").eq("business_id", businessId).eq("site_id", id).order("created_at", { ascending: false }).limit(20),
   ]);
 
   return (
@@ -34,7 +32,6 @@ export default async function SeoSiteHubPage({ params }: { params: Promise<{ id:
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       pieces={pieces as any}
       connections={(connectionsRes.data ?? []) as { provider: string; status: string; account_ref: string | null; connected_at: string | null }[]}
-      jobs={(jobsRes.data ?? []) as { id: string; type: string; status: string; step: number; cost_cents: number; error: string | null; created_at: string }[]}
       budget={budget}
     />
   );
