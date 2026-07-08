@@ -129,6 +129,79 @@ async function logEvent(sb: any, e: {
   } catch { /* best-effort */ }
 }
 
+/** Pull a JSON array out of an agent reply (```json fence or first [ … ]). */
+function extractJsonArray(text: string): unknown[] {
+  const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const raw = fence ? fence[1] : text;
+  const start = raw.indexOf("[");
+  const end = raw.lastIndexOf("]");
+  if (start === -1 || end === -1 || end < start) throw new Error("no JSON array in reply");
+  const parsed = JSON.parse(raw.slice(start, end + 1));
+  return Array.isArray(parsed) ? parsed : [];
+}
+
+/**
+ * Discovery — the Opportunity Scout studies the site's niche (via live web
+ * search) and writes a ranked queue into seo_opportunities. One-shot agent
+ * (not the content chain). Budget-gated, logs to the activity terminal.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function runOpportunityScout(sb: any, args: { businessId: string; siteId: string }): Promise<{ inserted: number }> {
+  const { data: site } = await sb.from("seo_sites").select("domain, playbook").eq("id", args.siteId).eq("business_id", args.businessId).maybeSingle();
+  if (!site) throw new Error("Site not found");
+
+  const budget = await seoSpendStatus(sb, args.businessId);
+  if (!budget.ok) throw new Error(`Monthly SEO budget reached ($${(budget.budgetCents / 100).toFixed(2)}). Raise it to run the scout.`);
+
+  await logEvent(sb, { business_id: args.businessId, site_id: args.siteId, agent_id: "seo-opportunity-scout", message: "▶ Opportunity Scout — scanning the niche" });
+
+  const system = AGENT_PROMPTS["seo-opportunity-scout"];
+  const user = [
+    "You are running in a server pipeline — there is NO filesystem. Ignore any instructions about reading or writing files/paths.",
+    `Client site: ${site.domain} (playbook: ${site.playbook}).`,
+    "You have live web search — study the site's niche, its competitors and the questions real searchers ask.",
+    "Return ONLY a JSON array of the 12–15 highest-leverage opportunities — no prose, no markdown outside the array — in exactly this shape:",
+    '[{"type":"content_gap|quick_win|technical|question|refresh","title":"short imperative","detail":"why now + the evidence","priority":1-10}]',
+  ].join("\n");
+
+  let textOut = "";
+  let costCents = 0;
+  try {
+    const res = await anthropic.messages.create({
+      model: MODEL.opus, max_tokens: 4096, system,
+      messages: [{ role: "user", content: user }],
+      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 6 }] as Anthropic.Messages.MessageCreateParams["tools"],
+    });
+    textOut = res.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("\n");
+    costCents = Math.ceil((res.usage.input_tokens / 1000) * CENTS_PER_1K_IN + (res.usage.output_tokens / 1000) * CENTS_PER_1K_OUT);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    await logEvent(sb, { business_id: args.businessId, site_id: args.siteId, level: "error", message: `✗ Opportunity Scout failed — ${msg}` });
+    throw e;
+  }
+
+  let items: unknown[];
+  try { items = extractJsonArray(textOut); }
+  catch {
+    await logEvent(sb, { business_id: args.businessId, site_id: args.siteId, level: "error", message: "✗ Opportunity Scout returned no usable opportunities" });
+    throw new Error("The scout didn't return usable opportunities — try again.");
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rows = (items as any[]).filter((x) => x && typeof x.title === "string").slice(0, 25).map((x) => ({
+    business_id: args.businessId, site_id: args.siteId,
+    type: String(x.type ?? "content_gap").slice(0, 40),
+    title: String(x.title).slice(0, 300),
+    detail: x.detail != null ? String(x.detail).slice(0, 2000) : null,
+    priority: Number.isFinite(x.priority) ? Math.max(0, Math.min(10, Math.round(x.priority))) : 5,
+    status: "queued",
+  }));
+  if (rows.length) { const { error } = await sb.from("seo_opportunities").insert(rows); if (error) throw error; }
+
+  await logEvent(sb, { business_id: args.businessId, site_id: args.siteId, agent_id: "seo-opportunity-scout", level: "success", cost_cents: costCents, message: `✓ Opportunity Scout → ${rows.length} opportunities · $${(costCents / 100).toFixed(2)}` });
+  return { inserted: rows.length };
+}
+
 interface Job { id: string; business_id: string; step: number; input: { content_piece_id?: string }; cost_cents: number }
 
 /**
