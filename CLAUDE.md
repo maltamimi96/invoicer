@@ -329,7 +329,16 @@ User's accumulated preferences:
 - **Never trust empty input** — coerce, validate, soft-fail
 - Current accent name: **teal**; sidebar: **light**; canvas: warm off-white. Don't revert to flux lime unless explicitly asked.
 
-## Session log (June 2026) — Stripe payments + email templates (MOST RECENT — pick up here)
+## Session log (July 2026) — Plugin system + SEO agent platform (MOST RECENT — pick up here)
+
+The **plugin system** (P0) and the **SEO agent platform** (P2 core) shipped — see `docs/SEO_AGENCY_PLAN.md` (updated status) and the `[[project-seo-agent-platform]]` memory for the full map. In brief, all on `main` / production, migrations applied + recorded:
+
+- **Plugins + presets** (PRs #359/#360): registry + resolver + 3-layer gating (nav/route/MCP), industry presets (trades/agency/seo-agency-local) applied at signup or the Plugins store, minimal vocab layer, `businesses.industry_preset`. Data-safe: optional plugins resolve `settingsTable ?? installRow ?? defaultEnabled`, so no install row = today's behaviour and legacy modules stay on.
+- **Anti-bloat hardening** (#361–#363): CI **bundle-size budget** (`scripts/check-bundle-size.mjs`, blocking), **gated Sentry** (`src/instrumentation.ts`, inert without `SENTRY_DSN`), and **split the MCP monolith** — churned domains live in `src/lib/mcp/tools/*` (shared.ts, plugin-form-tools.ts, seo-tools.ts) registered from `register-tools.ts`.
+- **SEO Production plugin** (#365–#374, default OFF, route-gated `/seo`): 7-table data model; the **content pipeline engine** (`src/lib/seo/engine.ts` — 13 agents in `src/lib/seo/agents/*.md` compiled by `scripts/build-agent-prompts.mjs` → `agent-prompts.generated.ts`; `seo_jobs` runner `/api/cron/seo-jobs`; one Claude call/step + web search); per-site **hub** `/seo/[id]`; **live agent terminal** (`seo_job_events`); **budget cap** (`seo_monthly_budget_cents`); **Opportunity Scout**; **publish gateways** (Git/GitHub, WordPress, Sanity, Payload, custom REST/GraphQL — `src/lib/seo/{connectors,publish}.ts`, creds encrypted via `src/lib/crypto.ts`).
+- **🔴 To actually RUN it:** top up the **`ANTHROPIC_API_KEY`** account (was out of credits — blocks the whole pipeline) and set **`APP_ENCRYPTION_KEY`** (64 hex) on Vercel (blocks storing connector credentials). GSC connector + configurable Git frontmatter are the known not-yet-built items.
+
+## Session log (June 2026) — Stripe payments + email templates
 
 Big multi-day push: per-business email templates, then a full Stripe Connect payments stack. All shipped to `main` (production = kireihq.com) and DB migrations applied + recorded on remote.
 
