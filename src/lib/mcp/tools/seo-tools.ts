@@ -202,4 +202,26 @@ export function registerSeoTools(tool: ToolFn): void {
       if (error) throw error;
       return text((data ?? []).reverse());
     });
+
+  // ── Gateway connections (read/manage only — connecting with a token is
+  //    web-UI-only so credentials never transit MCP/chat). ─────────────────────
+  tool("list_seo_connections", "List a site's connected publishing gateways (git/wordpress/sanity/payload/rest/graphql). Secrets are redacted.",
+    { site_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "seo:read");
+      const { data, error } = await t(ctx, "seo_connections")
+        .select("id, provider, label, status, account_ref, connected_at, meta")
+        .eq("business_id", ctx.businessId).eq("site_id", args.site_id);
+      if (error) throw error;
+      return text(data);
+    });
+
+  tool("delete_seo_connection", "Remove a gateway connection from a site.",
+    { connection_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "seo:write");
+      const { error } = await t(ctx, "seo_connections").delete().eq("id", args.connection_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ deleted: true });
+    });
 }
