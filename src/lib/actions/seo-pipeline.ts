@@ -13,7 +13,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveBizId } from "@/lib/active-business";
 import { getUser } from "@/lib/auth";
-import { advanceContentJob, seoSpendStatus, type ContentType } from "@/lib/seo/engine";
+import { advanceContentJob, seoSpendStatus, runOpportunityScout, type ContentType } from "@/lib/seo/engine";
 import { publishContent } from "@/lib/seo/publish";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -65,6 +65,45 @@ export async function startContentPipeline(input: {
   });
   revalidatePath("/seo");
   return { piece_id: piece.id };
+}
+
+/** Run the Opportunity Scout on a site — populates the queue. */
+export async function scanOpportunities(siteId: string): Promise<{ inserted: number }> {
+  const businessId = await biz();
+  const admin = createAdminClient();
+  const { data: site } = await tbl(admin, "seo_sites").select("id").eq("id", siteId).eq("business_id", businessId).maybeSingle();
+  if (!site) throw new Error("Site not found");
+  const res = await runOpportunityScout(admin, { businessId, siteId });
+  revalidatePath(`/seo/${siteId}`);
+  return res;
+}
+
+export async function listOpportunities(siteId: string) {
+  const businessId = await biz();
+  const supabase = await createClient();
+  const { data } = await tbl(supabase, "seo_opportunities")
+    .select("id, type, title, detail, priority, status, created_at")
+    .eq("business_id", businessId).eq("site_id", siteId)
+    .order("priority", { ascending: false }).order("created_at", { ascending: false }).limit(200);
+  return (data ?? []) as Array<{ id: string; type: string; title: string; detail: string | null; priority: number; status: string; created_at: string }>;
+}
+
+export async function setOpportunityStatus(id: string, status: string, siteId: string): Promise<void> {
+  const businessId = await biz();
+  const admin = createAdminClient();
+  await tbl(admin, "seo_opportunities").update({ status }).eq("id", id).eq("business_id", businessId);
+  revalidatePath(`/seo/${siteId}`);
+}
+
+/** Start a content pipeline from an opportunity and mark it in-progress. */
+export async function writeOpportunity(opportunityId: string, siteId: string, contentType?: ContentType): Promise<{ piece_id: string }> {
+  const businessId = await biz();
+  const supabase = await createClient();
+  const { data: opp } = await tbl(supabase, "seo_opportunities").select("title").eq("id", opportunityId).eq("business_id", businessId).maybeSingle();
+  if (!opp) throw new Error("Opportunity not found");
+  const started = await startContentPipeline({ site_id: siteId, topic: opp.title, content_type: contentType });
+  await setOpportunityStatus(opportunityId, "in_progress", siteId);
+  return started;
 }
 
 /** Publish an approved piece through a connected gateway. */

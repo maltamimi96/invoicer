@@ -6,7 +6,7 @@
 import { z } from "zod";
 import { assertScope, t, text, errorText } from "../context";
 import { ctxFrom, UUID, type ToolFn } from "./shared";
-import { advanceContentJob, seoSpendStatus } from "@/lib/seo/engine";
+import { advanceContentJob, seoSpendStatus, runOpportunityScout } from "@/lib/seo/engine";
 import { publishContent } from "@/lib/seo/publish";
 
 const DOMAIN = z.string().min(1).describe("Client site domain, e.g. example.com");
@@ -232,5 +232,36 @@ export function registerSeoTools(tool: ToolFn): void {
       const ctx = ctxFrom(extra); assertScope(ctx, "seo:write");
       const res = await publishContent(ctx.sb, { businessId: ctx.businessId, pieceId: args.piece_id, connectionId: args.connection_id });
       return text({ published: true, ...res });
+    });
+
+  // ── Opportunity scout (discovery) ────────────────────────────────────────────
+  tool("run_opportunity_scout", "Run the Opportunity Scout on a site — studies the niche via web search and populates a ranked opportunity queue.",
+    { site_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "seo:write");
+      const res = await runOpportunityScout(ctx.sb, { businessId: ctx.businessId, siteId: args.site_id });
+      return text(res);
+    });
+
+  tool("list_seo_opportunities", "List a site's opportunity queue (what to write or fix), highest priority first.",
+    { site_id: UUID, status: z.enum(["queued", "in_progress", "done", "dismissed"]).optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "seo:read");
+      let q = t(ctx, "seo_opportunities").select("id, type, title, detail, priority, status, created_at")
+        .eq("business_id", ctx.businessId).eq("site_id", args.site_id)
+        .order("priority", { ascending: false }).order("created_at", { ascending: false }).limit(200);
+      if (args.status) q = q.eq("status", args.status);
+      const { data, error } = await q;
+      if (error) throw error;
+      return text(data);
+    });
+
+  tool("set_opportunity_status", "Update an opportunity's status (queued / in_progress / done / dismissed).",
+    { opportunity_id: UUID, status: z.enum(["queued", "in_progress", "done", "dismissed"]) },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "seo:write");
+      const { error } = await t(ctx, "seo_opportunities").update({ status: args.status }).eq("id", args.opportunity_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ updated: true });
     });
 }
