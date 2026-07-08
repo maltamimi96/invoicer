@@ -132,7 +132,11 @@ export function SeoSitesView({ sites, customers }: Props) {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {sites.map((site) => (
-            <div key={site.id} className="rounded-xl border border-border bg-card p-4 flex flex-col gap-3">
+            <Link
+              key={site.id}
+              href={`/seo/${site.id}`}
+              className="rounded-xl border border-border bg-card p-4 flex flex-col gap-3 hover:border-emerald-400/60 hover:shadow-sm transition-all"
+            >
               <div className="flex items-start gap-3">
                 <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
                   <Globe className="w-4.5 h-4.5 text-foreground/70" />
@@ -144,7 +148,7 @@ export function SeoSitesView({ sites, customers }: Props) {
                   )}
                 </div>
                 <button
-                  onClick={() => setDeleteTarget(site)}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeleteTarget(site); }}
                   disabled={isPending}
                   className="text-muted-foreground hover:text-destructive shrink-0"
                   aria-label="Remove site"
@@ -157,7 +161,7 @@ export function SeoSitesView({ sites, customers }: Props) {
                 <span className="text-[10px] font-medium bg-muted rounded-full px-2 py-0.5">{PLAYBOOK_LABEL[site.playbook]}</span>
                 <span className={`text-[10px] font-medium rounded-full px-2 py-0.5 ${site.status === "active" ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"}`}>{site.status}</span>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}
