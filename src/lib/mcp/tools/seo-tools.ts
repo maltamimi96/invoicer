@@ -7,6 +7,7 @@ import { z } from "zod";
 import { assertScope, t, text, errorText } from "../context";
 import { ctxFrom, UUID, type ToolFn } from "./shared";
 import { advanceContentJob, seoSpendStatus } from "@/lib/seo/engine";
+import { publishContent } from "@/lib/seo/publish";
 
 const DOMAIN = z.string().min(1).describe("Client site domain, e.g. example.com");
 
@@ -223,5 +224,13 @@ export function registerSeoTools(tool: ToolFn): void {
       const { error } = await t(ctx, "seo_connections").delete().eq("id", args.connection_id).eq("business_id", ctx.businessId);
       if (error) throw error;
       return text({ deleted: true });
+    });
+
+  tool("publish_content", "Publish a finished content piece through a connected gateway. connection_id comes from list_seo_connections.",
+    { piece_id: UUID, connection_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "seo:write");
+      const res = await publishContent(ctx.sb, { businessId: ctx.businessId, pieceId: args.piece_id, connectionId: args.connection_id });
+      return text({ published: true, ...res });
     });
 }

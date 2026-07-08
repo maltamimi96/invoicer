@@ -8,13 +8,15 @@ import { ArrowLeft, Check, ChevronDown, ChevronRight, Play } from "@/components/
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/page-header";
 import { cn } from "@/lib/utils";
-import { advanceContentPipeline, approveContentPiece } from "@/lib/actions/seo-pipeline";
+import { advanceContentPipeline, approveContentPiece, publishContentPiece } from "@/lib/actions/seo-pipeline";
 import { executableSteps, SEO_AGENTS_BY_ID, SEO_ARTIFACTS } from "@/lib/seo/pipeline";
+import type { ConnectionView } from "@/lib/seo/connectors";
 import type { SeoContentPiece, SeoContentType } from "@/types/database";
 
 interface Props {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   piece: SeoContentPiece & { seo_sites?: { domain: string } | null };
+  connections: ConnectionView[];
 }
 
 const STATUS_TONE: Record<string, string> = {
@@ -25,11 +27,26 @@ const STATUS_TONE: Record<string, string> = {
   idle: "bg-muted text-muted-foreground",
 };
 
-export function SeoContentDetail({ piece }: Props) {
+export function SeoContentDetail({ piece, connections }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [running, setRunning] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
+  const publishable = connections.filter((c) => c.provider !== "gsc");
+  const [connId, setConnId] = useState(publishable[0]?.id ?? "");
+
+  function handlePublish() {
+    if (!connId) { toast.error("Connect a gateway first"); return; }
+    startTransition(async () => {
+      try {
+        const res = await publishContentPiece(piece.id, connId);
+        toast.success(res.url ? "Published" : "Published (no public URL returned)");
+        router.refresh();
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Publish failed");
+      }
+    });
+  }
 
   const steps = executableSteps((piece.content_type ?? "blog") as SeoContentType);
   const artifacts = piece.artifacts ?? {};
@@ -123,6 +140,32 @@ export function SeoContentDetail({ piece }: Props) {
           {busy && " · working…"}
         </span>
       </div>
+
+      {/* Publish */}
+      {stepDone("content-editor-fact-checker") && (
+        <div className="rounded-xl border border-border bg-card p-4 mb-6 flex items-center gap-3 flex-wrap">
+          {piece.published_url ? (
+            <div className="flex-1 min-w-0 text-sm">
+              <span className="text-emerald-700 font-medium">Published</span>
+              <span className="text-muted-foreground"> → </span>
+              <a href={piece.published_url} target="_blank" rel="noreferrer" className="underline break-all">{piece.published_url}</a>
+            </div>
+          ) : publishable.length === 0 ? (
+            <p className="flex-1 min-w-0 text-sm text-muted-foreground">
+              Connect a publishing gateway on the{" "}
+              <Link href={`/seo/${piece.site_id}`} className="underline">site&apos;s Connections tab</Link>{" "}to publish this.
+            </p>
+          ) : (
+            <>
+              <span className="text-sm font-medium">Publish to</span>
+              <select value={connId} onChange={(e) => setConnId(e.target.value)} className="h-9 rounded-md border border-input bg-background px-3 text-sm">
+                {publishable.map((c) => <option key={c.id} value={c.id}>{c.label || c.provider}{c.account_ref ? ` · ${c.account_ref}` : ""}</option>)}
+              </select>
+              <Button onClick={handlePublish} disabled={busy}>Publish</Button>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Stage list — each agent + its product */}
       <div className="flex flex-col gap-2">
