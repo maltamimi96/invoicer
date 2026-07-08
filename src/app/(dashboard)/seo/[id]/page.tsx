@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { getSeoSite } from "@/lib/actions/seo";
 import { listContentPieces, getSeoBudget } from "@/lib/actions/seo-pipeline";
+import { listConnections } from "@/lib/actions/seo-connections";
 import { SeoSiteHub } from "@/components/seo/seo-site-hub";
 
 export const dynamic = "force-dynamic";
@@ -13,16 +14,15 @@ export default async function SeoSiteHubPage({ params }: { params: Promise<{ id:
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/auth/login");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const businessId = await getActiveBizId(supabase as any, user.id);
+  await getActiveBizId(supabase as any, user.id);
 
   const site = await getSeoSite(id);
   if (!site) notFound();
 
-  const [pieces, budget, connectionsRes] = await Promise.all([
+  const [pieces, budget, connections] = await Promise.all([
     listContentPieces(id),
     getSeoBudget(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any).from("seo_connections").select("provider, status, account_ref, connected_at").eq("business_id", businessId).eq("site_id", id),
+    listConnections(id),
   ]);
 
   return (
@@ -31,7 +31,7 @@ export default async function SeoSiteHubPage({ params }: { params: Promise<{ id:
       site={site as any}
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       pieces={pieces as any}
-      connections={(connectionsRes.data ?? []) as { provider: string; status: string; account_ref: string | null; connected_at: string | null }[]}
+      connections={connections}
       budget={budget}
     />
   );

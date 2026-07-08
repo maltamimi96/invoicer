@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, FileText, Search, Globe, Plug, Activity, Check } from "@/components/ui/icons";
+import { ArrowLeft, Plus, FileText, Search, Globe, Plug, Activity } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,18 +13,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { cn } from "@/lib/utils";
 import { startContentPipeline } from "@/lib/actions/seo-pipeline";
 import { SeoActivityTerminal } from "@/components/seo/seo-activity-terminal";
+import { SeoConnections } from "@/components/seo/seo-connections";
+import { CONNECTORS, type ConnectionView } from "@/lib/seo/connectors";
 import type { SeoSite, SeoContentType } from "@/types/database";
 
 interface Piece {
   id: string; title: string; topic: string | null; content_type: string;
   status: string; pipeline_status: string; current_stage: string | null; created_at: string;
 }
-interface Connection { provider: string; status: string; account_ref: string | null; connected_at: string | null }
-
 interface Props {
   site: SeoSite & { seo_sites?: unknown };
   pieces: Piece[];
-  connections: Connection[];
+  connections: ConnectionView[];
   budget: { spentCents: number; budgetCents: number; ok: boolean };
 }
 
@@ -41,13 +41,6 @@ const STATUS_TONE: Record<string, string> = {
 };
 const money = (c: number) => `$${(c / 100).toFixed(2)}`;
 
-const CONNECTORS = [
-  { provider: "gsc", name: "Google Search Console", desc: "Real keyword positions, clicks & impressions feed the scout.", ready: false },
-  { provider: "git", name: "Git publisher", desc: "Push approved articles straight into the site's repo (Astro/Hugo/…).", ready: false },
-  { provider: "wordpress", name: "WordPress", desc: "Publish to a WordPress site via the REST API.", ready: false },
-  { provider: "gbp", name: "Google Business Profile", desc: "Local-pack signals and profile posts.", ready: false },
-];
-
 export function SeoSiteHub({ site, pieces, connections, budget }: Props) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("overview");
@@ -56,7 +49,6 @@ export function SeoSiteHub({ site, pieces, connections, budget }: Props) {
   const [topic, setTopic] = useState("");
   const [contentType, setContentType] = useState<SeoContentType>("blog");
 
-  const connByProvider = new Map(connections.map((c) => [c.provider, c]));
   const connectedCount = connections.filter((c) => c.status === "connected").length;
   const approvedCount = pieces.filter((p) => p.status === "approved" || p.pipeline_status === "done").length;
 
@@ -158,36 +150,7 @@ export function SeoSiteHub({ site, pieces, connections, budget }: Props) {
       )}
 
       {/* ── Connections ── */}
-      {tab === "connections" && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {CONNECTORS.map((c) => {
-            const conn = connByProvider.get(c.provider);
-            const connected = conn?.status === "connected";
-            return (
-              <div key={c.provider} className="rounded-xl border border-border bg-card p-4 flex flex-col gap-3">
-                <div className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0"><Plug className="w-4.5 h-4.5 text-foreground/70" /></div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold">{c.name}</p>
-                      {connected
-                        ? <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700 bg-emerald-50 rounded-full px-1.5 py-0.5"><Check className="w-3 h-3" /> Connected</span>
-                        : !c.ready && <span className="text-[10px] font-medium text-muted-foreground bg-muted rounded-full px-1.5 py-0.5">Soon</span>}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">{c.desc}</p>
-                    {connected && conn?.account_ref && <p className="text-[11px] text-muted-foreground mt-1 truncate">{conn.account_ref}</p>}
-                  </div>
-                </div>
-                <div>
-                  <Button size="sm" variant={connected ? "outline" : "default"} disabled={!c.ready} className="text-xs h-7">
-                    {connected ? "Manage" : c.ready ? "Connect" : "Setup coming"}
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+      {tab === "connections" && <SeoConnections siteId={site.id} connections={connections} />}
 
       {/* ── Activity ── */}
       {tab === "activity" && <SeoActivityTerminal siteId={site.id} />}
