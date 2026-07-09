@@ -15,10 +15,12 @@ import { startContentPipeline } from "@/lib/actions/seo-pipeline";
 import { SeoActivityTerminal } from "@/components/seo/seo-activity-terminal";
 import { SeoConnections } from "@/components/seo/seo-connections";
 import { SeoOpportunities } from "@/components/seo/seo-opportunities";
+import { SeoReports } from "@/components/seo/seo-reports";
 import { CONNECTORS, type ConnectionView } from "@/lib/seo/connectors";
 import type { SeoSite, SeoContentType } from "@/types/database";
 
 interface Opportunity { id: string; type: string; title: string; detail: string | null; priority: number; status: string; created_at: string }
+interface Report { id: string; title: string | null; period_start: string; period_end: string; status: string; created_at: string; sent_at: string | null }
 
 interface Piece {
   id: string; title: string; topic: string | null; content_type: string;
@@ -29,10 +31,11 @@ interface Props {
   pieces: Piece[];
   connections: ConnectionView[];
   opportunities: Opportunity[];
+  reports: Report[];
   budget: { spentCents: number; budgetCents: number; ok: boolean };
 }
 
-type Tab = "overview" | "content" | "opportunities" | "connections" | "activity";
+type Tab = "overview" | "content" | "opportunities" | "connections" | "reports" | "activity";
 
 const STATUS_TONE: Record<string, string> = {
   running: "bg-blue-100 text-blue-700",
@@ -45,7 +48,7 @@ const STATUS_TONE: Record<string, string> = {
 };
 const money = (c: number) => `$${(c / 100).toFixed(2)}`;
 
-export function SeoSiteHub({ site, pieces, connections, opportunities, budget }: Props) {
+export function SeoSiteHub({ site, pieces, connections, opportunities, reports, budget }: Props) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("overview");
   const [isPending, startTransition] = useTransition();
@@ -74,6 +77,7 @@ export function SeoSiteHub({ site, pieces, connections, opportunities, budget }:
     { id: "content", label: "Content", icon: FileText },
     { id: "opportunities", label: "Opportunities", icon: Search },
     { id: "connections", label: "Connections", icon: Plug },
+    { id: "reports", label: "Reports", icon: FileText },
     { id: "activity", label: "Activity", icon: Activity },
   ];
 
@@ -159,6 +163,9 @@ export function SeoSiteHub({ site, pieces, connections, opportunities, budget }:
 
       {/* ── Connections ── */}
       {tab === "connections" && <SeoConnections siteId={site.id} connections={connections} />}
+
+      {/* ── Reports ── */}
+      {tab === "reports" && <SeoReports siteId={site.id} reports={reports} />}
 
       {/* ── Activity ── */}
       {tab === "activity" && <SeoActivityTerminal siteId={site.id} />}

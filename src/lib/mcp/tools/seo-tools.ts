@@ -8,6 +8,7 @@ import { assertScope, t, text, errorText } from "../context";
 import { ctxFrom, UUID, type ToolFn } from "./shared";
 import { advanceContentJob, seoSpendStatus, runOpportunityScout } from "@/lib/seo/engine";
 import { publishContent } from "@/lib/seo/publish";
+import { assembleReport } from "@/lib/seo/report";
 
 const DOMAIN = z.string().min(1).describe("Client site domain, e.g. example.com");
 
@@ -263,5 +264,29 @@ export function registerSeoTools(tool: ToolFn): void {
       const { error } = await t(ctx, "seo_opportunities").update({ status: args.status }).eq("id", args.opportunity_id).eq("business_id", ctx.businessId);
       if (error) throw error;
       return text({ updated: true });
+    });
+
+  // ── White-label reports ──────────────────────────────────────────────────────
+  tool("generate_seo_report", "Generate a client SEO report for a site (rankings movement, work delivered, next-period plan). PDF at /api/pdf/seo-report/<id>.",
+    { site_id: UUID, period_days: z.number().int().min(1).max(365).optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "seo:write");
+      const { data: site } = await t(ctx, "seo_sites").select("domain").eq("id", args.site_id).eq("business_id", ctx.businessId).maybeSingle();
+      if (!site) return errorText("Site not found");
+      const fields = await assembleReport(ctx.sb, ctx.businessId, args.site_id, site.domain, args.period_days ?? 30);
+      const { data: report, error } = await t(ctx, "seo_reports").insert({ business_id: ctx.businessId, site_id: args.site_id, status: "draft", ...fields }).select("id").single();
+      if (error) throw error;
+      return text({ report_id: report.id, title: fields.title });
+    });
+
+  tool("list_seo_reports", "List a site's SEO reports.",
+    { site_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "seo:read");
+      const { data, error } = await t(ctx, "seo_reports")
+        .select("id, title, period_start, period_end, status, created_at, sent_at")
+        .eq("business_id", ctx.businessId).eq("site_id", args.site_id).order("created_at", { ascending: false }).limit(100);
+      if (error) throw error;
+      return text(data);
     });
 }
