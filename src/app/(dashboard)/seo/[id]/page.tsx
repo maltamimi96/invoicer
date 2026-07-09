@@ -4,6 +4,7 @@ import { getActiveBizId } from "@/lib/active-business";
 import { getSeoSite } from "@/lib/actions/seo";
 import { listContentPieces, getSeoBudget, listOpportunities } from "@/lib/actions/seo-pipeline";
 import { listConnections } from "@/lib/actions/seo-connections";
+import { listSeoReports } from "@/lib/actions/seo-reports";
 import { SeoSiteHub } from "@/components/seo/seo-site-hub";
 
 export const dynamic = "force-dynamic";
@@ -22,11 +23,12 @@ export default async function SeoSiteHubPage({ params }: { params: Promise<{ id:
   const site = await getSeoSite(id);
   if (!site) notFound();
 
-  const [pieces, budget, connections, opportunities] = await Promise.all([
+  const [pieces, budget, connections, opportunities, reports] = await Promise.all([
     listContentPieces(id),
     getSeoBudget(),
     listConnections(id),
     listOpportunities(id),
+    listSeoReports(id),
   ]);
 
   return (
@@ -37,6 +39,7 @@ export default async function SeoSiteHubPage({ params }: { params: Promise<{ id:
       pieces={pieces as any}
       connections={connections}
       opportunities={opportunities}
+      reports={reports}
       budget={budget}
     />
   );
