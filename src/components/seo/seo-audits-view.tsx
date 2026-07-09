@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, Copy, Search, ExternalLink } from "@/components/ui/icons";
+import { ArrowLeft, Copy, Search, ExternalLink, Download, Play } from "@/components/ui/icons";
 import { PageHeader } from "@/components/layout/page-header";
 import { cn } from "@/lib/utils";
+import { runAuditNow } from "@/lib/actions/seo-audits";
 
 interface Audit { id: string; url: string; email: string | null; name: string | null; status: string; score: number | null; lead_id: string | null; created_at: string }
 interface Props { link: string; audits: Audit[] }
@@ -18,13 +20,24 @@ const TONE: Record<string, string> = {
 };
 
 export function SeoAuditsView({ link, audits }: Props) {
+  const router = useRouter();
   const [copied, setCopied] = useState(false);
+  const [runningId, setRunningId] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
 
   function copy() {
     navigator.clipboard.writeText(link).then(() => {
       setCopied(true); toast.success("Link copied");
       setTimeout(() => setCopied(false), 1500);
     });
+  }
+
+  function runAudit(a: Audit) {
+    setRunningId(a.id);
+    runAuditNow(a.id)
+      .then((r) => { toast.success(`Audit scored ${r.score}/100`); router.refresh(); })
+      .catch((e) => toast.error(e instanceof Error ? e.message : "Audit failed"))
+      .finally(() => setRunningId(null));
   }
 
   return (
@@ -71,6 +84,14 @@ export function SeoAuditsView({ link, audits }: Props) {
               </div>
               {a.score != null && <span className="text-xs font-semibold">{a.score}/100</span>}
               <span className={cn("text-[11px] font-medium rounded-full px-2 py-0.5 shrink-0", TONE[a.status])}>{a.status}</span>
+              {(a.status === "queued" || a.status === "failed") && (
+                <button onClick={() => runAudit(a)} disabled={isPending || runningId === a.id} className="inline-flex items-center gap-1 text-xs text-primary hover:underline shrink-0">
+                  <Play className="w-3.5 h-3.5" /> {runningId === a.id ? "Running…" : "Run"}
+                </button>
+              )}
+              {a.status === "done" && (
+                <a href={`/api/pdf/seo-audit/${a.id}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground shrink-0"><Download className="w-3.5 h-3.5" /> PDF</a>
+              )}
               {a.lead_id && <Link href={`/leads/${a.lead_id}`} className="text-xs text-primary hover:underline shrink-0">Lead</Link>}
             </div>
           ))}

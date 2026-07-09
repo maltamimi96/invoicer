@@ -11,6 +11,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveBizId } from "@/lib/active-business";
 import { getUser } from "@/lib/auth";
 import { appUrl } from "@/lib/app-url";
+import { revalidatePath } from "next/cache";
+import { runSiteAudit } from "@/lib/seo/engine";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: any, name: string) => sb.from(name);
@@ -33,6 +35,17 @@ export async function getAuditLink(): Promise<{ slug: string; url: string }> {
     if (error) throw error;
   }
   return { slug, url: `${appUrl()}/audit/${slug}` };
+}
+
+/** Run a queued audit now (agency-triggered). */
+export async function runAuditNow(auditId: string): Promise<{ score: number }> {
+  const businessId = await biz();
+  const admin = createAdminClient();
+  const { data: audit } = await tbl(admin, "seo_audits").select("id").eq("id", auditId).eq("business_id", businessId).maybeSingle();
+  if (!audit) throw new Error("Audit not found");
+  const res = await runSiteAudit(admin, auditId);
+  revalidatePath("/seo/audits");
+  return res;
 }
 
 export async function listAudits() {
