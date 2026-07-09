@@ -1,6 +1,6 @@
 # SEO Agency Platform — Kirei-scoped build plan
 
-**Status:** **P0 + P2 core SHIPPED** (July 2026, PRs #359–#374) · **Owner doc** for the "plugins + SEO agency vertical" initiative.
+**Status:** **P0–P4 SHIPPED** (July 2026, PRs #359–#379) · **Owner doc** for the "plugins + SEO agency vertical" initiative. Remaining: P5 (Shopify — needs Partner creds) · P6 (scale + monetization).
 **Decisions locked:** built **inside Kirei as plugins** (not a separate app + SSO) · **Local-service playbook first**, Shopify second · industry presets are a core requirement.
 
 ### Shipped so far
@@ -11,10 +11,14 @@
 1. **`ANTHROPIC_API_KEY`** account was out of credits — the pipeline can't run until topped up (same key all AI features use).
 2. **`APP_ENCRYPTION_KEY`** (64 hex) — required to store any connector credential.
 
+### Also shipped (P3–P4)
+- **P3 white-label reporting** — `seo_reports` + `assembleReport` + branded react-pdf (`/api/pdf/seo-report`) + client portal `/portal/[token]/seo-report/[id]` + `send`/monthly cron (`/api/cron/seo-reports`, approval gate). MCP generate/list/send.
+- **P4 instant-audit sales engine** — public `/audit/[slug]` lead magnet (→ lead via `upsert_lead` source `seo-audit`) + `runSiteAudit` (fetch page + auditor agent → score/findings) + branded PDF + emailed result page `/audit/report/[id]` + cron `/api/cron/seo-audits`. `businesses.audit_slug`. MCP get_audit_link/list/run.
+
 ### Not yet built
 - **GSC connector** (needs a Google Cloud OAuth client from the user — the one Phase-2 item Claude can't do alone).
 - **Configurable Git frontmatter** (adapter currently writes generic title/description/pubDate/draft — per-site Astro schemas will need mapping).
-- P3 reporting · P4 instant-audit · P5 Shopify · P6 scale.
+- **P5 Shopify** (needs Shopify Partner app credentials) · **P6 scale + monetization** (GA4/Ahrefs/DataForSEO connectors + the subscription-billing tie-in — a separate initiative).
 
 The source vision is the "SEO Agency Platform — Build Plan" (agency operating layer / vertical playbooks / agent engine / connectors). This doc maps it onto Kirei's actual codebase: what's reused, what's new, and in what order. Guiding fact: **Kirei already IS the agency CRM layer** — clients, contracts + e-sign, recurring retainer billing, Stripe, client portal, onboarding forms (with encrypted credentials), public lead-capture forms, tasks kanban, per-business branded email, PDF pipeline. We are adding **the plugin foundation, the SEO production engine, and reporting** on top.
 
