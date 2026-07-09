@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { savePdfSettings } from "@/lib/actions/business";
@@ -135,6 +136,12 @@ export function PdfSettingsPanel({ settings: initial, business, mode, onSettings
     bank_iban: business.bank_iban ?? "",
   });
 
+  // Default terms & conditions for this document type — pre-fills new docs.
+  const [termsDefault, setTermsDefault] = useState(
+    (mode === "invoice" ? business.default_invoice_terms : business.default_quote_terms)
+      ?? business.payment_terms ?? "",
+  );
+
   const update = (patch: Partial<PdfSettings>) => {
     const next = { ...s, ...patch };
     setS(next);
@@ -150,6 +157,9 @@ export function PdfSettingsPanel({ settings: initial, business, mode, onSettings
           bank_account_number: bank.bank_account_number || null,
           bank_sort_code: bank.bank_sort_code || null,
           bank_iban: bank.bank_iban || null,
+          ...(mode === "invoice"
+            ? { default_invoice_terms: termsDefault.trim() || null }
+            : { default_quote_terms: termsDefault.trim() || null }),
         });
         toast.success("Template settings saved");
         setOpen(false);
@@ -341,6 +351,25 @@ export function PdfSettingsPanel({ settings: initial, business, mode, onSettings
                 </div>
               </div>
             ))}
+          </div>
+
+          <Separator />
+
+          {/* Default terms & conditions for this document type */}
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Default terms &amp; conditions
+            </Label>
+            <Textarea
+              rows={5}
+              value={termsDefault}
+              onChange={(e) => setTermsDefault(e.target.value)}
+              placeholder={mode === "invoice" ? "Payment due within 30 days…" : "This quote is valid for 30 days…"}
+              className="text-xs"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Pre-fills the terms on new {mode === "invoice" ? "invoices" : "quotes"}. You can still edit them per {mode}.
+            </p>
           </div>
 
           <div className="pt-2 pb-6">

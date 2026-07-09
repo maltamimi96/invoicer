@@ -133,6 +133,9 @@ export async function savePdfSettings(
     bank_account_number?: string | null;
     bank_sort_code?: string | null;
     bank_iban?: string | null;
+    // Default terms & conditions per document type (set from the template editor).
+    default_invoice_terms?: string | null;
+    default_quote_terms?: string | null;
   }
 ): Promise<void> {
   const supabase = await createClient();

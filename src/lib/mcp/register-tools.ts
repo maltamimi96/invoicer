@@ -548,13 +548,18 @@ export function registerTools(server: McpServer): void {
       return text(data);
     });
 
-  tool("update_settings", "Update business settings / preferences. Only provided fields change. Common fields: name, email, phone, address, currency, accent_color, sidebar_theme, bg_pattern, invoice_prefix, quote_prefix, bank_name, bank_account_number, bank_account_name, bank_sort_code, license_number.",
+  tool("update_settings", "Update business settings / preferences. Only provided fields change. Common fields: name, email, phone, address, currency, accent_color, sidebar_theme, bg_pattern, invoice_prefix, quote_prefix, bank_name, bank_account_number, bank_account_name, bank_sort_code, license_number. Document defaults: default_notes, payment_terms, and the per-type default terms & conditions default_invoice_terms / default_quote_terms (pre-fill new invoices / quotes — same as the PDF template editor's 'Default terms & conditions').",
     {
       name: z.string().optional(), email: z.string().optional(), phone: z.string().optional(), address: z.string().optional(),
       currency: z.string().optional(), accent_color: z.string().optional(), sidebar_theme: z.string().optional(),
       bg_pattern: z.string().optional(), invoice_prefix: z.string().optional(), quote_prefix: z.string().optional(),
       bank_name: z.string().optional(), bank_account_number: z.string().optional(), bank_account_name: z.string().optional(),
       bank_sort_code: z.string().optional(), license_number: z.string().optional(),
+      // Document defaults pre-filled on new invoices/quotes.
+      default_notes: z.string().nullable().optional(),
+      payment_terms: z.string().nullable().optional(),
+      default_invoice_terms: z.string().nullable().optional(),
+      default_quote_terms: z.string().nullable().optional(),
       // Stripe / payments: platform fee % and the quote-accept deposit %.
       platform_fee_percent: z.number().min(0).max(30).nullable().optional(),
       deposit_percent: z.number().min(0).max(100).nullable().optional(),

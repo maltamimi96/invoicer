@@ -82,7 +82,7 @@ export function InvoiceEditor({ customers, products, business, invoice, defaultC
       discount_type: invoice?.discount_type ?? undefined,
       discount_value: invoice?.discount_value ?? 0,
       notes: invoice?.notes ?? business.default_notes ?? "",
-      terms: invoice?.terms ?? business.payment_terms ?? "",
+      terms: invoice?.terms ?? business.default_invoice_terms ?? business.payment_terms ?? "",
     },
   });
 
