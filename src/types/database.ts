@@ -132,6 +132,27 @@ export interface Product {
   updated_at: string;
 }
 
+/** Product with the inventory columns (migration 20260710160000). */
+export interface InventoryProduct extends Product {
+  track_stock: boolean;
+  stock_qty: number;
+  reorder_point: number | null;
+  unit_cost: number | null;
+}
+
+export type StockReason = 'adjustment' | 'received' | 'usage' | 'count';
+export interface StockMovement {
+  id: string;
+  business_id: string;
+  product_id: string;
+  delta: number;
+  reason: StockReason;
+  work_order_id: string | null;
+  note: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
 export interface Invoice {
   id: string;
   user_id: string;

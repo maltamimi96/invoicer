@@ -70,6 +70,7 @@ export const PLUGIN_REGISTRY: PluginDefinition[] = [
 
   // ── Catalog / comms / insights ────────────────────────────────────────────
   { id: "products", icon: "package",   name: "Products",      description: "Price list used across quotes and invoices.", kind: "module", category: "catalog", defaultEnabled: true, routePrefixes: ["/products"] },
+  { id: "inventory", icon: "boxes", name: "Inventory", description: "Track stock on hand, reorder points and usage per job.", kind: "module", category: "catalog", defaultEnabled: false, dependencies: ["products"], routePrefixes: ["/inventory"] },
   { id: "messages", icon: "message-square",   name: "Messages",      description: "Customer conversations in one inbox.",   kind: "module", category: "communication", defaultEnabled: true, routePrefixes: ["/messages"] },
   { id: "analytics", icon: "trending-up",  name: "Analytics",     description: "Revenue and pipeline insight.",          kind: "module", category: "insights", defaultEnabled: true, routePrefixes: ["/analytics"] },
 
