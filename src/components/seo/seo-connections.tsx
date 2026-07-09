@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { CONNECTORS, CONNECTORS_BY_ID, type ConnectorDef, type ConnectionView } from "@/lib/seo/connectors";
-import { saveConnection, deleteConnection } from "@/lib/actions/seo-connections";
+import { saveConnection, deleteConnection, testSeoConnection } from "@/lib/actions/seo-connections";
 
 const selectCls = "h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring";
 
@@ -54,6 +54,15 @@ export function SeoConnections({ siteId, connections }: { siteId: string; connec
     });
   }
 
+  const [testingId, setTestingId] = useState<string | null>(null);
+  function handleTest(conn: ConnectionView) {
+    setTestingId(conn.id);
+    testSeoConnection(conn.id)
+      .then((r) => r.ok ? toast.success(r.message) : toast.error(r.message))
+      .catch((e) => toast.error(e instanceof Error ? e.message : "Test failed"))
+      .finally(() => setTestingId(null));
+  }
+
   const publish = CONNECTORS.filter((c) => c.auth === "token");
   const data = CONNECTORS.filter((c) => c.auth === "oauth");
 
@@ -76,6 +85,7 @@ export function SeoConnections({ siteId, connections }: { siteId: string; connec
                     </div>
                     {conn.account_ref && <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{conn.account_ref}</p>}
                     <div className="flex gap-2 mt-2">
+                      <button onClick={() => handleTest(conn)} disabled={testingId === conn.id} className="text-xs text-muted-foreground hover:text-foreground underline">{testingId === conn.id ? "Testing…" : "Test"}</button>
                       {def && <button onClick={() => openConnect(def, conn)} className="text-xs text-muted-foreground hover:text-foreground underline">Edit</button>}
                       <button onClick={() => handleDelete(conn)} disabled={isPending} className="text-xs text-muted-foreground hover:text-destructive underline">Remove</button>
                     </div>

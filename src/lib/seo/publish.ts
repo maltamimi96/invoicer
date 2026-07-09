@@ -54,6 +54,13 @@ interface PublishResult { url: string | null; ref?: string }
 
 // ── Adapters ─────────────────────────────────────────────────────────────────
 
+/** Fill {{title}} / {{description}} / {{slug}} / {{date}} / {{keyword}} in a
+ *  frontmatter template, YAML-escaping (single-line, quotes) each value. */
+function fillFrontmatter(tpl: string, a: Article, date: string): string {
+  const v: Record<string, string> = { title: a.title, description: a.description, slug: a.slug, date, keyword: a.keyword };
+  return tpl.replace(/\{\{(\w+)\}\}/g, (_, k) => String(v[k] ?? "").replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/[\r\n]+/g, " "));
+}
+
 async function publishGitHub(meta: Meta, secrets: Secrets, a: Article): Promise<PublishResult> {
   const [owner, repo] = (meta.repo ?? "").split("/");
   if (!owner || !repo) throw new Error("Repository must be owner/repo");
@@ -61,7 +68,10 @@ async function publishGitHub(meta: Meta, secrets: Secrets, a: Article): Promise<
   const ext = meta.extension || "md";
   const path = `${(meta.content_path || "").replace(/\/+$/, "")}/${a.slug}.${ext}`.replace(/^\/+/, "");
   const today = new Date().toISOString().split("T")[0];
-  const file = `---\ntitle: "${a.title.replace(/"/g, '\\"')}"\ndescription: "${a.description.replace(/"/g, '\\"')}"\npubDate: ${today}\ndraft: false\n---\n\n${stripLeadingH1(a.markdown)}\n`;
+  const fm = meta.frontmatter?.trim()
+    ? fillFrontmatter(meta.frontmatter, a, today)
+    : `title: "${a.title.replace(/"/g, '\\"')}"\ndescription: "${a.description.replace(/"/g, '\\"')}"\npubDate: ${today}\ndraft: false`;
+  const file = `---\n${fm}\n---\n\n${stripLeadingH1(a.markdown)}\n`;
 
   const api = `https://api.github.com/repos/${owner}/${repo}/contents/${path.split("/").map(encodeURIComponent).join("/")}`;
   const headers = {
@@ -158,6 +168,51 @@ const ADAPTERS: Record<string, (m: Meta, s: Secrets, a: Article) => Promise<Publ
   rest: publishRest,
   graphql: publishGraphql,
 };
+
+/** Lightweight auth probe per connector — surfaces bad creds before publish. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function testConnection(sb: any, businessId: string, connectionId: string): Promise<{ ok: boolean; message: string }> {
+  const { data: conn } = await sb.from("seo_connections").select("id, provider, meta, secret").eq("id", connectionId).eq("business_id", businessId).maybeSingle();
+  if (!conn) throw new Error("Connection not found");
+  let secrets: Secrets = {};
+  if (conn.secret) { try { secrets = JSON.parse(decryptSecret(conn.secret)); } catch { return { ok: false, message: "Couldn't read credentials (encryption key changed?)" }; } }
+  const meta: Meta = conn.meta ?? {};
+
+  try {
+    switch (conn.provider) {
+      case "git-github": {
+        const [owner, repo] = (meta.repo ?? "").split("/");
+        const res = await fetch(`https://api.github.com/repos/${owner}/${repo}`, { headers: { Authorization: `Bearer ${secrets.token}`, Accept: "application/vnd.github+json", "User-Agent": "Kirei-SEO" } });
+        return res.ok ? { ok: true, message: `Connected to ${owner}/${repo}` } : { ok: false, message: `GitHub ${res.status} — check the repo and token scope.` };
+      }
+      case "wordpress": {
+        const base = (meta.site_url ?? "").replace(/\/+$/, "");
+        const authv = Buffer.from(`${meta.username}:${secrets.app_password}`).toString("base64");
+        const res = await fetch(`${base}/wp-json/wp/v2/users/me`, { headers: { Authorization: `Basic ${authv}` } });
+        return res.ok ? { ok: true, message: "WordPress authentication OK" } : { ok: false, message: `WordPress ${res.status} — check the URL, username and app password.` };
+      }
+      case "sanity": {
+        const q = encodeURIComponent(`*[_type=="${meta.doc_type || "post"}"][0]._id`);
+        const res = await fetch(`https://${meta.project_id}.api.sanity.io/v${meta.api_version || "2024-01-01"}/data/query/${meta.dataset || "production"}?query=${q}`, { headers: { Authorization: `Bearer ${secrets.token}` } });
+        return res.ok ? { ok: true, message: "Sanity authentication OK" } : { ok: false, message: `Sanity ${res.status} — check the project, dataset and token.` };
+      }
+      case "payload": {
+        const base = (meta.base_url ?? "").replace(/\/+$/, "");
+        const res = await fetch(`${base}/${meta.collection}?limit=1`, { headers: { Authorization: `users API-Key ${secrets.api_key}` } });
+        return res.ok ? { ok: true, message: "Payload authentication OK" } : { ok: false, message: `Payload ${res.status} — check the base URL, collection and key.` };
+      }
+      case "rest":
+      case "graphql": {
+        try { const res = await fetch(meta.endpoint, { method: "OPTIONS" }); return { ok: true, message: `Endpoint reachable (${res.status}). Credentials are verified on the first real publish.` }; }
+        catch { return { ok: false, message: "Endpoint not reachable." }; }
+      }
+      default:
+        return { ok: false, message: "No test available for this connector." };
+    }
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : "Test failed." };
+  }
+}
 
 /** Publish an approved content piece through a connection. Owns all writes. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
