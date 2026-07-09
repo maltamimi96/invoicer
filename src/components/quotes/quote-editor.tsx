@@ -80,7 +80,7 @@ export function QuoteEditor({ customers, products, business, quote, defaultCusto
       discount_type: quote?.discount_type ?? undefined,
       discount_value: quote?.discount_value ?? 0,
       notes: quote?.notes ?? business.default_notes ?? "",
-      terms: quote?.terms ?? business.payment_terms ?? "",
+      terms: quote?.terms ?? business.default_quote_terms ?? business.payment_terms ?? "",
     },
   });
 

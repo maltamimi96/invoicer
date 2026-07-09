@@ -66,6 +66,10 @@ export interface Business {
   pdf_settings: PdfSettings | null;
   payment_terms: string | null;
   default_notes: string | null;
+  /** Default terms & conditions pre-filled on new invoices / quotes (set from
+   *  the PDF template editor). Fall back to payment_terms. */
+  default_invoice_terms: string | null;
+  default_quote_terms: string | null;
   bank_name: string | null;
   bank_account_name: string | null;
   bank_account_number: string | null;
