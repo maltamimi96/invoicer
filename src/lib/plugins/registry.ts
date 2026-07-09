@@ -65,6 +65,7 @@ export const PLUGIN_REGISTRY: PluginDefinition[] = [
   { id: "scheduling", icon: "calendar-days", name: "Schedule",      description: "Calendar and dispatch board for the crew.", kind: "module", category: "service", defaultEnabled: true, dependencies: ["jobs"], routePrefixes: ["/schedule"] },
   { id: "recurring-jobs", icon: "repeat", name: "Recurring jobs", description: "Repeating jobs that generate work orders (and optionally invoices).", kind: "module", category: "service", defaultEnabled: true, dependencies: ["jobs"], routePrefixes: ["/recurring"] },
   { id: "timesheets", icon: "clock", name: "Timesheets", description: "Weekly hours per worker from job time, with pay + CSV export.", kind: "module", category: "service", defaultEnabled: false, routePrefixes: ["/timesheets"] },
+  { id: "assets", icon: "hammer", name: "Assets & equipment", description: "Track tools, vehicles and equipment with service schedules.", kind: "module", category: "service", defaultEnabled: false, routePrefixes: ["/assets"] },
   { id: "booking", icon: "calendar-days",    name: "Online booking", description: "Public booking pages with reminders.",   kind: "module", category: "service", defaultEnabled: true, routePrefixes: ["/bookings"] },
 
   { id: "expenses", icon: "receipt", name: "Expenses", description: "Track job & business costs with receipts — true profit per job.", kind: "module", category: "service", defaultEnabled: false, routePrefixes: ["/expenses"] },
