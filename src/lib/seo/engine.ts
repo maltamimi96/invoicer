@@ -202,6 +202,73 @@ export async function runOpportunityScout(sb: any, args: { businessId: string; s
   return { inserted: rows.length };
 }
 
+/** Fetch a URL's HTML, best-effort, capped + time-limited. */
+async function fetchPage(url: string): Promise<string> {
+  try {
+    const ctrl = new AbortController();
+    const to = setTimeout(() => ctrl.abort(), 10_000);
+    const res = await fetch(url, { signal: ctrl.signal, headers: { "User-Agent": "Kirei-SEO-Auditor" } });
+    clearTimeout(to);
+    if (!res.ok) return `(could not fetch — HTTP ${res.status})`;
+    const html = await res.text();
+    return html.slice(0, 40_000);
+  } catch (e) {
+    return `(could not fetch — ${e instanceof Error ? e.message : "error"})`;
+  }
+}
+
+/**
+ * Run an instant SEO audit for a prospect's URL (Phase 4). Fetches the page,
+ * asks the technical auditor for a score + findings (structured JSON), and
+ * stores them on the seo_audits row. Budget-gated. Returns the score.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function runSiteAudit(sb: any, auditId: string): Promise<{ score: number }> {
+  const { data: audit } = await sb.from("seo_audits").select("id, business_id, url, status").eq("id", auditId).maybeSingle();
+  if (!audit) throw new Error("Audit not found");
+
+  const budget = await seoSpendStatus(sb, audit.business_id);
+  if (!budget.ok) throw new Error("Monthly SEO budget reached — raise it to run audits.");
+
+  await sb.from("seo_audits").update({ status: "running" }).eq("id", auditId);
+
+  try {
+    const html = await fetchPage(audit.url);
+    const system = AGENT_PROMPTS["technical-seo-auditor"];
+    const user = [
+      "You are running in a server pipeline — no filesystem. Ignore instructions about reading/writing files.",
+      `Audit this page: ${audit.url}`,
+      "Below is the fetched HTML (may be truncated). Base findings on what you can actually see in it; you also have web search for context.",
+      "Return ONLY JSON — no prose — in this shape:",
+      '{"score": 0-100, "summary": "2-3 sentences", "findings": [{"severity":"critical|high|medium|low","title":"...","detail":"the evidence","fix":"what to do"}]}',
+      "\n--- HTML ---\n" + html,
+    ].join("\n");
+
+    const res = await anthropic.messages.create({
+      model: MODEL.sonnet, max_tokens: 4096, system,
+      messages: [{ role: "user", content: user }],
+      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }] as Anthropic.Messages.MessageCreateParams["tools"],
+    });
+    const out = res.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("\n");
+    const costCents = Math.ceil((res.usage.input_tokens / 1000) * CENTS_PER_1K_IN + (res.usage.output_tokens / 1000) * CENTS_PER_1K_OUT);
+
+    const start = out.indexOf("{");
+    const end = out.lastIndexOf("}");
+    if (start === -1 || end === -1) throw new Error("auditor returned no JSON");
+    const parsed = JSON.parse(out.slice(start, end + 1));
+    const score = Math.max(0, Math.min(100, Math.round(Number(parsed.score) || 0)));
+
+    await sb.from("seo_audits").update({ status: "done", score, result: parsed }).eq("id", auditId);
+    // Best-effort cost attribution via a job-events row (site-less).
+    await sb.from("seo_job_events").insert({ business_id: audit.business_id, level: "success", cost_cents: costCents, message: `Audited ${audit.url} — score ${score}` }).then(() => {}, () => {});
+    return { score };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    await sb.from("seo_audits").update({ status: "failed", result: { error: msg } }).eq("id", auditId);
+    throw e;
+  }
+}
+
 interface Job { id: string; business_id: string; step: number; input: { content_piece_id?: string }; cost_cents: number }
 
 /**

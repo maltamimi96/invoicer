@@ -7,7 +7,7 @@ import { z } from "zod";
 import { randomBytes } from "node:crypto";
 import { assertScope, t, text, errorText } from "../context";
 import { ctxFrom, appBase, UUID, type ToolFn } from "./shared";
-import { advanceContentJob, seoSpendStatus, runOpportunityScout } from "@/lib/seo/engine";
+import { advanceContentJob, seoSpendStatus, runOpportunityScout, runSiteAudit } from "@/lib/seo/engine";
 import { publishContent } from "@/lib/seo/publish";
 import { assembleReport } from "@/lib/seo/report";
 import { deliverSeoReport } from "@/lib/seo/deliver";
@@ -320,5 +320,15 @@ export function registerSeoTools(tool: ToolFn): void {
         .eq("business_id", ctx.businessId).order("created_at", { ascending: false }).limit(200);
       if (error) throw error;
       return text(data);
+    });
+
+  tool("run_seo_audit", "Run a queued/failed instant audit now (fetches the page + scores it). Returns the score.",
+    { audit_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "seo:write");
+      const { data: audit } = await t(ctx, "seo_audits").select("id").eq("id", args.audit_id).eq("business_id", ctx.businessId).maybeSingle();
+      if (!audit) return errorText("Audit not found");
+      const res = await runSiteAudit(ctx.sb, args.audit_id);
+      return text(res);
     });
 }
