@@ -33,6 +33,7 @@ import { ctxFrom, appBase, UUID, getOrMintPortalToken } from "./tools/shared";
 import { registerPluginFormTools } from "./tools/plugin-form-tools";
 import { registerSeoTools } from "./tools/seo-tools";
 import { registerExpenseTools } from "./tools/expenses-tools";
+import { registerInventoryTools } from "./tools/inventory-tools";
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -1400,6 +1401,9 @@ export function registerTools(server: McpServer): void {
 
   // ===== EXPENSES & JOB COSTING =====
   registerExpenseTools(tool);
+
+  // ===== INVENTORY & STOCK =====
+  registerInventoryTools(tool);
 
   // ===== SCHEDULE =====
   tool("get_schedule", "Get jobs scheduled on a given date (YYYY-MM-DD), or today if omitted.",
