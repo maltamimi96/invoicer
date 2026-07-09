@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, FileText, FileCheck, Users,
-  Package, Settings, FileStack, X, ClipboardList, Wrench, Users2, UserPlus, CalendarDays, MessageSquare, Bot, Repeat, HelpCircle, Columns3, TrendingUp, Sparkles, ListChecks, Search,
+  Package, Settings, FileStack, X, ClipboardList, Wrench, Users2, UserPlus, CalendarDays, MessageSquare, Bot, Repeat, HelpCircle, Columns3, TrendingUp, Sparkles, ListChecks, Search, Receipt,
 } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 import type { Business } from "@/types/database";
@@ -41,6 +41,7 @@ const navSections: NavSection[] = [
     { label: "Site Reports",  href: "/reports",       icon: ClipboardList, plugin: "site-reports"     },
     { label: "Recurring",     href: "/recurring",     icon: Repeat,       plugin: "recurring-jobs"    },
     { label: "Recurring billing", href: "/recurring-invoices", icon: Repeat, plugin: "recurring-billing" },
+    { label: "Expenses",      href: "/expenses",      icon: Receipt,      plugin: "expenses"          },
   ]},
   { section: "Service", items: [
     { label: "Work Orders",    href: "/work-orders",     icon: Wrench,        worker: true, plugin: "jobs" },

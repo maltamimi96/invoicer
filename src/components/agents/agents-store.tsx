@@ -9,7 +9,7 @@ import {
   Settings, Trash2, Plus, Lock,
   Zap, Newspaper, MailCheck, UserRoundCheck, FileClock, CheckCircle, Star, ClipboardList, ListChecks,
   LayoutDashboard, Users, Columns3, Users2, UserPlus, FileCheck, FileText, Repeat, FileStack,
-  Wrench, CalendarDays, Package, MessageSquare, TrendingUp, Sparkles,
+  Wrench, CalendarDays, Package, MessageSquare, TrendingUp, Sparkles, Receipt,
 } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -74,6 +74,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
   "message-square": MessageSquare,
   "trending-up": TrendingUp,
   sparkles: Sparkles,
+  receipt: Receipt,
 };
 
 // Module plugins shown in the Modules section. The two verticals that already

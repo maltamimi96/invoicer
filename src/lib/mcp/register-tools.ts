@@ -32,6 +32,7 @@ import type { LineItem } from "@/types/database";
 import { ctxFrom, appBase, UUID, getOrMintPortalToken } from "./tools/shared";
 import { registerPluginFormTools } from "./tools/plugin-form-tools";
 import { registerSeoTools } from "./tools/seo-tools";
+import { registerExpenseTools } from "./tools/expenses-tools";
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -1396,6 +1397,9 @@ export function registerTools(server: McpServer): void {
 
   // ===== SEO PRODUCTION (docs/SEO_AGENCY_PLAN.md, Phase 2) =====
   registerSeoTools(tool);
+
+  // ===== EXPENSES & JOB COSTING =====
+  registerExpenseTools(tool);
 
   // ===== SCHEDULE =====
   tool("get_schedule", "Get jobs scheduled on a given date (YYYY-MM-DD), or today if omitted.",
