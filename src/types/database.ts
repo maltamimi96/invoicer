@@ -555,6 +555,28 @@ export interface PublicFormSubmission {
   created_at: string;
 }
 
+// ── Expenses & job costing (field-services plugin) ──────────────────────────
+export type ExpenseStatus = 'recorded' | 'reimbursed' | 'invoiced';
+export interface Expense {
+  id: string;
+  business_id: string;
+  user_id: string | null;
+  work_order_id: string | null;
+  vendor: string | null;
+  category: string;
+  description: string | null;
+  amount: number;
+  tax_amount: number;
+  spent_on: string;
+  payment_method: string | null;
+  billable: boolean;
+  reimbursable: boolean;
+  receipt_path: string | null;
+  status: ExpenseStatus;
+  created_at: string;
+  updated_at: string;
+}
+
 // ── SEO Production (docs/SEO_AGENCY_PLAN.md, Phase 2) ─────────────────────────
 export type SeoPlatform = 'wordpress' | 'shopify' | 'other';
 export type SeoPlaybook = 'local' | 'ecommerce';
@@ -1225,6 +1247,8 @@ export type ApiScope =
   | 'forms:write'
   | 'seo:read'
   | 'seo:write'
+  | 'expenses:read'
+  | 'expenses:write'
   | 'email:send'
   | 'agent:access'
   | 'admin';  // wildcard — grants every scope (use for trusted Claude Code keys)
@@ -1257,6 +1281,8 @@ export const ALL_API_SCOPES: { value: ApiScope; label: string; group: string }[]
   { value: 'forms:write',      label: 'Create / publish public forms', group: 'Forms' },
   { value: 'seo:read',         label: 'Read SEO sites & pipeline', group: 'SEO' },
   { value: 'seo:write',        label: 'Manage SEO sites & content', group: 'SEO' },
+  { value: 'expenses:read',    label: 'Read expenses', group: 'Expenses' },
+  { value: 'expenses:write',   label: 'Create / edit expenses', group: 'Expenses' },
   { value: 'email:send',       label: 'Send emails to customers', group: 'Email' },
   { value: 'agent:access',     label: 'AI Agent access',   group: 'Agent' },
 ];

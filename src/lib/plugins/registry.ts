@@ -66,6 +66,8 @@ export const PLUGIN_REGISTRY: PluginDefinition[] = [
   { id: "recurring-jobs", icon: "repeat", name: "Recurring jobs", description: "Repeating jobs that generate work orders (and optionally invoices).", kind: "module", category: "service", defaultEnabled: true, dependencies: ["jobs"], routePrefixes: ["/recurring"] },
   { id: "booking", icon: "calendar-days",    name: "Online booking", description: "Public booking pages with reminders.",   kind: "module", category: "service", defaultEnabled: true, routePrefixes: ["/bookings"] },
 
+  { id: "expenses", icon: "receipt", name: "Expenses", description: "Track job & business costs with receipts — true profit per job.", kind: "module", category: "service", defaultEnabled: false, routePrefixes: ["/expenses"] },
+
   // ── Catalog / comms / insights ────────────────────────────────────────────
   { id: "products", icon: "package",   name: "Products",      description: "Price list used across quotes and invoices.", kind: "module", category: "catalog", defaultEnabled: true, routePrefixes: ["/products"] },
   { id: "messages", icon: "message-square",   name: "Messages",      description: "Customer conversations in one inbox.",   kind: "module", category: "communication", defaultEnabled: true, routePrefixes: ["/messages"] },
