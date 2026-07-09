@@ -1270,6 +1270,8 @@ export type ApiScope =
   | 'seo:write'
   | 'expenses:read'
   | 'expenses:write'
+  | 'timesheets:read'
+  | 'timesheets:write'
   | 'email:send'
   | 'agent:access'
   | 'admin';  // wildcard — grants every scope (use for trusted Claude Code keys)
@@ -1304,6 +1306,8 @@ export const ALL_API_SCOPES: { value: ApiScope; label: string; group: string }[]
   { value: 'seo:write',        label: 'Manage SEO sites & content', group: 'SEO' },
   { value: 'expenses:read',    label: 'Read expenses', group: 'Expenses' },
   { value: 'expenses:write',   label: 'Create / edit expenses', group: 'Expenses' },
+  { value: 'timesheets:read',  label: 'Read timesheets', group: 'Timesheets' },
+  { value: 'timesheets:write', label: 'Set pay rates', group: 'Timesheets' },
   { value: 'email:send',       label: 'Send emails to customers', group: 'Email' },
   { value: 'agent:access',     label: 'AI Agent access',   group: 'Agent' },
 ];
