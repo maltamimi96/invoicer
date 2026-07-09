@@ -104,6 +104,12 @@ export function SeoSitesView({ sites, customers }: Props) {
               <FileText className="w-4 h-4" /> Content
             </Link>
             <Link
+              href="/seo/audits"
+              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md border border-border px-3 py-1.5"
+            >
+              <Search className="w-4 h-4" /> Audit tool
+            </Link>
+            <Link
               href="/seo/pipeline"
               className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md border border-border px-3 py-1.5"
             >
