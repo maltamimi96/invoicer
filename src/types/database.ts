@@ -598,6 +598,36 @@ export interface Expense {
   updated_at: string;
 }
 
+// ── Assets & equipment (field-services plugin) ──────────────────────────────
+export type AssetCategory = 'tool' | 'vehicle' | 'equipment' | 'other';
+export type AssetStatus = 'active' | 'in_repair' | 'retired';
+export interface Asset {
+  id: string;
+  business_id: string;
+  name: string;
+  category: AssetCategory;
+  identifier: string | null;
+  status: AssetStatus;
+  assigned_to: string | null;
+  purchase_date: string | null;
+  purchase_cost: number | null;
+  next_service_on: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+export interface AssetServiceLog {
+  id: string;
+  business_id: string;
+  asset_id: string;
+  serviced_on: string;
+  description: string | null;
+  cost: number | null;
+  next_due: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
 // ── SEO Production (docs/SEO_AGENCY_PLAN.md, Phase 2) ─────────────────────────
 export type SeoPlatform = 'wordpress' | 'shopify' | 'other';
 export type SeoPlaybook = 'local' | 'ecommerce';
@@ -1272,6 +1302,8 @@ export type ApiScope =
   | 'expenses:write'
   | 'timesheets:read'
   | 'timesheets:write'
+  | 'assets:read'
+  | 'assets:write'
   | 'email:send'
   | 'agent:access'
   | 'admin';  // wildcard — grants every scope (use for trusted Claude Code keys)
@@ -1308,6 +1340,8 @@ export const ALL_API_SCOPES: { value: ApiScope; label: string; group: string }[]
   { value: 'expenses:write',   label: 'Create / edit expenses', group: 'Expenses' },
   { value: 'timesheets:read',  label: 'Read timesheets', group: 'Timesheets' },
   { value: 'timesheets:write', label: 'Set pay rates', group: 'Timesheets' },
+  { value: 'assets:read',      label: 'Read assets & equipment', group: 'Assets' },
+  { value: 'assets:write',     label: 'Manage assets & equipment', group: 'Assets' },
   { value: 'email:send',       label: 'Send emails to customers', group: 'Email' },
   { value: 'agent:access',     label: 'AI Agent access',   group: 'Agent' },
 ];

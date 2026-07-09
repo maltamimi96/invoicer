@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, FileText, FileCheck, Users,
-  Package, Settings, FileStack, X, ClipboardList, Wrench, Users2, UserPlus, CalendarDays, MessageSquare, Bot, Repeat, HelpCircle, Columns3, TrendingUp, Sparkles, ListChecks, Search, Receipt, Boxes, Clock,
+  Package, Settings, FileStack, X, ClipboardList, Wrench, Users2, UserPlus, CalendarDays, MessageSquare, Bot, Repeat, HelpCircle, Columns3, TrendingUp, Sparkles, ListChecks, Search, Receipt, Boxes, Clock, Hammer,
 } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 import type { Business } from "@/types/database";
@@ -48,6 +48,7 @@ const navSections: NavSection[] = [
     { label: "Schedule",       href: "/schedule",        icon: CalendarDays,  worker: true, plugin: "scheduling" },
     { label: "Bookings",       href: "/bookings",        icon: CalendarDays,  plugin: "booking" },
     { label: "Online Booking", href: "/settings/booking", icon: CalendarDays,  plugin: "booking" },
+    { label: "Assets",         href: "/assets",          icon: Hammer,        plugin: "assets" },
   ]},
   { section: "Contacts", items: [
     { label: "Customers",  href: "/customers",  icon: Users                         },
