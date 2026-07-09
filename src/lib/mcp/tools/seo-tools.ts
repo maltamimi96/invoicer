@@ -8,7 +8,7 @@ import { randomBytes } from "node:crypto";
 import { assertScope, t, text, errorText } from "../context";
 import { ctxFrom, appBase, UUID, type ToolFn } from "./shared";
 import { advanceContentJob, seoSpendStatus, runOpportunityScout, runSiteAudit } from "@/lib/seo/engine";
-import { publishContent } from "@/lib/seo/publish";
+import { publishContent, testConnection } from "@/lib/seo/publish";
 import { assembleReport } from "@/lib/seo/report";
 import { deliverSeoReport } from "@/lib/seo/deliver";
 
@@ -227,6 +227,13 @@ export function registerSeoTools(tool: ToolFn): void {
       const { error } = await t(ctx, "seo_connections").delete().eq("id", args.connection_id).eq("business_id", ctx.businessId);
       if (error) throw error;
       return text({ deleted: true });
+    });
+
+  tool("test_seo_connection", "Verify a gateway connection's credentials against the provider (git/wordpress/sanity/payload/rest/graphql).",
+    { connection_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "seo:read");
+      return text(await testConnection(ctx.sb, ctx.businessId, args.connection_id));
     });
 
   tool("publish_content", "Publish a finished content piece through a connected gateway. connection_id comes from list_seo_connections.",

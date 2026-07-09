@@ -9,9 +9,11 @@
  */
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveBizId } from "@/lib/active-business";
 import { getUser } from "@/lib/auth";
 import { encryptSecret, encryptionAvailable } from "@/lib/crypto";
+import { testConnection } from "@/lib/seo/publish";
 import { CONNECTORS_BY_ID, secretFieldKeys, type ConnectionView } from "@/lib/seo/connectors";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -103,6 +105,12 @@ export async function saveConnection(input: {
     if (error) throw error;
   }
   revalidatePath(`/seo/${input.site_id}`);
+}
+
+/** Verify a connection's credentials against the gateway. */
+export async function testSeoConnection(connectionId: string): Promise<{ ok: boolean; message: string }> {
+  const businessId = await biz();
+  return testConnection(createAdminClient(), businessId, connectionId);
 }
 
 export async function deleteConnection(connectionId: string, siteId: string): Promise<void> {

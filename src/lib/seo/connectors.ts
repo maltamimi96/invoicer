@@ -46,6 +46,7 @@ export const CONNECTORS: ConnectorDef[] = [
       { key: "branch", label: "Branch", type: "text", default: "main", required: true },
       { key: "content_path", label: "Content folder", type: "text", placeholder: "src/content/blog", default: "src/content/blog", required: true },
       { key: "extension", label: "File type", type: "select", options: ["md", "mdx", "mdoc"], default: "md" },
+      { key: "frontmatter", label: "Frontmatter template (optional)", type: "textarea", placeholder: 'title: "{{title}}"\ndescription: "{{description}}"\npubDate: {{date}}\ndraft: false', help: 'Match your site\'s content schema. Placeholders: {{title}} {{description}} {{slug}} {{date}} {{keyword}}. Leave blank for a sensible default.' },
       { key: "token", label: "GitHub token", type: "password", secret: true, required: true, help: "Fine-grained PAT, Contents: read/write on this repo only." },
     ],
   },
