@@ -3,10 +3,10 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { FileText, Plus, Check, Trash2, Download } from "@/components/ui/icons";
+import { FileText, Plus, Check, Trash2, Download, Send } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { generateSeoReport, approveSeoReport, deleteSeoReport } from "@/lib/actions/seo-reports";
+import { generateSeoReport, approveSeoReport, deleteSeoReport, sendSeoReport } from "@/lib/actions/seo-reports";
 
 interface Report { id: string; title: string | null; period_start: string; period_end: string; status: string; created_at: string; sent_at: string | null }
 
@@ -44,6 +44,13 @@ export function SeoReports({ siteId, reports }: { siteId: string; reports: Repor
     });
   }
 
+  function handleSend(r: Report) {
+    startTransition(async () => {
+      try { await sendSeoReport(r.id, siteId); toast.success("Sent to client"); router.refresh(); }
+      catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't send"); }
+    });
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -73,6 +80,9 @@ export function SeoReports({ siteId, reports }: { siteId: string; reports: Repor
               </a>
               {r.status === "draft" && (
                 <button onClick={() => handleApprove(r)} disabled={isPending} className="inline-flex items-center gap-1 text-xs text-emerald-700 hover:text-emerald-800"><Check className="w-3.5 h-3.5" /> Approve</button>
+              )}
+              {(r.status === "approved" || r.status === "sent") && (
+                <button onClick={() => handleSend(r)} disabled={isPending} className="inline-flex items-center gap-1 text-xs text-primary hover:underline"><Send className="w-3.5 h-3.5" /> {r.status === "sent" ? "Resend" : "Send"}</button>
               )}
               <button onClick={() => handleDelete(r)} disabled={isPending} className="text-muted-foreground hover:text-destructive" aria-label="Delete report"><Trash2 className="w-4 h-4" /></button>
             </div>

@@ -9,6 +9,7 @@ import { ctxFrom, UUID, type ToolFn } from "./shared";
 import { advanceContentJob, seoSpendStatus, runOpportunityScout } from "@/lib/seo/engine";
 import { publishContent } from "@/lib/seo/publish";
 import { assembleReport } from "@/lib/seo/report";
+import { deliverSeoReport } from "@/lib/seo/deliver";
 
 const DOMAIN = z.string().min(1).describe("Client site domain, e.g. example.com");
 
@@ -288,5 +289,13 @@ export function registerSeoTools(tool: ToolFn): void {
         .eq("business_id", ctx.businessId).eq("site_id", args.site_id).order("created_at", { ascending: false }).limit(100);
       if (error) throw error;
       return text(data);
+    });
+
+  tool("send_seo_report", "Email a report to the site's linked client (portal link) and mark it sent. Requires email:send.",
+    { report_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "seo:write"); assertScope(ctx, "email:send");
+      const res = await deliverSeoReport(ctx.sb, ctx.businessId, ctx.userId, args.report_id);
+      return text({ sent: true, ...res });
     });
 }

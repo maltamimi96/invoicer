@@ -12,7 +12,9 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { getUser } from "@/lib/auth";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { assembleReport } from "@/lib/seo/report";
+import { deliverSeoReport } from "@/lib/seo/deliver";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: any, name: string) => sb.from(name);
@@ -54,6 +56,14 @@ export async function approveSeoReport(id: string, siteId: string): Promise<void
   const supabase = await createClient();
   const { error } = await tbl(supabase, "seo_reports").update({ status: "approved" }).eq("id", id).eq("business_id", businessId);
   if (error) throw error;
+  revalidatePath(`/seo/${siteId}`);
+}
+
+export async function sendSeoReport(reportId: string, siteId: string): Promise<void> {
+  const supabase = await createClient();
+  const user = await getUser();
+  const businessId = await getActiveBizId(supabase, user.id);
+  await deliverSeoReport(createAdminClient(), businessId, user.id, reportId);
   revalidatePath(`/seo/${siteId}`);
 }
 

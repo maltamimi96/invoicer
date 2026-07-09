@@ -43,6 +43,10 @@
     {
       "path": "/api/cron/seo-jobs",
       "schedule": "*/2 * * * *"
+    },
+    {
+      "path": "/api/cron/seo-reports",
+      "schedule": "0 7 1 * *"
     }
   ]
 }
