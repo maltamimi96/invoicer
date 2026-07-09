@@ -60,6 +60,9 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith("/f/") ||
     pathname.startsWith("/embed/") ||
     pathname.startsWith("/api/f/") ||
+    // Instant-audit lead magnet: public landing page + submit.
+    pathname.startsWith("/audit/") ||
+    pathname.startsWith("/api/audit/") ||
     pathname.startsWith("/api/public/") ||
     pathname === "/api/auth/signup" ||
     pathname.startsWith("/api/v1/") ||

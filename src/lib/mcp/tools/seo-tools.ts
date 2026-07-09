@@ -4,8 +4,9 @@
  * tools land alongside those features. Scopes: seo:read / seo:write.
  */
 import { z } from "zod";
+import { randomBytes } from "node:crypto";
 import { assertScope, t, text, errorText } from "../context";
-import { ctxFrom, UUID, type ToolFn } from "./shared";
+import { ctxFrom, appBase, UUID, type ToolFn } from "./shared";
 import { advanceContentJob, seoSpendStatus, runOpportunityScout } from "@/lib/seo/engine";
 import { publishContent } from "@/lib/seo/publish";
 import { assembleReport } from "@/lib/seo/report";
@@ -297,5 +298,27 @@ export function registerSeoTools(tool: ToolFn): void {
       const ctx = ctxFrom(extra); assertScope(ctx, "seo:write"); assertScope(ctx, "email:send");
       const res = await deliverSeoReport(ctx.sb, ctx.businessId, ctx.userId, args.report_id);
       return text({ sent: true, ...res });
+    });
+
+  // ── Instant-audit lead magnet ────────────────────────────────────────────────
+  tool("get_audit_link", "Get (minting on first use) the business's public free-SEO-audit lead-magnet link.",
+    {},
+    async (_args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "seo:write");
+      const { data: b } = await t(ctx, "businesses").select("audit_slug").eq("id", ctx.businessId).maybeSingle();
+      let slug: string | null = b?.audit_slug ?? null;
+      if (!slug) { slug = "a" + randomBytes(5).toString("hex"); await t(ctx, "businesses").update({ audit_slug: slug }).eq("id", ctx.businessId); }
+      return text({ slug, url: `${appBase()}/audit/${slug}` });
+    });
+
+  tool("list_seo_audits", "List inbound SEO audit requests (lead-magnet submissions).",
+    {},
+    async (_args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "seo:read");
+      const { data, error } = await t(ctx, "seo_audits")
+        .select("id, url, email, name, status, score, lead_id, created_at")
+        .eq("business_id", ctx.businessId).order("created_at", { ascending: false }).limit(200);
+      if (error) throw error;
+      return text(data);
     });
 }
