@@ -9,19 +9,22 @@ import { createClient } from "@/lib/supabase/server";
  * stacking the same round-trip 5-10× per request. React's `cache()` dedupes
  * inside the same React render scope (server-only).
  *
- * Throws if there is no user — pages/actions should redirect or catch.
+ * There is exactly ONE memoized fetch (`getUserOrNull`) — `getUser` is a thin
+ * throwing wrapper over it, so a layout using getUserOrNull and a page using
+ * getUser share a single GoTrue round trip per request instead of two.
  */
-export const getUser = cache(async () => {
-  const sb = await createClient();
-  const { data: { user } } = await sb.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
-  return user;
-});
 
-/** Variant that returns null instead of throwing. Use in server components
- *  that need to handle anonymous visitors gracefully. */
+/** Returns the user or null. Use in server components that need to handle
+ *  anonymous visitors gracefully. */
 export const getUserOrNull = cache(async () => {
   const sb = await createClient();
   const { data: { user } } = await sb.auth.getUser();
   return user;
 });
+
+/** Throws if there is no user — pages/actions should redirect or catch. */
+export async function getUser() {
+  const user = await getUserOrNull();
+  if (!user) throw new Error("Unauthorized");
+  return user;
+}

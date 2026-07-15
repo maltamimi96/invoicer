@@ -9,29 +9,6 @@ export async function updateSession(request: NextRequest) {
   requestHeaders.set("x-pathname", request.nextUrl.pathname);
   let supabaseResponse = NextResponse.next({ request: { headers: requestHeaders } });
 
-  const supabase = createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet: { name: string; value: string; options?: CookieOptions }[]) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          );
-          supabaseResponse = NextResponse.next({ request: { headers: requestHeaders } });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          );
-        },
-      },
-    }
-  );
-
-  const { data: { user } } = await supabase.auth.getUser();
-
   const { pathname } = request.nextUrl;
   const isAuthRoute = pathname.startsWith("/auth");
 
@@ -85,13 +62,50 @@ export async function updateSession(request: NextRequest) {
     (isBearerAuthRoute && hasBearer) ||
     (pathname.startsWith("/api/pdf/") && new URL(request.url).searchParams.get("token") !== null);
 
-  if (!user && !isAuthRoute && !isPublicRoute) {
+  // Public / self-authenticating routes never need the session check — return
+  // before touching Supabase auth at all. This keeps portal/booking/form/cron
+  // traffic (and Next's link prefetches to them) off the auth server entirely.
+  if (isPublicRoute) {
+    return supabaseResponse;
+  }
+
+  const supabase = createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet: { name: string; value: string; options?: CookieOptions }[]) {
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          );
+          supabaseResponse = NextResponse.next({ request: { headers: requestHeaders } });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          );
+        },
+      },
+    }
+  );
+
+  // getClaims() resolves the session (refreshing expiring tokens — the
+  // middleware's real job) and verifies the JWT *locally* via cached JWKS when
+  // the project uses asymmetric signing keys — no per-request round trip to
+  // the auth server, unlike getUser(). On legacy symmetric keys it falls back
+  // to a network check, which is still correct, just slower. The redirect
+  // below is UX only — RLS remains the actual security gate on every query.
+  const { data } = await supabase.auth.getClaims();
+  const claims = data?.claims ?? null;
+
+  if (!claims && !isAuthRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/auth/login";
     return NextResponse.redirect(url);
   }
 
-  if (user && isAuthRoute) {
+  if (claims && isAuthRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);
