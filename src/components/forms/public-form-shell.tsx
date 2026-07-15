@@ -26,7 +26,7 @@ export async function PublicFormShell({ slug, embed }: { slug: string; embed?: b
         <div className="flex items-center gap-3 mb-6">
           {business?.logo_url ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={business.logo_url} alt={business.name} className="w-11 h-11 rounded-lg object-contain bg-white border border-border p-1" />
+            <img loading="lazy" decoding="async" src={business.logo_url} alt={business.name} className="w-11 h-11 rounded-lg object-contain bg-white border border-border p-1" />
           ) : null}
           <span className="font-semibold">{business?.name}</span>
         </div>

@@ -1203,7 +1203,7 @@ function PhotoLightbox({ photos, index, onIndex, onClose, onDownload }: {
           </button>
         )}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={photo.url} alt={photo.caption ?? ""} className="max-h-full max-w-full object-contain rounded" />
+        <img loading="lazy" decoding="async" src={photo.url} alt={photo.caption ?? ""} className="max-h-full max-w-full object-contain rounded" />
         {index < photos.length - 1 && (
           <button onClick={() => go(1)} className="absolute right-2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center" aria-label="Next">
             <ChevronRight className="w-5 h-5" />
@@ -1531,7 +1531,7 @@ function SignaturesSection({
               <div className="flex items-center gap-3 min-w-0">
                 <a href={s.signature_url} target="_blank" rel="noopener noreferrer" className="shrink-0">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={s.signature_url} alt="signature" className="h-12 w-24 object-contain bg-white border rounded" />
+                  <img loading="lazy" decoding="async" src={s.signature_url} alt="signature" className="h-12 w-24 object-contain bg-white border rounded" />
                 </a>
                 <div className="min-w-0">
                   <p className="text-sm font-medium break-words">{s.signed_by_name}{s.signed_by_role ? ` (${s.signed_by_role})` : ""}</p>

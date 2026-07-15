@@ -51,7 +51,7 @@ export default async function PortalOnboardingPage({ params }: { params: Promise
           <div className="flex items-center gap-3">
             {business?.logo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={business.logo_url} alt={business.name} className="w-12 h-12 rounded-lg object-contain bg-white border border-border p-1" />
+              <img loading="lazy" decoding="async" src={business.logo_url} alt={business.name} className="w-12 h-12 rounded-lg object-contain bg-white border border-border p-1" />
             ) : null}
             <div className="text-right">
               <p className="font-semibold text-sm">{business?.name}</p>

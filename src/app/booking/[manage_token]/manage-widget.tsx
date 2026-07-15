@@ -119,7 +119,7 @@ export function ManageWidget({ token }: { token: string }) {
           <div style={{ display: "flex", alignItems: "center", gap: 12, position: "relative" }}>
             <div style={{ width: 48, height: 48, borderRadius: 14, background: "rgba(255,255,255,0.2)", border: "2px solid rgba(255,255,255,0.4)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={data.branding.logo_url || "/kirei-logo.png"} alt={bizName}
+              <img loading="lazy" decoding="async" src={data.branding.logo_url || "/kirei-logo.png"} alt={bizName}
                 style={{ width: "100%", height: "100%", objectFit: "contain", background: data.branding.logo_url ? "transparent" : "#fff", padding: data.branding.logo_url ? 0 : 4 }} />
             </div>
             <div>

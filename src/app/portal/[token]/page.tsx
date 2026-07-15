@@ -84,7 +84,7 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
           <div className="flex items-center gap-4 min-w-0">
             {business?.logo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={business.logo_url} alt={business.name} className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-contain bg-white border border-border p-1 shadow-sm" />
+              <img loading="lazy" decoding="async" src={business.logo_url} alt={business.name} className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-contain bg-white border border-border p-1 shadow-sm" />
             ) : (
               <div
                 className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl flex items-center justify-center text-white shadow-sm"

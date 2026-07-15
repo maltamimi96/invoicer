@@ -318,7 +318,7 @@ function WorkOrderCard({ wo, currency }: { wo: WorkOrderWithCustomer; currency: 
             {photos.map((photo) => (
               <a key={photo.id} href={photo.url} target="_blank" rel="noreferrer" className="aspect-square">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={photo.url} alt="" className="w-full h-full object-cover rounded border hover:opacity-90 transition-opacity" />
+                <img loading="lazy" decoding="async" src={photo.url} alt="" className="w-full h-full object-cover rounded border hover:opacity-90 transition-opacity" />
               </a>
             ))}
           </div>

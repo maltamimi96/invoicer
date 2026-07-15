@@ -317,7 +317,7 @@ export function ReportDetailClient({ report: initialReport, business }: ReportDe
                   {report.photos.map((photo: ReportPhoto) => (
                     <div key={photo.id} className="space-y-1.5">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={photo.url} alt={photo.caption} className="w-full aspect-[4/3] object-cover rounded-lg border" />
+                      <img loading="lazy" decoding="async" src={photo.url} alt={photo.caption} className="w-full aspect-[4/3] object-cover rounded-lg border" />
                       <p className="text-[10px] font-semibold text-muted-foreground">Photo {photo.order} of {report.photos.length}</p>
                       {editingCaption === photo.id ? (
                         <div className="space-y-1">

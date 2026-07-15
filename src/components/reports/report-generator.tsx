@@ -364,7 +364,7 @@ export function ReportGenerator({ customers: initialCustomers, business, default
                     {images.map((img, i) => (
                       <div key={i} className="relative group aspect-square">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={img.preview} alt="" className="w-full h-full object-cover rounded-lg border" />
+                        <img loading="lazy" decoding="async" src={img.preview} alt="" className="w-full h-full object-cover rounded-lg border" />
                         <button
                           type="button"
                           className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"

@@ -179,7 +179,7 @@ function UploadControl({ field: f, value, endpoint, onChange }: { field: Onboard
       return (
         <div className="relative inline-block">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={src} alt={meta.name ?? ""} className="max-h-40 max-w-full rounded-lg border border-border object-contain bg-muted/30" />
+          <img loading="lazy" decoding="async" src={src} alt={meta.name ?? ""} className="max-h-40 max-w-full rounded-lg border border-border object-contain bg-muted/30" />
           <button type="button" onClick={() => onChange(null)} className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-background border border-border shadow-sm flex items-center justify-center text-muted-foreground hover:text-destructive"><X className="w-3.5 h-3.5" /></button>
         </div>
       );

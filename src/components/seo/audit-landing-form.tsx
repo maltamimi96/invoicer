@@ -40,7 +40,7 @@ export function AuditLandingForm({ slug, businessName, logoUrl }: Props) {
         <div className="text-center mb-6">
           {logoUrl
             // eslint-disable-next-line @next/next/no-img-element
-            ? <img src={logoUrl} alt={businessName} className="h-10 mx-auto mb-3" />
+            ? <img loading="lazy" decoding="async" src={logoUrl} alt={businessName} className="h-10 mx-auto mb-3" />
             : <p className="text-lg font-bold text-emerald-700">{businessName}</p>}
           <h1 className="text-2xl font-bold text-slate-900 mt-2">Free SEO audit</h1>
           <p className="text-sm text-slate-500 mt-1">Get a free report on your site&apos;s SEO health — delivered to your inbox.</p>

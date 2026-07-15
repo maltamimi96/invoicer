@@ -34,7 +34,7 @@ function Avatar({ name, avatarUrl, size = "md" }: { name: string; avatarUrl?: st
   const initials = name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
   if (avatarUrl) return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={avatarUrl} alt={name} className={`${sizes[size]} rounded-full object-cover flex-shrink-0`} />
+    <img loading="lazy" decoding="async" src={avatarUrl} alt={name} className={`${sizes[size]} rounded-full object-cover flex-shrink-0`} />
   );
   return (
     <div className={`${sizes[size]} rounded-full bg-gradient-to-br from-purple-500 to-violet-600 text-white flex items-center justify-center font-semibold flex-shrink-0`}>
