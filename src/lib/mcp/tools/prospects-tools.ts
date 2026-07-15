@@ -95,6 +95,28 @@ export function registerProspectTools(tool: ToolFn): void {
       return text({ deleted: true });
     });
 
+  tool("bulk_update_prospects", "Set status / source on many prospects at once (by ids).",
+    { prospect_ids: z.array(UUID).min(1).max(1000), status: STATUS.optional(), source: z.string().optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "prospects:write");
+      const c: Record<string, unknown> = {};
+      if (args.status) c.status = args.status;
+      if (args.source !== undefined) c.source = clean(args.source);
+      if (Object.keys(c).length === 0) return errorText("Nothing to update.");
+      const { error } = await t(ctx, "prospects").update(c).in("id", args.prospect_ids).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ updated: args.prospect_ids.length });
+    });
+
+  tool("bulk_delete_prospects", "Delete many prospects at once (by ids).",
+    { prospect_ids: z.array(UUID).min(1).max(1000) },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "prospects:write");
+      const { error } = await t(ctx, "prospects").delete().in("id", args.prospect_ids).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ deleted: args.prospect_ids.length });
+    });
+
   tool("convert_prospect", "Convert a prospect into a Lead (deduped) and mark it converted.",
     { prospect_id: UUID },
     async (args, extra) => {

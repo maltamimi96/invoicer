@@ -1,17 +1,17 @@
 "use client";
 
 import { useState, useTransition, useMemo } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Target, Plus, Search } from "@/components/ui/icons";
+import { Target, Plus, Search, Upload, Trash2 } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/layout/page-header";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { createProspect } from "@/lib/actions/prospects";
+import { createProspect, bulkUpdateProspects, bulkDeleteProspects } from "@/lib/actions/prospects";
+import { ProspectsImport } from "@/components/prospects/prospects-import";
 import type { Prospect, ProspectStatus } from "@/types/database";
 
 const STATUSES: ProspectStatus[] = ["new", "contacted", "responded", "qualified", "unqualified", "converted"];
@@ -25,8 +25,24 @@ export function ProspectsView({ prospects }: { prospects: Prospect[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ProspectStatus | "">("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkStatus, setBulkStatus] = useState<ProspectStatus | "">("");
+  const [bulkTag, setBulkTag] = useState("");
+
+  function toggle(id: string) {
+    setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  }
+  function clearSel() { setSelected(new Set()); }
+
+  function runBulk(fn: () => Promise<unknown>, msg: string) {
+    startTransition(async () => {
+      try { await fn(); toast.success(msg); clearSel(); router.refresh(); }
+      catch (e) { toast.error(e instanceof Error ? e.message : "Bulk action failed"); }
+    });
+  }
 
   const [name, setName] = useState(""); const [email, setEmail] = useState(""); const [company, setCompany] = useState("");
   const [phone, setPhone] = useState(""); const [source, setSource] = useState("");
@@ -57,7 +73,12 @@ export function ProspectsView({ prospects }: { prospects: Prospect[] }) {
       <PageHeader
         title="Prospects"
         subtitle="Your cold-outreach list — import, reach out, and convert the good ones to leads"
-        actions={<Button onClick={() => setOpen(true)} disabled={isPending}><Plus className="w-4 h-4 mr-1.5" /> Add prospect</Button>}
+        actions={
+          <>
+            <Button variant="outline" onClick={() => setImportOpen(true)} disabled={isPending}><Upload className="w-4 h-4 mr-1.5" /> Import</Button>
+            <Button onClick={() => setOpen(true)} disabled={isPending}><Plus className="w-4 h-4 mr-1.5" /> Add prospect</Button>
+          </>
+        }
       />
 
       {/* Filters */}
@@ -80,28 +101,49 @@ export function ProspectsView({ prospects }: { prospects: Prospect[] }) {
           <Button className="mt-4" onClick={() => setOpen(true)}><Plus className="w-4 h-4 mr-1.5" /> Add prospect</Button>
         </div>
       ) : (
-        <div className="ch-table-wrap">
-          <table className="ch-table w-full">
-            <thead><tr><th>Name</th><th>Company</th><th>Email</th><th>Source</th><th>Status</th></tr></thead>
-            <tbody>
-              {filtered.map((p) => (
-                <tr key={p.id} className="cursor-pointer hover:bg-muted/40" onClick={() => router.push(`/prospects/${p.id}`)}>
-                  <td className="font-medium">{p.name || "—"}</td>
-                  <td>{p.company || "—"}</td>
-                  <td className="break-words">{p.email || "—"}</td>
-                  <td>{p.source || "—"}</td>
-                  <td><span className={cn("text-[11px] font-medium rounded-full px-2 py-0.5 capitalize", TONE[p.status])}>{p.status}</span></td>
-                </tr>
-              ))}
-              {filtered.length === 0 && <tr><td colSpan={5} className="text-center text-muted-foreground py-6">No prospects match.</td></tr>}
-            </tbody>
-          </table>
-        </div>
+        <>
+          {/* Bulk action bar */}
+          {selected.size > 0 && (
+            <div className="flex items-center gap-2 flex-wrap rounded-xl border border-border bg-card px-4 py-2.5 mb-3">
+              <span className="text-sm font-medium">{selected.size} selected</span>
+              <select className={selectCls + " h-8"} value={bulkStatus} onChange={(e) => { const s = e.target.value as ProspectStatus; setBulkStatus(""); if (s) runBulk(() => bulkUpdateProspects([...selected], { status: s }), "Status updated"); }}>
+                <option value="">Set status…</option>{STATUSES.map((s) => <option key={s} value={s} className="capitalize">{s}</option>)}
+              </select>
+              <div className="flex items-center gap-1">
+                <Input value={bulkTag} onChange={(e) => setBulkTag(e.target.value)} placeholder="Add tag" className="h-8 w-28 text-xs" />
+                <Button size="sm" variant="outline" className="h-8" disabled={!bulkTag.trim() || isPending} onClick={() => { runBulk(() => bulkUpdateProspects([...selected], { add_tag: bulkTag.trim() }), "Tag added"); setBulkTag(""); }}>Tag</Button>
+              </div>
+              <button onClick={() => runBulk(() => bulkDeleteProspects([...selected]), "Deleted")} disabled={isPending} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-destructive"><Trash2 className="w-4 h-4" /> Delete</button>
+              <button onClick={clearSel} className="text-xs text-muted-foreground hover:text-foreground ml-auto">Clear</button>
+            </div>
+          )}
+          <div className="ch-table-wrap">
+            <table className="ch-table w-full">
+              <thead><tr>
+                <th className="w-8"><input type="checkbox" checked={filtered.length > 0 && filtered.every((p) => selected.has(p.id))} onChange={(e) => setSelected(e.target.checked ? new Set(filtered.map((p) => p.id)) : new Set())} /></th>
+                <th>Name</th><th>Company</th><th>Email</th><th>Source</th><th>Status</th>
+              </tr></thead>
+              <tbody>
+                {filtered.map((p) => (
+                  <tr key={p.id} className={cn("hover:bg-muted/40", selected.has(p.id) && "bg-muted/50")}>
+                    <td onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={selected.has(p.id)} onChange={() => toggle(p.id)} /></td>
+                    <td className="font-medium cursor-pointer" onClick={() => router.push(`/prospects/${p.id}`)}>{p.name || "—"}</td>
+                    <td className="cursor-pointer" onClick={() => router.push(`/prospects/${p.id}`)}>{p.company || "—"}</td>
+                    <td className="break-words cursor-pointer" onClick={() => router.push(`/prospects/${p.id}`)}>{p.email || "—"}</td>
+                    <td>{p.source || "—"}</td>
+                    <td><span className={cn("text-[11px] font-medium rounded-full px-2 py-0.5 capitalize", TONE[p.status])}>{p.status}</span></td>
+                  </tr>
+                ))}
+                {filtered.length === 0 && <tr><td colSpan={6} className="text-center text-muted-foreground py-6">No prospects match.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
-      <p className="text-[11px] text-muted-foreground mt-3">
-        <Link href="/prospects" className="underline">CSV import, bulk actions and outreach</Link> arrive with the next updates.
-      </p>
+      <ProspectsImport open={importOpen} onOpenChange={setImportOpen} />
+
+      <p className="text-[11px] text-muted-foreground mt-3">Email outreach (single + bulk reach-out) arrives with the next update.</p>
 
       {/* Add dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
