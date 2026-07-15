@@ -1,9 +1,10 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { getUser } from "@/lib/auth";
+import { pluginFlagsTag } from "@/lib/layout-data";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: Awaited<ReturnType<typeof createClient>>, name: string) => (sb as any).from(name);
@@ -66,6 +67,7 @@ export async function setQuotingAgentEnabled(enabled: boolean): Promise<void> {
 
   await tbl(supabase, "quoting_agent_settings")
     .upsert({ business_id: businessId, enabled }, { onConflict: "business_id" });
+  revalidateTag(pluginFlagsTag(businessId), "max"); // layout's cached feature flags
   revalidatePath("/quoting-agent");
   revalidatePath("/", "layout"); // sidebar visibility
 }

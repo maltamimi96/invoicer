@@ -8,11 +8,18 @@
  *   form-builder       ↔ form_builder_settings.enabled
  *   quoting-agent      ↔ quoting_agent_settings.enabled
  */
+import { revalidateTag } from "next/cache";
+import { pluginFlagsTag } from "@/lib/layout-data";
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: any, name: string) => sb.from(name);
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function syncPluginSideEffects(sb: any, businessId: string, pluginId: string, enabled: boolean): Promise<void> {
+  // The layout's plugin-flag reads are cached cross-request — every toggle
+  // path (store, MCP set_plugin_enabled, presets) funnels through here, so
+  // this is the one invalidation point for that cache.
+  revalidateTag(pluginFlagsTag(businessId), "max");
   if (pluginId === "email-lead-scanner") {
     await tbl(sb, "business_email_config").update({ enabled }).eq("business_id", businessId);
   }

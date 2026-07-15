@@ -6,6 +6,7 @@ import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { isWorker, isPathAllowedForWorker, type Role } from "@/lib/permissions";
 import { resolveEnabledPlugins, ROUTE_GATES } from "@/lib/plugins/registry";
 import { PRESETS_BY_ID } from "@/lib/plugins/presets";
+import { getLayoutBusinesses, fetchLayoutBusinessesDirect, getPluginFlags } from "@/lib/layout-data";
 import type { Business } from "@/types/database";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -14,16 +15,18 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   if (!user) redirect("/auth/login");
 
-  // Fetch owned businesses and memberships in parallel
+  // Owned businesses + memberships — cached cross-request (60s / tag) since
+  // they change rarely but were re-fetched on every navigation.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sb = supabase as any;
-  const [{ data: ownedRaw }, { data: membershipsRaw }] = await Promise.all([
-    sb.from("businesses").select("*").eq("user_id", user.id).order("created_at", { ascending: true }),
-    sb.from("business_members").select("business_id, role, businesses(*)").eq("user_id", user.id).eq("status", "active"),
-  ]);
+  let { owned: ownedBusinesses, memberships } = await getLayoutBusinesses(user.id);
 
-  const ownedBusinesses = (ownedRaw ?? []) as Business[];
-  const memberships = (membershipsRaw ?? []) as { business_id: string; role: string; businesses: Business }[];
+  // Empty-list safety: a brand-new user who just created their first business
+  // must not be bounced to /onboarding by a stale cached empty list — re-check
+  // directly (rare path: only users with zero cached businesses hit this).
+  if (ownedBusinesses.length === 0 && memberships.length === 0) {
+    ({ owned: ownedBusinesses, memberships } = await fetchLayoutBusinessesDirect(user.id));
+  }
 
   // Combine, keeping owned first, deduplicating
   const allBusinesses: Business[] = [...ownedBusinesses];
@@ -67,16 +70,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // modules default ON), so existing businesses see zero change until they
   // explicitly toggle something. Legacy settings tables stay authoritative
   // for the three original feature-flagged verticals.
-  const [{ data: installRows }, { data: quotingSettings }, { data: onboardingSettings }, { data: formBuilderSettings }] = await Promise.all([
-    sb.from("business_agent_installs").select("agent_id, enabled").eq("business_id", business.id),
-    sb.from("quoting_agent_settings").select("enabled").eq("business_id", business.id).maybeSingle(),
-    sb.from("onboarding_settings").select("enabled").eq("business_id", business.id).maybeSingle(),
-    sb.from("form_builder_settings").select("enabled").eq("business_id", business.id).maybeSingle(),
-  ]);
-  const plugins = resolveEnabledPlugins(installRows ?? [], {
-    quoting_agent_settings: quotingSettings ? !!quotingSettings.enabled : null,
-    onboarding_settings: onboardingSettings ? !!onboardingSettings.enabled : null,
-    form_builder_settings: formBuilderSettings ? !!formBuilderSettings.enabled : null,
+  const flags = await getPluginFlags(business.id);
+  const plugins = resolveEnabledPlugins(flags.installRows, {
+    quoting_agent_settings: flags.quoting,
+    onboarding_settings: flags.onboarding,
+    form_builder_settings: flags.formBuilder,
   });
 
   // Route-level gating: visiting a disabled plugin's URL redirects home

@@ -1,9 +1,10 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
+import { bizListTag, businessTag } from "@/lib/layout-data";
 import type { Business } from "@/types/database";
 
 import { getUser } from "@/lib/auth";
@@ -27,9 +28,18 @@ export async function getBusiness(): Promise<Business> {
   const user = await getUser();
 
   const businessId = await getActiveBizId(supabase, user.id);
-  const { data, error } = await tbl(supabase, "businesses").select("*").eq("id", businessId).single();
-  if (error) throw error;
-  return data as Business;
+  // Fetched by the layout AND nearly every page — cache cross-request (60s
+  // TTL as the backstop for admin-client writes that bypass tags; mutations
+  // below revalidate `businessTag` for immediate freshness).
+  return unstable_cache(
+    async () => {
+      const { data, error } = await tbl(supabase, "businesses").select("*").eq("id", businessId).single();
+      if (error) throw error;
+      return data as Business;
+    },
+    [`business-${businessId}`],
+    { tags: [businessTag(businessId)], revalidate: 60 }
+  )();
 }
 
 export async function setActiveBusiness(businessId: string): Promise<void> {
@@ -103,6 +113,7 @@ export async function createBusiness(payload: {
     maxAge: 60 * 60 * 24 * 365,
   });
 
+  revalidateTag(bizListTag(user.id), "max");
   revalidatePath("/", "layout");
   return data as Business;
 }
@@ -120,6 +131,8 @@ export async function updateBusiness(payload: Partial<Business>): Promise<Busine
     .select()
     .single();
   if (error) throw error;
+  revalidateTag(businessTag(businessId), "max");
+  revalidateTag(bizListTag(user.id), "max"); // name/branding shows in the switcher list
   revalidatePath("/settings");
   revalidatePath("/dashboard");
   return data as Business;
@@ -170,6 +183,7 @@ export async function savePdfSettings(
     }
   }
 
+  revalidateTag(businessTag(businessId), "max");
   revalidatePath("/settings");
   revalidatePath("/invoices", "layout");
   revalidatePath("/quotes", "layout");
@@ -197,6 +211,8 @@ export async function uploadLogo(formData: FormData): Promise<string> {
     .eq("id", businessId)
     .eq("user_id", user.id);
 
+  revalidateTag(businessTag(businessId), "max");
+  revalidateTag(bizListTag(user.id), "max"); // logo shows in the business switcher
   revalidatePath("/settings");
   revalidatePath("/dashboard");
 
