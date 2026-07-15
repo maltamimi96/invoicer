@@ -53,6 +53,7 @@ export const PLUGIN_REGISTRY: PluginDefinition[] = [
   { id: "settings", icon: "settings",   name: "Settings",      description: "Business profile, appearance, API keys.", kind: "module", category: "core", core: true, defaultEnabled: true, routePrefixes: ["/settings", "/agents"] },
 
   // ── Sales ──────────────────────────────────────────────────────────────────
+  { id: "prospects", icon: "target", name: "Prospects", description: "Cold-list of prospects — import, bulk-reach-out and convert to leads.", kind: "module", category: "contacts", defaultEnabled: false, routePrefixes: ["/prospects"] },
   { id: "leads", icon: "user-plus",      name: "Leads",         description: "Capture and work the sales pipeline.",   kind: "module", category: "sales", defaultEnabled: true, routePrefixes: ["/leads"] },
   { id: "quotes", icon: "file-check",     name: "Quotes",        description: "Build and send quotes customers accept online.", kind: "module", category: "sales", defaultEnabled: true, routePrefixes: ["/quotes"] },
   { id: "invoicing", icon: "file-text",  name: "Invoices",      description: "Invoice, take payments, track balances.", kind: "module", category: "sales", defaultEnabled: true, routePrefixes: ["/invoices"] },

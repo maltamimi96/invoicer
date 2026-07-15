@@ -598,6 +598,29 @@ export interface Expense {
   updated_at: string;
 }
 
+// ── Prospects (top-of-funnel cold list → converts into leads) ────────────────
+export type ProspectStatus = 'new' | 'contacted' | 'responded' | 'qualified' | 'unqualified' | 'converted';
+export interface Prospect {
+  id: string;
+  business_id: string;
+  user_id: string | null;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  company: string | null;
+  title: string | null;
+  website: string | null;
+  source: string | null;
+  status: ProspectStatus;
+  tags: string[];
+  notes: string | null;
+  custom_fields: Record<string, unknown>;
+  last_contacted_at: string | null;
+  lead_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // ── Assets & equipment (field-services plugin) ──────────────────────────────
 export type AssetCategory = 'tool' | 'vehicle' | 'equipment' | 'other';
 export type AssetStatus = 'active' | 'in_repair' | 'retired';
@@ -1304,6 +1327,8 @@ export type ApiScope =
   | 'timesheets:write'
   | 'assets:read'
   | 'assets:write'
+  | 'prospects:read'
+  | 'prospects:write'
   | 'email:send'
   | 'agent:access'
   | 'admin';  // wildcard — grants every scope (use for trusted Claude Code keys)
@@ -1342,6 +1367,8 @@ export const ALL_API_SCOPES: { value: ApiScope; label: string; group: string }[]
   { value: 'timesheets:write', label: 'Set pay rates', group: 'Timesheets' },
   { value: 'assets:read',      label: 'Read assets & equipment', group: 'Assets' },
   { value: 'assets:write',     label: 'Manage assets & equipment', group: 'Assets' },
+  { value: 'prospects:read',   label: 'Read prospects', group: 'Prospects' },
+  { value: 'prospects:write',  label: 'Create / edit / import prospects', group: 'Prospects' },
   { value: 'email:send',       label: 'Send emails to customers', group: 'Email' },
   { value: 'agent:access',     label: 'AI Agent access',   group: 'Agent' },
 ];

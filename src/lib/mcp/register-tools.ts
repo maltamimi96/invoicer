@@ -36,6 +36,7 @@ import { registerExpenseTools } from "./tools/expenses-tools";
 import { registerInventoryTools } from "./tools/inventory-tools";
 import { registerTimesheetTools } from "./tools/timesheets-tools";
 import { registerAssetTools } from "./tools/assets-tools";
+import { registerProspectTools } from "./tools/prospects-tools";
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -1412,6 +1413,9 @@ export function registerTools(server: McpServer): void {
 
   // ===== ASSETS & EQUIPMENT =====
   registerAssetTools(tool);
+
+  // ===== PROSPECTS =====
+  registerProspectTools(tool);
 
   // ===== SCHEDULE =====
   tool("get_schedule", "Get jobs scheduled on a given date (YYYY-MM-DD), or today if omitted.",
