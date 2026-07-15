@@ -1,8 +1,6 @@
 import { Sparkles } from "@/components/ui/icons";
 import { BriefingWidget } from "@/components/briefing/briefing-widget";
 
-export const dynamic = "force-dynamic";
-
 export default function AssistantPage() {
   return (
     <div>

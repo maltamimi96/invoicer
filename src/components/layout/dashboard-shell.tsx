@@ -1,12 +1,19 @@
 "use client";
 
 import { Suspense, useState } from "react";
+import dynamic from "next/dynamic";
 import { AppSidebar } from "./app-sidebar";
 import { AppHeader } from "./app-header";
 import { AppearanceProvider } from "./appearance-provider";
 import { AppLoadingProvider } from "./app-loading";
 import { RouteProgress } from "./route-progress";
-import { AgentPanel } from "@/components/agent/agent-panel";
+// The floating AI assistant starts closed and drags in framer-motion + voice
+// capture. Lazy-load it (client-only) so its chunk stays out of every dashboard
+// page's first load — the trigger button appears a beat after hydration.
+const AgentPanel = dynamic(
+  () => import("@/components/agent/agent-panel").then((m) => ({ default: m.AgentPanel })),
+  { ssr: false },
+);
 import type { Business } from "@/types/database";
 import type { Role } from "@/lib/permissions";
 import type { User } from "@supabase/supabase-js";

@@ -3,8 +3,6 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { SeoPipelineView } from "@/components/seo/seo-pipeline-view";
 
-export const dynamic = "force-dynamic";
-
 export default async function SeoPipelinePage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

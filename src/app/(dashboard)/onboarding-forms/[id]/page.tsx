@@ -5,8 +5,6 @@ import { getOnboardingForm, getSecureFieldsAvailable, getOnboardingResponse, get
 import { FormBuilderClient } from "@/components/onboarding/form-builder-client";
 import { ResponseViewerClient } from "@/components/onboarding/response-viewer-client";
 
-export const dynamic = "force-dynamic";
-
 export default async function OnboardingFormBuilderPage({ params, searchParams }: {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ response?: string; view?: string }>;

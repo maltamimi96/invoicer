@@ -4,8 +4,6 @@ import { getActiveBizId } from "@/lib/active-business";
 import { listInventory } from "@/lib/actions/inventory";
 import { InventoryView } from "@/components/inventory/inventory-view";
 
-export const dynamic = "force-dynamic";
-
 export default async function InventoryPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

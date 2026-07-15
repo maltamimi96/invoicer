@@ -5,8 +5,6 @@ import { listSeoSites } from "@/lib/actions/seo";
 import { listContentPieces, getSeoBudget } from "@/lib/actions/seo-pipeline";
 import { SeoContentList } from "@/components/seo/seo-content-list";
 
-export const dynamic = "force-dynamic";
-
 export default async function SeoContentPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

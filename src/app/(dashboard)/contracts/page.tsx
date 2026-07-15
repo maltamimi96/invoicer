@@ -5,8 +5,6 @@ import { getContracts, getContractTemplates } from "@/lib/actions/contracts";
 import { getCustomers } from "@/lib/actions/customers";
 import { ContractsClient } from "@/components/contracts/contracts-client";
 
-export const dynamic = "force-dynamic";
-
 export default async function ContractsPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

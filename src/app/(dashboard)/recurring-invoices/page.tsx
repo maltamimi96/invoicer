@@ -7,8 +7,6 @@ import { getCustomers } from "@/lib/actions/customers";
 import { getProducts } from "@/lib/actions/products";
 import { RecurringInvoicesClient } from "@/components/recurring/recurring-invoices-client";
 
-export const dynamic = "force-dynamic";
-
 export default async function RecurringInvoicesPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

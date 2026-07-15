@@ -7,7 +7,6 @@ import { listConnections } from "@/lib/actions/seo-connections";
 import { listSeoReports } from "@/lib/actions/seo-reports";
 import { SeoSiteHub } from "@/components/seo/seo-site-hub";
 
-export const dynamic = "force-dynamic";
 // The Opportunity Scout (opus + web search) runs as a server action from this
 // route — give it room so it isn't cut off mid-scan.
 export const maxDuration = 300;

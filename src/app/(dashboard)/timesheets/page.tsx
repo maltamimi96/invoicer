@@ -4,8 +4,6 @@ import { getActiveBizId } from "@/lib/active-business";
 import { getTimesheet } from "@/lib/actions/timesheets";
 import { TimesheetsView } from "@/components/timesheets/timesheets-view";
 
-export const dynamic = "force-dynamic";
-
 function mondayOf(dateISO: string): string {
   const d = new Date(dateISO + "T00:00:00Z");
   const day = (d.getUTCDay() + 6) % 7;

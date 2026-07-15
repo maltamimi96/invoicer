@@ -5,8 +5,6 @@ import { getOnboardingSettings, getOnboardingForms, getOnboardingRequests } from
 import { getCustomers } from "@/lib/actions/customers";
 import { OnboardingFormsClient } from "@/components/onboarding/onboarding-forms-client";
 
-export const dynamic = "force-dynamic";
-
 export default async function OnboardingFormsPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
