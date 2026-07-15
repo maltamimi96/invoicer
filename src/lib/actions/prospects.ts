@@ -9,6 +9,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { getUser } from "@/lib/auth";
+import { sendToProspects } from "@/lib/prospects/outreach";
 import type { Prospect, ProspectStatus } from "@/types/database";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -153,6 +154,31 @@ export async function bulkDeleteProspects(ids: string[]): Promise<{ deleted: num
   if (error) throw error;
   revalidatePath("/prospects");
   return { deleted: ids.length };
+}
+
+/** Email one or more prospects (merge fields {{name}} {{first_name}} {{company}}). */
+export async function emailProspects(prospectIds: string[], subject: string, body: string): Promise<{ sent: number; skipped: number; failed: number }> {
+  const { supabase, user, businessId } = await ctx();
+  if (!subject.trim() || !body.trim()) throw new Error("Subject and message are required");
+  const res = await sendToProspects(supabase, businessId, user.id, prospectIds, subject, body);
+  revalidatePath("/prospects");
+  for (const id of prospectIds) revalidatePath(`/prospects/${id}`);
+  return res;
+}
+
+export async function addProspectNote(prospectId: string, note: string): Promise<void> {
+  const { supabase, user, businessId } = await ctx();
+  if (!note.trim()) return;
+  const { error } = await tbl(supabase, "prospect_activities").insert({ business_id: businessId, prospect_id: prospectId, type: "note", summary: note.trim(), created_by: user.id });
+  if (error) throw error;
+  revalidatePath(`/prospects/${prospectId}`);
+}
+
+export async function listProspectActivities(prospectId: string) {
+  const { supabase, businessId } = await ctx();
+  const { data } = await tbl(supabase, "prospect_activities").select("id, type, summary, created_at")
+    .eq("business_id", businessId).eq("prospect_id", prospectId).order("created_at", { ascending: false }).limit(100);
+  return (data ?? []) as Array<{ id: string; type: string; summary: string; created_at: string }>;
 }
 
 /** Convert a prospect into a Lead (dedup via upsert_lead) + mark converted. */

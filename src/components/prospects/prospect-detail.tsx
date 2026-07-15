@@ -4,15 +4,18 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, Trash2, UserPlus, Check } from "@/components/ui/icons";
+import { ArrowLeft, Trash2, UserPlus, Check, Send } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { PageHeader } from "@/components/layout/page-header";
 import { cn } from "@/lib/utils";
-import { updateProspect, deleteProspect, convertProspectToLead } from "@/lib/actions/prospects";
+import { updateProspect, deleteProspect, convertProspectToLead, addProspectNote } from "@/lib/actions/prospects";
+import { ProspectEmailDialog } from "@/components/prospects/prospect-email-dialog";
 import type { Prospect, ProspectStatus } from "@/types/database";
+
+interface Activity { id: string; type: string; summary: string; created_at: string }
 
 const STATUSES: ProspectStatus[] = ["new", "contacted", "responded", "qualified", "unqualified", "converted"];
 const TONE: Record<string, string> = {
@@ -21,9 +24,19 @@ const TONE: Record<string, string> = {
 };
 const selectCls = "h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring";
 
-export function ProspectDetail({ prospect }: { prospect: Prospect }) {
+export function ProspectDetail({ prospect, activities }: { prospect: Prospect; activities: Activity[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [emailOpen, setEmailOpen] = useState(false);
+  const [note, setNote] = useState("");
+
+  function saveNote() {
+    if (!note.trim()) return;
+    startTransition(async () => {
+      try { await addProspectNote(prospect.id, note); setNote(""); toast.success("Note added"); router.refresh(); }
+      catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't add note"); }
+    });
+  }
   const [f, setF] = useState({
     name: prospect.name ?? "", email: prospect.email ?? "", phone: prospect.phone ?? "", company: prospect.company ?? "",
     title: prospect.title ?? "", website: prospect.website ?? "", source: prospect.source ?? "",
@@ -60,6 +73,7 @@ export function ProspectDetail({ prospect }: { prospect: Prospect }) {
         actions={
           <>
             <Link href="/prospects" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md border border-border px-3 py-1.5"><ArrowLeft className="w-4 h-4" /> Prospects</Link>
+            {prospect.email && <Button variant="outline" onClick={() => setEmailOpen(true)} disabled={isPending}><Send className="w-4 h-4 mr-1.5" /> Send email</Button>}
             {!converted && <Button variant="outline" onClick={convert} disabled={isPending}><UserPlus className="w-4 h-4 mr-1.5" /> Convert to lead</Button>}
             {converted && prospect.lead_id && <Link href={`/leads/${prospect.lead_id}`} className="inline-flex items-center gap-1.5 text-sm rounded-md border border-emerald-500/40 text-emerald-700 px-3 py-1.5"><Check className="w-4 h-4" /> View lead</Link>}
           </>
@@ -98,7 +112,31 @@ export function ProspectDetail({ prospect }: { prospect: Prospect }) {
             </dl>
           </div>
         )}
+
+        {/* Activity */}
+        <div className="rounded-xl border border-border bg-card p-5">
+          <p className="text-sm font-semibold mb-3">Activity</p>
+          <div className="flex gap-2 mb-4">
+            <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Add a note…" onKeyDown={(e) => { if (e.key === "Enter") saveNote(); }} />
+            <Button variant="outline" onClick={saveNote} disabled={isPending || !note.trim()}>Add</Button>
+          </div>
+          {activities.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No activity yet. Send an email or add a note.</p>
+          ) : (
+            <ul className="space-y-2">
+              {activities.map((a) => (
+                <li key={a.id} className="flex items-start gap-2 text-sm">
+                  <span className={cn("text-[10px] font-medium rounded-full px-1.5 py-0.5 mt-0.5 shrink-0", a.type === "email" ? "bg-blue-100 text-blue-700" : a.type === "unsubscribe" ? "bg-red-100 text-red-700" : "bg-muted text-muted-foreground")}>{a.type}</span>
+                  <span className="flex-1 min-w-0 break-words">{a.summary}</span>
+                  <span className="text-xs text-muted-foreground shrink-0">{new Date(a.created_at).toLocaleDateString("en-AU")}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
+
+      <ProspectEmailDialog open={emailOpen} onOpenChange={setEmailOpen} prospectIds={[prospect.id]} />
     </>
   );
 }

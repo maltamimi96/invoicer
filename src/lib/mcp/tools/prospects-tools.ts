@@ -5,6 +5,7 @@
 import { z } from "zod";
 import { assertScope, t, text, errorText } from "../context";
 import { ctxFrom, UUID, type ToolFn } from "./shared";
+import { sendToProspects } from "@/lib/prospects/outreach";
 
 const STATUS = z.enum(["new", "contacted", "responded", "qualified", "unqualified", "converted"]);
 const PFIELDS = {
@@ -115,6 +116,14 @@ export function registerProspectTools(tool: ToolFn): void {
       const { error } = await t(ctx, "prospects").delete().in("id", args.prospect_ids).eq("business_id", ctx.businessId);
       if (error) throw error;
       return text({ deleted: args.prospect_ids.length });
+    });
+
+  tool("email_prospects", "Email one or more prospects (merge fields {{first_name}} {{name}} {{company}}). Adds an unsubscribe link + skips suppressed contacts. Requires email:send.",
+    { prospect_ids: z.array(UUID).min(1).max(500), subject: z.string().min(1), body: z.string().min(1) },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "prospects:write"); assertScope(ctx, "email:send");
+      const res = await sendToProspects(ctx.sb, ctx.businessId, ctx.userId, args.prospect_ids, args.subject, args.body);
+      return text(res);
     });
 
   tool("convert_prospect", "Convert a prospect into a Lead (deduped) and mark it converted.",

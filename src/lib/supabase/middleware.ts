@@ -63,6 +63,8 @@ export async function updateSession(request: NextRequest) {
     // Instant-audit lead magnet: public landing page + submit.
     pathname.startsWith("/audit/") ||
     pathname.startsWith("/api/audit/") ||
+    // Prospect outreach unsubscribe (public, token-gated).
+    pathname.startsWith("/unsubscribe/") ||
     pathname.startsWith("/api/public/") ||
     pathname === "/api/auth/signup" ||
     pathname.startsWith("/api/v1/") ||
