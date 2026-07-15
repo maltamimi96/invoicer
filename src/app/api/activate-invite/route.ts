@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
+import { bizListTag } from "@/lib/layout-data";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
@@ -22,6 +24,9 @@ export async function GET(request: NextRequest) {
   // Activate any pending memberships for this user
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (supabase as any).rpc("activate_pending_memberships");
+  // The layout's business list is cached per user — the just-activated
+  // membership must show up immediately.
+  revalidateTag(bizListTag(user.id), "max");
 
   if (biz) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

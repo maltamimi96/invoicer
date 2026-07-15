@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveBizId } from "@/lib/active-business";
@@ -9,6 +9,7 @@ import { canManageSettings, type Role } from "@/lib/permissions";
 import { PLUGINS_BY_ID, resolveEnabledPlugins, dependentsOf } from "@/lib/plugins/registry";
 import { PRESETS_BY_ID, presetInstallRows } from "@/lib/plugins/presets";
 import { syncPluginSideEffects } from "@/lib/plugins/sync";
+import { pluginFlagsTag, bizListTag } from "@/lib/layout-data";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: any, name: string) => sb.from(name);
@@ -109,6 +110,12 @@ export async function applyIndustryPreset(businessId: string, presetId: string):
       await syncPluginSideEffects(admin, businessId, row.agent_id, row.enabled);
     }
   }
+
+  // Install rows changed even for plugins without a settings table, and
+  // industry_preset (vocab) lives on the cached business list row.
+  revalidateTag(pluginFlagsTag(businessId), "max");
+  const user = await getUser();
+  revalidateTag(bizListTag(user.id), "max");
 
   revalidatePath("/agents");
   revalidatePath("/", "layout");

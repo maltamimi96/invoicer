@@ -18,7 +18,11 @@ export async function getCustomers(includeArchived = false): Promise<Customer[]>
 
   return unstable_cache(
     async () => {
-      let query = tbl(supabase, "customers").select("*").eq("business_id", businessId).order("name");
+      // Bounded: this getter feeds list pages and pickers — an unbounded
+      // select was shipping every customer row (all columns) into the RSC
+      // payload on every consumer page. 1000 covers realistic tenants; a
+      // paginated getter is the follow-up if someone outgrows it.
+      let query = tbl(supabase, "customers").select("*").eq("business_id", businessId).order("name").limit(1000);
       if (!includeArchived) query = query.eq("archived", false);
       const { data, error } = await query;
       if (error) throw error;

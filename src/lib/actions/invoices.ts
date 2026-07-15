@@ -450,39 +450,27 @@ export async function getDashboardStats() {
 
   const businessId = await getActiveBizId(supabase, user.id);
 
-  const { data: invoices } = await tbl(supabase, "invoices")
-    .select("id, number, total, amount_paid, status, issue_date, due_date, created_at, customers(name)")
-    .eq("business_id", businessId);
-
-  if (!invoices) return { totalRevenue: 0, outstanding: 0, overdue: 0, paidThisMonth: 0, recentInvoices: [], monthlyData: [] };
-
-  const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
+  // Single SQL aggregate (migration 20260716130000_dashboard_stats_rpc) —
+  // replaces fetching EVERY invoice row into Node and reducing in JS. Same
+  // return shape; SECURITY INVOKER so RLS applies exactly as before (workers
+  // get an empty result, not an error).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const inv = invoices as any[];
-  const totalRevenue = inv.filter((i) => i.status === "paid").reduce((sum: number, i) => sum + i.total, 0);
-  const outstanding = inv.filter((i) => ["sent", "partial"].includes(i.status)).reduce((sum: number, i) => sum + (i.total - i.amount_paid), 0);
-  const overdue = inv.filter((i) => ["sent", "partial"].includes(i.status) && new Date(i.due_date) < now).reduce((sum: number, i) => sum + (i.total - i.amount_paid), 0);
-  const paidThisMonth = inv.filter((i) => i.status === "paid" && new Date(i.created_at) >= startOfMonth).reduce((sum: number, i) => sum + i.total, 0);
-
-  const monthlyData: { month: string; revenue: number; invoiced: number }[] = [];
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const monthLabel = d.toLocaleString("default", { month: "short" });
-    const monthInvoices = inv.filter((invoice) => {
-      const created = new Date(invoice.created_at);
-      return created.getFullYear() === d.getFullYear() && created.getMonth() === d.getMonth();
-    });
-    monthlyData.push({
-      month: monthLabel,
-      revenue: monthInvoices.filter((invoice) => invoice.status === "paid").reduce((s: number, invoice) => s + invoice.total, 0),
-      invoiced: monthInvoices.reduce((s: number, invoice) => s + invoice.total, 0),
-    });
-  }
-
-  const recentInvoices = inv.slice(0, 5);
-  return { totalRevenue, outstanding, overdue, paidThisMonth, recentInvoices, monthlyData };
+  const { data, error } = await (supabase as any).rpc("dashboard_stats", { biz: businessId });
+  if (error) throw error;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = (data ?? {}) as any;
+  return {
+    totalRevenue: Number(d.totalRevenue ?? 0),
+    outstanding: Number(d.outstanding ?? 0),
+    overdue: Number(d.overdue ?? 0),
+    paidThisMonth: Number(d.paidThisMonth ?? 0),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    recentInvoices: ((d.recentInvoices ?? []) as any[]),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    monthlyData: ((d.monthlyData ?? []) as any[]).map((m) => ({
+      month: String(m.month), revenue: Number(m.revenue ?? 0), invoiced: Number(m.invoiced ?? 0),
+    })),
+  };
 }
 
 export async function sendInvoiceEmail(id: string, opts?: { recipients?: string[]; subject?: string }): Promise<void> {

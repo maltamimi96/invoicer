@@ -1,11 +1,12 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveBizId } from "@/lib/active-business";
 import { getUser } from "@/lib/auth";
 import { slugifyFormName } from "@/lib/forms/slug";
+import { pluginFlagsTag } from "@/lib/layout-data";
 import type { PublicForm, PublicFormSubmission, OnboardingField } from "@/types/database";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -43,6 +44,7 @@ export async function setFormBuilderEnabled(enabled: boolean): Promise<void> {
       { onConflict: "business_id,agent_id" },
     );
   } catch { /* non-fatal */ }
+  revalidateTag(pluginFlagsTag(businessId), "max"); // layout's cached feature flags
   revalidatePath("/forms");
   revalidatePath("/agents");
   revalidatePath("/", "layout");
