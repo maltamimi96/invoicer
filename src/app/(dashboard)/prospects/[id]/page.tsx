@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
-import { getProspect } from "@/lib/actions/prospects";
+import { getProspect, listProspectActivities } from "@/lib/actions/prospects";
 import { ProspectDetail } from "@/components/prospects/prospect-detail";
 
 export const dynamic = "force-dynamic";
@@ -16,5 +16,6 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
 
   const prospect = await getProspect(id);
   if (!prospect) notFound();
-  return <ProspectDetail prospect={prospect} />;
+  const activities = await listProspectActivities(id);
+  return <ProspectDetail prospect={prospect} activities={activities} />;
 }
