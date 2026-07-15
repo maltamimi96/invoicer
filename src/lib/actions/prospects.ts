@@ -119,6 +119,42 @@ export async function importProspects(rows: ProspectInput[]): Promise<{ imported
   return { imported: toInsert.length, skipped };
 }
 
+/** Bulk-update prospects (status / source / add-remove a tag). */
+export async function bulkUpdateProspects(ids: string[], patch: { status?: ProspectStatus; source?: string | null; add_tag?: string; remove_tag?: string }): Promise<{ updated: number }> {
+  const { supabase, businessId } = await ctx();
+  if (ids.length === 0) return { updated: 0 };
+
+  if (patch.add_tag || patch.remove_tag) {
+    // Tag edits are per-row (array mutation) — fetch, compute, update.
+    const { data } = await tbl(supabase, "prospects").select("id, tags").in("id", ids).eq("business_id", businessId);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const p of (data ?? []) as any[]) {
+      let tags: string[] = Array.isArray(p.tags) ? p.tags : [];
+      if (patch.add_tag && !tags.includes(patch.add_tag)) tags = [...tags, patch.add_tag];
+      if (patch.remove_tag) tags = tags.filter((tg) => tg !== patch.remove_tag);
+      await tbl(supabase, "prospects").update({ tags }).eq("id", p.id).eq("business_id", businessId);
+    }
+  }
+  const flat: Record<string, unknown> = {};
+  if (patch.status !== undefined) flat.status = patch.status;
+  if (patch.source !== undefined) flat.source = clean(patch.source);
+  if (Object.keys(flat).length > 0) {
+    const { error } = await tbl(supabase, "prospects").update(flat).in("id", ids).eq("business_id", businessId);
+    if (error) throw error;
+  }
+  revalidatePath("/prospects");
+  return { updated: ids.length };
+}
+
+export async function bulkDeleteProspects(ids: string[]): Promise<{ deleted: number }> {
+  const { supabase, businessId } = await ctx();
+  if (ids.length === 0) return { deleted: 0 };
+  const { error } = await tbl(supabase, "prospects").delete().in("id", ids).eq("business_id", businessId);
+  if (error) throw error;
+  revalidatePath("/prospects");
+  return { deleted: ids.length };
+}
+
 /** Convert a prospect into a Lead (dedup via upsert_lead) + mark converted. */
 export async function convertProspectToLead(id: string): Promise<{ lead_id: string | null }> {
   const { supabase, businessId } = await ctx();
