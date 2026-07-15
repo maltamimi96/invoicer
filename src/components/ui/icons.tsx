@@ -29,6 +29,7 @@ export {
   Database,
   Globe,
   Plug,
+  Target,
   Eye,
   Lock,
   FileText,

@@ -33,7 +33,7 @@ export const INDUSTRY_PRESETS: IndustryPreset[] = [
     label: "Agency & creative services",
     description: "Web, marketing, design and studio work — proposals, retainers, contracts and client onboarding.",
     plugins: [
-      "leads", "quotes", "invoicing", "recurring-billing", "contracts",
+      "prospects", "leads", "quotes", "invoicing", "recurring-billing", "contracts",
       "jobs", "messages", "analytics",
       "client-onboarding", "form-builder",
     ],
@@ -49,7 +49,7 @@ export const INDUSTRY_PRESETS: IndustryPreset[] = [
     description: "Local-business SEO: client sites, GSC connector, opportunity queue, content pipeline and white-label reporting.",
     // Agency operating layer + the SEO production engine. Field-ops modules off.
     plugins: [
-      "leads", "quotes", "invoicing", "recurring-billing", "contracts",
+      "prospects", "leads", "quotes", "invoicing", "recurring-billing", "contracts",
       "messages", "analytics", "client-onboarding", "form-builder",
       "seo-production",
     ],
