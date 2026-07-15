@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
+import { DetailSkeleton } from "@/components/layout/detail-skeleton";
 import { getCustomer } from "@/lib/actions/customers";
 import { getInvoices } from "@/lib/actions/invoices";
 import { getQuotes } from "@/lib/actions/quotes";
@@ -36,6 +38,17 @@ async function loadOnboarding(customerId: string): Promise<CustomerOnboardingDat
 
 export default async function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  // Stream: the shell + detail skeleton reach the browser immediately while
+  // the ~11 data fetches below settle (notFound() still works inside the
+  // Suspense child — it propagates to the not-found boundary).
+  return (
+    <Suspense fallback={<DetailSkeleton />}>
+      <CustomerDetailContent id={id} />
+    </Suspense>
+  );
+}
+
+async function CustomerDetailContent({ id }: { id: string }) {
   try {
     const [customer, invoices, quotes, business, workOrders, reports, properties, contacts, notes, billingProfiles, onboarding] = await Promise.all([
       getCustomer(id),

@@ -176,6 +176,7 @@ export function InvoicesClient({ invoices: initial, currency = "GBP" }: Invoices
               <div
                 key={invoice.id}
                 onClick={() => router.push(`/invoices/${invoice.id}`)}
+                onMouseEnter={() => router.prefetch(`/invoices/${invoice.id}`)}
                 onAuxClick={(e) => { if (e.button === 1) window.open(`/invoices/${invoice.id}`, "_blank"); }}
                 className="group flex flex-wrap items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-muted/40"
               >

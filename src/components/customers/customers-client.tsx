@@ -211,6 +211,9 @@ export function CustomersClient({
                 <div
                   key={customer.id}
                   onClick={() => router.push(`/customers/${customer.id}`)}
+                  // Prefetch the detail RSC on hover so the click lands on a
+                  // warm payload instead of a cold dynamic fetch.
+                  onMouseEnter={() => router.prefetch(`/customers/${customer.id}`)}
                   className="group flex flex-wrap items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-muted/40"
                 >
                   <input

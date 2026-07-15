@@ -164,6 +164,7 @@ export function QuotesClient({ quotes: initial, currency = "GBP" }: { quotes: Qu
               <div
                 key={quote.id}
                 onClick={() => router.push(`/quotes/${quote.id}`)}
+                onMouseEnter={() => router.prefetch(`/quotes/${quote.id}`)}
                 className="group flex flex-wrap items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-muted/40"
               >
                 <GradientTile gradient={STATUS_GRADIENT[quote.status] ?? "primary"} size={40} radius={10}>

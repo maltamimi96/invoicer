@@ -137,6 +137,7 @@ export function WorkOrdersClient({ workOrders, userRole }: WorkOrdersClientProps
               <div
                 key={wo.id}
                 onClick={() => router.push(`/work-orders/${wo.id}`)}
+                onMouseEnter={() => router.prefetch(`/work-orders/${wo.id}`)}
                 className="group flex flex-wrap items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-muted/40"
               >
                 <GradientTile gradient={STATUS_GRADIENT[wo.status] ?? "primary"} size={40} radius={10}>
