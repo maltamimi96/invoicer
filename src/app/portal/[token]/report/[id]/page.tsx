@@ -49,7 +49,7 @@ export default async function PortalReportPage({ params }: { params: Promise<{ t
           <div className="flex items-center gap-3">
             {business?.logo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={business.logo_url} alt={business.name} className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg object-contain bg-white border border-border p-1" />
+              <img loading="lazy" decoding="async" src={business.logo_url} alt={business.name} className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg object-contain bg-white border border-border p-1" />
             ) : null}
             <div className="text-right">
               <p className="font-semibold text-sm">{business?.name}</p>
@@ -129,7 +129,7 @@ export default async function PortalReportPage({ params }: { params: Promise<{ t
               {r.photos.map((p) => (
                 <div key={p.id} className="space-y-1">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={p.url} alt={p.caption || "Site photo"} className="w-full aspect-video object-cover rounded" />
+                  <img loading="lazy" decoding="async" src={p.url} alt={p.caption || "Site photo"} className="w-full aspect-video object-cover rounded" />
                   {p.caption && <p className="text-xs text-muted-foreground">{p.caption}</p>}
                 </div>
               ))}

@@ -14,7 +14,6 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: [
       "@phosphor-icons/react",
-      "lucide-react",
       "framer-motion",
       "date-fns",
       "recharts",

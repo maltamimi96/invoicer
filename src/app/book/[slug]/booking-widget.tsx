@@ -206,7 +206,7 @@ export function BookingWidget({ slug }: { slug: string }) {
             <motion.div initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.1, type: "spring", stiffness: 200 }}
               style={{ width: 56, height: 56, borderRadius: 16, background: "rgba(255,255,255,0.2)", border: "2px solid rgba(255,255,255,0.4)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={config.branding.logo_url || KIREI_LOGO} alt={config.business_name || "Kirei"}
+              <img loading="lazy" decoding="async" src={config.branding.logo_url || KIREI_LOGO} alt={config.business_name || "Kirei"}
                 style={{ width: "100%", height: "100%", objectFit: "contain", background: config.branding.logo_url ? "transparent" : "#fff", padding: config.branding.logo_url ? 0 : 4 }} />
             </motion.div>
             <div style={{ minWidth: 0 }}>

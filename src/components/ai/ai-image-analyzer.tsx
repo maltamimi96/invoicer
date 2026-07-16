@@ -90,7 +90,7 @@ export function AiImageAnalyzer({ onResult }: AiImageAnalyzerProps) {
             {images.map((img, i) => (
               <div key={i} className="relative group">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={img.preview} alt={img.name} className="h-14 w-14 object-cover rounded border" />
+                <img loading="lazy" decoding="async" src={img.preview} alt={img.name} className="h-14 w-14 object-cover rounded border" />
                 <button
                   type="button"
                   className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full w-4 h-4 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"

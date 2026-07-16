@@ -120,7 +120,7 @@ export default async function PublicJobPage({ params }: { params: Promise<{ toke
                   {photosByPhase[phase].map((p) => (
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <a key={p.id} href={p.url} target="_blank" rel="noopener noreferrer" className="block aspect-square">
-                      <img src={p.url} alt={p.caption ?? ""} className="w-full h-full object-cover rounded" />
+                      <img loading="lazy" decoding="async" src={p.url} alt={p.caption ?? ""} className="w-full h-full object-cover rounded" />
                     </a>
                   ))}
                 </div>
@@ -168,7 +168,7 @@ export default async function PublicJobPage({ params }: { params: Promise<{ toke
                 {sigs.map((s) => (
                   <div key={s.id} className="flex items-center gap-3">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={s.signature_url} alt="signature" className="h-12 w-24 object-contain bg-white border rounded" />
+                    <img loading="lazy" decoding="async" src={s.signature_url} alt="signature" className="h-12 w-24 object-contain bg-white border rounded" />
                     <div className="text-sm">
                       <p className="font-medium">{s.signed_by_name}{s.signed_by_role ? ` (${s.signed_by_role})` : ""}</p>
                       <p className="text-xs text-muted-foreground capitalize">{s.purpose.replace(/_/g, " ")} · {fmtDateTime(s.signed_at)}</p>
