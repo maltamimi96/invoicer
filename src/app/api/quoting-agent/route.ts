@@ -6,8 +6,13 @@ import { getUser } from "@/lib/auth";
 import { createCustomer } from "@/lib/actions/customers";
 import { createQuote } from "@/lib/actions/quotes";
 import type { LineItem } from "@/types/database";
+import { ilikeAcross } from "@/lib/pg-filter";
 
 const anthropic = new Anthropic();
+
+/** Multi-turn tool loop — without this the platform default applies and the
+ *  function is killed mid-chain. */
+export const maxDuration = 300;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: Awaited<ReturnType<typeof createClient>>, name: string) => (sb as any).from(name);
@@ -215,7 +220,7 @@ async function runTool(name: string, input: Record<string, unknown>, ctx: Quotin
     const { data } = await tbl(supabase, "customers")
       .select("id, name, email, phone, company")
       .eq("business_id", businessId).eq("archived", false)
-      .or(`name.ilike.%${q}%,email.ilike.%${q}%,company.ilike.%${q}%`)
+      .or(ilikeAcross(["name", "email", "company"], q))
       .limit(10);
     return data ?? [];
   }
@@ -375,14 +380,31 @@ Money is in ${ctx.currency}. Be concise — the user reads on a phone or has the
       messages: allMessages,
     });
 
-    const hasToolUse = response.content.some((b) => b.type === "tool_use");
-    if (!hasToolUse) {
+    // Only run tools when the model finished asking for them — a reply cut off
+    // at max_tokens can end inside a tool_use block with partial input JSON.
+    const canRunTools = response.stop_reason === "tool_use";
+    if (!canRunTools) {
       const text = response.content
         .filter((b): b is Anthropic.TextBlock => b.type === "text")
         .map((b) => b.text)
         .join("\n");
-      allMessages.push({ role: "assistant", content: response.content });
-      return NextResponse.json({ text, messages: allMessages });
+
+      // Never persist an unanswered tool_use — the client sends this history
+      // back next turn and it would 400, wedging the conversation.
+      const keep = response.content.filter((b) => b.type !== "tool_use");
+      if (keep.length > 0) allMessages.push({ role: "assistant", content: keep });
+
+      const note =
+        response.stop_reason === "max_tokens"
+          ? "That reply was cut off because it hit the length limit. Nothing was run — try a narrower request."
+          : response.stop_reason === "refusal"
+            ? "I can't help with that request."
+            : null;
+
+      return NextResponse.json({
+        text: note ? (text ? `${text}\n\n${note}` : note) : text,
+        messages: allMessages,
+      });
     }
 
     allMessages.push({ role: "assistant", content: response.content });

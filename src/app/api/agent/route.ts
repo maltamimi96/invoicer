@@ -27,10 +27,18 @@ import { getLeads, createLead, updateLeadStatus, convertLeadToCustomer, convertL
 import { getRecurringJobs, createRecurringJob, setRecurringJobActive, deleteRecurringJob } from "@/lib/actions/recurring-jobs";
 import { createPortalLink } from "@/lib/actions/customer-portal";
 import { parseWhen } from "@/lib/ai/resolvers";
+import { ilikeAcross } from "@/lib/pg-filter";
 import { v4 as uuidv4 } from "uuid";
 import type { LineItem } from "@/types/database";
 
 const anthropic = new Anthropic();
+
+/** Each iteration is a full model round-trip plus its tool calls. Without this
+ *  the platform default applies and Vercel kills the function mid-chain — the
+ *  client just sees the stream end and silently keeps a partial turn. */
+export const maxDuration = 300;
+
+const MAX_ITERATIONS = 15;
 
 // ── Tool definitions ────────────────────────────────────────────────────────
 
@@ -1155,13 +1163,16 @@ async function executeTool(
     // ── Customers ────────────────────────────────────────────────────────────
     case "search_customers": {
       const sb = await getRawSupabase();
-      const { data } = await sb
+      const { data, error } = await sb
         .from("customers")
         .select("id, name, company, email, phone")
         .eq("business_id", ctx.businessId)
         .eq("archived", false)
-        .or(`name.ilike.%${input.query}%,email.ilike.%${input.query}%,company.ilike.%${input.query}%`)
+        .or(ilikeAcross(["name", "email", "company"], input.query))
         .limit(8);
+      // Surface the failure. Swallowing it made a broken filter look like
+      // "no such customer", and the model would then create a duplicate.
+      if (error) throw new Error(`Customer search failed: ${error.message}`);
       return { customers: data ?? [], count: (data ?? []).length };
     }
 
@@ -1235,8 +1246,9 @@ async function executeTool(
         .eq("archived", false)
         .limit(8);
       if (input.account_id) q = q.eq("account_id", input.account_id);
-      if (input.query) q = q.or(`label.ilike.%${input.query}%,address.ilike.%${input.query}%,city.ilike.%${input.query}%,postcode.ilike.%${input.query}%`);
-      const { data } = await q;
+      if (input.query) q = q.or(ilikeAcross(["label", "address", "city", "postcode"], input.query));
+      const { data, error } = await q;
+      if (error) throw new Error(`Site search failed: ${error.message}`);
       return { sites: data ?? [], count: (data ?? []).length };
     }
 
@@ -1262,8 +1274,9 @@ async function executeTool(
         .eq("archived", false)
         .limit(8);
       if (input.account_id) q = q.eq("account_id", input.account_id);
-      if (input.query) q = q.or(`name.ilike.%${input.query}%,email.ilike.%${input.query}%,phone.ilike.%${input.query}%`);
-      const { data } = await q;
+      if (input.query) q = q.or(ilikeAcross(["name", "email", "phone"], input.query));
+      const { data, error } = await q;
+      if (error) throw new Error(`Contact search failed: ${error.message}`);
       return { contacts: data ?? [], count: (data ?? []).length };
     }
 
@@ -1286,8 +1299,9 @@ async function executeTool(
         .eq("archived", false)
         .limit(8);
       if (input.account_id) q = q.eq("account_id", input.account_id);
-      if (input.query) q = q.or(`name.ilike.%${input.query}%,email.ilike.%${input.query}%`);
-      const { data } = await q;
+      if (input.query) q = q.or(ilikeAcross(["name", "email"], input.query));
+      const { data, error } = await q;
+      if (error) throw new Error(`Billing profile search failed: ${error.message}`);
       return { billing_profiles: data ?? [], count: (data ?? []).length };
     }
 
@@ -1332,8 +1346,9 @@ async function executeTool(
         .eq("is_active", true)
         .order("name")
         .limit(10);
-      if (input.query) q = q.or(`name.ilike.%${input.query}%,email.ilike.%${input.query}%`);
-      const { data } = await q;
+      if (input.query) q = q.or(ilikeAcross(["name", "email"], input.query));
+      const { data, error } = await q;
+      if (error) throw new Error(`Worker search failed: ${error.message}`);
       return { workers: data ?? [], count: (data ?? []).length };
     }
 
@@ -2024,7 +2039,7 @@ export async function POST(request: NextRequest) {
         const allMessages = [...messages];
         let iterations = 0;
 
-        while (iterations < 15) {
+        while (iterations < MAX_ITERATIONS) {
           iterations++;
 
           const response = await anthropic.messages.create({
@@ -2036,14 +2051,20 @@ export async function POST(request: NextRequest) {
           });
 
           const assistantContent = response.content;
-          let hasToolUse = false;
+          // Only run tools when the model actually finished asking for them.
+          // A reply cut off at max_tokens can end *inside* a tool_use block,
+          // leaving partial input JSON — and these tools include createInvoice
+          // and deleteCustomer, so executing a truncated call writes garbage to
+          // real records. `tool_use` is the only stop_reason that means "the
+          // tool calls are complete".
+          const canRunTools = response.stop_reason === "tool_use";
           const toolResults: Anthropic.ToolResultBlockParam[] = [];
 
           for (const block of assistantContent) {
             if (block.type === "text" && block.text) {
               send({ type: "text", content: block.text });
             } else if (block.type === "tool_use") {
-              hasToolUse = true;
+              if (!canRunTools) continue;
               send({
                 type: "tool_start",
                 id: block.id,
@@ -2081,9 +2102,33 @@ export async function POST(request: NextRequest) {
 
           allMessages.push({ role: "assistant", content: assistantContent });
 
-          if (!hasToolUse || response.stop_reason === "end_turn") break;
+          if (!canRunTools) {
+            // Say why we stopped instead of going quiet — a truncated or
+            // refused reply used to look identical to a normal short answer.
+            if (response.stop_reason === "max_tokens") {
+              send({
+                type: "error",
+                message:
+                  "That reply was cut off because it hit the length limit. Nothing was run — try a narrower request.",
+              });
+            } else if (response.stop_reason === "refusal") {
+              send({ type: "error", message: "I can't help with that request." });
+            }
+            break;
+          }
 
           allMessages.push({ role: "user", content: toolResults });
+
+          if (iterations === MAX_ITERATIONS) {
+            // Out of iterations with tool results the model never got to read.
+            // Previously this exited silently: every tool card green, no text,
+            // indistinguishable from a hang.
+            send({
+              type: "error",
+              message:
+                "I ran out of steps on this one. The actions above did run — ask me to continue if there's more to do.",
+            });
+          }
         }
 
         send({ type: "done" });

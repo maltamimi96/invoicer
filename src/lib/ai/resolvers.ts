@@ -15,6 +15,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
+import { ilikeAcross } from "@/lib/pg-filter";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: Awaited<ReturnType<typeof createClient>>, name: string) => (sb as any).from(name);
@@ -60,7 +61,7 @@ export async function resolveCustomer(query: string): Promise<ResolveResult<Cust
     .select("id, name, company, email, phone")
     .eq("business_id", businessId)
     .eq("archived", false)
-    .or(`name.ilike.%${q}%,company.ilike.%${q}%,email.ilike.%${q}%`)
+    .or(ilikeAcross(["name", "company", "email"], q))
     .limit(8);
   return pickBest(q, (data ?? []) as CustomerHit[]);
 }
@@ -84,7 +85,7 @@ export async function resolveSite(query: string, accountId?: string): Promise<Re
     .select("id, account_id, label, address, city, postcode")
     .eq("business_id", businessId)
     .eq("archived", false)
-    .or(`label.ilike.%${q}%,address.ilike.%${q}%,city.ilike.%${q}%,postcode.ilike.%${q}%`)
+    .or(ilikeAcross(["label", "address", "city", "postcode"], q))
     .limit(8);
   if (accountId) req = req.eq("account_id", accountId);
   const { data } = await req;
@@ -116,7 +117,7 @@ export async function resolveWorker(query: string): Promise<ResolveResult<Worker
     .select("id, name, email, role_title")
     .eq("business_id", businessId)
     .eq("is_active", true)
-    .or(`name.ilike.%${q}%,email.ilike.%${q}%`)
+    .or(ilikeAcross(["name", "email"], q))
     .limit(8);
   return pickBest(q, (data ?? []) as WorkerHit[]);
 }
@@ -140,7 +141,7 @@ export async function resolveContact(query: string, accountId?: string): Promise
     .select("id, account_id, name, email, phone, role")
     .eq("business_id", businessId)
     .eq("archived", false)
-    .or(`name.ilike.%${q}%,email.ilike.%${q}%,phone.ilike.%${q}%`)
+    .or(ilikeAcross(["name", "email", "phone"], q))
     .limit(8);
   if (accountId) req = req.eq("account_id", accountId);
   const { data } = await req;
@@ -166,7 +167,7 @@ export async function resolveBillingProfile(query: string, accountId?: string): 
     .eq("archived", false)
     .limit(8);
   if (accountId) req = req.eq("account_id", accountId);
-  if (q) req = req.or(`name.ilike.%${q}%,email.ilike.%${q}%`);
+  if (q) req = req.or(ilikeAcross(["name", "email"], q));
   const { data } = await req;
   return pickBest(q, (data ?? []) as BillingProfileHit[]);
 }
@@ -190,7 +191,7 @@ export async function resolveProduct(query: string): Promise<ResolveResult<Produ
     .select("id, name, description, unit_price, tax_rate, unit")
     .eq("business_id", businessId)
     .eq("archived", false)
-    .or(`name.ilike.%${q}%,description.ilike.%${q}%`)
+    .or(ilikeAcross(["name", "description"], q))
     .limit(8);
   return pickBest(q, (data ?? []) as ProductHit[]);
 }

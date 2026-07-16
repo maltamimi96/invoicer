@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createSupaClient, SupabaseClient } from "@supabase/supabase-js";
+import { ilikeAcross } from "@/lib/pg-filter";
 
 /**
  * Mobile-flavoured agent endpoint.
@@ -17,6 +18,11 @@ import { createClient as createSupaClient, SupabaseClient } from "@supabase/supa
  */
 
 const anthropic = new Anthropic();
+
+/** Multi-turn tool loop — without this the platform default applies and the
+ *  function is killed mid-chain. */
+export const maxDuration = 300;
+
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
@@ -104,7 +110,7 @@ async function runTool(name: string, input: Record<string, unknown>, ctx: ToolCo
       .eq("business_id", businessId)
       .eq("archived", false)
       .limit(20);
-    if (q) query = query.or(`name.ilike.%${q}%,company.ilike.%${q}%,email.ilike.%${q}%`);
+    if (q) query = query.or(ilikeAcross(["name", "company", "email"], q));
     const { data } = await query;
     return data ?? [];
   }
@@ -118,7 +124,7 @@ async function runTool(name: string, input: Record<string, unknown>, ctx: ToolCo
       .order("created_at", { ascending: false })
       .limit(30);
     if (status) query = query.eq("status", status);
-    if (q) query = query.or(`number.ilike.%${q}%`);
+    if (q) query = query.or(ilikeAcross(["number"], q));
     const { data } = await query;
     return (data ?? []).map((inv: { id: string; number: string; status: string; total: unknown; amount_paid: unknown; due_date: string | null; customers: unknown }) => {
       const cust = inv.customers as { name: string } | { name: string }[] | null;
@@ -140,7 +146,7 @@ async function runTool(name: string, input: Record<string, unknown>, ctx: ToolCo
       .order("created_at", { ascending: false })
       .limit(30);
     if (status) query = query.eq("status", status);
-    if (q) query = query.or(`number.ilike.%${q}%`);
+    if (q) query = query.or(ilikeAcross(["number"], q));
     const { data } = await query;
     return (data ?? []).map((q: { id: string; number: string; status: string; total: unknown; expiry_date: string | null; customers: unknown }) => {
       const cust = q.customers as { name: string } | { name: string }[] | null;
@@ -158,7 +164,7 @@ async function runTool(name: string, input: Record<string, unknown>, ctx: ToolCo
       .order("created_at", { ascending: false })
       .limit(30);
     if (status) query = query.eq("status", status);
-    if (q) query = query.or(`name.ilike.%${q}%`);
+    if (q) query = query.or(ilikeAcross(["name"], q));
     const { data } = await query;
     return data ?? [];
   }
@@ -311,15 +317,34 @@ for something you already have an ID for from a previous tool call.${renderConte
       messages: allMessages,
     });
 
-    const hasToolUse = response.content.some((b) => b.type === "tool_use");
-    if (!hasToolUse) {
+    // Only run tools when the model finished asking for them. A reply cut off
+    // at max_tokens can end *inside* a tool_use block with partial input JSON,
+    // and these tools write (mark_invoice_paid, set_lead_status).
+    const canRunTools = response.stop_reason === "tool_use";
+    if (!canRunTools) {
       const text = response.content
         .filter((b): b is Anthropic.TextBlock => b.type === "text")
         .map((b) => b.text)
         .join("\n");
-      // Append final assistant turn so the client can persist + send back.
-      allMessages.push({ role: "assistant", content: response.content });
-      return NextResponse.json({ text, messages: allMessages });
+
+      // Never persist an unanswered tool_use: the client sends this history
+      // back next turn, and a tool_use with no matching tool_result is a 400
+      // that would wedge the conversation permanently. Drop those blocks, and
+      // skip the turn entirely if nothing else is left.
+      const keep = response.content.filter((b) => b.type !== "tool_use");
+      if (keep.length > 0) allMessages.push({ role: "assistant", content: keep });
+
+      const note =
+        response.stop_reason === "max_tokens"
+          ? "That reply was cut off because it hit the length limit. Nothing was run — try a narrower request."
+          : response.stop_reason === "refusal"
+            ? "I can't help with that request."
+            : null;
+
+      return NextResponse.json({
+        text: note ? (text ? `${text}\n\n${note}` : note) : text,
+        messages: allMessages,
+      });
     }
 
     // Execute tool calls and feed results back

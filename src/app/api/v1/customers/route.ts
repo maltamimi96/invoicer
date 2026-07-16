@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { authenticateApiKey, requireScope } from "@/lib/api-auth";
 import { dispatchWebhook } from "@/lib/webhooks";
+import { ilikeAcross } from "@/lib/pg-filter";
 
 function err(msg: string, status: number) {
   return NextResponse.json({ error: msg }, { status });
@@ -79,7 +80,7 @@ export async function GET(req: NextRequest) {
     .limit(limit);
 
   if (search) {
-    query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,company.ilike.%${search}%`);
+    query = query.or(ilikeAcross(["name", "email", "company"], search));
   }
 
   const { data, error } = await query;

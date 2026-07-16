@@ -339,9 +339,14 @@ export function AgentPanel() {
               break;
 
             case "error":
+              // Append rather than only-fill-if-empty: an error that arrived
+              // after some text used to be dropped on the floor entirely, so a
+              // cut-off or partially-run turn looked like a complete answer.
               updateAssistant((m) => ({
                 ...m,
-                content: m.content || (event.message as string),
+                content: m.content
+                  ? `${m.content}\n\n${event.message as string}`
+                  : (event.message as string),
                 streaming: false,
               }));
               break;

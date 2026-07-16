@@ -37,6 +37,7 @@ import { registerInventoryTools } from "./tools/inventory-tools";
 import { registerTimesheetTools } from "./tools/timesheets-tools";
 import { registerAssetTools } from "./tools/assets-tools";
 import { registerProspectTools } from "./tools/prospects-tools";
+import { ilikeAcross } from "@/lib/pg-filter";
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -143,7 +144,7 @@ export function registerTools(server: McpServer): void {
       const ctx = ctxFrom(extra); assertScope(ctx, "customers:read");
       let q = t(ctx, "customers").select("id, name, company, email, phone, address, city, postcode, archived")
         .eq("business_id", ctx.businessId).order("name").limit(args.limit ?? 50);
-      if (args.search) q = q.or(`name.ilike.%${args.search}%,email.ilike.%${args.search}%,company.ilike.%${args.search}%`);
+      if (args.search) q = q.or(ilikeAcross(["name", "email", "company"], args.search));
       const { data, error } = await q;
       if (error) throw error;
       return text(data);

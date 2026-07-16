@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/admin/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { ilikeAcross } from "@/lib/pg-filter";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,7 @@ export default async function TenantsPage({
     .limit(200);
 
   if (q && q.trim()) {
-    query = query.or(`name.ilike.%${q}%,email.ilike.%${q}%`);
+    query = query.or(ilikeAcross(["name", "email"], q));
   }
 
   const { data: tenants } = await query;
