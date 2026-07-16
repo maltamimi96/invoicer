@@ -30,7 +30,11 @@ import { invokeTool } from "@/lib/mcp/invoke";
 import { assistantScopesForRole } from "@/lib/assistant/scopes";
 import { resolveModel, resolveEffort } from "@/lib/assistant/models";
 import { dispatchToolWebhook } from "@/lib/assistant/tool-webhooks";
+import { undoSpecFor, targetIdFor, snapshotRow, buildChangeEntry } from "@/lib/assistant/undo";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { v4 as uuidv4 } from "uuid";
 import type { AgentContextPacket } from "@/lib/actions/agent-context";
+import type { AssistantChangeEntry } from "@/types/database";
 
 const anthropic = new Anthropic();
 
@@ -209,6 +213,14 @@ export async function POST(request: NextRequest) {
       // carries the full block history — the whole point of this route.
       const messages: Anthropic.MessageParam[] = [...body.messages];
 
+      // Reversible mutations this turn made, in order. Persisted with the
+      // assistant message so an Undo button can replay them backwards.
+      const changeLog: AssistantChangeEntry[] = [];
+
+      // Snapshots read through the admin client, same as the tools themselves —
+      // the caller was already authorised by role above.
+      const admin = createAdminClient();
+
       try {
         // Caching is a prefix match, so ordering is load-bearing. Render order
         // is tools -> system -> messages. The breakpoint sits on the *first*
@@ -296,10 +308,28 @@ export async function POST(request: NextRequest) {
           const results = await Promise.all(
             toolUses.map(async (block) => {
               const args = (block.input ?? {}) as Record<string, unknown>;
+
+              // Snapshot before the tool runs, so a destructive call is
+              // reversible. Nothing the old agent did was ever logged: it
+              // could hard-delete a customer with no record and no undo.
+              const spec = undoSpecFor(block.name);
+              const targetId = spec ? targetIdFor(spec, args) : null;
+              const before =
+                spec && targetId ? await snapshotRow(admin, spec.table, targetId, businessId) : null;
+
               const outcome = await invokeTool(block.name, args, invokeCtx);
 
               if (!outcome.isError) {
                 dispatchToolWebhook(block.name, businessId, args, outcome.text);
+
+                if (spec && targetId && before) {
+                  const after =
+                    spec.op === "update"
+                      ? await snapshotRow(admin, spec.table, targetId, businessId)
+                      : null;
+                  const entry = buildChangeEntry(block.name, spec, before, after, uuidv4());
+                  if (entry) changeLog.push(entry);
+                }
               }
 
               send({
@@ -332,14 +362,14 @@ export async function POST(request: NextRequest) {
         }
 
         // The updated history is the payload that fixes cross-turn memory.
-        send({ type: "done", messages });
+        send({ type: "done", messages, changeLog });
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Something went wrong";
         console.error("[assistant]", msg);
         send({ type: "error", message: msg });
         // Still hand back history, so a mid-turn failure doesn't silently
         // desync the client's copy from what actually ran.
-        send({ type: "done", messages });
+        send({ type: "done", messages, changeLog });
       } finally {
         controller.close();
       }

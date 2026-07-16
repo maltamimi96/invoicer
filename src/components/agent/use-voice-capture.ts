@@ -20,6 +20,17 @@ export function useVoiceCapture(onText: (text: string) => void) {
   /** Live text-as-you-speak (Web Speech API only — Whisper is one-shot). */
   const [interimText,  setInterimText]  = useState<string>("");
 
+  /**
+   * Callbacks fire from recogniser events long after start(), so reading
+   * `onText` out of the closure captured the version that existed when
+   * recording began. Callers pass a useCallback whose identity changes every
+   * turn (it closes over the conversation), so a recording started mid-turn
+   * delivered its transcript to a stale handler — silently reverting the
+   * conversation to an earlier state. Always call through the ref.
+   */
+  const onTextRef = useRef(onText);
+  useEffect(() => { onTextRef.current = onText; }, [onText]);
+
   // Web Speech API instance
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const speechRef    = useRef<any>(null);
@@ -83,7 +94,7 @@ export function useVoiceCapture(onText: (text: string) => void) {
       setRecording(false);
       const out = finalText.trim();
       setInterimText("");
-      if (out) onText(out);
+      if (out) onTextRef.current(out);
     };
 
     try {
@@ -97,7 +108,7 @@ export function useVoiceCapture(onText: (text: string) => void) {
     } catch {
       return false;
     }
-  }, [onText]);
+  }, []);
 
   const stopSpeech = useCallback(() => {
     if (speechRef.current && speechActive.current) {
@@ -140,7 +151,7 @@ export function useVoiceCapture(onText: (text: string) => void) {
             throw new Error(j.error ?? "Transcription failed");
           }
           const { text } = await res.json();
-          if (text?.trim()) onText(text.trim());
+          if (text?.trim()) onTextRef.current(text.trim());
         } catch (err) {
           setError(err instanceof Error ? err.message : "Transcription failed");
         } finally {
@@ -155,7 +166,7 @@ export function useVoiceCapture(onText: (text: string) => void) {
       setError("Microphone access denied");
       cleanupMR();
     }
-  }, [cleanupMR, onText]);
+  }, [cleanupMR]);
 
   const stopMR = useCallback(() => {
     setRecording(false);

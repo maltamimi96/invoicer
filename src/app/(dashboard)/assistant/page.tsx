@@ -1,7 +1,27 @@
 import { Sparkles } from "@/components/ui/icons";
-import { BriefingWidget } from "@/components/briefing/briefing-widget";
+import { AssistantChat } from "@/components/assistant/assistant-chat";
+import { listAssistantConversations } from "@/lib/actions/assistant";
+import type { AssistantConversation } from "@/types/database";
 
-export default function AssistantPage() {
+/**
+ * The assistant's home. This page used to render a briefing widget and nothing
+ * else — the only actual chat was a 400px floating panel. The briefing moved to
+ * the dashboard's own widgets; this is now a real chat surface.
+ */
+export default async function AssistantPage() {
+  let conversations: AssistantConversation[] = [];
+  let denied = false;
+
+  try {
+    conversations = await listAssistantConversations();
+  } catch {
+    // Workers are denied the assistant outright (see lib/assistant/scopes) —
+    // their tools bypass RLS, which is the layer that isolates them. Anything
+    // else that throws here is treated the same way: no chat rather than a
+    // broken one.
+    denied = true;
+  }
+
   return (
     <div>
       <div className="ch-page-header">
@@ -11,16 +31,19 @@ export default function AssistantPage() {
             Your AI assistant
           </h1>
           <p className="ch-page-subtitle">
-            What needs your attention right now — overdue invoices, stale quotes, new leads, and jobs to close out.
+            Ask anything about your business, or tell me what to do — I can run quotes, invoices,
+            jobs, customers and more.
           </p>
         </div>
       </div>
 
-      <BriefingWidget />
-
-      <p className="text-[11px] text-muted-foreground/70 mt-4">
-        Items refresh from your live data every time you open this page. Snooze to hide for 24h, dismiss to hide until something changes.
-      </p>
+      {denied ? (
+        <div className="ch-empty">
+          <p>The assistant isn&apos;t available for your access level.</p>
+        </div>
+      ) : (
+        <AssistantChat initialConversations={conversations} />
+      )}
     </div>
   );
 }
