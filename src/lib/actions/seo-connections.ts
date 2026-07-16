@@ -16,8 +16,10 @@ import { encryptSecret, encryptionAvailable } from "@/lib/crypto";
 import { testConnection } from "@/lib/seo/publish";
 import { CONNECTORS_BY_ID, secretFieldKeys, type ConnectionView } from "@/lib/seo/connectors";
 import {
-  githubAppConfigured, installUrl, signState, verifyState, listInstallationRepos,
+  githubAppConfigured, installUrl, listInstallationRepos,
 } from "@/lib/seo/github-app";
+import { signState, verifyState } from "@/lib/seo/connect-state";
+import { gscConfigured, gscAuthUrl, accessTokenFor, listProperties } from "@/lib/seo/gsc";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: any, name: string) => sb.from(name);
@@ -32,6 +34,7 @@ async function biz(): Promise<string> {
 function accountRef(provider: string, meta: Record<string, string>): string | null {
   switch (provider) {
     case "git-github": return meta.repo ?? null;
+    case "gsc": return meta.site_url ?? null;
     case "wordpress": return meta.site_url ?? null;
     case "sanity": return meta.project_id ? `${meta.project_id}/${meta.dataset ?? ""}` : null;
     case "payload": return meta.base_url ?? null;
@@ -201,4 +204,117 @@ export async function finalizeGithubConnection(input: {
   if (error) throw error;
   revalidatePath(`/seo/${state.s}`);
   return { site_id: state.s };
+}
+
+// ── Google Search Console (OAuth) ────────────────────────────────────────────
+// Unlike GitHub (App-minted tokens), GSC gives us a refresh token we must
+// persist — so this path DOES need APP_ENCRYPTION_KEY. Connecting stays
+// web-UI-only: no MCP tool, and the token never reaches the client.
+
+/** True when the server has a Google OAuth client configured. */
+export async function isGscConfigured(): Promise<boolean> {
+  return gscConfigured();
+}
+
+export async function getGscConnectUrl(siteId: string): Promise<string> {
+  const supabase = await createClient();
+  const user = await getUser();
+  const businessId = await getActiveBizId(supabase, user.id);
+  const { data: site } = await tbl(supabase, "seo_sites")
+    .select("id").eq("id", siteId).eq("business_id", businessId).maybeSingle();
+  if (!site) throw new Error("Site not found");
+  if (!gscConfigured()) throw new Error("Google Search Console isn't set up on this server yet.");
+  // Fail loudly here rather than after the user has consented at Google.
+  if (!encryptionAvailable()) throw new Error("Credential storage needs APP_ENCRYPTION_KEY set on the server.");
+  return gscAuthUrl(signState({ u: user.id, s: siteId }));
+}
+
+/** Properties on the just-connected Google account (for the picker). The signed
+ *  state carries the refresh token, so a user can't enumerate someone else's. */
+export async function listGscProperties(token: string): Promise<{ siteUrl: string; permissionLevel: string }[]> {
+  const user = await getUser();
+  const state = verifyState(token);
+  if (!state || state.u !== user.id) throw new Error("This connect link has expired — start again.");
+  if (!state.i) throw new Error("Missing Google credentials");
+  return listProperties(await accessTokenFor(state.i));
+}
+
+/** Persist the chosen property + its refresh token (encrypted). */
+export async function finalizeGscConnection(input: { token: string; site_url: string }): Promise<{ site_id: string }> {
+  const businessId = await biz();
+  const user = await getUser();
+  const supabase = await createClient();
+
+  const state = verifyState(input.token);
+  if (!state || state.u !== user.id) throw new Error("This connect link has expired — start again.");
+  if (!state.i) throw new Error("Missing Google credentials");
+  if (!encryptionAvailable()) throw new Error("Credential storage needs APP_ENCRYPTION_KEY set on the server.");
+
+  // Only properties this Google account actually has — blocks a forged site_url.
+  const props = await listProperties(await accessTokenFor(state.i));
+  const chosen = props.find((p) => p.siteUrl === input.site_url);
+  if (!chosen) throw new Error("That property isn't available on the connected Google account.");
+
+  const def = CONNECTORS_BY_ID["gsc"];
+  const meta: Record<string, string> = { site_url: chosen.siteUrl, permission_level: chosen.permissionLevel };
+
+  // One GSC connection per site — replace rather than stack duplicates.
+  await tbl(supabase, "seo_connections")
+    .delete().eq("business_id", businessId).eq("site_id", state.s).eq("provider", "gsc");
+
+  const { error } = await tbl(supabase, "seo_connections").insert({
+    business_id: businessId, site_id: state.s, provider: "gsc",
+    label: def?.name ?? "Google Search Console", meta,
+    status: "connected", account_ref: chosen.siteUrl,
+    connected_at: new Date().toISOString(),
+    secret: encryptSecret(JSON.stringify({ refresh_token: state.i })),
+  });
+  if (error) throw error;
+  revalidatePath(`/seo/${state.s}`);
+  return { site_id: state.s };
+}
+
+/** Top queries for the Search performance tab, from synced snapshots. */
+export async function getSearchPerformance(siteId: string, days = 28): Promise<{
+  rows: { keyword: string; position: number | null; clicks: number; impressions: number; ctr: number | null }[];
+  totals: { clicks: number; impressions: number; keywords: number };
+  lastSynced: string | null;
+}> {
+  const businessId = await biz();
+  const supabase = await createClient();
+  const since = new Date(Date.now() - days * 86400_000).toISOString().split("T")[0];
+  const { data } = await tbl(supabase, "seo_keyword_snapshots")
+    .select("keyword, position, clicks, impressions, ctr, captured_at")
+    .eq("business_id", businessId).eq("site_id", siteId).gte("captured_at", since)
+    .order("captured_at", { ascending: false }).limit(5000);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const all = (data ?? []) as any[];
+  // Latest snapshot per keyword = "where it stands now"; clicks/impressions sum
+  // across the window.
+  const byKeyword = new Map<string, { keyword: string; position: number | null; clicks: number; impressions: number; ctr: number | null }>();
+  for (const r of all) {
+    const k = String(r.keyword);
+    const hit = byKeyword.get(k);
+    if (!hit) {
+      byKeyword.set(k, {
+        keyword: k, position: r.position == null ? null : Number(r.position),
+        clicks: Number(r.clicks ?? 0), impressions: Number(r.impressions ?? 0),
+        ctr: r.ctr == null ? null : Number(r.ctr),
+      });
+    } else {
+      hit.clicks += Number(r.clicks ?? 0);
+      hit.impressions += Number(r.impressions ?? 0);
+    }
+  }
+  const rows = [...byKeyword.values()].sort((a, b) => b.clicks - a.clicks || b.impressions - a.impressions).slice(0, 200);
+  return {
+    rows,
+    totals: {
+      clicks: rows.reduce((s, r) => s + r.clicks, 0),
+      impressions: rows.reduce((s, r) => s + r.impressions, 0),
+      keywords: byKeyword.size,
+    },
+    lastSynced: all[0]?.captured_at ?? null,
+  };
 }

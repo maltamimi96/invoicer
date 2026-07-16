@@ -14,6 +14,7 @@ import { CONNECTORS, CONNECTORS_BY_ID, type ConnectorDef, type ConnectionView } 
 import {
   saveConnection, deleteConnection, testSeoConnection,
   getGithubConnectUrl, listGithubRepos, finalizeGithubConnection,
+  getGscConnectUrl, listGscProperties, finalizeGscConnection,
 } from "@/lib/actions/seo-connections";
 
 const selectCls = "h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring";
@@ -27,6 +28,14 @@ interface Props {
   githubStatus?: string | null;
   /** Signed state carrying the installation, when a repo still needs picking. */
   ghToken?: string | null;
+  /** Server has a Google OAuth client + encryption key configured. */
+  gscReady?: boolean;
+  /** Outcome of a Google round trip, from the callback's query string. */
+  gscStatus?: string | null;
+  /** Signed state carrying the Google credentials, when a property needs picking. */
+  gscToken?: string | null;
+  /** Best-guess property to pre-select in the picker. */
+  gscGuess?: string | null;
 }
 
 const GH_MESSAGES: Record<string, { ok: boolean; msg: string }> = {
@@ -39,7 +48,20 @@ const GH_MESSAGES: Record<string, { ok: boolean; msg: string }> = {
   unconfigured: { ok: false, msg: "The GitHub App isn't set up on this server yet" },
 };
 
-export function SeoConnections({ siteId, connections, githubAppReady, githubStatus, ghToken }: Props) {
+const GSC_MESSAGES: Record<string, { ok: boolean; msg: string }> = {
+  connected: { ok: true, msg: "Search Console connected" },
+  cancelled: { ok: false, msg: "Google connect was cancelled" },
+  expired: { ok: false, msg: "That connect link expired — try again" },
+  auth: { ok: false, msg: "Sign in again to finish connecting Google" },
+  site: { ok: false, msg: "That site isn't in the active business" },
+  noprops: { ok: false, msg: "That Google account has no Search Console properties" },
+  unconfigured: { ok: false, msg: "Search Console isn't set up on this server yet" },
+};
+
+export function SeoConnections({
+  siteId, connections, githubAppReady, githubStatus, ghToken,
+  gscReady, gscStatus, gscToken, gscGuess,
+}: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [editing, setEditing] = useState<{ def: ConnectorDef; conn?: ConnectionView } | null>(null);
@@ -124,6 +146,50 @@ export function SeoConnections({ siteId, connections, githubAppReady, githubStat
     });
   }
 
+  // ── Google Search Console (OAuth) ──────────────────────────────────────────
+  const [connectingGsc, setConnectingGsc] = useState(false);
+  const [gscPicker, setGscPicker] = useState<{ props: { siteUrl: string; permissionLevel: string }[]; siteUrl: string } | null>(null);
+  const gscHandled = useRef(false);
+
+  useEffect(() => {
+    if (!gscStatus || gscHandled.current) return;
+    gscHandled.current = true;
+    const known = GSC_MESSAGES[gscStatus];
+    if (known) (known.ok ? toast.success : toast.error)(known.msg);
+    else if (gscStatus === "error") toast.error("Search Console connect failed");
+
+    if (gscStatus === "pick" && gscToken) {
+      listGscProperties(gscToken)
+        .then((props) => setGscPicker({ props, siteUrl: gscGuess || props[0]?.siteUrl || "" }))
+        .catch((e) => toast.error(e instanceof Error ? e.message : "Couldn't list properties"));
+    } else {
+      router.replace(`/seo/${siteId}`, { scroll: false });
+      if (known?.ok) router.refresh();
+    }
+  }, [gscStatus, gscToken, gscGuess, router, siteId]);
+
+  function handleConnectGsc() {
+    setConnectingGsc(true);
+    getGscConnectUrl(siteId)
+      .then((url) => { window.location.href = url; })
+      .catch((e) => { toast.error(e instanceof Error ? e.message : "Couldn't start Google connect"); setConnectingGsc(false); });
+  }
+
+  function handlePickProperty() {
+    if (!gscPicker || !gscToken || !gscPicker.siteUrl) return;
+    startTransition(async () => {
+      try {
+        await finalizeGscConnection({ token: gscToken, site_url: gscPicker.siteUrl });
+        toast.success("Search Console connected");
+        setGscPicker(null);
+        router.replace(`/seo/${siteId}`, { scroll: false });
+        router.refresh();
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Couldn't connect that property");
+      }
+    });
+  }
+
   const [testingId, setTestingId] = useState<string | null>(null);
   function handleTest(conn: ConnectionView) {
     setTestingId(conn.id);
@@ -161,7 +227,8 @@ export function SeoConnections({ siteId, connections, githubAppReady, githubStat
                     )}
                     <div className="flex gap-2 mt-2">
                       <button onClick={() => handleTest(conn)} disabled={testingId === conn.id} className="text-xs text-muted-foreground hover:text-foreground underline">{testingId === conn.id ? "Testing…" : "Test"}</button>
-                      {def && <button onClick={() => openConnect(def, conn)} className="text-xs text-muted-foreground hover:text-foreground underline">Edit</button>}
+                      {/* OAuth connectors have no editable fields — reconnect instead. */}
+                      {def && def.auth === "token" && <button onClick={() => openConnect(def, conn)} className="text-xs text-muted-foreground hover:text-foreground underline">Edit</button>}
                       <button onClick={() => handleDelete(conn)} disabled={isPending} className="text-xs text-muted-foreground hover:text-destructive underline">Remove</button>
                     </div>
                   </div>
@@ -218,18 +285,34 @@ export function SeoConnections({ siteId, connections, githubAppReady, githubStat
       <section>
         <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">Data sources</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {data.map((def) => (
-            <div key={def.id} className="rounded-xl border border-border bg-card p-4 flex flex-col gap-3">
-              <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0"><Plug className="w-4.5 h-4.5 text-foreground/70" /></div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2"><p className="text-sm font-semibold">{def.name}</p><span className="text-[10px] font-medium text-muted-foreground bg-muted rounded-full px-1.5 py-0.5">OAuth soon</span></div>
-                  <p className="text-xs text-muted-foreground mt-0.5">{def.description}</p>
+          {data.map((def) => {
+            const isGsc = def.id === "gsc";
+            return (
+              <div key={def.id} className="rounded-xl border border-border bg-card p-4 flex flex-col gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0"><Plug className="w-4.5 h-4.5 text-foreground/70" /></div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold">{def.name}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{def.description}</p>
+                  </div>
                 </div>
+                {isGsc ? (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Button size="sm" className="text-xs h-7" onClick={handleConnectGsc} disabled={!gscReady || connectingGsc}>
+                      {connectingGsc ? "Opening Google…" : "Connect Google"}
+                    </Button>
+                    {!gscReady && (
+                      <p className="text-[11px] text-muted-foreground basis-full">
+                        Needs a Google OAuth client + APP_ENCRYPTION_KEY on the server.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div><Button size="sm" variant="outline" className="text-xs h-7" disabled>Coming soon</Button></div>
+                )}
               </div>
-              <div><Button size="sm" variant="outline" className="text-xs h-7" disabled>Needs Google setup</Button></div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 
@@ -256,6 +339,31 @@ export function SeoConnections({ siteId, connections, githubAppReady, githubStat
           <DialogFooter>
             <Button variant="ghost" onClick={() => { setPicker(null); router.replace(`/seo/${siteId}`, { scroll: false }); }} disabled={isPending}>Cancel</Button>
             <Button onClick={handlePickRepo} disabled={isPending || !picker?.repo}>Connect</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Property picker — when the Google account has several properties */}
+      <Dialog open={!!gscPicker} onOpenChange={(o) => { if (!o) { setGscPicker(null); router.replace(`/seo/${siteId}`, { scroll: false }); } }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Pick a Search Console property</DialogTitle></DialogHeader>
+          {gscPicker && (
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                That Google account has {gscPicker.props.length} properties. Choose the one for this site — domain
+                (<span className="ch-mono">sc-domain:</span>) and URL-prefix properties are different in Search Console.
+              </p>
+              <div className="space-y-1.5">
+                <Label htmlFor="gsc-prop">Property</Label>
+                <select id="gsc-prop" className={selectCls} value={gscPicker.siteUrl} onChange={(e) => setGscPicker((p) => p && { ...p, siteUrl: e.target.value })}>
+                  {gscPicker.props.map((p) => <option key={p.siteUrl} value={p.siteUrl}>{p.siteUrl}</option>)}
+                </select>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => { setGscPicker(null); router.replace(`/seo/${siteId}`, { scroll: false }); }} disabled={isPending}>Cancel</Button>
+            <Button onClick={handlePickProperty} disabled={isPending || !gscPicker?.siteUrl}>Connect</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
