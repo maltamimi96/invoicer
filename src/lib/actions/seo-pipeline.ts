@@ -194,6 +194,6 @@ export async function setSeoBudget(cents: number): Promise<void> {
   const v = Math.max(0, Math.round(cents));
   const { error } = await tbl(supabase, "businesses").update({ seo_monthly_budget_cents: v }).eq("id", businessId);
   if (error) throw error;
-  revalidatePath("/seo");
-  revalidatePath("/seo/content");
+  // The budget strip lives on /seo (business-wide) and the hubs show spend.
+  revalidatePath("/seo", "layout");
 }

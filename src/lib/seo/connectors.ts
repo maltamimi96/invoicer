@@ -30,6 +30,18 @@ export interface ConnectorDef {
   auth: "token" | "oauth";
   description: string;
   docsHint?: string;
+  /** Icon key resolved client-side by <ConnectorIcon>. A string, not a
+   *  component: this is a plain module imported by server actions, so a JSX
+   *  reference would drag the client boundary across it. Same pattern as the
+   *  plugin registry's `icon: "trending-up"` + the store's ICON_MAP. */
+  icon: string;
+  /** Connects by redirecting to the provider (GitHub App install, Google
+   *  OAuth) instead of a credential form. Drives the UI so one-click support
+   *  is data, not a hardcoded branch in the view. */
+  oneClick?: boolean;
+  /** An escape hatch rather than a named integration — sorted last, since
+   *  "Custom REST" shouldn't sit at the same weight as WordPress. */
+  advanced?: boolean;
   fields: ConnectorField[];
 }
 
@@ -39,6 +51,8 @@ export const CONNECTORS: ConnectorDef[] = [
     name: "Git (GitHub)",
     category: "publish",
     auth: "token",
+    icon: "github",
+    oneClick: true,
     description: "Commit approved articles as markdown into the site's repo (Astro, Hugo, Eleventy, Next content…).",
     docsHint: "Create a fine-grained token scoped to just this repo with Contents: read & write.",
     fields: [
@@ -55,6 +69,7 @@ export const CONNECTORS: ConnectorDef[] = [
     name: "WordPress",
     category: "publish",
     auth: "token",
+    icon: "wordpress",
     description: "Publish to a WordPress site via the REST API.",
     docsHint: "Users → Profile → Application Passwords creates the password.",
     fields: [
@@ -69,6 +84,7 @@ export const CONNECTORS: ConnectorDef[] = [
     name: "Sanity",
     category: "publish",
     auth: "token",
+    icon: "sanity",
     description: "Create documents in a Sanity dataset via the mutations API (Next.js + Sanity).",
     docsHint: "manage.sanity.io → API → Tokens (Editor/write).",
     fields: [
@@ -84,6 +100,7 @@ export const CONNECTORS: ConnectorDef[] = [
     name: "Payload CMS",
     category: "publish",
     auth: "token",
+    icon: "payload",
     description: "Create documents in a Payload collection via its REST API (Next.js + Payload).",
     docsHint: "Use an API key from a Payload user with create rights on the collection.",
     fields: [
@@ -97,6 +114,8 @@ export const CONNECTORS: ConnectorDef[] = [
     name: "Custom REST API",
     category: "publish",
     auth: "token",
+    icon: "rest",
+    advanced: true,
     description: "POST the article to any REST endpoint with a JSON body you map.",
     docsHint: "Use {{title}}, {{slug}}, {{description}}, {{html}}, {{markdown}}, {{keyword}} in the body template.",
     fields: [
@@ -112,6 +131,8 @@ export const CONNECTORS: ConnectorDef[] = [
     name: "Custom GraphQL",
     category: "publish",
     auth: "token",
+    icon: "graphql",
+    advanced: true,
     description: "Run a GraphQL mutation against any endpoint with variables you map.",
     docsHint: "Use {{title}}, {{slug}}, {{description}}, {{html}}, {{markdown}}, {{keyword}} in the variables template.",
     fields: [
@@ -127,6 +148,8 @@ export const CONNECTORS: ConnectorDef[] = [
     name: "Google Search Console",
     category: "data",
     auth: "oauth",
+    icon: "google",
+    oneClick: true,
     description: "Pull real keyword positions, clicks and impressions. Syncs nightly and fills the rankings table in client reports.",
     docsHint: "Sign in with the Google account that has access to the property — read-only, and we never see your password.",
     // No fields: this is a redirect-to-Google OAuth flow, not a form. The

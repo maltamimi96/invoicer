@@ -35,6 +35,8 @@ export {
   FileText,
   GitBranch,
   GithubLogo,
+  GoogleLogo,
+  Graph,
   Hammer,
   Info,
   Image,

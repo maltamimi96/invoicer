@@ -114,8 +114,9 @@ export function SeoContentDetail({ piece, connections }: Props) {
         }
         accent="linear-gradient(180deg, #10b981 0%, #047857 100%)"
         actions={
-          <Link href="/seo/content" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md border border-border px-3 py-1.5">
-            <ArrowLeft className="w-4 h-4" /> All content
+          // Back to the piece's OWN site hub — content lives per-site now.
+          <Link href={`/seo/${piece.site_id}?tab=content`} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md border border-border px-3 py-1.5">
+            <ArrowLeft className="w-4 h-4" /> {piece.seo_sites?.domain ?? "Back to site"}
           </Link>
         }
       />
