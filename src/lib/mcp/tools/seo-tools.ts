@@ -8,7 +8,7 @@ import { randomBytes } from "node:crypto";
 import { assertScope, t, text, errorText } from "../context";
 import { ctxFrom, appBase, UUID, type ToolFn } from "./shared";
 import { advanceContentJob, seoSpendStatus, runOpportunityScout, runSiteAudit } from "@/lib/seo/engine";
-import { publishContent, testConnection } from "@/lib/seo/publish";
+import { publishContent, testConnection, unpublishContent } from "@/lib/seo/publish";
 import { assembleReport } from "@/lib/seo/report";
 import { deliverSeoReport } from "@/lib/seo/deliver";
 
@@ -227,6 +227,28 @@ export function registerSeoTools(tool: ToolFn): void {
       const { error } = await t(ctx, "seo_connections").delete().eq("id", args.connection_id).eq("business_id", ctx.businessId);
       if (error) throw error;
       return text({ deleted: true });
+    });
+
+  tool("delete_content_piece", "Delete a content piece. By default it only leaves Kirei — the published article stays live on the client's site. Pass unpublish:true to ALSO remove it from where it was published (deletes the repo file / CMS post). Destructive: only unpublish when the user has clearly asked to take the live page down.",
+    { piece_id: UUID, unpublish: z.boolean().optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "seo:write");
+      const { data: piece } = await t(ctx, "seo_content_pieces")
+        .select("id, title, status, published_ref, published_connection_id")
+        .eq("id", args.piece_id).eq("business_id", ctx.businessId).maybeSingle();
+      if (!piece) return errorText("Content piece not found");
+
+      if (args.unpublish) {
+        try {
+          await unpublishContent(ctx.sb, ctx.businessId, args.piece_id);
+        } catch (e) {
+          // Don't delete our only record of a page we failed to take down.
+          return errorText(`Couldn't unpublish — nothing deleted. ${e instanceof Error ? e.message : ""}`);
+        }
+      }
+      const { error } = await t(ctx, "seo_content_pieces").delete().eq("id", args.piece_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ deleted: true, unpublished: !!args.unpublish, title: piece.title });
     });
 
   tool("get_search_performance", "Google Search Console performance for a site — top queries with position, clicks, impressions and CTR, from the nightly sync. Needs a connected 'gsc' connection (connect it in the web UI).",

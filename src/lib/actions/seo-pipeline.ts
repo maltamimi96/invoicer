@@ -14,7 +14,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveBizId } from "@/lib/active-business";
 import { getUser } from "@/lib/auth";
 import { advanceContentJob, seoSpendStatus, runOpportunityScout, type ContentType } from "@/lib/seo/engine";
-import { publishContent } from "@/lib/seo/publish";
+import { publishContent, unpublishContent, unpublishSupport } from "@/lib/seo/publish";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: any, name: string) => sb.from(name);
@@ -115,6 +115,49 @@ export async function publishContentPiece(pieceId: string, connectionId: string)
   const res = await publishContent(admin, { businessId, pieceId, connectionId });
   revalidatePath(`/seo/content/${pieceId}`);
   return res;
+}
+
+/**
+ * Delete a content piece. `unpublish` also removes it from the provider it was
+ * published to (a git commit deleting the file, a WP post delete…). That's
+ * destructive to the client's LIVE site, so it's opt-in per call and never the
+ * default — and if the unpublish fails we abort rather than orphan a live page
+ * with no record of it in Kirei.
+ */
+export async function deleteContentPiece(
+  pieceId: string,
+  opts?: { unpublish?: boolean; connection_id?: string },
+): Promise<void> {
+  const businessId = await biz();
+  const admin = createAdminClient();
+  const { data: piece } = await tbl(admin, "seo_content_pieces")
+    .select("id, site_id").eq("id", pieceId).eq("business_id", businessId).maybeSingle();
+  if (!piece) throw new Error("Content piece not found");
+
+  if (opts?.unpublish) {
+    // Deliberately NOT caught: if we can't remove the live article, don't
+    // silently delete our only record of it.
+    await unpublishContent(admin, businessId, pieceId, opts.connection_id);
+  }
+
+  const { error } = await tbl(admin, "seo_content_pieces").delete().eq("id", pieceId).eq("business_id", businessId);
+  if (error) throw error;
+  revalidatePath(`/seo/${piece.site_id}`);
+}
+
+/** Whether a piece can be removed from its provider, for the delete dialog. */
+export async function getUnpublishSupport(pieceId: string): Promise<{ ok: boolean; reason?: string; provider?: string }> {
+  const businessId = await biz();
+  const admin = createAdminClient();
+  const { data: piece } = await tbl(admin, "seo_content_pieces")
+    .select("id, status, published_ref, published_connection_id").eq("id", pieceId).eq("business_id", businessId).maybeSingle();
+  if (!piece) return { ok: false, reason: "Not found" };
+  if (piece.status !== "published") return { ok: false, reason: "Not published yet" };
+  const { data: conn } = piece.published_connection_id
+    ? await tbl(admin, "seo_connections").select("id, provider").eq("id", piece.published_connection_id).eq("business_id", businessId).maybeSingle()
+    : { data: null };
+  const res = unpublishSupport(piece, conn);
+  return { ...res, provider: conn?.provider };
 }
 
 /** Agent activity events for a site (chronological) — powers the terminal. */
