@@ -260,6 +260,37 @@ The `customer_portal_tokens` table has `business_id`, `customer_id`, `expires_at
 
 `leads.identity_key` is a stored generated column from `lead_identity_key(email, phone, name, address)`. Unique index on `(business_id, identity_key)` makes the database physically refuse duplicates. The `upsert_lead(...)` SQL function is the single ingest entry point — `createLead`, `/api/v1/leads`, and the email-leads cron all call it. It computes the key, finds an existing match, and either inserts or merges (filling nulls, never overwriting user edits, appending the new source).
 
+### The assistant (`/assistant` + `/api/assistant`)
+
+Rebuilt July 2026. The old `/api/agent` had 79 hand-written tools, a fake
+stream, and a client that threw the agent's memory away every turn.
+
+- **One tool surface.** `registerTools` (`src/lib/mcp/register-tools.ts`) takes a
+  `ToolFn`, not a server. `/api/mcp` adapts onto the real MCP server;
+  `src/lib/mcp/collect.ts` collects the same ~199 tools as plain data for the
+  assistant. **Adding a tool to MCP adds it to the assistant for free** — don't
+  write a second copy.
+- **`invoke.ts` validates args.** `server.tool()` validates against the zod
+  shape before dispatch; nothing else does. Skip it and handlers get raw model
+  output.
+- **The wire format is `Anthropic.MessageParam[]`, blocks preserved.** Same
+  contract as the mobile agent. Flattening it to text is the original bug —
+  tool blocks are the agent's cross-turn memory. `assistant_messages.content` is
+  JSONB for the same reason.
+- **🔴 The tools run as service-role and bypass RLS.** Everywhere else RLS is the
+  only gate; here the gate is `src/lib/assistant/scopes.ts`. Scopes derive from
+  the role — never a blanket `admin` — and **workers are denied outright**,
+  because their isolation is enforced by exactly the RLS the admin client steps
+  around.
+- **MCP tools don't fire `dispatchWebhook`** (`lib/actions` do). The bridge is
+  `src/lib/assistant/tool-webhooks.ts` — one place, not ~200 tools.
+- **Prompt caching ordering is load-bearing.** Breakpoint on the *first* system
+  block (caches tools+system); the volatile snapshot goes in a *second* block
+  after it. Put volatile content first and you invalidate the cache every turn.
+- **Undo** (`src/lib/assistant/undo.ts`) is a deliberate allow-list reusing
+  `cleanup_runs`' change_log shape. No creates (that's a delete in disguise), no
+  sends/charges (irreversible). Model ids live in `src/lib/ai/models.ts`.
+
 ### Performance & caching
 
 The big perf overhaul landed in May 2026 — context for anyone tempted to revert it:
@@ -304,6 +335,7 @@ Code is gated by CI + previews, but there is **one Supabase project** (`huwlasrv
 ## Known traps (each cost a production fire to learn)
 
 - **Don't `.catch()` on a Supabase query builder** — `PostgrestFilterBuilder` is thenable but doesn't expose `.catch()`. Use `try/catch` around `await`. Crashed `/dashboard` once (PR #178).
+- **Never interpolate user input into `.or()`** — PostgREST's `or` grammar uses `,` to separate conditions and `.` to separate column/operator/value, so `` .or(`name.ilike.%${q}%,…`) `` shatters the moment the term contains one. A customer named `Smith, John` — an ordinary name, not an attack — 400'd the query; callers destructured `{ data }` and ignored `error`, so it surfaced as "0 customers found" and the agent **created a duplicate**. Use `ilikeAcross()` from `src/lib/pg-filter.ts` (double-quotes the value) and **always check `error`, not just `data`** (PR #398, 17 sites).
 - **Empty strings to UUID columns** — always coerce. The new-WO crash (PR #172) was a worker name being passed into the `assigned_to` UUID column producing `22P02 invalid_text_representation`.
 - **PostgREST returns numeric as string** — `total - amount_paid` produces NaN unless coerced through `Number()`. Bit the invoice email template (PR #196).
 - **`useState(initial)` doesn't sync when props change** — switching businesses left the previous biz's rows visible. Fix: `<div key={business.id}>` in `dashboard-shell.tsx`, or `useEffect(() => setX(initial), [initial])` in the component. Already done in `AppearanceProvider`.
