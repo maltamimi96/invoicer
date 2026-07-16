@@ -1,11 +1,12 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { randomBytes } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { getUser } from "@/lib/auth";
 import { appUrl } from "@/lib/app-url";
+import { pluginFlagsTag } from "@/lib/layout-data";
 import { sendEmail, buildBusinessFrom } from "@/lib/email";
 import { redactSecureAnswers } from "@/lib/onboarding/answers";
 import { decryptSecret, isEncryptedAnswer, secureFieldsAvailable } from "@/lib/onboarding/crypto";
@@ -51,6 +52,7 @@ export async function setOnboardingEnabled(enabled: boolean): Promise<void> {
       { onConflict: "business_id,agent_id" },
     );
   } catch { /* non-fatal */ }
+  revalidateTag(pluginFlagsTag(businessId), "max"); // layout's cached feature flags
   revalidatePath("/onboarding-forms");
   revalidatePath("/agents");
   revalidatePath("/", "layout"); // sidebar flag
