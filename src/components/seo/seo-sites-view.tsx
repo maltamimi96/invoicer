@@ -18,12 +18,17 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { createSeoSite, deleteSeoSite } from "@/lib/actions/seo";
+import { setSeoBudget } from "@/lib/actions/seo-pipeline";
 import type { SeoSite, SeoPlatform, SeoPlaybook } from "@/types/database";
 
 interface Props {
   sites: SeoSite[];
   customers: { id: string; name: string }[];
+  /** Business-wide AI spend/budget — the editor moved here from /seo/content. */
+  budget: { spentCents: number; budgetCents: number; ok: boolean };
 }
+
+const money = (c: number) => `$${(c / 100).toFixed(2)}`;
 
 const PLATFORM_LABEL: Record<SeoPlatform, string> = {
   wordpress: "WordPress", shopify: "Shopify", other: "Other",
@@ -35,10 +40,25 @@ const PLAYBOOK_LABEL: Record<SeoPlaybook, string> = {
 const selectCls =
   "h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring";
 
-export function SeoSitesView({ sites, customers }: Props) {
+export function SeoSitesView({ sites, customers, budget }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [addOpen, setAddOpen] = useState(false);
+  const [budgetOpen, setBudgetOpen] = useState(false);
+  const [budgetDollars, setBudgetDollars] = useState(String((budget.budgetCents / 100) || 0));
+
+  function handleSaveBudget() {
+    startTransition(async () => {
+      try {
+        await setSeoBudget(Math.round(parseFloat(budgetDollars || "0") * 100));
+        toast.success("Budget updated");
+        setBudgetOpen(false);
+        router.refresh();
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Couldn't save budget");
+      }
+    });
+  }
   const [deleteTarget, setDeleteTarget] = useState<SeoSite | null>(null);
 
   // add-form state
@@ -96,31 +116,37 @@ export function SeoSitesView({ sites, customers }: Props) {
         subtitle="Client sites you manage — connectors, opportunities and content pipeline"
         accent="linear-gradient(180deg, #10b981 0%, #047857 100%)"
         actions={
-          <>
-            <Link
-              href="/seo/content"
-              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md border border-border px-3 py-1.5"
-            >
-              <FileText className="w-4 h-4" /> Content
-            </Link>
-            <Link
-              href="/seo/audits"
-              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md border border-border px-3 py-1.5"
-            >
-              <Search className="w-4 h-4" /> Audit tool
-            </Link>
-            <Link
-              href="/seo/pipeline"
-              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md border border-border px-3 py-1.5"
-            >
-              <Workflow className="w-4 h-4" /> Pipeline
-            </Link>
-            <Button onClick={() => setAddOpen(true)} disabled={isPending}>
-              <Plus className="w-4 h-4 mr-1.5" /> Add site
-            </Button>
-          </>
+          // One primary action. The lead-gen audit tool and the pipeline docs
+          // are secondary — they used to sit here as equal-weight peers next to
+          // a duplicate content list, which is what made this page feel like a
+          // pile of links rather than "your client sites".
+          <Button onClick={() => setAddOpen(true)} disabled={isPending}>
+            <Plus className="w-4 h-4 mr-1.5" /> Add site
+          </Button>
         }
       />
+
+      {/* Budget: business-wide, so it belongs on the business-wide page (it
+          used to live on /seo/content, which no longer exists). */}
+      <div className="flex items-center justify-between gap-3 flex-wrap rounded-xl border border-border bg-card px-4 py-2.5 mb-5">
+        <div className="text-sm">
+          <span className="text-muted-foreground">AI spend this month: </span>
+          <span className="font-semibold">{money(budget.spentCents)}</span>
+          <span className="text-muted-foreground"> of {budget.budgetCents === 0 ? "unlimited" : money(budget.budgetCents)}</span>
+          {!budget.ok && <span className="ml-2 text-[11px] font-medium text-amber-700 bg-amber-100 rounded-full px-2 py-0.5">budget reached</span>}
+        </div>
+        <div className="flex items-center gap-3">
+          <button onClick={() => setBudgetOpen(true)} className="text-xs text-muted-foreground hover:text-foreground underline">
+            Set budget
+          </button>
+          <Link href="/seo/audits" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+            <Search className="w-3.5 h-3.5" /> Audit tool
+          </Link>
+          <Link href="/seo/pipeline" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+            <Workflow className="w-3.5 h-3.5" /> How it works
+          </Link>
+        </div>
+      </div>
 
       {sites.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card/50 p-12 text-center">
@@ -241,6 +267,22 @@ export function SeoSitesView({ sites, customers }: Props) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Budget editor — relocated from the removed /seo/content page. */}
+      <Dialog open={budgetOpen} onOpenChange={setBudgetOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Monthly SEO budget</DialogTitle></DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="s-budget">Cap ($ per month, 0 = unlimited)</Label>
+            <Input id="s-budget" type="number" min={0} value={budgetDollars} onChange={(e) => setBudgetDollars(e.target.value)} />
+            <p className="text-xs text-muted-foreground">Applies across every client site. The agents stop running once the month&apos;s spend reaches this. Currently spent {money(budget.spentCents)}.</p>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setBudgetOpen(false)} disabled={isPending}>Cancel</Button>
+            <Button onClick={handleSaveBudget} disabled={isPending}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

@@ -4,11 +4,17 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ArrowLeft, Check, ChevronDown, ChevronRight, Play } from "@/components/ui/icons";
+import { ArrowLeft, Check, ChevronDown, ChevronRight, Play, Trash2 } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/page-header";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { advanceContentPipeline, approveContentPiece, publishContentPiece } from "@/lib/actions/seo-pipeline";
+import {
+  advanceContentPipeline, approveContentPiece, publishContentPiece,
+  deleteContentPiece, getUnpublishSupport,
+} from "@/lib/actions/seo-pipeline";
 import { executableSteps, SEO_AGENTS_BY_ID, SEO_ARTIFACTS } from "@/lib/seo/pipeline";
 import type { ConnectionView } from "@/lib/seo/connectors";
 import type { SeoContentPiece, SeoContentType } from "@/types/database";
@@ -34,6 +40,36 @@ export function SeoContentDetail({ piece, connections }: Props) {
   const [open, setOpen] = useState<string | null>(null);
   const publishable = connections.filter((c) => c.provider !== "gsc");
   const [connId, setConnId] = useState(publishable[0]?.id ?? "");
+
+  // Delete. Two distinct outcomes, so the dialog asks rather than assuming:
+  // leave the live article alone, or take it down too.
+  const [delOpen, setDelOpen] = useState(false);
+  const [unpub, setUnpub] = useState<{ ok: boolean; reason?: string; provider?: string } | null>(null);
+  const isPublished = piece.status === "published";
+
+  function openDelete() {
+    setDelOpen(true);
+    setUnpub(null);
+    if (isPublished) {
+      getUnpublishSupport(piece.id)
+        .then(setUnpub)
+        .catch(() => setUnpub({ ok: false, reason: "Couldn't check the connection." }));
+    }
+  }
+
+  function handleDelete(alsoUnpublish: boolean) {
+    startTransition(async () => {
+      try {
+        await deleteContentPiece(piece.id, { unpublish: alsoUnpublish });
+        toast.success(alsoUnpublish ? "Deleted and removed from the site" : "Deleted from Kirei");
+        setDelOpen(false);
+        router.push(`/seo/${piece.site_id}?tab=content`);
+      } catch (e) {
+        // An unpublish failure means nothing was deleted — say so.
+        toast.error(e instanceof Error ? e.message : "Couldn't delete");
+      }
+    });
+  }
 
   function handlePublish() {
     if (!connId) { toast.error("Connect a gateway first"); return; }
@@ -114,9 +150,15 @@ export function SeoContentDetail({ piece, connections }: Props) {
         }
         accent="linear-gradient(180deg, #10b981 0%, #047857 100%)"
         actions={
-          <Link href="/seo/content" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md border border-border px-3 py-1.5">
-            <ArrowLeft className="w-4 h-4" /> All content
-          </Link>
+          <>
+            <button onClick={openDelete} disabled={isPending} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-destructive rounded-md border border-border px-3 py-1.5">
+              <Trash2 className="w-4 h-4" /> Delete
+            </button>
+            {/* Back to the piece's OWN site hub — content lives per-site now. */}
+            <Link href={`/seo/${piece.site_id}?tab=content`} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md border border-border px-3 py-1.5">
+              <ArrowLeft className="w-4 h-4" /> {piece.seo_sites?.domain ?? "Back to site"}
+            </Link>
+          </>
         }
       />
 
@@ -208,6 +250,56 @@ export function SeoContentDetail({ piece, connections }: Props) {
           );
         })}
       </div>
+
+      {/* Delete. Two outcomes, so we ask rather than pick for you. */}
+      <Dialog open={delOpen} onOpenChange={(o) => !o && setDelOpen(false)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Delete &ldquo;{piece.title}&rdquo;?</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            {isPublished ? (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  This piece is <span className="font-medium text-foreground">published</span>. Choose what happens to the live article.
+                </p>
+                <div className="rounded-lg border border-border p-3 space-y-1">
+                  <p className="text-sm font-semibold">Remove from Kirei only</p>
+                  <p className="text-xs text-muted-foreground">The article stays live on the client&apos;s site. You&apos;d take it down there yourself.</p>
+                </div>
+                <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 space-y-1">
+                  <p className="text-sm font-semibold text-destructive">Remove from Kirei and unpublish</p>
+                  <p className="text-xs text-muted-foreground">
+                    {unpub === null
+                      ? "Checking whether the live article can be removed…"
+                      : unpub.ok
+                        ? `Deletes the live article from ${unpub.provider === "git-github" ? "the repo (a commit removing the file)" : unpub.provider}. This affects the client's real site.`
+                        : unpub.reason}
+                  </p>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                This piece was never published, so nothing is live. It&apos;ll be removed from the pipeline.
+              </p>
+            )}
+          </div>
+          <DialogFooter className="flex-wrap gap-2">
+            <Button variant="ghost" onClick={() => setDelOpen(false)} disabled={isPending}>Cancel</Button>
+            <Button variant="outline" onClick={() => handleDelete(false)} disabled={isPending}>
+              {isPublished ? "Remove from Kirei only" : "Delete"}
+            </Button>
+            {isPublished && (
+              <Button
+                className="bg-destructive hover:bg-destructive/90 text-white"
+                onClick={() => handleDelete(true)}
+                disabled={isPending || !unpub?.ok}
+                title={unpub?.ok ? undefined : unpub?.reason}
+              >
+                Delete and unpublish
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

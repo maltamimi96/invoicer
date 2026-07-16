@@ -105,7 +105,125 @@ async function publishGitHub(meta: Meta, secrets: Secrets, a: Article): Promise<
   });
   if (!res.ok) throw new Error(`GitHub ${res.status}: ${(await res.text()).slice(0, 300)}`);
   const j = await res.json();
-  return { url: j.content?.html_url ?? null };
+  // ref = the repo path, so an unpublish can find the file again.
+  return { url: j.content?.html_url ?? null, ref: path };
+}
+
+/** The repo path a piece would have been committed to. Deterministic, so we can
+ *  unpublish pieces that predate `published_ref` being recorded. */
+function githubPathFor(meta: Meta, slug: string): string {
+  const ext = meta.extension || "md";
+  return `${(meta.content_path || "").replace(/\/+$/, "")}/${slug}.${ext}`.replace(/^\/+/, "");
+}
+
+// ── Unpublish adapters ───────────────────────────────────────────────────────
+// Reverses a publish where the provider allows it. `ref` is the provider-side
+// handle recorded at publish time (repo path / post id / document id).
+
+async function unpublishGitHub(meta: Meta, secrets: Secrets, ref: string): Promise<void> {
+  const [owner, repo] = (meta.repo ?? "").split("/");
+  if (!owner || !repo) throw new Error("Repository must be owner/repo");
+  const branch = meta.branch || "main";
+  const bearer = await githubBearer(meta, secrets);
+  const api = `https://api.github.com/repos/${owner}/${repo}/contents/${ref.split("/").map(encodeURIComponent).join("/")}`;
+  const headers = {
+    Authorization: `Bearer ${bearer}`,
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+    "User-Agent": "Kirei-SEO",
+    "Content-Type": "application/json",
+  };
+  // Need the current sha to delete.
+  const head = await fetch(`${api}?ref=${encodeURIComponent(branch)}`, { headers });
+  if (head.status === 404) return; // already gone — deleting is idempotent
+  if (!head.ok) throw new Error(`GitHub ${head.status}: couldn't read the file to remove it.`);
+  const { sha } = await head.json();
+  const res = await fetch(api, {
+    method: "DELETE", headers,
+    body: JSON.stringify({ message: `Remove ${ref.split("/").pop()}`, sha, branch }),
+  });
+  if (!res.ok) throw new Error(`GitHub ${res.status}: ${(await res.text()).slice(0, 200)}`);
+}
+
+async function unpublishWordPress(meta: Meta, secrets: Secrets, ref: string): Promise<void> {
+  const base = (meta.site_url ?? "").replace(/\/+$/, "");
+  const auth = Buffer.from(`${meta.username}:${secrets.app_password}`).toString("base64");
+  // force=true → straight to permanent delete rather than the trash.
+  const res = await fetch(`${base}/wp-json/wp/v2/posts/${encodeURIComponent(ref)}?force=true`, {
+    method: "DELETE", headers: { Authorization: `Basic ${auth}` },
+  });
+  if (res.status === 404) return;
+  if (!res.ok) throw new Error(`WordPress ${res.status}: ${(await res.text()).slice(0, 200)}`);
+}
+
+async function unpublishSanity(meta: Meta, secrets: Secrets, ref: string): Promise<void> {
+  // ref is "project/dataset:id" (as publishSanity recorded it) or a bare id.
+  const id = ref.includes(":") ? ref.split(":").pop()! : ref;
+  const api = `https://${meta.project_id}.api.sanity.io/v${meta.api_version || "2024-01-01"}/data/mutate/${meta.dataset || "production"}`;
+  const res = await fetch(api, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${secrets.token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ mutations: [{ delete: { id } }] }),
+  });
+  if (!res.ok) throw new Error(`Sanity ${res.status}: ${(await res.text()).slice(0, 200)}`);
+}
+
+async function unpublishPayload(meta: Meta, secrets: Secrets, ref: string): Promise<void> {
+  const base = (meta.base_url ?? "").replace(/\/+$/, "");
+  const res = await fetch(`${base}/${meta.collection}/${encodeURIComponent(ref)}`, {
+    method: "DELETE", headers: { Authorization: `users API-Key ${secrets.api_key}` },
+  });
+  if (res.status === 404) return;
+  if (!res.ok) throw new Error(`Payload ${res.status}: ${(await res.text()).slice(0, 200)}`);
+}
+
+const UNPUBLISHERS: Record<string, (m: Meta, s: Secrets, ref: string) => Promise<void>> = {
+  "git-github": unpublishGitHub,
+  wordpress: unpublishWordPress,
+  sanity: unpublishSanity,
+  payload: unpublishPayload,
+  // rest/graphql are user-defined one-way calls — we have no idea what "delete"
+  // means against an arbitrary endpoint, so we don't guess.
+};
+
+/** Can this piece be removed from the provider, and if not, why not? */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function unpublishSupport(piece: any, conn: any): { ok: boolean; reason?: string } {
+  if (!conn) return { ok: false, reason: "The connection it was published through is gone — remove it on the site." };
+  if (!UNPUBLISHERS[conn.provider]) return { ok: false, reason: `${conn.provider} can't be unpublished automatically — remove it on the site.` };
+  // GitHub's path is derivable, so legacy pieces are still fine.
+  if (!piece.published_ref && conn.provider !== "git-github") {
+    return { ok: false, reason: "This was published before Kirei tracked where — remove it on the site." };
+  }
+  return { ok: true };
+}
+
+/** Remove a published piece from its provider. Throws on failure so the caller
+ *  can decide whether to still delete the Kirei record. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function unpublishContent(sb: any, businessId: string, pieceId: string, connectionId?: string): Promise<void> {
+  const { data: piece } = await sb.from("seo_content_pieces").select("*").eq("id", pieceId).eq("business_id", businessId).maybeSingle();
+  if (!piece) throw new Error("Content piece not found");
+
+  const connId = connectionId ?? piece.published_connection_id;
+  if (!connId) throw new Error("No connection recorded for this publish — remove it on the site.");
+  const { data: conn } = await sb.from("seo_connections").select("id, provider, meta, secret").eq("id", connId).eq("business_id", businessId).maybeSingle();
+
+  const support = unpublishSupport(piece, conn);
+  if (!support.ok) throw new Error(support.reason ?? "Can't unpublish this.");
+
+  let secrets: Secrets = {};
+  if (conn.secret) { try { secrets = JSON.parse(decryptSecret(conn.secret)); } catch { throw new Error("Could not read the connection credentials (encryption key changed?)"); } }
+  const meta: Meta = conn.meta ?? {};
+
+  const title = piece.title || piece.topic || "Untitled";
+  const ref = piece.published_ref || githubPathFor(meta, slugify(title));
+  await UNPUBLISHERS[conn.provider](meta, secrets, ref);
+
+  await sb.from("seo_job_events").insert({
+    business_id: businessId, site_id: piece.site_id, level: "info",
+    message: `Unpublished "${title}" from ${CONNECTORS_BY_ID[conn.provider]?.name ?? conn.provider}`,
+  });
 }
 
 async function publishWordPress(meta: Meta, secrets: Secrets, a: Article): Promise<PublishResult> {
@@ -274,7 +392,14 @@ export async function publishContent(sb: any, args: { businessId: string; pieceI
 
   try {
     const result = await adapter(conn.meta ?? {}, secrets, article);
-    await sb.from("seo_content_pieces").update({ status: "published", pipeline_status: "done", published_url: result.url ?? result.ref ?? null }).eq("id", args.pieceId);
+    // Record WHERE it went, not just a human link — an unpublish later needs
+    // the connection + the provider-side handle.
+    await sb.from("seo_content_pieces").update({
+      status: "published", pipeline_status: "done",
+      published_url: result.url ?? result.ref ?? null,
+      published_connection_id: args.connectionId,
+      published_ref: result.ref ?? null,
+    }).eq("id", args.pieceId);
     await sb.from("seo_job_events").insert({ business_id: args.businessId, site_id: piece.site_id, level: "success", message: `Published "${title}" → ${def?.name ?? conn.provider}${result.url ? ` · ${result.url}` : ""}` });
     return result;
   } catch (e) {

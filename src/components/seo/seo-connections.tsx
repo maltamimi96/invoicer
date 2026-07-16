@@ -3,7 +3,8 @@
 import { useState, useTransition, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plug, Check, GithubLogo } from "@/components/ui/icons";
+import { Check, GithubLogo } from "@/components/ui/icons";
+import { ConnectorIcon } from "@/components/seo/connector-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -199,21 +200,85 @@ export function SeoConnections({
       .finally(() => setTestingId(null));
   }
 
-  const publish = CONNECTORS.filter((c) => c.auth === "token");
-  const data = CONNECTORS.filter((c) => c.auth === "oauth");
+  // Don't re-offer what's already wired up — a connected gateway used to show
+  // in "Connected" AND still render a live Connect button below it.
+  const connectedProviders = new Set(connections.map((c) => c.provider));
+  const available = CONNECTORS
+    .filter((c) => !connectedProviders.has(c.id))
+    // Named integrations first; Custom REST/GraphQL are escape hatches and
+    // shouldn't carry the same weight as WordPress.
+    .sort((a, b) => Number(a.advanced ?? false) - Number(b.advanced ?? false));
+  const publish = available.filter((c) => c.category === "publish");
+  const data = available.filter((c) => c.category === "data");
+
+  /** One card shape for every connector. What used to be `isGithub` / `isGsc`
+   *  ternaries is now driven by def.oneClick + def.icon, so adding the next
+   *  one-click provider needs no change here. */
+  function GatewayCard({ def }: { def: ConnectorDef }) {
+    const oneClickReady = def.id === "git-github" ? githubAppReady : def.id === "gsc" ? gscReady : false;
+    const busy = def.id === "git-github" ? connectingGh : def.id === "gsc" ? connectingGsc : false;
+    const start = def.id === "git-github" ? handleConnectGithub : handleConnectGsc;
+    // GitHub keeps its manual-token path (Enterprise / no App); GSC has no
+    // form to fall back to — it's OAuth or nothing.
+    const hasTokenFallback = def.fields.length > 0;
+
+    return (
+      <div className="rounded-xl border border-border bg-card p-4 flex flex-col gap-3">
+        <div className="flex items-start gap-3">
+          <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+            <ConnectorIcon name={def.icon} className="w-4.5 h-4.5 text-foreground/70" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <p className="text-sm font-semibold">{def.name}</p>
+              {def.oneClick && <span className="text-[10px] font-medium text-primary bg-primary/10 rounded-full px-1.5 py-0.5">1-click</span>}
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">{def.description}</p>
+          </div>
+        </div>
+
+        {def.oneClick ? (
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button size="sm" className="text-xs h-7" onClick={start} disabled={!oneClickReady || busy}>
+              <ConnectorIcon name={def.icon} className="w-3.5 h-3.5 mr-1.5" />
+              {busy ? "Opening…" : `Connect ${def.id === "gsc" ? "Google" : "GitHub"}`}
+            </Button>
+            {hasTokenFallback && (
+              <button onClick={() => openConnect(def)} className="text-xs text-muted-foreground hover:text-foreground underline">
+                Use a token instead
+              </button>
+            )}
+            {!oneClickReady && (
+              <p className="text-[11px] text-muted-foreground basis-full">
+                {hasTokenFallback
+                  ? "One-click needs the GitHub App configured on the server — use a token for now."
+                  : "Needs a Google OAuth client + APP_ENCRYPTION_KEY on the server."}
+              </p>
+            )}
+          </div>
+        ) : (
+          <div><Button size="sm" variant="outline" className="text-xs h-7" onClick={() => openConnect(def)}>Connect</Button></div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
       {/* Connected */}
       {connections.length > 0 && (
         <section>
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">Connected</h3>
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+            Connected <span className="text-muted-foreground/60">({connections.length})</span>
+          </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {connections.map((conn) => {
               const def = CONNECTORS_BY_ID[conn.provider];
               return (
                 <div key={conn.id} className="rounded-xl border border-emerald-500/40 bg-card p-4 flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0"><Plug className="w-4.5 h-4.5 text-emerald-700" /></div>
+                  <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
+                    <ConnectorIcon name={def?.icon ?? conn.provider} className="w-4.5 h-4.5 text-emerald-700" />
+                  </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-semibold">{conn.label || def?.name || conn.provider}</p>
@@ -240,81 +305,36 @@ export function SeoConnections({
       )}
 
       {/* Publishing gateways */}
+      {/* Nothing to offer once everything's wired up — don't render an empty grid. */}
+      {publish.length > 0 && (
       <section>
-        <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">Publishing gateways</h3>
+        <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-1">Publish to</h3>
+        <p className="text-xs text-muted-foreground mb-3">Where approved articles get pushed. Connect one.</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {publish.map((def) => {
-            const isGithub = def.id === "git-github";
-            return (
-              <div key={def.id} className="rounded-xl border border-border bg-card p-4 flex flex-col gap-3">
-                <div className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                    {isGithub ? <GithubLogo className="w-4.5 h-4.5 text-foreground/70" /> : <Plug className="w-4.5 h-4.5 text-foreground/70" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold">{def.name}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{def.description}</p>
-                  </div>
-                </div>
-                {isGithub ? (
-                  // One-click install when the App is configured; the token form
-                  // stays available for GitHub Enterprise / no-App setups.
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Button size="sm" className="text-xs h-7" onClick={handleConnectGithub} disabled={!githubAppReady || connectingGh}>
-                      <GithubLogo className="w-3.5 h-3.5 mr-1.5" /> {connectingGh ? "Opening GitHub…" : "Connect GitHub"}
-                    </Button>
-                    <button onClick={() => openConnect(def)} className="text-xs text-muted-foreground hover:text-foreground underline">
-                      Use a token instead
-                    </button>
-                    {!githubAppReady && (
-                      <p className="text-[11px] text-muted-foreground basis-full">
-                        One-click connect needs the GitHub App configured on the server — use a token for now.
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <div><Button size="sm" variant="outline" className="text-xs h-7" onClick={() => openConnect(def)}>Connect</Button></div>
-                )}
-              </div>
-            );
-          })}
+          {publish.map((def) => <GatewayCard key={def.id} def={def} />)}
         </div>
       </section>
+      )}
 
       {/* Data sources (OAuth) */}
+      {data.length > 0 && (
       <section>
-        <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">Data sources</h3>
+        <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-1">Pull data from</h3>
+        <p className="text-xs text-muted-foreground mb-3">Real ranking data — feeds the Search performance tab and client reports.</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {data.map((def) => {
-            const isGsc = def.id === "gsc";
-            return (
-              <div key={def.id} className="rounded-xl border border-border bg-card p-4 flex flex-col gap-3">
-                <div className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0"><Plug className="w-4.5 h-4.5 text-foreground/70" /></div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold">{def.name}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{def.description}</p>
-                  </div>
-                </div>
-                {isGsc ? (
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Button size="sm" className="text-xs h-7" onClick={handleConnectGsc} disabled={!gscReady || connectingGsc}>
-                      {connectingGsc ? "Opening Google…" : "Connect Google"}
-                    </Button>
-                    {!gscReady && (
-                      <p className="text-[11px] text-muted-foreground basis-full">
-                        Needs a Google OAuth client + APP_ENCRYPTION_KEY on the server.
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <div><Button size="sm" variant="outline" className="text-xs h-7" disabled>Coming soon</Button></div>
-                )}
-              </div>
-            );
-          })}
+          {data.map((def) => <GatewayCard key={def.id} def={def} />)}
         </div>
       </section>
+      )}
+
+      {/* Everything connected — say so rather than showing two empty grids. */}
+      {publish.length === 0 && data.length === 0 && (
+        <div className="rounded-xl border border-dashed border-border bg-card/50 p-8 text-center">
+          <Check className="w-6 h-6 text-emerald-600 mx-auto mb-2" />
+          <p className="text-sm font-semibold">Everything&apos;s connected</p>
+          <p className="text-xs text-muted-foreground mt-1">This site is wired up to every available gateway and data source.</p>
+        </div>
+      )}
 
       {/* Repo picker — shown when the GitHub App was granted several repos */}
       <Dialog open={!!picker} onOpenChange={(o) => { if (!o) { setPicker(null); router.replace(`/seo/${siteId}`, { scroll: false }); } }}>
