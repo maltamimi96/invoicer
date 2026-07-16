@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createSupaClient, SupabaseClient } from "@supabase/supabase-js";
 import { ilikeAcross } from "@/lib/pg-filter";
+import { AI_MODELS } from "@/lib/ai/models";
 
 /**
  * Mobile-flavoured agent endpoint.
@@ -310,7 +311,7 @@ for something you already have an ID for from a previous tool call.${renderConte
   while (iterations < 10) {
     iterations++;
     const response = await anthropic.messages.create({
-      model: "claude-opus-4-6",
+      model: AI_MODELS.smart,
       max_tokens: 2048,
       system,
       tools: TOOLS,

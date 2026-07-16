@@ -30,6 +30,7 @@ import { parseWhen } from "@/lib/ai/resolvers";
 import { ilikeAcross } from "@/lib/pg-filter";
 import { v4 as uuidv4 } from "uuid";
 import type { LineItem } from "@/types/database";
+import { AI_MODELS } from "@/lib/ai/models";
 
 const anthropic = new Anthropic();
 
@@ -2043,7 +2044,7 @@ export async function POST(request: NextRequest) {
           iterations++;
 
           const response = await anthropic.messages.create({
-            model: "claude-opus-4-6",
+            model: AI_MODELS.smart,
             max_tokens: 4096,
             system: buildSystemPrompt(business?.name ?? "your business", snapshot),
             tools: TOOLS,

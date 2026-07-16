@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
+import { AI_MODELS } from "@/lib/ai/models";
 
 const client = new Anthropic();
 
@@ -13,7 +14,7 @@ export async function POST(request: NextRequest) {
       }
 
       const response = await client.messages.create({
-        model: "claude-opus-4-6",
+        model: AI_MODELS.smart,
         max_tokens: 1024,
         messages: [
           {
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
       );
 
       const response = await client.messages.create({
-        model: "claude-opus-4-6",
+        model: AI_MODELS.smart,
         max_tokens: 1024,
         messages: [
           {
@@ -120,7 +121,7 @@ Rules:
 - photo_captions: provide exactly ${photoCount} captions describing what roofing defect or feature is visible in each image. If no photos, return an empty array.`;
 
       const response = await client.messages.create({
-        model: "claude-opus-4-6",
+        model: AI_MODELS.smart,
         max_tokens: 8192,
         system: "You are an expert roofing inspector writing a formal professional inspection report. Write in authoritative, precise language. Return ONLY valid JSON — no commentary, no code fences.",
         messages: [
@@ -188,7 +189,7 @@ Include:
 Use plain text only. Use a dash (-) for bullet points. No markdown, no asterisks. Return only the scope of work text, nothing else.`;
 
       const response = await client.messages.create({
-        model: "claude-opus-4-6",
+        model: AI_MODELS.smart,
         max_tokens: 2048,
         messages: [{
           role: "user",
@@ -225,7 +226,7 @@ Use plain text only. Use a dash (-) for bullet points. No markdown, no asterisks
       const dueDateField = mode === "invoice" ? "due_date" : "expiry_date";
 
       const response = await client.messages.create({
-        model: "claude-opus-4-6",
+        model: AI_MODELS.smart,
         max_tokens: 4096,
         system: "You are a precise data extraction assistant for a trades/construction invoicing app. Return ONLY valid JSON — no commentary, no code fences.",
         messages: [{
@@ -290,7 +291,7 @@ ${text}`,
       if (!text?.trim()) return NextResponse.json({ error: "No text provided" }, { status: 400 });
 
       const response = await client.messages.create({
-        model: "claude-opus-4-6",
+        model: AI_MODELS.smart,
         max_tokens: 4096,
         system: "You are a precise data extraction assistant. Return ONLY valid JSON — no commentary, no code fences, no markdown.",
         messages: [{
@@ -360,7 +361,7 @@ Rules:
 - Return ONLY the JSON array, nothing else.`;
 
       const response = await client.messages.create({
-        model: "claude-opus-4-6",
+        model: AI_MODELS.smart,
         max_tokens: 2048,
         system: "You are a construction site documentation assistant. Return ONLY valid JSON — no commentary, no code fences.",
         messages: [{
