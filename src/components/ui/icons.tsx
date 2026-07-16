@@ -34,6 +34,7 @@ export {
   Lock,
   FileText,
   GitBranch,
+  GithubLogo,
   Hammer,
   Info,
   Image,

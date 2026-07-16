@@ -33,6 +33,12 @@ interface Props {
   opportunities: Opportunity[];
   reports: Report[];
   budget: { spentCents: number; budgetCents: number; ok: boolean };
+  /** Server-resolved (from the page's searchParams) so the GitHub callback can
+   *  land the user straight back on the connections tab with its outcome. */
+  initialTab?: Tab;
+  githubAppReady?: boolean;
+  githubStatus?: string | null;
+  ghToken?: string | null;
 }
 
 type Tab = "overview" | "content" | "opportunities" | "connections" | "reports" | "activity";
@@ -48,9 +54,9 @@ const STATUS_TONE: Record<string, string> = {
 };
 const money = (c: number) => `$${(c / 100).toFixed(2)}`;
 
-export function SeoSiteHub({ site, pieces, connections, opportunities, reports, budget }: Props) {
+export function SeoSiteHub({ site, pieces, connections, opportunities, reports, budget, initialTab, githubAppReady, githubStatus, ghToken }: Props) {
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>("overview");
+  const [tab, setTab] = useState<Tab>(initialTab ?? "overview");
   const [isPending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
   const [topic, setTopic] = useState("");
@@ -162,7 +168,15 @@ export function SeoSiteHub({ site, pieces, connections, opportunities, reports, 
       {tab === "opportunities" && <SeoOpportunities siteId={site.id} opportunities={opportunities} />}
 
       {/* ── Connections ── */}
-      {tab === "connections" && <SeoConnections siteId={site.id} connections={connections} />}
+      {tab === "connections" && (
+        <SeoConnections
+          siteId={site.id}
+          connections={connections}
+          githubAppReady={githubAppReady}
+          githubStatus={githubStatus}
+          ghToken={ghToken}
+        />
+      )}
 
       {/* ── Reports ── */}
       {tab === "reports" && <SeoReports siteId={site.id} reports={reports} />}
