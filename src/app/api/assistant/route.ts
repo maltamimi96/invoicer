@@ -217,11 +217,17 @@ export async function POST(request: NextRequest) {
       // assistant message so an Undo button can replay them backwards.
       const changeLog: AssistantChangeEntry[] = [];
 
-      // Snapshots read through the admin client, same as the tools themselves —
-      // the caller was already authorised by role above.
-      const admin = createAdminClient();
-
       try {
+        // Snapshots read through the admin client, same as the tools themselves —
+        // the caller was already authorised by role above.
+        //
+        // Inside the try, deliberately: createClient() throws outright when the
+        // service-role key is absent ("supabaseKey is required"), and out here
+        // that throw escaped start(), took down the whole ReadableStream, and
+        // surfaced as a bare 500 with no explanation. Anything that can throw
+        // belongs where the catch can turn it into a message.
+        const admin = createAdminClient();
+
         // Caching is a prefix match, so ordering is load-bearing. Render order
         // is tools -> system -> messages. The breakpoint sits on the *first*
         // system block, which caches the ~196 tool schemas plus the stable

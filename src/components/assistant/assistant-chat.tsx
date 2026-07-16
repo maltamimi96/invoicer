@@ -330,15 +330,23 @@ export function AssistantChat({
           signal: controller.signal,
         });
 
-        if (res.status === 403) {
+        // Surface what the server actually said. This previously threw a flat
+        // "The assistant didn't respond. Try again." for every non-OK status,
+        // which hid the reason entirely — a missing API key, a denied role and
+        // a genuine crash all looked identical, to the user and to me.
+        if (!res.ok) {
+          const detail = await res
+            .json()
+            .then((j: { error?: string }) => j?.error)
+            .catch(() => null);
           update((m) => ({
             ...m,
-            text: "The assistant isn't available for your access level.",
+            text: detail ?? `The assistant returned ${res.status}. Try again.`,
             streaming: false,
           }));
           return;
         }
-        if (!res.ok || !res.body) throw new Error("The assistant didn't respond. Try again.");
+        if (!res.body) throw new Error("The assistant returned an empty response. Try again.");
 
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
