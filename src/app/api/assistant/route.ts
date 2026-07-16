@@ -168,6 +168,29 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "No messages provided" }, { status: 400 });
   }
 
+  // Say plainly when the environment can't run the assistant, rather than
+  // throwing somewhere downstream and surfacing as an opaque 500.
+  //
+  // Both of these are Production-only on Vercel today, so every preview
+  // deployment hits this. The service-role key matters as much as the API key:
+  // the shared tool registry runs entirely through the admin client, so without
+  // it there is no assistant, just a chatbot that can't touch anything.
+  const missing = [
+    !process.env.ANTHROPIC_API_KEY && "ANTHROPIC_API_KEY",
+    !process.env.SUPABASE_SERVICE_ROLE_KEY && "SUPABASE_SERVICE_ROLE_KEY",
+  ].filter(Boolean);
+  if (missing.length > 0) {
+    return Response.json(
+      {
+        error:
+          `The assistant isn't configured in this environment — ${missing.join(" and ")} ` +
+          `${missing.length > 1 ? "are" : "is"} missing. On Vercel these are set for Production only; ` +
+          `add them to Preview to use the assistant here.`,
+      },
+      { status: 503 }
+    );
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: business } = await (supabase as any)
     .from("businesses")
