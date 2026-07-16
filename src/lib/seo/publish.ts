@@ -7,6 +7,7 @@
 import { marked } from "marked";
 import { decryptSecret } from "@/lib/crypto";
 import { CONNECTORS_BY_ID } from "@/lib/seo/connectors";
+import { mintInstallationToken } from "@/lib/seo/github-app";
 
 interface Article {
   title: string;
@@ -61,9 +62,22 @@ function fillFrontmatter(tpl: string, a: Article, date: string): string {
   return tpl.replace(/\{\{(\w+)\}\}/g, (_, k) => String(v[k] ?? "").replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/[\r\n]+/g, " "));
 }
 
+/**
+ * A GitHub bearer token for a connection, whichever way it was connected:
+ *  - GitHub App (meta.installation_id) → mint a fresh 1h installation token.
+ *    Nothing sensitive is stored on the row; the App private key does the work.
+ *  - Manual PAT (secrets.token) → the fallback path, unchanged.
+ */
+async function githubBearer(meta: Meta, secrets: Secrets): Promise<string> {
+  if (meta.installation_id) return mintInstallationToken(String(meta.installation_id));
+  if (secrets.token) return secrets.token;
+  throw new Error("This GitHub connection has no credentials — reconnect it.");
+}
+
 async function publishGitHub(meta: Meta, secrets: Secrets, a: Article): Promise<PublishResult> {
   const [owner, repo] = (meta.repo ?? "").split("/");
   if (!owner || !repo) throw new Error("Repository must be owner/repo");
+  const bearer = await githubBearer(meta, secrets);
   const branch = meta.branch || "main";
   const ext = meta.extension || "md";
   const path = `${(meta.content_path || "").replace(/\/+$/, "")}/${a.slug}.${ext}`.replace(/^\/+/, "");
@@ -75,7 +89,7 @@ async function publishGitHub(meta: Meta, secrets: Secrets, a: Article): Promise<
 
   const api = `https://api.github.com/repos/${owner}/${repo}/contents/${path.split("/").map(encodeURIComponent).join("/")}`;
   const headers = {
-    Authorization: `Bearer ${secrets.token}`,
+    Authorization: `Bearer ${bearer}`,
     Accept: "application/vnd.github+json",
     "X-GitHub-Api-Version": "2022-11-28",
     "User-Agent": "Kirei-SEO",
@@ -182,8 +196,16 @@ export async function testConnection(sb: any, businessId: string, connectionId: 
     switch (conn.provider) {
       case "git-github": {
         const [owner, repo] = (meta.repo ?? "").split("/");
-        const res = await fetch(`https://api.github.com/repos/${owner}/${repo}`, { headers: { Authorization: `Bearer ${secrets.token}`, Accept: "application/vnd.github+json", "User-Agent": "Kirei-SEO" } });
-        return res.ok ? { ok: true, message: `Connected to ${owner}/${repo}` } : { ok: false, message: `GitHub ${res.status} — check the repo and token scope.` };
+        const viaApp = !!meta.installation_id;
+        const bearer = await githubBearer(meta, secrets);
+        const res = await fetch(`https://api.github.com/repos/${owner}/${repo}`, { headers: { Authorization: `Bearer ${bearer}`, Accept: "application/vnd.github+json", "User-Agent": "Kirei-SEO" } });
+        if (res.ok) return { ok: true, message: `Connected to ${owner}/${repo}${viaApp ? " via the GitHub App" : ""}` };
+        return {
+          ok: false,
+          message: viaApp
+            ? `GitHub ${res.status} — the App may no longer have access to ${owner}/${repo}. Reconnect to re-grant it.`
+            : `GitHub ${res.status} — check the repo and token scope.`,
+        };
       }
       case "wordpress": {
         const base = (meta.site_url ?? "").replace(/\/+$/, "");

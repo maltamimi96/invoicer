@@ -15,6 +15,9 @@ import { getUser } from "@/lib/auth";
 import { encryptSecret, encryptionAvailable } from "@/lib/crypto";
 import { testConnection } from "@/lib/seo/publish";
 import { CONNECTORS_BY_ID, secretFieldKeys, type ConnectionView } from "@/lib/seo/connectors";
+import {
+  githubAppConfigured, installUrl, signState, verifyState, listInstallationRepos,
+} from "@/lib/seo/github-app";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: any, name: string) => sb.from(name);
@@ -119,4 +122,83 @@ export async function deleteConnection(connectionId: string, siteId: string): Pr
   const { error } = await tbl(supabase, "seo_connections").delete().eq("id", connectionId).eq("business_id", businessId);
   if (error) throw error;
   revalidatePath(`/seo/${siteId}`);
+}
+
+// ── GitHub App one-click connect ─────────────────────────────────────────────
+// The manual token form above still works; this is the nicer path. Credential
+// handling stays server-side (the App private key mints short-lived tokens), so
+// the web-UI-only rule for connecting is preserved — no MCP tool for this.
+
+/** True when the server has a GitHub App configured (drives the Connect button). */
+export async function isGithubAppConfigured(): Promise<boolean> {
+  return githubAppConfigured();
+}
+
+/** Where to send the browser to install the App / grant repos. State binds the
+ *  flow to this user + site so the callback can't be forged or replayed. */
+export async function getGithubConnectUrl(siteId: string): Promise<string> {
+  const supabase = await createClient();
+  const user = await getUser();
+  // Confirms the site belongs to the active business (RLS-scoped read).
+  const businessId = await getActiveBizId(supabase, user.id);
+  const { data: site } = await tbl(supabase, "seo_sites")
+    .select("id").eq("id", siteId).eq("business_id", businessId).maybeSingle();
+  if (!site) throw new Error("Site not found");
+  if (!githubAppConfigured()) throw new Error("The GitHub App isn't set up on this server yet.");
+  return installUrl(signState({ u: user.id, s: siteId }));
+}
+
+/** Repos granted to an installation — for the picker when the user granted more
+ *  than one. `token` is the signed state handed back by the callback, so a user
+ *  can't enumerate an installation they didn't just connect. */
+export async function listGithubRepos(token: string): Promise<{ full_name: string; default_branch: string; private: boolean }[]> {
+  const user = await getUser();
+  const state = verifyState(token);
+  if (!state || state.u !== user.id) throw new Error("This connect link has expired — start again.");
+  if (!state.i) throw new Error("Missing installation");
+  return listInstallationRepos(state.i);
+}
+
+/** Create the connection once a repo is chosen (or auto-picked by the callback). */
+export async function finalizeGithubConnection(input: {
+  token: string;            // signed state from the callback (carries user/site/installation)
+  repo: string;             // owner/repo
+  branch?: string;
+  content_path?: string;
+  extension?: string;
+}): Promise<{ site_id: string }> {
+  const businessId = await biz();
+  const user = await getUser();
+  const supabase = await createClient();
+
+  const state = verifyState(input.token);
+  if (!state || state.u !== user.id) throw new Error("This connect link has expired — start again.");
+  if (!state.i) throw new Error("Missing installation");
+  const installationId = state.i;
+
+  // Only repos this installation actually granted — stops a forged repo string.
+  const repos = await listInstallationRepos(installationId);
+  const chosen = repos.find((r) => r.full_name === input.repo);
+  if (!chosen) throw new Error("That repository isn't part of this GitHub App installation.");
+
+  const def = CONNECTORS_BY_ID["git-github"];
+  const meta: Record<string, string> = {
+    repo: chosen.full_name,
+    branch: input.branch?.trim() || chosen.default_branch || "main",
+    content_path: input.content_path?.trim() || "src/content/blog",
+    extension: input.extension?.trim() || "md",
+    installation_id: installationId,
+  };
+
+  // No `secret` column write: the App mints tokens on demand, so App-mode
+  // connections work even without APP_ENCRYPTION_KEY configured.
+  const { error } = await tbl(supabase, "seo_connections").insert({
+    business_id: businessId, site_id: state.s, provider: "git-github",
+    label: def?.name ?? "Git (GitHub)", meta,
+    status: "connected", account_ref: chosen.full_name,
+    connected_at: new Date().toISOString(),
+  });
+  if (error) throw error;
+  revalidatePath(`/seo/${state.s}`);
+  return { site_id: state.s };
 }

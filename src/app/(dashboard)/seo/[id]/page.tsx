@@ -5,14 +5,20 @@ import { getSeoSite } from "@/lib/actions/seo";
 import { listContentPieces, getSeoBudget, listOpportunities } from "@/lib/actions/seo-pipeline";
 import { listConnections } from "@/lib/actions/seo-connections";
 import { listSeoReports } from "@/lib/actions/seo-reports";
+import { githubAppConfigured } from "@/lib/seo/github-app";
 import { SeoSiteHub } from "@/components/seo/seo-site-hub";
 
 // The Opportunity Scout (opus + web search) runs as a server action from this
 // route — give it room so it isn't cut off mid-scan.
 export const maxDuration = 300;
 
-export default async function SeoSiteHubPage({ params }: { params: Promise<{ id: string }> }) {
+type Search = { tab?: string; github?: string; gh?: string };
+
+export default async function SeoSiteHubPage(
+  { params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Search> },
+) {
   const { id } = await params;
+  const sp = await searchParams;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/auth/login");
@@ -40,6 +46,12 @@ export default async function SeoSiteHubPage({ params }: { params: Promise<{ id:
       opportunities={opportunities}
       reports={reports}
       budget={budget}
+      // The GitHub callback lands here with ?tab=connections&github=… — resolve
+      // it server-side so the right tab opens with its outcome.
+      initialTab={sp.tab === "connections" ? "connections" : undefined}
+      githubAppReady={githubAppConfigured()}
+      githubStatus={sp.github ?? null}
+      ghToken={sp.gh ?? null}
     />
   );
 }
