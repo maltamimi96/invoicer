@@ -8,8 +8,6 @@ import {
 } from "@/lib/actions/booking";
 import { BookingAdminClient } from "@/components/booking/booking-admin-client";
 
-export const dynamic = "force-dynamic";
-
 export default async function BookingSettingsPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

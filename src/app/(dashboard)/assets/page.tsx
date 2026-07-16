@@ -4,8 +4,6 @@ import { getActiveBizId } from "@/lib/active-business";
 import { listAssets } from "@/lib/actions/assets";
 import { AssetsView } from "@/components/assets/assets-view";
 
-export const dynamic = "force-dynamic";
-
 export default async function AssetsPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

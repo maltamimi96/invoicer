@@ -4,8 +4,6 @@ import { getActiveBizId } from "@/lib/active-business";
 import { listExpenses } from "@/lib/actions/expenses";
 import { ExpensesView } from "@/components/expenses/expenses-view";
 
-export const dynamic = "force-dynamic";
-
 export default async function ExpensesPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

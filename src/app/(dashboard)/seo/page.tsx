@@ -4,8 +4,6 @@ import { getActiveBizId } from "@/lib/active-business";
 import { listSeoSites } from "@/lib/actions/seo";
 import { SeoSitesView } from "@/components/seo/seo-sites-view";
 
-export const dynamic = "force-dynamic";
-
 export default async function SeoPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

@@ -5,8 +5,6 @@ import { getPublicForm, getFormSubmissions } from "@/lib/actions/forms";
 import { appUrl } from "@/lib/app-url";
 import { FormsBuilderClient } from "@/components/forms/forms-builder-client";
 
-export const dynamic = "force-dynamic";
-
 export default async function FormBuilderPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();

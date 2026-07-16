@@ -4,8 +4,6 @@ import { getActiveBizId } from "@/lib/active-business";
 import { listProspects } from "@/lib/actions/prospects";
 import { ProspectsView } from "@/components/prospects/prospects-view";
 
-export const dynamic = "force-dynamic";
-
 export default async function ProspectsPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

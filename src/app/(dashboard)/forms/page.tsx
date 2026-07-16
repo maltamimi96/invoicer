@@ -5,8 +5,6 @@ import { getFormBuilderSettings, getPublicForms } from "@/lib/actions/forms";
 import { appUrl } from "@/lib/app-url";
 import { FormsListClient } from "@/components/forms/forms-list-client";
 
-export const dynamic = "force-dynamic";
-
 export default async function FormsPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

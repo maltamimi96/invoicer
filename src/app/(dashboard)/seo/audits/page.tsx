@@ -4,7 +4,6 @@ import { getActiveBizId } from "@/lib/active-business";
 import { getAuditLink, listAudits } from "@/lib/actions/seo-audits";
 import { SeoAuditsView } from "@/components/seo/seo-audits-view";
 
-export const dynamic = "force-dynamic";
 // runAuditNow runs the auditor agent as a server action from this route.
 export const maxDuration = 300;
 

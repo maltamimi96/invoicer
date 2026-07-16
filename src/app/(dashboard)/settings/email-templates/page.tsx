@@ -5,8 +5,6 @@ import { canEdit, type Role } from "@/lib/permissions";
 import { getEmailTemplates } from "@/lib/actions/email-templates";
 import { EmailTemplatesClient } from "@/components/settings/email-templates-client";
 
-export const dynamic = "force-dynamic";
-
 export default async function EmailTemplatesPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

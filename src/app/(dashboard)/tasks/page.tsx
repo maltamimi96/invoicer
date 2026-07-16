@@ -5,8 +5,6 @@ import { listTasks } from "@/lib/actions/tasks";
 import { KanbanBoard } from "@/components/tasks/kanban-board";
 import { PageHeader } from "@/components/layout/page-header";
 
-export const dynamic = "force-dynamic";
-
 type MemberInput = {
   user_id: string | null;
   email: string;

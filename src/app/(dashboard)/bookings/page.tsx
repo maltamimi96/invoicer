@@ -5,8 +5,6 @@ import { canEdit, type Role } from "@/lib/permissions";
 import { listAppointments, getBookingSettings } from "@/lib/actions/booking";
 import { BookingsPageClient } from "@/components/booking/bookings-page-client";
 
-export const dynamic = "force-dynamic";
-
 export default async function BookingsPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

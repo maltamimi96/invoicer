@@ -5,8 +5,6 @@ import { canEdit, type Role } from "@/lib/permissions";
 import { listWorkOrderTemplates } from "@/lib/actions/work-order-templates";
 import { WorkOrderTemplatesClient } from "@/components/work-orders/work-order-templates-client";
 
-export const dynamic = "force-dynamic";
-
 export default async function WorkOrderTemplatesPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
