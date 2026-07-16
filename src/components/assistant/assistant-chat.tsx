@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation";
 import {
   Bot, Send, Loader2, CheckCircle2, AlertCircle, Sparkles, Mic,
   Square, Plus, Trash2, RotateCcw, Volume2, VolumeX, MessageSquare,
+  Camera, Image as ImageIcon, X,
 } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -34,6 +35,9 @@ import {
 import type { AssistantConversation, AssistantChangeEntry } from "@/types/database";
 import { undoLabel } from "@/lib/assistant/undo";
 import { Markdown } from "./markdown";
+import {
+  prepareImages, toImageBlock, MAX_IMAGES_PER_MESSAGE, type PreparedImage,
+} from "./images";
 
 // ── types ────────────────────────────────────────────────────────────────────
 
@@ -51,6 +55,8 @@ interface DisplayMessage {
   id: string;
   role: "user" | "assistant";
   text: string;
+  /** Thumbnails of what the user attached, so the turn reads back correctly. */
+  images?: string[];
   steps: ToolStep[];
   streaming?: boolean;
   /** Set once persisted, so Undo knows which row to reverse. */
@@ -77,6 +83,24 @@ function textOf(content: unknown): string {
     )
     .map((b) => b.text)
     .join("");
+}
+
+/**
+ * Rebuild thumbnails from stored blocks, so a reloaded conversation still shows
+ * what was attached. The base64 round-trips through the message content, so no
+ * separate copy is needed.
+ */
+function imagesOf(content: unknown): string[] {
+  if (!Array.isArray(content)) return [];
+  return content
+    .filter(
+      (b): b is { type: string; source?: { media_type?: string; data?: string } } =>
+        !!b && typeof b === "object" && (b as { type?: string }).type === "image"
+    )
+    .map((b) =>
+      b.source?.data ? `data:${b.source.media_type ?? "image/jpeg"};base64,${b.source.data}` : ""
+    )
+    .filter(Boolean);
 }
 
 // ── speech ───────────────────────────────────────────────────────────────────
@@ -164,8 +188,25 @@ function Bubble({
   if (message.role === "user") {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-primary text-primary-foreground px-3.5 py-2.5 text-sm leading-relaxed break-words">
-          {message.text}
+        <div className="max-w-[80%] space-y-1.5">
+          {message.images && message.images.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 justify-end">
+              {message.images.map((src, i) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={i}
+                  src={src}
+                  alt={`Attachment ${i + 1}`}
+                  className="h-24 w-24 rounded-lg object-cover border"
+                />
+              ))}
+            </div>
+          )}
+          {message.text && (
+            <div className="rounded-2xl rounded-tr-sm bg-primary text-primary-foreground px-3.5 py-2.5 text-sm leading-relaxed break-words">
+              {message.text}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -230,11 +271,17 @@ export function AssistantChat({
   const [speakReplies, setSpeakReplies] = useState(false);
   /** Voice transcript awaiting confirmation — never auto-sent. */
   const [pendingVoice, setPendingVoice] = useState<string | null>(null);
+  /** Images staged for the next message. */
+  const [attached, setAttached] = useState<PreparedImage[]>([]);
+  const [attachError, setAttachError] = useState<string | null>(null);
+  const [preparing, setPreparing] = useState(false);
 
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   /** Lets Stop actually abort the request instead of orphaning it. */
   const abortRef = useRef<AbortController | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -246,6 +293,8 @@ export function AssistantChat({
     setMessages([]);
     setApiHistory([]);
     setInput("");
+    setAttached([]);
+    setAttachError(null);
   };
 
   const openConversation = async (id: string) => {
@@ -262,6 +311,7 @@ export function AssistantChat({
           messageId: r.id,
           role: r.role,
           text: textOf(r.content),
+          images: imagesOf(r.content),
           steps: [],
           changeLog: r.change_log ?? [],
           undone: !!r.undone_at,
@@ -290,20 +340,58 @@ export function AssistantChat({
     setMessages((prev) => prev.map((m) => (m.streaming ? { ...m, streaming: false } : m)));
   };
 
+  const addFiles = async (list: FileList | null) => {
+    if (!list || list.length === 0) return;
+    setAttachError(null);
+    setPreparing(true);
+    try {
+      const room = MAX_IMAGES_PER_MESSAGE - attached.length;
+      const files = Array.from(list).slice(0, room);
+      const { images, errors } = await prepareImages(files);
+      if (images.length > 0) setAttached((prev) => [...prev, ...images]);
+      if (errors.length > 0) setAttachError(errors.join(" "));
+      else if (list.length > room) {
+        setAttachError(`Only ${MAX_IMAGES_PER_MESSAGE} images per message — the rest were skipped.`);
+      }
+    } catch (e) {
+      setAttachError(e instanceof Error ? e.message : "Couldn't read that image.");
+    } finally {
+      setPreparing(false);
+      // Reset both inputs so picking the same file twice still fires onChange.
+      if (fileRef.current) fileRef.current.value = "";
+      if (cameraRef.current) cameraRef.current.value = "";
+    }
+  };
+
   const send = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
-      if (!trimmed || loading) return;
+      // An image on its own is a valid message — "what's wrong here?" is often
+      // the whole question.
+      if ((!trimmed && attached.length === 0) || loading) return;
 
       setInput("");
       setPendingVoice(null);
+      const sending = attached;
+      setAttached([]);
 
-      const userBlocks = [{ type: "text", text: trimmed }];
+      // Images before text: the model reads them as context for the question
+      // that follows, which is how they're meant to be ordered.
+      const userBlocks = [
+        ...sending.map(toImageBlock),
+        ...(trimmed ? [{ type: "text", text: trimmed }] : []),
+      ];
       const nextHistory: ApiMessage[] = [...apiHistory, { role: "user", content: userBlocks }];
       setApiHistory(nextHistory);
       setMessages((prev) => [
         ...prev,
-        { id: uid(), role: "user", text: trimmed, steps: [] },
+        {
+          id: uid(),
+          role: "user",
+          text: trimmed,
+          images: sending.map((i) => i.previewUrl),
+          steps: [],
+        },
       ]);
 
       const assistantId = uid();
@@ -462,7 +550,7 @@ export function AssistantChat({
         router.refresh();
       }
     },
-    [apiHistory, conversationId, effort, loading, model, router, speakReplies]
+    [apiHistory, attached, conversationId, effort, loading, model, router, speakReplies]
   );
 
   // Voice never auto-sends: a misheard "delete the Smith invoice" would fire
@@ -619,11 +707,86 @@ export function AssistantChat({
 
         {/* Composer */}
         <div className="border-t p-2.5">
+          {/* Staged attachments */}
+          {attached.length > 0 && (
+            <div className="flex flex-wrap gap-2 pb-2">
+              {attached.map((img, i) => (
+                <div key={i} className="relative group">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={img.previewUrl}
+                    alt={img.name}
+                    className="h-16 w-16 rounded-lg object-cover border"
+                  />
+                  <button
+                    onClick={() => setAttached((prev) => prev.filter((_, j) => j !== i))}
+                    className="absolute -top-1.5 -right-1.5 rounded-full bg-background border shadow-sm p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                    aria-label={`Remove ${img.name}`}
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          {preparing && (
+            <p className="text-xs text-muted-foreground px-1 pb-1.5 flex items-center gap-1.5">
+              <Loader2 className="w-3 h-3 animate-spin" /> Preparing image…
+            </p>
+          )}
+          {attachError && <p className="text-xs text-destructive px-1 pb-1.5">{attachError}</p>}
           {voice.recording && voice.interimText && (
             <p className="text-xs text-muted-foreground px-1 pb-1.5 italic">{voice.interimText}</p>
           )}
           {voice.error && <p className="text-xs text-destructive px-1 pb-1.5">{voice.error}</p>}
+
+          {/* Two inputs, not one: `capture` makes a phone open the camera
+              directly, but on desktop it would hide the file picker — so the
+              paperclip and the camera stay separate controls. */}
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            multiple
+            hidden
+            onChange={(e) => void addFiles(e.target.files)}
+          />
+          <input
+            ref={cameraRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            hidden
+            onChange={(e) => void addFiles(e.target.files)}
+          />
+
           <div className="flex items-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-[38px] w-[38px] shrink-0"
+              onClick={() => fileRef.current?.click()}
+              disabled={loading || attached.length >= MAX_IMAGES_PER_MESSAGE}
+              title={
+                attached.length >= MAX_IMAGES_PER_MESSAGE
+                  ? `Up to ${MAX_IMAGES_PER_MESSAGE} images per message`
+                  : "Attach an image"
+              }
+            >
+              <ImageIcon className="w-4 h-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-[38px] w-[38px] shrink-0"
+              onClick={() => cameraRef.current?.click()}
+              disabled={loading || attached.length >= MAX_IMAGES_PER_MESSAGE}
+              title="Take a photo"
+            >
+              <Camera className="w-4 h-4" />
+            </Button>
             <Textarea
               ref={inputRef}
               value={input}
@@ -658,7 +821,7 @@ export function AssistantChat({
               size="icon"
               className="h-[38px] w-[38px] shrink-0"
               onClick={() => void send(input)}
-              disabled={loading || !input.trim()}
+              disabled={loading || (!input.trim() && attached.length === 0)}
             >
               <Send className="w-4 h-4" />
             </Button>

@@ -98,3 +98,81 @@ describe.skipIf(!live)("live API contract", () => {
     expect(picked?.type === "tool_use" ? picked.name : null).toBe("list_customers");
   }, 120_000);
 });
+
+/**
+ * Vision, live. The assistant is meant to read job photos and attachments, and
+ * an image block the API rejects is a 400 for the whole turn — so the exact
+ * shapes the route emits get sent for real.
+ */
+describe.skipIf(!live)("live vision contract", () => {
+  const client = new Anthropic();
+
+  // A real 8x8 solid red PNG (generated with sharp, then pasted). Hand-rolled
+  // base64 got "Could not process image" — the bytes have to be a valid PNG.
+  const RED_PNG =
+    "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAEUlEQVR4nGO4IyKCFTEMLQkAmD9BAZzFjLYAAAAASUVORK5CYII=";
+
+  it("accepts a user-attached image alongside the full tool set", async () => {
+    const res = await client.messages.create({
+      model: "claude-opus-4-8",
+      max_tokens: 512,
+      tools: ANTHROPIC_TOOLS,
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "image", source: { type: "base64", media_type: "image/png", data: RED_PNG } },
+            { type: "text", text: "What colour is this image? One word." },
+          ],
+        },
+      ],
+    });
+    expect(res.stop_reason).not.toBe("refusal");
+    const text = res.content.find((b) => b.type === "text");
+    // Proves the image was actually decoded, not just accepted.
+    expect(text?.type === "text" ? text.text.toLowerCase() : "").toContain("red");
+  }, 120_000);
+
+  it("accepts an image inside a tool_result — the view_job_photos path", async () => {
+    // Mirrors what invokeTool now produces for view_job_photos: text + image
+    // blocks in the tool_result body.
+    const toolUseId = "toolu_01A09q90qw90lq917835lq9";
+    const res = await client.messages.create({
+      model: "claude-opus-4-8",
+      max_tokens: 512,
+      tools: [
+        {
+          name: "get_photo",
+          description: "Return a job photo.",
+          input_schema: { type: "object", properties: {} },
+        },
+      ],
+      messages: [
+        { role: "user", content: "Use get_photo, then tell me the colour in one word." },
+        {
+          role: "assistant",
+          content: [{ type: "tool_use", id: toolUseId, name: "get_photo", input: {} }],
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "tool_result",
+              tool_use_id: toolUseId,
+              content: [
+                { type: "text", text: '{"photos":[{"id":"p1"}]}' },
+                {
+                  type: "image",
+                  source: { type: "base64", media_type: "image/png", data: RED_PNG },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    expect(res.stop_reason).not.toBe("refusal");
+    const text = res.content.find((b) => b.type === "text");
+    expect(text?.type === "text" ? text.text.toLowerCase() : "").toContain("red");
+  }, 120_000);
+});

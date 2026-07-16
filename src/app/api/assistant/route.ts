@@ -70,6 +70,13 @@ quotes, invoices, payments, work orders, scheduling, products, tasks, team,
 expenses, inventory, timesheets, assets, prospects, forms, contracts and SEO.
 Use them. Never claim you can't do something that a tool covers.
 
+You can see images. The user can attach photos or shoot one on their phone, and
+you can pull a work order's own photos with view_job_photos (use list_job_photos
+first to see how many there are, and filter by phase — before/during/after —
+rather than fetching everything). Read what's actually in the picture: damage,
+a meter reading, a handwritten note, a receipt, a serial number. If a photo is
+too dark or blurry to judge, say so rather than guessing.
+
 How to work:
 - Search before you create. Duplicate customers are a real and costly problem.
 - When the user says "this invoice", "that customer", "today's jobs" — resolve
@@ -363,7 +370,10 @@ export async function POST(request: NextRequest) {
               return {
                 type: "tool_result" as const,
                 tool_use_id: block.id,
-                content: outcome.text,
+                // Blocks, not outcome.text: tools like view_job_photos return
+                // the actual images, and flattening to a string would leave the
+                // assistant unable to see a work order's photos at all.
+                content: outcome.content,
                 ...(outcome.isError ? { is_error: true } : {}),
               };
             })

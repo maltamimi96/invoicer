@@ -20,23 +20,87 @@ export interface InvokeContext {
   scopes: ApiScope[];
 }
 
+/** Blocks the Messages API accepts inside a tool_result. */
+type ResultBlock =
+  | { type: "text"; text: string }
+  | {
+      type: "image";
+      source: { type: "base64"; media_type: "image/jpeg" | "image/png" | "image/gif" | "image/webp"; data: string };
+    };
+
+export type { ResultBlock };
+
 export interface ToolOutcome {
-  /** Text handed back to the model as the tool_result body. */
+  /** Full tool_result body — text and any images the tool returned. */
+  content: ResultBlock[];
+  /** Just the text, for logging, webhooks and the UI step label. */
   text: string;
   isError: boolean;
 }
 
-/** Flatten an MCP tool result (`{content:[{type:"text",text}], isError?}`). */
+const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
+
+/**
+ * Convert one MCP content block to a Messages API block.
+ *
+ * The two formats differ and it's easy to miss: MCP images are
+ * `{type:"image", data, mimeType}` while the Messages API wants
+ * `{type:"image", source:{type:"base64", media_type, data}}`. Returns null for
+ * anything unrecognised or unsupported rather than passing it through — an
+ * invalid block is a 400 for the whole turn.
+ */
+export function toResultBlock(b: unknown): ResultBlock | null {
+  if (!b || typeof b !== "object") return null;
+  const block = b as { type?: string; text?: string; data?: string; mimeType?: string };
+
+  if (block.type === "text" && typeof block.text === "string") {
+    return { type: "text", text: block.text };
+  }
+
+  if (block.type === "image" && typeof block.data === "string") {
+    // The API accepts a fixed set; a HEIC straight off an iPhone is a 400.
+    const mime = (block.mimeType ?? "").toLowerCase();
+    if (!IMAGE_TYPES.has(mime)) return null;
+    return {
+      type: "image",
+      source: { type: "base64", media_type: mime as "image/jpeg", data: block.data },
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Normalise an MCP tool result.
+ *
+ * Images are preserved, not flattened away: `view_job_photos` returns the
+ * actual job photos as image blocks, and dropping them would leave the
+ * assistant unable to see a work order's photos at all — something /api/mcp
+ * can already do.
+ */
 function toOutcome(raw: unknown): ToolOutcome {
   if (raw && typeof raw === "object" && "content" in raw) {
-    const r = raw as { content?: Array<{ type?: string; text?: string }>; isError?: boolean };
-    const text = (r.content ?? [])
-      .filter((b) => b?.type === "text" && typeof b.text === "string")
-      .map((b) => b.text as string)
+    const r = raw as { content?: unknown[]; isError?: boolean };
+    const content = (r.content ?? []).map(toResultBlock).filter((b): b is ResultBlock => b !== null);
+    const text = content
+      .filter((b): b is { type: "text"; text: string } => b.type === "text")
+      .map((b) => b.text)
       .join("\n");
-    return { text: text || "Done.", isError: r.isError === true };
+
+    // tool_result content must not be empty.
+    if (content.length === 0) content.push({ type: "text", text: "Done." });
+
+    return { content, text: text || "Done.", isError: r.isError === true };
   }
-  return { text: typeof raw === "string" ? raw : JSON.stringify(raw), isError: false };
+
+  const text = typeof raw === "string" ? raw : JSON.stringify(raw);
+  return { content: [{ type: "text", text }], text, isError: false };
+}
+
+/** An error outcome, in the same shape as a successful one. */
+function err(message: string): ToolOutcome {
+  const text = `Error: ${message}`;
+  return { content: [{ type: "text", text }], text, isError: true };
 }
 
 /**
@@ -50,7 +114,7 @@ export async function invokeTool(
   ctx: InvokeContext
 ): Promise<ToolOutcome> {
   const spec = TOOL_SPECS_BY_NAME[name];
-  if (!spec) return { text: `Error: no such tool "${name}"`, isError: true };
+  if (!spec) return err(`no such tool "${name}"`);
 
   // The MCP server validates against the shape before dispatch; nothing else
   // does, so handlers would otherwise receive raw model output.
@@ -59,7 +123,7 @@ export async function invokeTool(
     const detail = parsed.error.issues
       .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
       .join("; ");
-    return { text: `Error: invalid arguments for ${name} — ${detail}`, isError: true };
+    return err(`invalid arguments for ${name} — ${detail}`);
   }
 
   // ctxFrom() reads auth off `extra.authInfo.extra` (see tools/shared.ts).
@@ -71,6 +135,6 @@ export async function invokeTool(
   try {
     return toOutcome(await spec.handler(parsed.data, extra));
   } catch (e) {
-    return { text: `Error: ${e instanceof Error ? e.message : String(e)}`, isError: true };
+    return err(e instanceof Error ? e.message : String(e));
   }
 }
