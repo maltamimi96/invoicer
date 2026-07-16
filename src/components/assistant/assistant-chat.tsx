@@ -28,10 +28,12 @@ import {
 } from "@/lib/actions/assistant";
 import {
   ASSISTANT_MODELS, ASSISTANT_EFFORTS, DEFAULT_MODEL, DEFAULT_EFFORT,
+  modelSupportsEffort,
   type AssistantModel, type AssistantEffort,
 } from "@/lib/assistant/models";
 import type { AssistantConversation, AssistantChangeEntry } from "@/types/database";
 import { undoLabel } from "@/lib/assistant/undo";
+import { Markdown } from "./markdown";
 
 // ── types ────────────────────────────────────────────────────────────────────
 
@@ -183,8 +185,10 @@ function Bubble({
           </div>
         )}
         {message.text && (
-          <div className="text-sm leading-relaxed whitespace-pre-wrap break-words">
-            {message.text}
+          <div>
+            {/* Claude writes markdown — rendered as plain text it showed
+                literal ** and dead links. */}
+            <Markdown>{message.text}</Markdown>
             {message.streaming && (
               <span className="inline-block w-0.5 h-4 bg-current ml-0.5 animate-pulse align-text-bottom" />
             )}
@@ -517,11 +521,18 @@ export function AssistantChat({
               <option key={m.id} value={m.id}>{m.label}</option>
             ))}
           </select>
+          {/* Effort isn't universal — Haiku 4.5 rejects it outright. Disable
+              rather than offer a control that does nothing. */}
           <select
             value={effort}
             onChange={(e) => setEffort(e.target.value as AssistantEffort)}
-            className="text-xs border rounded-md px-2 py-1 bg-background"
-            title={ASSISTANT_EFFORTS.find((e) => e.id === effort)?.blurb}
+            disabled={!modelSupportsEffort(model)}
+            className="text-xs border rounded-md px-2 py-1 bg-background disabled:opacity-50"
+            title={
+              modelSupportsEffort(model)
+                ? ASSISTANT_EFFORTS.find((e) => e.id === effort)?.blurb
+                : `${ASSISTANT_MODELS.find((m) => m.id === model)?.label} doesn't support effort control.`
+            }
           >
             {ASSISTANT_EFFORTS.map((e) => (
               <option key={e.id} value={e.id}>{e.label}</option>

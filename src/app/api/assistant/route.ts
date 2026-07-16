@@ -28,7 +28,12 @@ import { getMyRoleCached } from "@/lib/role";
 import { ANTHROPIC_TOOLS } from "@/lib/mcp/anthropic-tools";
 import { invokeTool } from "@/lib/mcp/invoke";
 import { assistantScopesForRole } from "@/lib/assistant/scopes";
-import { resolveModel, resolveEffort } from "@/lib/assistant/models";
+import {
+  resolveModel,
+  resolveEffort,
+  modelSupportsThinking,
+  modelSupportsEffort,
+} from "@/lib/assistant/models";
 import { dispatchToolWebhook } from "@/lib/assistant/tool-webhooks";
 import { undoSpecFor, targetIdFor, snapshotRow, buildChangeEntry } from "@/lib/assistant/undo";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -252,6 +257,18 @@ export async function POST(request: NextRequest) {
           });
         }
 
+        // Capabilities differ per model and an unsupported one is a hard 400,
+        // not a no-op — Haiku 4.5 rejects both adaptive thinking and effort.
+        // Build these conditionally rather than sending them blanket.
+        //
+        // budget_tokens and temperature stay out entirely: both are 400s on the
+        // thinking-capable models here. Don't reintroduce them for Haiku either
+        // — it's the fast option, and thinking defeats the point.
+        const thinkingParam = modelSupportsThinking(model)
+          ? ({ type: "adaptive" } as const)
+          : undefined;
+        const outputConfig = modelSupportsEffort(model) ? { effort } : undefined;
+
         for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
           const response = await anthropic.messages
             .stream({
@@ -259,10 +276,8 @@ export async function POST(request: NextRequest) {
               max_tokens: MAX_TOKENS,
               system,
               tools: ANTHROPIC_TOOLS,
-              // Claude decides how much to think per request. budget_tokens and
-              // temperature are 400s on this generation — don't reintroduce them.
-              thinking: { type: "adaptive" },
-              output_config: { effort },
+              ...(thinkingParam ? { thinking: thinkingParam } : {}),
+              ...(outputConfig ? { output_config: outputConfig } : {}),
               messages,
               // Second breakpoint, auto-placed on the last message block, so a
               // growing conversation reuses its own prefix turn over turn

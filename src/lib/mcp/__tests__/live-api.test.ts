@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 import Anthropic from "@anthropic-ai/sdk";
 import { ANTHROPIC_TOOLS } from "../anthropic-tools";
+import {
+  ASSISTANT_MODELS,
+  modelSupportsThinking,
+  modelSupportsEffort,
+} from "@/lib/assistant/models";
 
 /**
  * Live API probe — costs money, so it's opt-in:
@@ -54,6 +59,30 @@ describe.skipIf(!live)("live API contract", () => {
     // schemas at full price — the single largest cost in the old agent.
     expect(second.usage.cache_read_input_tokens ?? 0).toBeGreaterThan(0);
   }, 120_000);
+
+  // The gap that let a 400 ship: the checks above only exercised Opus, so the
+  // picker was "verified" on one model out of three. Haiku 4.5 rejects both
+  // adaptive thinking and effort — a hard 400, not a no-op. Every model the
+  // picker offers must be sent exactly the way the route sends it.
+  it.each(ASSISTANT_MODELS.map((m) => [m.id, m] as const))(
+    "accepts the exact request shape the route builds for %s",
+    async (_id, m) => {
+      const res = await client.messages.create({
+        model: m.id,
+        max_tokens: 1024,
+        system,
+        tools: ANTHROPIC_TOOLS,
+        // Mirrors the route's conditional construction. If this drifts from
+        // route.ts, this test stops guarding anything.
+        ...(modelSupportsThinking(m.id) ? { thinking: { type: "adaptive" as const } } : {}),
+        ...(modelSupportsEffort(m.id) ? { output_config: { effort: "low" as const } } : {}),
+        messages: [{ role: "user", content: "Reply with the single word: ok" }],
+      });
+      expect(res.stop_reason).not.toBe("refusal");
+      expect(res.usage.input_tokens).toBeGreaterThan(0);
+    },
+    120_000
+  );
 
   it("lets the model find the right tool among ~196", async () => {
     const res = await client.messages.create({
