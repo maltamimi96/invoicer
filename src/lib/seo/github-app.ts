@@ -16,7 +16,7 @@
  *   GITHUB_APP_PRIVATE_KEY_BASE64  — base64 of the .pem (base64 avoids the
  *                                    multiline-newline mangling env vars suffer)
  */
-import { createHmac, createSign, timingSafeEqual } from "node:crypto";
+import { createSign } from "node:crypto";
 
 const GH_API = "https://api.github.com";
 const UA = "Kirei-SEO";
@@ -128,49 +128,6 @@ export function installUrl(state: string): string {
   return `https://github.com/apps/${encodeURIComponent(slug)}/installations/new?state=${encodeURIComponent(state)}`;
 }
 
-export interface ConnectState {
-  /** Kirei user who started the flow — the callback must match. */
-  u: string;
-  /** seo_sites.id the connection belongs to. */
-  s: string;
-  /** installation id — absent on the outbound leg, added by the callback when
-   *  it re-signs the state to hand a repo picker back to the browser. */
-  i?: string;
-  /** expiry (epoch seconds). */
-  e: number;
-}
-
-/** HMAC key: the App private key is server-only and high-entropy, so it doubles
- *  as the state-signing secret — no extra env var to configure. */
-function stateKey(): string {
-  const pem = privateKeyPem();
-  if (!pem) throw new Error("GitHub App is not configured on this server.");
-  return pem;
-}
-
-/** Stateless signed state — CSRF defence + carries the site through GitHub. */
-export function signState(payload: Omit<ConnectState, "e">, ttlSeconds = 900): string {
-  const body: ConnectState = { ...payload, e: Math.floor(Date.now() / 1000) + ttlSeconds };
-  const data = b64url(JSON.stringify(body));
-  const sig = b64url(createHmac("sha256", stateKey()).update(data).digest());
-  return `${data}.${sig}`;
-}
-
-/** Verify signature + expiry. Returns null on any tamper/expiry. */
-export function verifyState(token: string | null | undefined): ConnectState | null {
-  if (!token) return null;
-  const [data, sig] = token.split(".");
-  if (!data || !sig) return null;
-  const expected = b64url(createHmac("sha256", stateKey()).update(data).digest());
-  const a = Buffer.from(sig);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
-  try {
-    const parsed = JSON.parse(Buffer.from(data.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8")) as ConnectState;
-    if (!parsed.u || !parsed.s || !parsed.e) return null;
-    if (parsed.e < Math.floor(Date.now() / 1000)) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
-}
+// Signed state lives in ./connect-state — shared with the Google Search
+// Console flow. Re-exported so existing importers don't have to change.
+export { signState, verifyState, type ConnectState } from "@/lib/seo/connect-state";

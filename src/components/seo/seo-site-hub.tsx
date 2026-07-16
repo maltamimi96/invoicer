@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, FileText, Search, Globe, Plug, Activity } from "@/components/ui/icons";
+import { ArrowLeft, Plus, FileText, Search, Globe, Plug, Activity, TrendingUp } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +16,7 @@ import { SeoActivityTerminal } from "@/components/seo/seo-activity-terminal";
 import { SeoConnections } from "@/components/seo/seo-connections";
 import { SeoOpportunities } from "@/components/seo/seo-opportunities";
 import { SeoReports } from "@/components/seo/seo-reports";
+import { SeoPerformance, type PerformanceData } from "@/components/seo/seo-performance";
 import { CONNECTORS, type ConnectionView } from "@/lib/seo/connectors";
 import type { SeoSite, SeoContentType } from "@/types/database";
 
@@ -39,9 +40,14 @@ interface Props {
   githubAppReady?: boolean;
   githubStatus?: string | null;
   ghToken?: string | null;
+  gscReady?: boolean;
+  gscStatus?: string | null;
+  gscToken?: string | null;
+  gscGuess?: string | null;
+  performance: PerformanceData;
 }
 
-type Tab = "overview" | "content" | "opportunities" | "connections" | "reports" | "activity";
+type Tab = "overview" | "content" | "performance" | "opportunities" | "connections" | "reports" | "activity";
 
 const STATUS_TONE: Record<string, string> = {
   running: "bg-blue-100 text-blue-700",
@@ -54,7 +60,11 @@ const STATUS_TONE: Record<string, string> = {
 };
 const money = (c: number) => `$${(c / 100).toFixed(2)}`;
 
-export function SeoSiteHub({ site, pieces, connections, opportunities, reports, budget, initialTab, githubAppReady, githubStatus, ghToken }: Props) {
+export function SeoSiteHub({
+  site, pieces, connections, opportunities, reports, budget, initialTab,
+  githubAppReady, githubStatus, ghToken,
+  gscReady, gscStatus, gscToken, gscGuess, performance,
+}: Props) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>(initialTab ?? "overview");
   const [isPending, startTransition] = useTransition();
@@ -81,6 +91,7 @@ export function SeoSiteHub({ site, pieces, connections, opportunities, reports, 
   const tabs: { id: Tab; label: string; icon: typeof FileText }[] = [
     { id: "overview", label: "Overview", icon: Globe },
     { id: "content", label: "Content", icon: FileText },
+    { id: "performance", label: "Search performance", icon: TrendingUp },
     { id: "opportunities", label: "Opportunities", icon: Search },
     { id: "connections", label: "Connections", icon: Plug },
     { id: "reports", label: "Reports", icon: FileText },
@@ -128,9 +139,20 @@ export function SeoSiteHub({ site, pieces, connections, opportunities, reports, 
       {tab === "overview" && (
         <div className="space-y-4">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <Stat label="Content pieces" value={String(pieces.length)} />
-            <Stat label="Approved" value={String(approvedCount)} />
-            <Stat label="Connectors" value={`${connectedCount} / ${CONNECTORS.length}`} />
+            <Stat label="Content pieces" value={String(pieces.length)} sub={`${approvedCount} approved`} />
+            {/* Real search data once GSC is synced; falls back to the connector
+                count so the strip never looks broken pre-connection. */}
+            {performance.totals.impressions > 0 ? (
+              <>
+                <Stat label="Clicks" value={performance.totals.clicks.toLocaleString()} sub="last 28 days" />
+                <Stat label="Impressions" value={performance.totals.impressions.toLocaleString()} sub="last 28 days" />
+              </>
+            ) : (
+              <>
+                <Stat label="Connectors" value={`${connectedCount} / ${CONNECTORS.length}`} />
+                <Stat label="Search data" value="—" sub="connect Search Console" />
+              </>
+            )}
             <Stat label="Spend this month" value={money(budget.spentCents)} sub={budget.budgetCents === 0 ? "unlimited" : `of ${money(budget.budgetCents)}`} />
           </div>
           <div className="rounded-xl border border-border bg-card p-5">
@@ -168,6 +190,14 @@ export function SeoSiteHub({ site, pieces, connections, opportunities, reports, 
       {tab === "opportunities" && <SeoOpportunities siteId={site.id} opportunities={opportunities} />}
 
       {/* ── Connections ── */}
+      {tab === "performance" && (
+        <SeoPerformance
+          data={performance}
+          hasGsc={connections.some((c) => c.provider === "gsc" && c.status === "connected")}
+          onConnect={() => setTab("connections")}
+        />
+      )}
+
       {tab === "connections" && (
         <SeoConnections
           siteId={site.id}
@@ -175,6 +205,10 @@ export function SeoSiteHub({ site, pieces, connections, opportunities, reports, 
           githubAppReady={githubAppReady}
           githubStatus={githubStatus}
           ghToken={ghToken}
+          gscReady={gscReady}
+          gscStatus={gscStatus}
+          gscToken={gscToken}
+          gscGuess={gscGuess}
         />
       )}
 

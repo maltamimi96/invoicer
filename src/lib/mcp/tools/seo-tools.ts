@@ -229,6 +229,31 @@ export function registerSeoTools(tool: ToolFn): void {
       return text({ deleted: true });
     });
 
+  tool("get_search_performance", "Google Search Console performance for a site — top queries with position, clicks, impressions and CTR, from the nightly sync. Needs a connected 'gsc' connection (connect it in the web UI).",
+    { site_id: UUID, days: z.number().int().min(1).max(180).optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "seo:read");
+      const since = new Date(Date.now() - (args.days ?? 28) * 86_400_000).toISOString().split("T")[0];
+      const { data, error } = await t(ctx, "seo_keyword_snapshots")
+        .select("keyword, position, clicks, impressions, ctr, captured_at")
+        .eq("business_id", ctx.businessId).eq("site_id", args.site_id)
+        .gte("captured_at", since).order("captured_at", { ascending: false }).limit(2000);
+      if (error) throw error;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rows = (data ?? []) as any[];
+      if (rows.length === 0) return text({ rows: [], note: "No Search Console data — connect GSC in the web UI, or the nightly sync hasn't run yet (Google's data also lags 2-3 days)." });
+      // Latest position per keyword; clicks/impressions summed over the window.
+      const by = new Map<string, { keyword: string; position: number | null; clicks: number; impressions: number }>();
+      for (const r of rows) {
+        const k = String(r.keyword);
+        const hit = by.get(k);
+        if (!hit) by.set(k, { keyword: k, position: r.position == null ? null : Number(r.position), clicks: Number(r.clicks ?? 0), impressions: Number(r.impressions ?? 0) });
+        else { hit.clicks += Number(r.clicks ?? 0); hit.impressions += Number(r.impressions ?? 0); }
+      }
+      const out = [...by.values()].sort((a, b) => b.clicks - a.clicks || b.impressions - a.impressions).slice(0, 100);
+      return text({ days: args.days ?? 28, queries: out.length, rows: out });
+    });
+
   tool("test_seo_connection", "Verify a gateway connection's credentials against the provider (git/wordpress/sanity/payload/rest/graphql).",
     { connection_id: UUID },
     async (args, extra) => {

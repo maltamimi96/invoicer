@@ -223,6 +223,16 @@ export async function testConnection(sb: any, businessId: string, connectionId: 
         const res = await fetch(`${base}/${meta.collection}?limit=1`, { headers: { Authorization: `users API-Key ${secrets.api_key}` } });
         return res.ok ? { ok: true, message: "Payload authentication OK" } : { ok: false, message: `Payload ${res.status} — check the base URL, collection and key.` };
       }
+      case "gsc": {
+        // Data connector, not a publish gateway — probe by listing properties.
+        if (!secrets.refresh_token) return { ok: false, message: "No Google credentials — reconnect Search Console." };
+        const { accessTokenFor, listProperties } = await import("@/lib/seo/gsc");
+        const props = await listProperties(await accessTokenFor(secrets.refresh_token));
+        const has = props.some((p) => p.siteUrl === meta.site_url);
+        return has
+          ? { ok: true, message: `Connected to ${meta.site_url}` }
+          : { ok: false, message: `The Google account can no longer see ${meta.site_url} — reconnect.` };
+      }
       case "rest":
       case "graphql": {
         try { const res = await fetch(meta.endpoint, { method: "OPTIONS" }); return { ok: true, message: `Endpoint reachable (${res.status}). Credentials are verified on the first real publish.` }; }

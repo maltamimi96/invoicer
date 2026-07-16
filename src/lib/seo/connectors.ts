@@ -127,8 +127,10 @@ export const CONNECTORS: ConnectorDef[] = [
     name: "Google Search Console",
     category: "data",
     auth: "oauth",
-    description: "Pull real keyword positions, clicks and impressions to feed the opportunity scout.",
-    docsHint: "Requires a Google Cloud OAuth client (Search Console read-only). Coming with the OAuth flow.",
+    description: "Pull real keyword positions, clicks and impressions. Syncs nightly and fills the rankings table in client reports.",
+    docsHint: "Sign in with the Google account that has access to the property — read-only, and we never see your password.",
+    // No fields: this is a redirect-to-Google OAuth flow, not a form. The
+    // refresh token is stored encrypted by the callback.
     fields: [],
   },
 ];
