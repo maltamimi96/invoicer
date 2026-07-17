@@ -1,10 +1,12 @@
 "use client";
 
 /**
- * Markdown → React, for assistant replies.
+ * Markdown → React.
  *
- * Claude writes markdown, so rendering replies as plain text showed users
- * literal `**bold**` and dead links.
+ * Shared: the assistant's replies, SEO articles, and Content Studio drafts are
+ * all model-written markdown. Rendering it as plain text shows users literal
+ * `**bold**` and dead links; rendering it in a <pre> (as the SEO content view
+ * did) shows a wall of monospace.
  *
  * Renders from marked's *token tree* into React elements rather than piping
  * marked's HTML through dangerouslySetInnerHTML. That matters here: the

@@ -256,6 +256,18 @@ export async function listContentPieces(brandId: string): Promise<ContentPiece[]
   return (data ?? []) as ContentPiece[];
 }
 
+/** The one place artifacts are read — the detail view renders them. */
+export async function getContentPiece(pieceId: string): Promise<ContentPiece> {
+  const { supabase, businessId } = await ctx();
+  const { data, error } = await tbl(supabase, "content_pieces")
+    .select("*")
+    .eq("id", pieceId)
+    .eq("business_id", businessId)
+    .single();
+  if (error) throw new Error(error.message);
+  return data as ContentPiece;
+}
+
 export async function listContentVariations(pieceId: string): Promise<ContentVariation[]> {
   const { supabase, businessId } = await ctx();
   const { data, error } = await tbl(supabase, "content_variations")

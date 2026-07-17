@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useEffect } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import Link from "next/link";
 import { toast } from "sonner";
 import { Search, FileText, Activity, Megaphone, Sparkles, Loader2 } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
@@ -10,9 +11,10 @@ import { PageHeader } from "@/components/layout/page-header";
 import { PLATFORMS, type ContentKind } from "@/lib/content/pipeline";
 import { scanTopics, startContentPiece } from "@/lib/actions/content";
 import { ContentActivityTerminal } from "./content-activity-terminal";
+import { ContentVoiceEditor } from "./content-voice-editor";
 import type { ContentBrand, ContentTopic, ContentPiece } from "@/types/database";
 
-type Tab = "topics" | "pieces" | "activity";
+type Tab = "topics" | "pieces" | "voice" | "activity";
 
 const KINDS: Array<{ id: ContentKind; label: string; blurb: string }> = [
   { id: "script", label: "Video script", blurb: "Hook, beats, VO, on-screen text, CTA." },
@@ -106,6 +108,7 @@ export function ContentBrandHub({
   const tabs: Array<{ id: Tab; label: string; icon: typeof Search }> = [
     { id: "topics", label: `Topics${topics.length ? ` (${topics.length})` : ""}`, icon: Search },
     { id: "pieces", label: `Content${pieces.length ? ` (${pieces.length})` : ""}`, icon: FileText },
+    { id: "voice", label: "Voice", icon: Megaphone },
     { id: "activity", label: "Activity", icon: Activity },
   ];
 
@@ -124,7 +127,11 @@ export function ContentBrandHub({
 
       {!brand.voice && (
         <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 px-3 py-2 mb-3 text-xs">
-          No voice set for this brand — content will sound generic. Add one on the brand to fix that.
+          No voice set for this brand — content will sound generic.{" "}
+          <button onClick={() => setTab("voice")} className="underline font-medium">
+            Set the voice
+          </button>{" "}
+          before you generate anything.
         </div>
       )}
 
@@ -279,7 +286,11 @@ export function ContentBrandHub({
           ) : (
             <div className="space-y-2">
               {pieces.map((p) => (
-                <div key={p.id} className="rounded-xl border bg-card p-3 flex items-center justify-between gap-3">
+                <Link
+                  key={p.id}
+                  href={`/content/${brand.id}/piece/${p.id}`}
+                  className="rounded-xl border bg-card p-3 flex items-center justify-between gap-3 hover:border-primary/40 transition-colors"
+                >
                   <div className="min-w-0">
                     <p className="text-sm font-medium break-words">{p.topic}</p>
                     <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -292,12 +303,14 @@ export function ContentBrandHub({
                     {p.status === "running" && <Loader2 className="w-3 h-3 animate-spin inline mr-1" />}
                     {p.status.replace(/_/g, " ")}
                   </span>
-                </div>
+                </Link>
               ))}
             </div>
           )}
         </div>
       )}
+
+      {tab === "voice" && <ContentVoiceEditor brand={brand} />}
 
       {tab === "activity" && <ContentActivityTerminal brandId={brand.id} />}
     </div>

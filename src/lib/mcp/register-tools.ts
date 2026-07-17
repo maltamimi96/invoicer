@@ -30,6 +30,7 @@ import type { LineItem } from "@/types/database";
 import { ctxFrom, appBase, UUID, getOrMintPortalToken, type ToolFn } from "./tools/shared";
 import { registerPluginFormTools } from "./tools/plugin-form-tools";
 import { registerSeoTools } from "./tools/seo-tools";
+import { registerContentTools } from "./tools/content-tools";
 import { registerExpenseTools } from "./tools/expenses-tools";
 import { registerInventoryTools } from "./tools/inventory-tools";
 import { registerTimesheetTools } from "./tools/timesheets-tools";
@@ -1411,6 +1412,9 @@ export function registerTools(register: ToolFn): void {
 
   // ===== SEO PRODUCTION (docs/SEO_AGENCY_PLAN.md, Phase 2) =====
   registerSeoTools(tool);
+
+  // ===== CONTENT STUDIO =====
+  registerContentTools(tool);
 
   // ===== EXPENSES & JOB COSTING =====
   registerExpenseTools(tool);

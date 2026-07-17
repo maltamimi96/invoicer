@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Check, ChevronDown, ChevronRight, Play, Trash2 } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/page-header";
+import { ArtifactBody, CopyButton } from "@/components/ui/artifact-body";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -242,8 +243,16 @@ export function SeoContentDetail({ piece, connections }: Props) {
                 {artifact && (expanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />)}
               </button>
               {expanded && artifact && (
-                <div className="border-t border-border p-4 bg-muted/30">
-                  <pre className="text-xs whitespace-pre-wrap font-mono leading-relaxed max-h-[28rem] overflow-y-auto">{artifact}</pre>
+                <div className="border-t border-border bg-muted/30">
+                  <div className="flex items-center justify-end gap-1.5 px-4 pt-3">
+                    <CopyButton text={artifact} />
+                  </div>
+                  {/* The agents write markdown — this used to be a <pre> in
+                      mono, so a finished article read as a wall of raw text
+                      with literal ** and #. */}
+                  <div className="p-4 pt-2 max-h-[36rem] overflow-y-auto">
+                    <ArtifactBody text={artifact} />
+                  </div>
                 </div>
               )}
             </div>

@@ -1505,6 +1505,8 @@ export type ApiScope =
   | 'forms:write'
   | 'seo:read'
   | 'seo:write'
+  | 'content:read'
+  | 'content:write'
   | 'expenses:read'
   | 'expenses:write'
   | 'timesheets:read'
@@ -1547,6 +1549,8 @@ export const ALL_API_SCOPES: { value: ApiScope; label: string; group: string }[]
   { value: 'forms:write',      label: 'Create / publish public forms', group: 'Forms' },
   { value: 'seo:read',         label: 'Read SEO sites & pipeline', group: 'SEO' },
   { value: 'seo:write',        label: 'Manage SEO sites & content', group: 'SEO' },
+  { value: 'content:read',     label: 'Read content brands, topics & variations', group: 'Content' },
+  { value: 'content:write',    label: 'Manage content brands & run the pipeline', group: 'Content' },
   { value: 'expenses:read',    label: 'Read expenses', group: 'Expenses' },
   { value: 'expenses:write',   label: 'Create / edit expenses', group: 'Expenses' },
   { value: 'timesheets:read',  label: 'Read timesheets', group: 'Timesheets' },
