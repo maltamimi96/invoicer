@@ -28,9 +28,18 @@ import { getMyRoleCached } from "@/lib/role";
 import { ANTHROPIC_TOOLS } from "@/lib/mcp/anthropic-tools";
 import { invokeTool } from "@/lib/mcp/invoke";
 import { assistantScopesForRole } from "@/lib/assistant/scopes";
-import { resolveModel, resolveEffort } from "@/lib/assistant/models";
+import {
+  resolveModel,
+  resolveEffort,
+  modelSupportsThinking,
+  modelSupportsEffort,
+} from "@/lib/assistant/models";
 import { dispatchToolWebhook } from "@/lib/assistant/tool-webhooks";
+import { undoSpecFor, targetIdFor, snapshotRow, buildChangeEntry } from "@/lib/assistant/undo";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { v4 as uuidv4 } from "uuid";
 import type { AgentContextPacket } from "@/lib/actions/agent-context";
+import type { AssistantChangeEntry } from "@/types/database";
 
 const anthropic = new Anthropic();
 
@@ -60,6 +69,13 @@ You have real tools covering the whole app — customers, sites, contacts, leads
 quotes, invoices, payments, work orders, scheduling, products, tasks, team,
 expenses, inventory, timesheets, assets, prospects, forms, contracts and SEO.
 Use them. Never claim you can't do something that a tool covers.
+
+You can see images. The user can attach photos or shoot one on their phone, and
+you can pull a work order's own photos with view_job_photos (use list_job_photos
+first to see how many there are, and filter by phase — before/during/after —
+rather than fetching everything). Read what's actually in the picture: damage,
+a meter reading, a handwritten note, a receipt, a serial number. If a photo is
+too dark or blurry to judge, say so rather than guessing.
 
 How to work:
 - Search before you create. Duplicate customers are a real and costly problem.
@@ -209,7 +225,21 @@ export async function POST(request: NextRequest) {
       // carries the full block history — the whole point of this route.
       const messages: Anthropic.MessageParam[] = [...body.messages];
 
+      // Reversible mutations this turn made, in order. Persisted with the
+      // assistant message so an Undo button can replay them backwards.
+      const changeLog: AssistantChangeEntry[] = [];
+
       try {
+        // Snapshots read through the admin client, same as the tools themselves —
+        // the caller was already authorised by role above.
+        //
+        // Inside the try, deliberately: createClient() throws outright when the
+        // service-role key is absent ("supabaseKey is required"), and out here
+        // that throw escaped start(), took down the whole ReadableStream, and
+        // surfaced as a bare 500 with no explanation. Anything that can throw
+        // belongs where the catch can turn it into a message.
+        const admin = createAdminClient();
+
         // Caching is a prefix match, so ordering is load-bearing. Render order
         // is tools -> system -> messages. The breakpoint sits on the *first*
         // system block, which caches the ~196 tool schemas plus the stable
@@ -234,6 +264,18 @@ export async function POST(request: NextRequest) {
           });
         }
 
+        // Capabilities differ per model and an unsupported one is a hard 400,
+        // not a no-op — Haiku 4.5 rejects both adaptive thinking and effort.
+        // Build these conditionally rather than sending them blanket.
+        //
+        // budget_tokens and temperature stay out entirely: both are 400s on the
+        // thinking-capable models here. Don't reintroduce them for Haiku either
+        // — it's the fast option, and thinking defeats the point.
+        const thinkingParam = modelSupportsThinking(model)
+          ? ({ type: "adaptive" } as const)
+          : undefined;
+        const outputConfig = modelSupportsEffort(model) ? { effort } : undefined;
+
         for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
           const response = await anthropic.messages
             .stream({
@@ -241,10 +283,8 @@ export async function POST(request: NextRequest) {
               max_tokens: MAX_TOKENS,
               system,
               tools: ANTHROPIC_TOOLS,
-              // Claude decides how much to think per request. budget_tokens and
-              // temperature are 400s on this generation — don't reintroduce them.
-              thinking: { type: "adaptive" },
-              output_config: { effort },
+              ...(thinkingParam ? { thinking: thinkingParam } : {}),
+              ...(outputConfig ? { output_config: outputConfig } : {}),
               messages,
               // Second breakpoint, auto-placed on the last message block, so a
               // growing conversation reuses its own prefix turn over turn
@@ -296,10 +336,28 @@ export async function POST(request: NextRequest) {
           const results = await Promise.all(
             toolUses.map(async (block) => {
               const args = (block.input ?? {}) as Record<string, unknown>;
+
+              // Snapshot before the tool runs, so a destructive call is
+              // reversible. Nothing the old agent did was ever logged: it
+              // could hard-delete a customer with no record and no undo.
+              const spec = undoSpecFor(block.name);
+              const targetId = spec ? targetIdFor(spec, args) : null;
+              const before =
+                spec && targetId ? await snapshotRow(admin, spec.table, targetId, businessId) : null;
+
               const outcome = await invokeTool(block.name, args, invokeCtx);
 
               if (!outcome.isError) {
                 dispatchToolWebhook(block.name, businessId, args, outcome.text);
+
+                if (spec && targetId && before) {
+                  const after =
+                    spec.op === "update"
+                      ? await snapshotRow(admin, spec.table, targetId, businessId)
+                      : null;
+                  const entry = buildChangeEntry(block.name, spec, before, after, uuidv4());
+                  if (entry) changeLog.push(entry);
+                }
               }
 
               send({
@@ -312,7 +370,10 @@ export async function POST(request: NextRequest) {
               return {
                 type: "tool_result" as const,
                 tool_use_id: block.id,
-                content: outcome.text,
+                // Blocks, not outcome.text: tools like view_job_photos return
+                // the actual images, and flattening to a string would leave the
+                // assistant unable to see a work order's photos at all.
+                content: outcome.content,
                 ...(outcome.isError ? { is_error: true } : {}),
               };
             })
@@ -332,14 +393,14 @@ export async function POST(request: NextRequest) {
         }
 
         // The updated history is the payload that fixes cross-turn memory.
-        send({ type: "done", messages });
+        send({ type: "done", messages, changeLog });
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Something went wrong";
         console.error("[assistant]", msg);
         send({ type: "error", message: msg });
         // Still hand back history, so a mid-turn failure doesn't silently
         // desync the client's copy from what actually ran.
-        send({ type: "done", messages });
+        send({ type: "done", messages, changeLog });
       } finally {
         controller.close();
       }

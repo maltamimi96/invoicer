@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 import Anthropic from "@anthropic-ai/sdk";
 import { ANTHROPIC_TOOLS } from "../anthropic-tools";
+import {
+  ASSISTANT_MODELS,
+  modelSupportsThinking,
+  modelSupportsEffort,
+} from "@/lib/assistant/models";
 
 /**
  * Live API probe — costs money, so it's opt-in:
@@ -55,6 +60,30 @@ describe.skipIf(!live)("live API contract", () => {
     expect(second.usage.cache_read_input_tokens ?? 0).toBeGreaterThan(0);
   }, 120_000);
 
+  // The gap that let a 400 ship: the checks above only exercised Opus, so the
+  // picker was "verified" on one model out of three. Haiku 4.5 rejects both
+  // adaptive thinking and effort — a hard 400, not a no-op. Every model the
+  // picker offers must be sent exactly the way the route sends it.
+  it.each(ASSISTANT_MODELS.map((m) => [m.id, m] as const))(
+    "accepts the exact request shape the route builds for %s",
+    async (_id, m) => {
+      const res = await client.messages.create({
+        model: m.id,
+        max_tokens: 1024,
+        system,
+        tools: ANTHROPIC_TOOLS,
+        // Mirrors the route's conditional construction. If this drifts from
+        // route.ts, this test stops guarding anything.
+        ...(modelSupportsThinking(m.id) ? { thinking: { type: "adaptive" as const } } : {}),
+        ...(modelSupportsEffort(m.id) ? { output_config: { effort: "low" as const } } : {}),
+        messages: [{ role: "user", content: "Reply with the single word: ok" }],
+      });
+      expect(res.stop_reason).not.toBe("refusal");
+      expect(res.usage.input_tokens).toBeGreaterThan(0);
+    },
+    120_000
+  );
+
   it("lets the model find the right tool among ~196", async () => {
     const res = await client.messages.create({
       model: "claude-opus-4-8",
@@ -67,5 +96,83 @@ describe.skipIf(!live)("live API contract", () => {
     });
     const picked = res.content.find((b) => b.type === "tool_use");
     expect(picked?.type === "tool_use" ? picked.name : null).toBe("list_customers");
+  }, 120_000);
+});
+
+/**
+ * Vision, live. The assistant is meant to read job photos and attachments, and
+ * an image block the API rejects is a 400 for the whole turn — so the exact
+ * shapes the route emits get sent for real.
+ */
+describe.skipIf(!live)("live vision contract", () => {
+  const client = new Anthropic();
+
+  // A real 8x8 solid red PNG (generated with sharp, then pasted). Hand-rolled
+  // base64 got "Could not process image" — the bytes have to be a valid PNG.
+  const RED_PNG =
+    "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAEUlEQVR4nGO4IyKCFTEMLQkAmD9BAZzFjLYAAAAASUVORK5CYII=";
+
+  it("accepts a user-attached image alongside the full tool set", async () => {
+    const res = await client.messages.create({
+      model: "claude-opus-4-8",
+      max_tokens: 512,
+      tools: ANTHROPIC_TOOLS,
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "image", source: { type: "base64", media_type: "image/png", data: RED_PNG } },
+            { type: "text", text: "What colour is this image? One word." },
+          ],
+        },
+      ],
+    });
+    expect(res.stop_reason).not.toBe("refusal");
+    const text = res.content.find((b) => b.type === "text");
+    // Proves the image was actually decoded, not just accepted.
+    expect(text?.type === "text" ? text.text.toLowerCase() : "").toContain("red");
+  }, 120_000);
+
+  it("accepts an image inside a tool_result — the view_job_photos path", async () => {
+    // Mirrors what invokeTool now produces for view_job_photos: text + image
+    // blocks in the tool_result body.
+    const toolUseId = "toolu_01A09q90qw90lq917835lq9";
+    const res = await client.messages.create({
+      model: "claude-opus-4-8",
+      max_tokens: 512,
+      tools: [
+        {
+          name: "get_photo",
+          description: "Return a job photo.",
+          input_schema: { type: "object", properties: {} },
+        },
+      ],
+      messages: [
+        { role: "user", content: "Use get_photo, then tell me the colour in one word." },
+        {
+          role: "assistant",
+          content: [{ type: "tool_use", id: toolUseId, name: "get_photo", input: {} }],
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "tool_result",
+              tool_use_id: toolUseId,
+              content: [
+                { type: "text", text: '{"photos":[{"id":"p1"}]}' },
+                {
+                  type: "image",
+                  source: { type: "base64", media_type: "image/png", data: RED_PNG },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    expect(res.stop_reason).not.toBe("refusal");
+    const text = res.content.find((b) => b.type === "text");
+    expect(text?.type === "text" ? text.text.toLowerCase() : "").toContain("red");
   }, 120_000);
 });

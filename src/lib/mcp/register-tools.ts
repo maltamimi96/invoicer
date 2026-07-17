@@ -35,6 +35,7 @@ import { registerInventoryTools } from "./tools/inventory-tools";
 import { registerTimesheetTools } from "./tools/timesheets-tools";
 import { registerAssetTools } from "./tools/assets-tools";
 import { registerProspectTools } from "./tools/prospects-tools";
+import { registerAssistantTools } from "./tools/assistant-tools";
 import { ilikeAcross } from "@/lib/pg-filter";
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -1422,6 +1423,9 @@ export function registerTools(register: ToolFn): void {
 
   // ===== ASSETS & EQUIPMENT =====
   registerAssetTools(tool);
+
+  // ===== AI ASSISTANT =====
+  registerAssistantTools(tool);
 
   // ===== PROSPECTS =====
   registerProspectTools(tool);

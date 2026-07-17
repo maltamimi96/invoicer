@@ -25,7 +25,7 @@ describe("tool registry", () => {
 
   it("still registers known tools from every sub-registrar", () => {
     // One per registrar: core, plugin-forms, seo, expenses, inventory,
-    // timesheets, assets, prospects.
+    // timesheets, assets, prospects, assistant.
     for (const name of [
       "list_customers",
       "list_public_forms",
@@ -35,6 +35,7 @@ describe("tool registry", () => {
       "get_timesheet",
       "list_assets",
       "list_prospects",
+      "list_assistant_conversations",
     ]) {
       expect(TOOL_SPECS_BY_NAME[name], `missing tool: ${name}`).toBeDefined();
     }

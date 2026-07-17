@@ -1266,6 +1266,57 @@ export const ALL_WEBHOOK_EVENTS: { value: WebhookEvent; label: string; group: st
   { value: 'booking.no_show',       label: 'Booking no-show',       group: 'Bookings' },
 ];
 
+// ── Assistant ────────────────────────────────────────────────────────────────
+
+export interface AssistantConversation {
+  id: string;
+  business_id: string;
+  user_id: string;
+  title: string | null;
+  model: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * One turn of an assistant conversation.
+ *
+ * `content` is the full Anthropic content block array (text / tool_use /
+ * tool_result / thinking) — deliberately `unknown[]` rather than a string.
+ * Flattening it to text is the exact bug this feature exists to fix: the tool
+ * blocks are the agent's cross-turn memory.
+ */
+export interface AssistantMessage {
+  id: string;
+  conversation_id: string;
+  business_id: string;
+  user_id: string;
+  role: 'user' | 'assistant';
+  content: unknown[];
+  seq: number;
+  model: string | null;
+  /** Same entry shape as cleanup_runs.change_log — see AssistantChangeEntry. */
+  change_log: AssistantChangeEntry[];
+  undone_at: string | null;
+  created_at: string;
+}
+
+/**
+ * A reversible mutation an assistant turn made. Mirrors cleanup_runs'
+ * change_log entry shape so the proven reverse-replay in undoCleanup applies
+ * to assistant actions unchanged.
+ */
+export interface AssistantChangeEntry {
+  change_id: string;
+  op: 'update' | 'delete';
+  /** Table the change targeted — undo needs it to talk to the right row. */
+  table: string;
+  before: unknown;
+  after: unknown;
+  /** Tool that made the change, for the UI label. */
+  tool: string;
+}
+
 export interface BusinessWebhook {
   id: string;
   business_id: string;
@@ -1329,6 +1380,8 @@ export type ApiScope =
   | 'assets:write'
   | 'prospects:read'
   | 'prospects:write'
+  | 'assistant:read'
+  | 'assistant:write'
   | 'email:send'
   | 'agent:access'
   | 'admin';  // wildcard — grants every scope (use for trusted Claude Code keys)
@@ -1369,6 +1422,8 @@ export const ALL_API_SCOPES: { value: ApiScope; label: string; group: string }[]
   { value: 'assets:write',     label: 'Manage assets & equipment', group: 'Assets' },
   { value: 'prospects:read',   label: 'Read prospects', group: 'Prospects' },
   { value: 'prospects:write',  label: 'Create / edit / import prospects', group: 'Prospects' },
+  { value: 'assistant:read',   label: 'Read assistant conversations', group: 'Assistant' },
+  { value: 'assistant:write',  label: 'Delete assistant conversations', group: 'Assistant' },
   { value: 'email:send',       label: 'Send emails to customers', group: 'Email' },
   { value: 'agent:access',     label: 'AI Agent access',   group: 'Agent' },
 ];

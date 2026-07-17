@@ -154,6 +154,8 @@ export {
   WebhooksLogo as Webhook,
   FlowArrow as Workflow,
   Lightning as Zap,
+  SpeakerHigh as Volume2,
+  SpeakerSlash as VolumeX,
 } from "@phosphor-icons/react";
 
 // Compat type for code that imports `LucideIcon`
