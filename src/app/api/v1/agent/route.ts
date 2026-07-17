@@ -19,6 +19,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { authenticateApiKey, requireScope } from "@/lib/api-auth";
 import { v4 as uuidv4 } from "uuid";
 import type { LineItem } from "@/types/database";
+import { ilikeAcross } from "@/lib/pg-filter";
 
 // ── Rate limiter ─────────────────────────────────────────────────────────────
 
@@ -390,7 +391,7 @@ async function executeTool(name: string, input: Record<string, any>, ctx: BizCon
         .select("id, name, company, email, phone, address")
         .eq("business_id", ctx.businessId)
         .eq("archived", false)
-        .or(`name.ilike.%${input.query}%,email.ilike.%${input.query}%,company.ilike.%${input.query}%`)
+        .or(ilikeAcross(["name", "email", "company"], input.query))
         .limit(8);
       return { customers: data ?? [], count: (data ?? []).length };
     }
@@ -948,11 +949,21 @@ RULES:
 
       messages.push({ role: "assistant", content: response.content });
 
-      // If no tool calls, we have the final answer
-      const toolUses = response.content.filter((b) => b.type === "tool_use");
+      // Only run tools when the model finished asking for them. A reply cut off
+      // at max_tokens can end inside a tool_use block with partial input JSON,
+      // and executing that would pass garbage args to real write actions.
+      const toolUses =
+        response.stop_reason === "tool_use"
+          ? response.content.filter((b) => b.type === "tool_use")
+          : [];
       if (toolUses.length === 0) {
         const text = response.content.find((b) => b.type === "text");
-        const reply = text?.type === "text" ? text.text : "Done.";
+        let reply = text?.type === "text" ? text.text : "Done.";
+        if (response.stop_reason === "max_tokens") {
+          reply = `${reply}\n\nThat reply was cut off because it hit the length limit. Nothing was run — try a narrower request.`;
+        } else if (response.stop_reason === "refusal") {
+          reply = "I can't help with that request.";
+        }
         return NextResponse.json(
           { reply, caller },
           { headers: { "X-RateLimit-Remaining": String(remaining) } }

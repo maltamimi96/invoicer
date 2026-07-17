@@ -6,6 +6,7 @@ import { z } from "zod";
 import { assertScope, t, text, errorText } from "../context";
 import { ctxFrom, UUID, type ToolFn } from "./shared";
 import { sendToProspects } from "@/lib/prospects/outreach";
+import { ilikeAcross } from "@/lib/pg-filter";
 
 const STATUS = z.enum(["new", "contacted", "responded", "qualified", "unqualified", "converted"]);
 const PFIELDS = {
@@ -32,7 +33,7 @@ export function registerProspectTools(tool: ToolFn): void {
         .eq("business_id", ctx.businessId).order("created_at", { ascending: false }).limit(args.limit ?? 200);
       if (args.status) q = q.eq("status", args.status);
       if (args.tag) q = q.contains("tags", [args.tag]);
-      if (args.search?.trim()) { const s = `%${args.search.trim()}%`; q = q.or(`name.ilike.${s},email.ilike.${s},company.ilike.${s}`); }
+      if (args.search?.trim()) q = q.or(ilikeAcross(["name", "email", "company"], args.search.trim()));
       const { data, error } = await q;
       if (error) throw error;
       return text(data);

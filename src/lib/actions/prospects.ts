@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { getUser } from "@/lib/auth";
 import { sendToProspects } from "@/lib/prospects/outreach";
+import { ilikeAcross } from "@/lib/pg-filter";
 import type { Prospect, ProspectStatus } from "@/types/database";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -36,8 +37,7 @@ export async function listProspects(filters?: { status?: ProspectStatus; search?
   if (filters?.status) q = q.eq("status", filters.status);
   if (filters?.tag) q = q.contains("tags", [filters.tag]);
   if (filters?.search?.trim()) {
-    const s = `%${filters.search.trim()}%`;
-    q = q.or(`name.ilike.${s},email.ilike.${s},company.ilike.${s}`);
+    q = q.or(ilikeAcross(["name", "email", "company"], filters.search.trim()));
   }
   const { data, error } = await q;
   if (error) throw error;
