@@ -20,7 +20,19 @@ export const maxDuration = 120;
 
 const handler = createMcpHandler(
   (server) => {
-    registerTools(server);
+    // registerTools takes a ToolFn, not a server, so the same definitions can
+    // also back the in-app assistant (see lib/mcp/collect.ts). Adapt onto the
+    // real server here — this is the only place that knows about MCP.
+    //
+    // The cast covers the handler's `Promise<unknown>` vs the SDK's
+    // `Promise<CallToolResult>`: handlers return text()/errorText(), which are
+    // CallToolResult-shaped but typed loosely across ~200 tools. This used to
+    // be a blanket `type McpServer = any` on the whole server, so narrowing it
+    // to this one callback is a strict improvement in coverage.
+    registerTools((name, description, shape, handler) =>
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      server.tool(name, description, shape, handler as any)
+    );
   },
   {
     serverInfo: { name: "kirei", version: "1.0.0" },

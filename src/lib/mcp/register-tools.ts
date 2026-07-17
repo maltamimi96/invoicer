@@ -12,8 +12,6 @@
  */
 
 import { z } from "zod";
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type McpServer = any;
 import { v4 as uuidv4 } from "uuid";
 import { randomBytes } from "crypto";
 import { assertScope, t, text, errorText, type McpContext } from "./context";
@@ -29,7 +27,7 @@ import {
 } from "@/lib/emails/templates";
 import { customerAllowsCard } from "@/lib/payment-methods";
 import type { LineItem } from "@/types/database";
-import { ctxFrom, appBase, UUID, getOrMintPortalToken } from "./tools/shared";
+import { ctxFrom, appBase, UUID, getOrMintPortalToken, type ToolFn } from "./tools/shared";
 import { registerPluginFormTools } from "./tools/plugin-form-tools";
 import { registerSeoTools } from "./tools/seo-tools";
 import { registerExpenseTools } from "./tools/expenses-tools";
@@ -125,10 +123,20 @@ async function renderPdf(kind: "quote" | "invoice", doc: unknown, customer: unkn
 
 // ── registration ─────────────────────────────────────────────────────────────
 
-export function registerTools(server: McpServer): void {
+/**
+ * Register every Kirei tool against `register`.
+ *
+ * Takes a `ToolFn` rather than an MCP server so the same definitions can back
+ * more than one surface: `/api/mcp` passes an adapter onto the real server,
+ * while `collect.ts` passes a collector that just gathers the specs (which is
+ * how the in-app assistant gets the identical tool set instead of maintaining
+ * its own copy). The sub-registrars below already took a `ToolFn`; this makes
+ * the top-level match them.
+ */
+export function registerTools(register: ToolFn): void {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tool = (name: string, description: string, shape: z.ZodRawShape, handler: (args: any, extra: any) => Promise<unknown>) =>
-    server.tool(name, description, shape, async (args: unknown, extra: unknown) => {
+    register(name, description, shape, async (args: unknown, extra: unknown) => {
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return await handler(args as any, extra as any);
