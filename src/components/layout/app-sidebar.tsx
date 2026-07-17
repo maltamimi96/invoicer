@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, FileText, FileCheck, Users,
-  Package, Settings, FileStack, X, ClipboardList, Wrench, Users2, UserPlus, CalendarDays, MessageSquare, Bot, Repeat, HelpCircle, Columns3, TrendingUp, Sparkles, ListChecks, Search, Receipt, Boxes, Clock, Hammer, Target,
+  Package, Settings, FileStack, X, ClipboardList, Wrench, Users2, UserPlus, CalendarDays, MessageSquare, Bot, Repeat, HelpCircle, Columns3, TrendingUp, Sparkles, ListChecks, Search, Receipt, Boxes, Clock, Hammer, Target, Megaphone,
 } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 import type { Business } from "@/types/database";
@@ -67,6 +67,9 @@ const navSections: NavSection[] = [
   ]},
   { section: "SEO", items: [
     { label: "SEO Production", href: "/seo", icon: Search, plugin: "seo-production" },
+  ]},
+  { section: "Content", items: [
+    { label: "Content Studio", href: "/content", icon: Megaphone, plugin: "content-studio" },
   ]},
   { section: "Insights", items: [
     { label: "Analytics",  href: "/analytics",  icon: TrendingUp,    plugin: "analytics" },

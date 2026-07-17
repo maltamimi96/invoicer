@@ -10,6 +10,7 @@ import {
   Zap, Newspaper, MailCheck, UserRoundCheck, FileClock, CheckCircle, Star, ClipboardList, ListChecks,
   LayoutDashboard, Users, Columns3, Users2, UserPlus, FileCheck, FileText, Repeat, FileStack,
   Wrench, CalendarDays, Package, MessageSquare, TrendingUp, Sparkles, Receipt, Boxes, Clock, Hammer, Target,
+  Megaphone,
 } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -73,6 +74,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
   package: Package,
   "message-square": MessageSquare,
   "trending-up": TrendingUp,
+  megaphone: Megaphone,
   sparkles: Sparkles,
   receipt: Receipt,
   boxes: Boxes,

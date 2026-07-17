@@ -1266,6 +1266,139 @@ export const ALL_WEBHOOK_EVENTS: { value: WebhookEvent; label: string; group: st
   { value: 'booking.no_show',       label: 'Booking no-show',       group: 'Bookings' },
 ];
 
+// ── Content Studio ───────────────────────────────────────────────────────────
+
+/**
+ * A client's brand. Unlike seo_brand_profiles — which exists but is read by
+ * nothing — this is loaded on every pipeline run and is the whole point of the
+ * plugin: voice is the product for social content.
+ */
+export interface ContentBrand {
+  id: string;
+  business_id: string;
+  /** The client this belongs to. NULL = the agency's own brand. */
+  customer_id: string | null;
+  name: string;
+  industry: string | null;
+  services: string[];
+  service_area: string | null;
+  audience: string | null;
+  voice: string | null;
+  tone: string | null;
+  /** Claims they can actually stand behind — licences, years trading, warranty. */
+  proof_points: string | null;
+  /** Words the client refuses to say. Enforced by the voice agent. */
+  banned_phrases: string[];
+  /** Their own posts that worked. Few-shot beats adjectives. */
+  examples: string | null;
+  profile: Record<string, unknown>;
+  status: 'active' | 'paused' | 'archived';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ContentTopic {
+  id: string;
+  business_id: string;
+  brand_id: string;
+  title: string;
+  detail: string | null;
+  angle_hint: string | null;
+  /** Trades work is seasonal — a storm-season topic in January is worthless. */
+  season: string | null;
+  source_urls: string[];
+  priority: number;
+  status: 'queued' | 'in_progress' | 'done' | 'dismissed';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ContentCampaign {
+  id: string;
+  business_id: string;
+  brand_id: string;
+  name: string;
+  theme: string | null;
+  goal: string | null;
+  starts_on: string | null;
+  cadence: string | null;
+  status: 'draft' | 'active' | 'done' | 'archived';
+  created_at: string;
+  updated_at: string;
+}
+
+/** One request = one pipeline run. Note the single status column. */
+export interface ContentPiece {
+  id: string;
+  business_id: string;
+  brand_id: string;
+  topic_id: string | null;
+  campaign_id: string | null;
+  topic: string;
+  kind: 'script' | 'post' | 'hooks' | 'campaign';
+  platforms: string[];
+  angle_count: number;
+  /** { artifact_key: { content, created_at } } — whole pipeline state, one column. */
+  artifacts: Record<string, { content: string; created_at: string }>;
+  current_stage: string | null;
+  status: 'idle' | 'running' | 'awaiting_approval' | 'done' | 'failed';
+  job_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** The fan-out: one row per angle x platform. */
+export interface ContentVariation {
+  id: string;
+  business_id: string;
+  piece_id: string;
+  angle: string;
+  angle_index: number;
+  platform: string;
+  hook: string | null;
+  body: string | null;
+  /** Shape varies by kind: script beats, hashtags, on-screen text, first comment. */
+  assets: Record<string, unknown>;
+  status: 'draft' | 'approved' | 'rejected' | 'scheduled' | 'posted';
+  scheduled_at: string | null;
+  posted_at: string | null;
+  external_id: string | null;
+  external_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ContentJob {
+  id: string;
+  business_id: string;
+  brand_id: string | null;
+  type: string;
+  status: 'queued' | 'running' | 'awaiting_approval' | 'done' | 'failed';
+  step: number;
+  input: Record<string, unknown>;
+  cost_cents: number;
+  /** Lease — only an expired one may be re-claimed. See the migration header. */
+  locked_until: string | null;
+  attempts: number;
+  error: string | null;
+  last_error_at: string | null;
+  run_after: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ContentJobEvent {
+  id: string;
+  business_id: string;
+  brand_id: string | null;
+  job_id: string | null;
+  agent_id: string | null;
+  level: 'info' | 'success' | 'error';
+  message: string;
+  cost_cents: number;
+  created_at: string;
+}
+
 // ── Assistant ────────────────────────────────────────────────────────────────
 
 export interface AssistantConversation {
