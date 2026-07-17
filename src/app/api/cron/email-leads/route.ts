@@ -14,6 +14,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchEmailsSince, type RawEmail, type ImapConfig } from "@/lib/email-reader";
 import type { BusinessEmailConfig } from "@/types/database";
+import { AI_MODELS } from "@/lib/ai/models";
 
 export const maxDuration = 300;
 
@@ -191,7 +192,7 @@ Respond with ONLY a JSON object (no markdown, no explanation):
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
+      model: AI_MODELS.fast,
       max_tokens: 300,
       messages: [{ role: "user", content: prompt }],
     });

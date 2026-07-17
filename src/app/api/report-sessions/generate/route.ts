@@ -3,7 +3,7 @@
  *
  * 1. Receives a report session ID + Telegram bot token
  * 2. Downloads all photos from Telegram
- * 3. Sends them to Claude claude-opus-4-6 for analysis
+ * 3. Sends them to Claude (Opus) for analysis
  * 4. Generates a branded PDF with @react-pdf/renderer
  * 5. Uploads PDF to Supabase storage
  * 6. Returns a public URL
@@ -16,6 +16,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { RoofInspectionReportData } from "@/components/reports/roof-inspection-pdf";
+import { AI_MODELS } from "@/lib/ai/models";
 
 const AGENT_BUSINESS_ID = process.env.AGENT_BUSINESS_ID ?? "ff3a47f3-54b0-45e3-b7a9-69ddc9fa787e";
 
@@ -127,7 +128,7 @@ Rules:
 - Be thorough but concise`;
 
     const response = await anthropic.messages.create({
-      model: "claude-opus-4-6",
+      model: AI_MODELS.smart,
       max_tokens: 4000,
       messages: [
         {

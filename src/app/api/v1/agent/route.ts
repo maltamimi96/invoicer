@@ -20,6 +20,7 @@ import { authenticateApiKey, requireScope } from "@/lib/api-auth";
 import { v4 as uuidv4 } from "uuid";
 import type { LineItem } from "@/types/database";
 import { ilikeAcross } from "@/lib/pg-filter";
+import { AI_MODELS } from "@/lib/ai/models";
 
 // ── Rate limiter ─────────────────────────────────────────────────────────────
 
@@ -940,7 +941,7 @@ RULES:
       iterations++;
 
       const response = await anthropic.messages.create({
-        model: "claude-haiku-4-5-20251001",
+        model: AI_MODELS.fast,
         max_tokens: 500,
         system: systemPrompt,
         tools: TOOLS,

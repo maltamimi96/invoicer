@@ -7,6 +7,7 @@ import { createCustomer } from "@/lib/actions/customers";
 import { createQuote } from "@/lib/actions/quotes";
 import type { LineItem } from "@/types/database";
 import { ilikeAcross } from "@/lib/pg-filter";
+import { AI_MODELS } from "@/lib/ai/models";
 
 const anthropic = new Anthropic();
 
@@ -373,7 +374,7 @@ Money is in ${ctx.currency}. Be concise — the user reads on a phone or has the
   while (iterations < 12) {
     iterations++;
     const response = await anthropic.messages.create({
-      model: "claude-opus-4-6",
+      model: AI_MODELS.smart,
       max_tokens: 4096,
       system,
       tools: TOOLS,
