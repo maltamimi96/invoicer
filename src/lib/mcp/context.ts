@@ -28,17 +28,31 @@ export function assertScope(ctx: McpContext, required: ApiScope): void {
   }
 }
 
-/** Build the per-request context from the authenticated key info. */
+/**
+ * Build the per-request context from the authenticated key info.
+ *
+ * `sb` is lazy on purpose. Every handler runs ctxFrom() then assertScope(), so
+ * building the client eagerly meant a service-role client was constructed for
+ * calls that were about to be denied — and, worse, that the denial couldn't
+ * happen at all without Supabase env: createAdminClient() throws
+ * "supabaseUrl is required" first, so a scope refusal surfaced as a config
+ * error. The gate must not depend on the thing it's gating.
+ */
 export function buildContext(auth: {
   businessId: string;
   userId: string;
   scopes: ApiScope[];
 }): McpContext {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let client: any;
   return {
     businessId: auth.businessId,
     userId: auth.userId,
     scopes: auth.scopes,
-    sb: createAdminClient(),
+    get sb() {
+      client ??= createAdminClient();
+      return client;
+    },
   };
 }
 
