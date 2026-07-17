@@ -34,7 +34,7 @@ import {
 } from "@/lib/assistant/models";
 import type { AssistantConversation, AssistantChangeEntry } from "@/types/database";
 import { undoLabel } from "@/lib/assistant/undo";
-import { Markdown } from "./markdown";
+import { Markdown } from "@/components/ui/markdown";
 import {
   prepareImages, toImageBlock, MAX_IMAGES_PER_MESSAGE, type PreparedImage,
 } from "./images";

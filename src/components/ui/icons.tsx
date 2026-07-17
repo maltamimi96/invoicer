@@ -156,6 +156,7 @@ export {
   Lightning as Zap,
   SpeakerHigh as Volume2,
   SpeakerSlash as VolumeX,
+  Megaphone,
 } from "@phosphor-icons/react";
 
 // Compat type for code that imports `LucideIcon`

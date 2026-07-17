@@ -21,7 +21,7 @@
 export type PluginKind = "module" | "agent";
 export type PluginCategory =
   | "core" | "sales" | "service" | "contacts" | "catalog"
-  | "communication" | "insights" | "automation" | "seo";
+  | "communication" | "insights" | "automation" | "seo" | "content";
 
 export interface PluginDefinition {
   id: string;
@@ -84,6 +84,9 @@ export const PLUGIN_REGISTRY: PluginDefinition[] = [
 
   // ── SEO vertical (docs/SEO_AGENCY_PLAN.md, Phase 2) ─────────────────────────
   { id: "seo-production", icon: "trending-up", name: "SEO Production", description: "Manage client sites: connectors, opportunity queue, content pipeline and reporting.", kind: "module", category: "seo", defaultEnabled: false, routePrefixes: ["/seo"] },
+
+  // ── Content Studio — social/marketing content for clients ───────────────────
+  { id: "content-studio", icon: "megaphone", name: "Content Studio", description: "Research a client's niche, then generate video scripts, posts, hooks and campaigns — multiple angles, rendered per platform.", kind: "module", category: "content", defaultEnabled: false, routePrefixes: ["/content"] },
 ];
 
 export const PLUGINS_BY_ID: Record<string, PluginDefinition> =
