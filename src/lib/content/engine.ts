@@ -326,6 +326,7 @@ interface PieceRow {
   platforms: string[];
   angle_count: number;
   artifacts: Record<string, { content: string; created_at: string }>;
+  publish_on: string | null;
 }
 
 interface JobRow {
@@ -361,6 +362,12 @@ function buildInput(agent: ContentAgentDef, piece: PieceRow, brand: ContentBrand
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function writeVariations(sb: any, piece: PieceRow, raw: unknown): Promise<number> {
   const list = Array.isArray(raw) ? raw : [];
+
+  // A campaign-planned piece carries its intended date; the variations inherit
+  // it so a planned run lands on the calendar without anyone scheduling a dozen
+  // cards by hand. 09:00 local-ish is a placeholder the user can drag later.
+  const scheduledAt = piece.publish_on ? `${piece.publish_on}T09:00:00Z` : null;
+
   const rows = list
     .filter((v): v is Record<string, unknown> => !!v && typeof v === "object")
     .filter((v) => typeof v.platform === "string" && piece.platforms.includes(v.platform as string))
@@ -374,6 +381,10 @@ async function writeVariations(sb: any, piece: PieceRow, raw: unknown): Promise<
       body: v.body ? String(v.body).slice(0, 20000) : null,
       assets: (v.assets as Record<string, unknown>) ?? {},
       status: "draft" as const,
+      // Only when planned. Both the adapt AND edit steps upsert these rows, so
+      // writing `scheduled_at: null` here would have the edit step wipe a date
+      // the user set by hand a minute earlier.
+      ...(scheduledAt ? { scheduled_at: scheduledAt } : {}),
     }));
 
   if (rows.length === 0) return 0;

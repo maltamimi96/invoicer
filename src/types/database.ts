@@ -1340,6 +1340,9 @@ export interface ContentPiece {
   angle_count: number;
   /** { artifact_key: { content, created_at } } — whole pipeline state, one column. */
   artifacts: Record<string, { content: string; created_at: string }>;
+  /** The date a campaign intends this to go out; copied onto its variations
+   *  when the adapter writes them. Null = not planned, schedule by hand. */
+  publish_on: string | null;
   current_stage: string | null;
   status: 'idle' | 'running' | 'awaiting_approval' | 'done' | 'failed';
   job_id: string | null;

@@ -4,7 +4,9 @@ import { useState, useTransition, useEffect } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Search, FileText, Activity, Megaphone, Sparkles, Loader2 } from "@/components/ui/icons";
+import {
+  Search, FileText, Activity, Megaphone, Sparkles, Loader2, Calendar as CalendarIcon,
+} from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/layout/page-header";
@@ -12,9 +14,12 @@ import { PLATFORMS, type ContentKind } from "@/lib/content/pipeline";
 import { scanTopics, startContentPiece } from "@/lib/actions/content";
 import { ContentActivityTerminal } from "./content-activity-terminal";
 import { ContentVoiceEditor } from "./content-voice-editor";
-import type { ContentBrand, ContentTopic, ContentPiece } from "@/types/database";
+import { ContentCampaignsView } from "./content-campaigns-view";
+import { ContentCalendar } from "./content-calendar";
+import type { CalendarEntry } from "@/lib/actions/content-campaigns";
+import type { ContentBrand, ContentTopic, ContentPiece, ContentCampaign } from "@/types/database";
 
-type Tab = "topics" | "pieces" | "voice" | "activity";
+type Tab = "topics" | "pieces" | "campaigns" | "calendar" | "voice" | "activity";
 
 const KINDS: Array<{ id: ContentKind; label: string; blurb: string }> = [
   { id: "script", label: "Video script", blurb: "Hook, beats, VO, on-screen text, CTA." },
@@ -26,12 +31,19 @@ export function ContentBrandHub({
   brand,
   topics,
   pieces,
+  campaigns,
+  calendar,
+  calendarMonth,
   budget,
   scoutBusy,
 }: {
   brand: ContentBrand;
   topics: ContentTopic[];
   pieces: ContentPiece[];
+  campaigns: ContentCampaign[];
+  calendar: CalendarEntry[];
+  /** The month the server fetched, as [year, monthIndex]. */
+  calendarMonth: [number, number];
   budget: { spentCents: number; budgetCents: number };
   scoutBusy: boolean;
 }) {
@@ -44,6 +56,13 @@ export function ContentBrandHub({
   // linked to.
   const tab = (params.get("tab") as Tab) ?? "topics";
   const setTab = (t: Tab) => router.replace(`${pathname}?tab=${t}`, { scroll: false });
+
+  // The calendar's month lives in the URL too: the entries are fetched on the
+  // server, so paging months has to round-trip rather than filter client-side.
+  const setMonth = (year: number, month: number) =>
+    router.replace(`${pathname}?tab=calendar&m=${year}-${String(month + 1).padStart(2, "0")}`, {
+      scroll: false,
+    });
 
   const [topic, setTopic] = useState("");
   const [topicId, setTopicId] = useState<string | null>(null);
@@ -108,7 +127,9 @@ export function ContentBrandHub({
   const tabs: Array<{ id: Tab; label: string; icon: typeof Search }> = [
     { id: "topics", label: `Topics${topics.length ? ` (${topics.length})` : ""}`, icon: Search },
     { id: "pieces", label: `Content${pieces.length ? ` (${pieces.length})` : ""}`, icon: FileText },
-    { id: "voice", label: "Voice", icon: Megaphone },
+    { id: "campaigns", label: `Campaigns${campaigns.length ? ` (${campaigns.length})` : ""}`, icon: Megaphone },
+    { id: "calendar", label: "Calendar", icon: CalendarIcon },
+    { id: "voice", label: "Voice", icon: Sparkles },
     { id: "activity", label: "Activity", icon: Activity },
   ];
 
@@ -308,6 +329,19 @@ export function ContentBrandHub({
             </div>
           )}
         </div>
+      )}
+
+      {tab === "campaigns" && (
+        <ContentCampaignsView brand={brand} campaigns={campaigns} topics={topics} />
+      )}
+
+      {tab === "calendar" && (
+        <ContentCalendar
+          entries={calendar}
+          year={calendarMonth[0]}
+          month={calendarMonth[1]}
+          onMonth={setMonth}
+        />
       )}
 
       {tab === "voice" && <ContentVoiceEditor brand={brand} />}
