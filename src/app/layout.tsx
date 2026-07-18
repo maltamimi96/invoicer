@@ -11,25 +11,21 @@ export const viewport: Viewport = {
   initialScale: 1,
   minimumScale: 1,
 };
-import { Geist, Fraunces } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { PWARegister } from "@/components/pwa-register";
 import { IconProvider } from "@/components/ui/icon-provider";
 
-const geist = Geist({
+// One typeface across the app. Plus Jakarta is a variable font (weights
+// 200–800), so both the UI stack (--font-sans) and the heavier display stack
+// (--font-display) resolve to it — the display face just leans on the top of
+// the weight range instead of a separate serif.
+const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
   variable: "--font-sans",
   display: "swap",
-});
-
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  variable: "--font-display",
-  display: "swap",
-  style: ["normal", "italic"],
-  axes: ["opsz", "SOFT"],
 });
 
 export const metadata: Metadata = {
@@ -57,7 +53,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" data-theme="console" suppressHydrationWarning>
-      <body className={`${geist.variable} ${fraunces.variable} font-sans antialiased`} suppressHydrationWarning>
+      <body className={`${jakarta.variable} font-sans antialiased`} suppressHydrationWarning>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

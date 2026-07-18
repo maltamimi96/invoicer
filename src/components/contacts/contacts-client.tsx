@@ -207,7 +207,7 @@ export function ContactsClient({ contacts: initial }: { contacts: Contact[] }) {
       {/* List */}
       {filtered.length === 0 ? (
         <div className="py-24 text-center">
-          <p className="font-display text-2xl text-muted-foreground italic">
+          <p className="font-display text-2xl font-semibold text-muted-foreground">
             No contacts {search || stageFilter !== "all" ? "match your filter" : "yet"}
           </p>
           {(!search && stageFilter === "all") && (
@@ -294,7 +294,7 @@ export function ContactsClient({ contacts: initial }: { contacts: Contact[] }) {
       >
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto bg-card">
           <DialogHeader>
-            <DialogTitle className="font-display text-2xl">
+            <DialogTitle className="font-display text-2xl font-bold">
               {editing ? "Edit contact" : "New contact"}
             </DialogTitle>
           </DialogHeader>
@@ -355,7 +355,7 @@ export function ContactsClient({ contacts: initial }: { contacts: Contact[] }) {
       <AlertDialog open={!!deleteId} onOpenChange={(o) => { if (!o) setDeleteId(null); }}>
         <AlertDialogContent className="bg-card">
           <AlertDialogHeader>
-            <AlertDialogTitle className="font-display text-2xl">Archive contact?</AlertDialogTitle>
+            <AlertDialogTitle className="font-display text-2xl font-bold">Archive contact?</AlertDialogTitle>
             <AlertDialogDescription>You can restore it from the database if needed.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
