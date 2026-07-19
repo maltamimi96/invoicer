@@ -6,6 +6,7 @@ import { getActiveBizId } from "@/lib/active-business";
 import type { Site, SiteContact } from "@/types/database";
 
 import { getUser } from "@/lib/auth";
+import { assertOk } from "@/lib/db";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: Awaited<ReturnType<typeof createClient>>, name: string) => (sb as any).from(name);
 
@@ -109,7 +110,12 @@ export async function updateSite(id: string, payload: SitePayload): Promise<Site
 
 export async function archiveSite(id: string): Promise<void> {
   const { supabase, businessId } = await ctx();
-  await tbl(supabase, "sites").update({ archived: true }).eq("id", id).eq("business_id", businessId);
+  // Was unchecked: an RLS denial or constraint failure returned normally and
+  // the UI reported the site archived while the row was untouched.
+  assertOk(
+    await tbl(supabase, "sites").update({ archived: true }).eq("id", id).eq("business_id", businessId),
+    "archive the site",
+  );
 }
 
 // site_contacts (link)

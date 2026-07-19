@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { assertOk } from "@/lib/db";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { dispatchWebhook } from "@/lib/webhooks";
@@ -342,13 +343,31 @@ export async function addPayment(invoiceId: string, payment: { amount: number; d
 
   const businessId = await getActiveBizId(supabase, user.id);
 
+  // Validate before touching the database. Nothing else did: a NaN from a bad
+  // parseFloat, or a negative amount, would be written straight through and
+  // then folded into amount_paid.
+  const amount = Number(payment.amount);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error("Payment amount must be a positive number.");
+  }
+
   const { data: invoice } = await tbl(supabase, "invoices")
     .select("total, amount_paid")
     .eq("id", invoiceId)
     .single();
   if (!invoice) throw new Error("Invoice not found");
 
-  await tbl(supabase, "payments").insert({ ...payment, invoice_id: invoiceId, user_id: user.id, business_id: businessId });
+  // This insert used to be fired without destructuring, so a rejected write —
+  // RLS denial, CHECK violation, bad date — returned normally. The recompute
+  // below then read the payments table (unchanged), wrote the SAME amount_paid
+  // back, and the UI said "Payment recorded". The user believed money had been
+  // recorded against an invoice that had nothing written to it.
+  assertOk(
+    await tbl(supabase, "payments").insert({
+      ...payment, amount, invoice_id: invoiceId, user_id: user.id, business_id: businessId,
+    }),
+    "record the payment",
+  );
 
   // Recompute this invoice's amount_paid from truth (payments table + any
   // children's collections if it's a parent of a progress-billed job). This
@@ -369,7 +388,14 @@ export async function addPayment(invoiceId: string, payment: { amount: number; d
   const newAmountPaid = directSum + childSum;
   const newStatus = newAmountPaid >= invoice.total - 0.01 ? "paid" : "partial";
 
-  await tbl(supabase, "invoices").update({ amount_paid: newAmountPaid, status: newStatus }).eq("id", invoiceId);
+  // Also unchecked before: a failed rollup left the payment row written but
+  // amount_paid stale, so the invoice under-reported what had been collected.
+  assertOk(
+    await tbl(supabase, "invoices")
+      .update({ amount_paid: newAmountPaid, status: newStatus })
+      .eq("id", invoiceId),
+    "update the invoice balance",
+  );
 
   // If this invoice is a child of a progress-billed parent, roll the new
   // payment up so the parent reflects everything collected toward the job.
@@ -414,9 +440,12 @@ export async function addPayment(invoiceId: string, payment: { amount: number; d
         else if (totalCollected > 0.01) nextStatus = "partial";
       }
 
-      await tbl(supabase, "invoices")
-        .update({ amount_paid: totalCollected, status: nextStatus })
-        .eq("id", parentId);
+      assertOk(
+        await tbl(supabase, "invoices")
+          .update({ amount_paid: totalCollected, status: nextStatus })
+          .eq("id", parentId),
+        "roll the payment up to the parent invoice",
+      );
 
       if (nextStatus === "paid" && currentStatus !== "paid") {
         dispatchWebhook(businessId, "invoice.paid", { id: parentId, total: parentTotal, via_progress: true });
