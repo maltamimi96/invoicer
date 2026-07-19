@@ -25,7 +25,7 @@ import { ScheduledSendsCard } from "@/components/delivery/scheduled-sends-card";
 import { scheduleSend } from "@/lib/actions/scheduled-sends";
 import { ShareWithCustomerDialog } from "@/components/share/share-with-customer-dialog";
 
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, num } from "@/lib/utils";
 import {
   DetailHero, FactCard, AnimatedPress, FadeIn, GradientTile, KireiPill, Confetti,
 } from "@/components/ui/kirei";
@@ -144,7 +144,9 @@ export function InvoiceDetailClient({
       toast.success("Payment recorded");
       setShowPayment(false);
       // If this payment closes the invoice, celebrate.
-      if (!wasPaid && (invoice.amount_paid + paid + 0.005) >= Number(invoice.total)) {
+      // amount_paid arrives as a string, so this was "100.00" + 50 → "100.0050"
+      // and the comparison never fired: the invoice went paid without confetti.
+      if (!wasPaid && (num(invoice.amount_paid) + paid + 0.005) >= num(invoice.total)) {
         setConfettiKey((k) => k + 1);
       }
       router.refresh();
