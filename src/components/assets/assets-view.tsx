@@ -1,5 +1,7 @@
 "use client";
 
+import { useConfirm } from "@/components/ui/confirm";
+
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -24,6 +26,7 @@ const todayISO = () => new Date().toISOString().split("T")[0];
 
 export function AssetsView({ assets, members }: Props) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [isPending, startTransition] = useTransition();
   const [addOpen, setAddOpen] = useState(false);
   const [serviceFor, setServiceFor] = useState<Asset | null>(null);
@@ -54,7 +57,14 @@ export function AssetsView({ assets, members }: Props) {
   function handleStatus(a: Asset, status: AssetStatus) {
     startTransition(async () => { try { await updateAsset(a.id, { status }); router.refresh(); } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't update"); } });
   }
-  function handleDelete(id: string) {
+  // deleteAsset is a hard row delete, not an archive — the asset and its
+  // service history go for good, from an unconfirmed 16px icon.
+  async function handleDelete(id: string) {
+    if (!(await confirm({
+      title: "Delete this asset?",
+      body: "The asset and its full service history are permanently deleted. This cannot be undone.",
+      confirmLabel: "Delete asset",
+    }))) return;
     startTransition(async () => { try { await deleteAsset(id); toast.success("Deleted"); router.refresh(); } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't delete"); } });
   }
   function handleLogService() {

@@ -1,5 +1,7 @@
 "use client";
 
+import { useConfirm } from "@/components/ui/confirm";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Repeat, Pause, Play, Trash2, Edit2, CreditCard, Zap } from "@/components/ui/icons";
@@ -60,6 +62,7 @@ function emptyForm() {
 
 export function RecurringInvoicesClient({ initial, customers, products, currency, stripeEnabled }: Props) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -110,7 +113,16 @@ export function RecurringInvoicesClient({ initial, customers, products, currency
   };
 
   const runNow = async (r: RecurringInvoice) => {
-    if (!confirm(`Generate ${r.name} now${r.auto_charge ? " and charge the saved card" : ""}?`)) return;
+    // When auto_charge is on this bills a real customer immediately — worth a
+    // dialog that says so plainly rather than a browser prompt.
+    if (!(await confirm({
+      title: `Run "${r.name}" now?`,
+      body: r.auto_charge
+        ? "An invoice will be generated AND the customer's saved card charged immediately. This is outside the normal schedule."
+        : "An invoice will be generated now and emailed to the customer, outside the normal schedule.",
+      confirmLabel: r.auto_charge ? "Generate and charge" : "Generate now",
+      destructive: false,
+    }))) return;
     setBusyId(r.id);
     try {
       const res = await runRecurringInvoiceNow(r.id);

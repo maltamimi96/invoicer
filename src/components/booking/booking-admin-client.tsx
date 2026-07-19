@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm } from "@/components/ui/confirm";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Copy, Plus, Trash2, Calendar, Clock, Users, Link2, ExternalLink } from "@/components/ui/icons";
@@ -44,6 +45,7 @@ export function BookingAdminClient({
 }) {
   const [blockUntimed, setBlockUntimed] = useState(blockUntimedJobs);
   const [forms, setForms] = useState(initialForms);
+  const confirm = useConfirm();
   const [types, setTypes] = useState(initialTypes);
   const [resources, setResources] = useState(initialResources);
   const [exceptions, setExceptions] = useState(initialExceptions);
@@ -113,13 +115,20 @@ export function BookingAdminClient({
       {selectedForm && (
         <FormEditor key={selectedForm.id} form={selectedForm} types={types} resources={resources} appUrl={appUrl}
           onChange={(f) => setForms((arr) => arr.map((x) => x.id === f.id ? f : x))}
-          onDelete={() => start(async () => {
+          onDelete={async () => {
             if (forms.length <= 1) { toast.error("Keep at least one form."); return; }
-            await deleteForm(selectedForm.id);
-            setForms((arr) => arr.filter((x) => x.id !== selectedForm.id));
-            setSelectedFormId(forms.find((x) => x.id !== selectedForm.id)?.id ?? null);
-            toast.success("Form deleted");
-          })} />
+            if (!(await confirm({
+              title: `Delete "${selectedForm.name}"?`,
+              body: "Its public booking link will stop working immediately. Anyone who has it bookmarked will get a 404.",
+              confirmLabel: "Delete form",
+            }))) return;
+            start(async () => {
+              await deleteForm(selectedForm.id);
+              setForms((arr) => arr.filter((x) => x.id !== selectedForm.id));
+              setSelectedFormId(forms.find((x) => x.id !== selectedForm.id)?.id ?? null);
+              toast.success("Form deleted");
+            });
+          }} />
       )}
 
       {/* Shared: Services */}
@@ -133,7 +142,14 @@ export function BookingAdminClient({
                 <div className="text-xs text-muted-foreground">{t.duration_minutes} min{t.price_display ? ` · ${t.price_display}` : ""}{t.active ? "" : " · hidden"}</div>
               </div>
               <Switch checked={t.active} onCheckedChange={(v) => start(async () => { await updateAppointmentType(t.id, { active: v }); setTypes((arr) => arr.map((x) => x.id === t.id ? { ...x, active: v } : x)); })} />
-              <Button size="icon" variant="ghost" onClick={() => start(async () => { await deleteAppointmentType(t.id); setTypes((arr) => arr.filter((x) => x.id !== t.id)); toast.success("Service removed"); })}><Trash2 className="size-4" /></Button>
+              <Button size="icon" variant="ghost" onClick={async () => {
+                if (!(await confirm({
+                  title: `Remove "${t.name}"?`,
+                  body: "Customers will no longer be able to book this service.",
+                  confirmLabel: "Remove service",
+                }))) return;
+                start(async () => { await deleteAppointmentType(t.id); setTypes((arr) => arr.filter((x) => x.id !== t.id)); toast.success("Service removed"); });
+              }}><Trash2 className="size-4" /></Button>
             </div>
           ))}
           {types.length === 0 && <div className="text-sm text-muted-foreground">No services yet — add one below.</div>}
@@ -153,7 +169,22 @@ export function BookingAdminClient({
           {resources.map((r) => (
             <ResourceRow key={r.id} resource={r} teamMembers={teamMembers}
               onLink={(memberId) => start(async () => { await updateResource(r.id, { member_profile_id: memberId }); setResources((arr) => arr.map((x) => x.id === r.id ? { ...x, member_profile_id: memberId } : x)); })}
-              onDelete={() => start(async () => { await deleteResource(r.id); setResources((arr) => arr.filter((x) => x.id !== r.id)); })} />
+              onDelete={async () => {
+                // appointments.resource_id REFERENCES booking_resources
+                // ON DELETE CASCADE — so this does not just remove the
+                // resource, it permanently deletes every appointment ever
+                // booked against it. That has to be said out loud.
+                if (!(await confirm({
+                  title: `Delete "${r.display_name}"?`,
+                  body: "Every appointment ever booked against this resource will be permanently deleted too, including past bookings. This cannot be undone.",
+                  confirmLabel: "Delete resource and its appointments",
+                }))) return;
+                start(async () => {
+                  await deleteResource(r.id);
+                  setResources((arr) => arr.filter((x) => x.id !== r.id));
+                  toast.success("Resource deleted");
+                });
+              }} />
           ))}
           {resources.length === 0 && <div className="text-sm text-muted-foreground">Add at least one bookable person/resource.</div>}
         </div>
@@ -167,7 +198,10 @@ export function BookingAdminClient({
           {exceptions.map((e) => (
             <div key={e.id} className="flex items-center gap-3 rounded-md border p-3 text-sm">
               <div className="flex-1">{e.date} — {e.is_closed ? "Closed" : `${e.start_time}–${e.end_time}`}{e.reason ? ` (${e.reason})` : ""}</div>
-              <Button size="icon" variant="ghost" onClick={() => start(async () => { await deleteException(e.id); setExceptions((arr) => arr.filter((x) => x.id !== e.id)); })}><Trash2 className="size-4" /></Button>
+              <Button size="icon" variant="ghost" onClick={async () => {
+                if (!(await confirm({ title: `Remove the ${e.date} exception?`, body: "Normal working hours will apply on that date again.", confirmLabel: "Remove" }))) return;
+                start(async () => { await deleteException(e.id); setExceptions((arr) => arr.filter((x) => x.id !== e.id)); });
+              }}><Trash2 className="size-4" /></Button>
             </div>
           ))}
           {exceptions.length === 0 && <div className="text-sm text-muted-foreground">No blackout dates.</div>}

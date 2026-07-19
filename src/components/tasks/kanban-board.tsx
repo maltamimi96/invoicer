@@ -1,5 +1,7 @@
 "use client";
 
+import { useConfirm } from "@/components/ui/confirm";
+
 import { useMemo, useState, useTransition } from "react";
 import {
   DndContext,
@@ -68,6 +70,7 @@ export function KanbanBoard({
   contacts?: ContactLite[];
 }) {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
+  const confirm = useConfirm();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Task | null>(null);
   const [composerStatus, setComposerStatus] = useState<TaskStatus | null>(null);
@@ -217,11 +220,23 @@ export function KanbanBoard({
   }
 
   async function handleDelete(id: string) {
+    // Was unguarded, and the optimistic removal below means a misclick made the
+    // task vanish instantly with no undo and no confirmation.
+    if (!(await confirm({
+      title: "Delete this task?",
+      body: "The task and its details are permanently removed. This cannot be undone.",
+      confirmLabel: "Delete task",
+    }))) return;
+
     setTasks((prev) => prev.filter((t) => t.id !== id));
     setEditing(null);
     try {
       await deleteTask({ id });
     } catch (err) {
+      // NOTE (separate from this batch): the optimistic removal above already
+      // hid the task, so a failure here leaves the board showing it as deleted
+      // when it was not. Needs a rollback + toast; this file imports neither
+      // sonner nor useRouter, so it is left for the error-handling sweep.
       console.error("deleteTask failed", err);
     }
   }

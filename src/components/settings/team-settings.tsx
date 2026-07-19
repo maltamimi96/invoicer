@@ -1,5 +1,7 @@
 "use client";
 
+import { useConfirm } from "@/components/ui/confirm";
+
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Loader2, UserPlus, Trash2, Crown, ShieldCheck, Pencil, Eye, Link2, Wrench } from "@/components/ui/icons";
@@ -42,6 +44,7 @@ export function TeamSettings({ members: initialMembers, ownerEmail, userRole }: 
   const [role, setRole] = useState<MemberRole>("editor");
   const [isPending, startTransition] = useTransition();
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const confirm = useConfirm();
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   const handleAdd = () => {
@@ -89,7 +92,14 @@ export function TeamSettings({ members: initialMembers, ownerEmail, userRole }: 
     });
   };
 
-  const handleRemove = (memberId: string, memberEmail: string) => {
+  const handleRemove = async (memberId: string, memberEmail: string) => {
+    // Was unguarded: one click on a trash icon revoked a colleague's access
+    // with no way back except re-inviting them.
+    if (!(await confirm({
+      title: `Remove ${memberEmail}?`,
+      body: "They lose access to this business immediately. Their work stays, but they will need a fresh invite to get back in.",
+      confirmLabel: "Remove member",
+    }))) return;
     setRemovingId(memberId);
     startTransition(async () => {
       try {

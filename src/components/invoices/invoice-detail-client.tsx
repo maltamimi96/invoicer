@@ -1,5 +1,7 @@
 "use client";
 
+import { useConfirm } from "@/components/ui/confirm";
+
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -57,6 +59,7 @@ export function InvoiceDetailClient({
   progressInvoices = [], parentInvoice = null,
 }: InvoiceDetailClientProps) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [invoice, setInvoice] = useState(initial);
   const [editing, setEditing] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
@@ -506,7 +509,15 @@ export function InvoiceDetailClient({
                 <AnimatedPress
                   onClick={async () => {
                     if (charging) return;
-                    if (!confirm(`Charge the saved card${customer.stripe_pm_last4 ? ` •••• ${customer.stripe_pm_last4}` : ""} for the outstanding balance?`)) return;
+                    // This moves real money on a live Stripe integration, so it
+                    // gets a styled dialog naming the amount rather than an
+                    // unstyled browser prompt the browser is allowed to suppress.
+                    if (!(await confirm({
+                      title: "Charge the saved card?",
+                      body: `${formatCurrency(Number(invoice.total) - Number(invoice.amount_paid), business.currency)} will be charged immediately to ${customer.name}'s card${customer.stripe_pm_last4 ? ` ending ${customer.stripe_pm_last4}` : ""}. Refunds have to be issued from Stripe.`,
+                      confirmLabel: "Charge card",
+                      destructive: false,
+                    }))) return;
                     setCharging(true);
                     try {
                       const res = await chargeSavedCardNow(invoice.id);
