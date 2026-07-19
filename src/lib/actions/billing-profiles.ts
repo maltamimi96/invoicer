@@ -6,6 +6,7 @@ import { getActiveBizId } from "@/lib/active-business";
 import type { BillingProfile } from "@/types/database";
 
 import { getUser } from "@/lib/auth";
+import { assertOk } from "@/lib/db";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: Awaited<ReturnType<typeof createClient>>, name: string) => (sb as any).from(name);
 
@@ -97,7 +98,10 @@ export async function updateBillingProfile(id: string, payload: Partial<BillingP
 
 export async function archiveBillingProfile(id: string): Promise<void> {
   const { supabase, businessId } = await ctx();
-  await tbl(supabase, "billing_profiles").update({ archived: true }).eq("id", id).eq("business_id", businessId);
+  assertOk(
+    await tbl(supabase, "billing_profiles").update({ archived: true }).eq("id", id).eq("business_id", businessId),
+    "archive the billing profile",
+  );
 }
 
 // site_billing
