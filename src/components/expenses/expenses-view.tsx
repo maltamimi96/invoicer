@@ -1,5 +1,7 @@
 "use client";
 
+import { useConfirm } from "@/components/ui/confirm";
+
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -24,6 +26,7 @@ const woLabel = (w?: WO) => w ? (w.title || w.number || "Job") : null;
 
 export function ExpensesView({ expenses, workOrders }: Props) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [isPending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -83,7 +86,14 @@ export function ExpensesView({ expenses, workOrders }: Props) {
     });
   }
 
-  function handleDelete(id: string) {
+  // Was a bare click on a 16px trash icon sitting next to the view-receipt
+  // icon — one misclick permanently destroyed a financial record.
+  async function handleDelete(id: string) {
+    if (!(await confirm({
+      title: "Delete this expense?",
+      body: "The expense and its receipt link are permanently removed. This cannot be undone.",
+      confirmLabel: "Delete expense",
+    }))) return;
     startTransition(async () => {
       try { await deleteExpense(id); toast.success("Deleted"); router.refresh(); }
       catch (err) { toast.error(err instanceof Error ? err.message : "Couldn't delete"); }

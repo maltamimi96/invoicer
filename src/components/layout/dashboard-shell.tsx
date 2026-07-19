@@ -6,6 +6,7 @@ import { AppSidebar } from "./app-sidebar";
 import { AppHeader } from "./app-header";
 import { AppearanceProvider } from "./appearance-provider";
 import { AppLoadingProvider } from "./app-loading";
+import { ConfirmProvider } from "@/components/ui/confirm";
 import { RouteProgress } from "./route-progress";
 // The floating AI assistant starts closed and drags in framer-motion + voice
 // capture. Lazy-load it (client-only) so its chunk stays out of every dashboard
@@ -37,6 +38,7 @@ export function DashboardShell({ business, businesses, user, userRole, features,
   return (
     <AppearanceProvider accentColor={business.accent_color} bgPattern={business.bg_pattern} sidebarTheme={business.sidebar_theme}>
       <AppLoadingProvider>
+      <ConfirmProvider>
       <Suspense fallback={null}><RouteProgress /></Suspense>
       <div className="flex h-screen overflow-hidden bg-background">
         {/* Sidebar */}
@@ -80,6 +82,7 @@ export function DashboardShell({ business, businesses, user, userRole, features,
       </div>
 
       <AgentPanel />
+      </ConfirmProvider>
       </AppLoadingProvider>
     </AppearanceProvider>
   );
