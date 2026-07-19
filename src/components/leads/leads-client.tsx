@@ -1,23 +1,33 @@
 "use client";
 
-import { useState } from "react";
-import { motion } from "framer-motion";
-import {
-  Plus, Phone, Mail, MapPin, Clock, MoreHorizontal,
-  Trash2, User, TrendingUp, ChevronRight, Search, Filter,
-} from "@/components/ui/icons";
+/**
+ * The leads workspace.
+ *
+ * One orchestrator owning lead state, the shared dialogs and every mutation;
+ * three views rendering it. The board answers "where is this lead up to", the
+ * list "show me all of them without scrolling five columns", the calendar
+ * "when did the work come in".
+ *
+ * The old page was the board alone, with six gradient KPI tiles restating the
+ * five column counts directly beneath them. The KPIs here are the four numbers
+ * the columns and filter tabs DON'T already give you.
+ */
+
+import { useState, useMemo } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
+import {
+  Plus, Search, TrendingUp, Users, Sparkles, CheckCircle,
+  LayoutGrid, ListChecks, Calendar as CalendarIcon,
+} from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { PageHeader } from "@/components/layout/page-header";
 import { CleanupButton } from "@/components/cleanup/cleanup-button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatTile, AnimatedPress, FadeIn } from "@/components/ui/kirei";
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuSeparator, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -25,65 +35,28 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useRouter } from "next/navigation";
-import { updateLeadStatus, deleteLead, createLead, updateLead, convertLeadToCustomer, convertLeadToQuote, convertLeadToWorkOrder } from "@/lib/actions/leads";
+import { LeadsBoard } from "./leads-board";
+import { LeadsList } from "./leads-list";
+import { LeadsCalendar } from "./leads-calendar";
+import { formatSourceLabel, type ConvertTarget, type LeadActionHandlers } from "./lead-shared";
+import {
+  updateLeadStatus, deleteLead, createLead, updateLead,
+  convertLeadToCustomer, convertLeadToQuote, convertLeadToWorkOrder,
+} from "@/lib/actions/leads";
 import { addLeadAsContact } from "@/lib/actions/contacts";
 import type { Lead, LeadStatus, LeadSource } from "@/types/database";
 import { BUILT_IN_LEAD_SOURCES } from "@/types/database";
 
-const COLUMNS: { status: LeadStatus; label: string; color: string; dot: string }[] = [
-  { status: "new",       label: "New",       color: "bg-blue-50 dark:bg-blue-950/30",   dot: "bg-blue-500" },
-  { status: "contacted", label: "Contacted", color: "bg-yellow-50 dark:bg-yellow-950/30", dot: "bg-yellow-500" },
-  { status: "quoted",    label: "Quoted",    color: "bg-purple-50 dark:bg-purple-950/30", dot: "bg-purple-500" },
-  { status: "won",       label: "Won",       color: "bg-green-50 dark:bg-green-950/30",  dot: "bg-green-500" },
-  { status: "lost",      label: "Lost",      color: "bg-red-50 dark:bg-red-950/30",     dot: "bg-red-500" },
+type View = "board" | "list" | "calendar";
+const VIEWS: { id: View; label: string; icon: typeof LayoutGrid }[] = [
+  { id: "board", label: "Board", icon: LayoutGrid },
+  { id: "list", label: "List", icon: ListChecks },
+  { id: "calendar", label: "Calendar", icon: CalendarIcon },
 ];
 
-const STATUS_BADGE: Record<LeadStatus, string> = {
-  new:       "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
-  contacted: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300",
-  quoted:    "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300",
-  won:       "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
-  lost:      "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
-};
-
-/** Friendly labels for known sources. Anything not in here renders as-is. */
-const SOURCE_LABELS: Record<string, string> = {
-  "landing-page":   "Landing Page",
-  "website":        "Website",
-  "referral":       "Referral",
-  "telegram":       "Telegram",
-  "email":          "Email",
-  "phone":          "Phone",
-  "manual":         "Manual",
-  "hipages":        "HiPages",
-  "service-seeking":"ServiceSeeking",
-  "google":         "Google",
-  "facebook":       "Facebook",
-  "instagram":      "Instagram",
-  "word-of-mouth":  "Word of mouth",
-};
-
-function formatSourceLabel(s: string): string {
-  return SOURCE_LABELS[s] ?? s.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-AU", { day: "numeric", month: "short" });
-}
-
 interface NewLeadForm {
-  name: string;
-  phone: string;
-  email: string;
-  suburb: string;
-  service: string;
-  property_type: string;
-  timing: string;
-  notes: string;
+  name: string; phone: string; email: string; suburb: string;
+  service: string; property_type: string; timing: string; notes: string;
   source: LeadSource;
 }
 
@@ -94,8 +67,11 @@ const EMPTY_FORM: NewLeadForm = {
 
 export function LeadsClient({ leads: initial }: { leads: Lead[] }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
+
   const [leads, setLeads] = useState(initial);
-  const [converting, setConverting] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
@@ -103,25 +79,45 @@ export function LeadsClient({ leads: initial }: { leads: Lead[] }) {
   const [saving, setSaving] = useState(false);
   const [editLead, setEditLead] = useState<Lead | null>(null);
   const [editForm, setEditForm] = useState<Partial<Lead>>({});
-  const [dragOverCol, setDragOverCol] = useState<LeadStatus | null>(null);
 
-  const filtered = search
-    ? leads.filter((l) =>
-        `${l.name} ${l.email ?? ""} ${l.phone ?? ""} ${l.suburb ?? ""} ${l.service ?? ""}`
-          .toLowerCase()
-          .includes(search.toLowerCase())
-      )
-    : leads;
+  // View lives in the URL so it survives a refresh and can be linked to —
+  // same pattern as the Content Studio hub.
+  const view = (params.get("view") as View) ?? "board";
+  const setView = (v: View) => router.replace(`${pathname}?view=${v}`, { scroll: false });
 
-  const byStatus = (status: LeadStatus) => filtered.filter((l) => l.status === status);
+  const filtered = useMemo(() => {
+    if (!search.trim()) return leads;
+    const q = search.toLowerCase();
+    return leads.filter((l) =>
+      `${l.name} ${l.email ?? ""} ${l.phone ?? ""} ${l.suburb ?? ""} ${l.service ?? ""}`
+        .toLowerCase()
+        .includes(q)
+    );
+  }, [leads, search]);
+
+  const stats = useMemo(() => {
+    const total = leads.length;
+    const won = leads.filter((l) => l.status === "won").length;
+    return {
+      total,
+      new: leads.filter((l) => l.status === "new").length,
+      won,
+      conversion: total > 0 ? Math.round((won / total) * 100) : 0,
+    };
+  }, [leads]);
+
+  // ── mutations ─────────────────────────────────────────────────────────────
 
   const handleMove = async (id: string, status: LeadStatus) => {
+    const before = leads;
     setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, status } : l)));
     try {
       await updateLeadStatus(id, status);
     } catch {
-      toast.error("Failed to update status");
-      setLeads(initial);
+      toast.error("Couldn't update the status");
+      setLeads(before); // revert to what was actually on screen, not the
+                        // server's first response — the user may have made
+                        // other edits since the page loaded.
     }
   };
 
@@ -131,12 +127,14 @@ export function LeadsClient({ leads: initial }: { leads: Lead[] }) {
       await deleteLead(deleteId);
       setLeads((prev) => prev.filter((l) => l.id !== deleteId));
       toast.success("Lead deleted");
-    } catch { toast.error("Failed to delete lead"); }
+    } catch {
+      toast.error("Couldn't delete the lead");
+    }
     setDeleteId(null);
   };
 
   const handleAdd = async () => {
-    if (!form.name) { toast.error("Name is required"); return; }
+    if (!form.name.trim()) { toast.error("A name is required"); return; }
     setSaving(true);
     try {
       const lead = await createLead({
@@ -154,47 +152,66 @@ export function LeadsClient({ leads: initial }: { leads: Lead[] }) {
       setForm(EMPTY_FORM);
       setShowAdd(false);
       toast.success("Lead added");
-    } catch { toast.error("Failed to add lead"); }
+    } catch {
+      toast.error("Couldn't add the lead");
+    }
     setSaving(false);
   };
 
   const handleAddAsContact = async (id: string) => {
-    setConverting(id);
+    setBusyId(id);
     try {
       await addLeadAsContact(id);
       toast.success("Added as contact");
       router.push("/contacts");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to add as contact");
+      toast.error(e instanceof Error ? e.message : "Couldn't add as a contact");
     } finally {
-      setConverting(null);
+      setBusyId(null);
     }
   };
 
-  const handleConvert = async (id: string, target: "customer" | "quote" | "work_order") => {
-    setConverting(id);
+  const handleConvert = async (id: string, target: ConvertTarget) => {
+    setBusyId(id);
     try {
       if (target === "customer") {
         const { customer_id } = await convertLeadToCustomer(id);
-        setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, customer_id, status: l.status === "new" ? "contacted" : l.status } : l)));
+        setLeads((prev) => prev.map((l) =>
+          l.id === id ? { ...l, customer_id, status: l.status === "new" ? "contacted" : l.status } : l
+        ));
         toast.success("Customer created");
         router.push(`/customers/${customer_id}`);
       } else if (target === "quote") {
         const { quote_id, customer_id } = await convertLeadToQuote(id);
-        setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, customer_id, quote_id, status: "quoted" } : l)));
+        setLeads((prev) => prev.map((l) =>
+          l.id === id ? { ...l, customer_id, quote_id, status: "quoted" } : l
+        ));
         toast.success("Draft quote created");
         router.push(`/quotes/${quote_id}`);
       } else {
         const { work_order_id, customer_id } = await convertLeadToWorkOrder(id);
-        setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, customer_id, status: "won" } : l)));
+        setLeads((prev) => prev.map((l) =>
+          l.id === id ? { ...l, customer_id, status: "won" } : l
+        ));
         toast.success("Work order created");
         router.push(`/work-orders/${work_order_id}`);
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Conversion failed");
     } finally {
-      setConverting(null);
+      setBusyId(null);
     }
+  };
+
+  const openEdit = (id: string) => {
+    const lead = leads.find((l) => l.id === id);
+    if (!lead) return;
+    setEditLead(lead);
+    setEditForm({
+      name: lead.name, phone: lead.phone, email: lead.email, suburb: lead.suburb,
+      service: lead.service, property_type: lead.property_type, timing: lead.timing,
+      notes: lead.notes,
+    });
   };
 
   const handleEditSave = async () => {
@@ -205,31 +222,27 @@ export function LeadsClient({ leads: initial }: { leads: Lead[] }) {
       setLeads((prev) => prev.map((l) => (l.id === editLead.id ? { ...l, ...editForm } : l)));
       setEditLead(null);
       toast.success("Lead updated");
-    } catch { toast.error("Failed to update lead"); }
+    } catch {
+      toast.error("Couldn't update the lead");
+    }
     setSaving(false);
   };
 
-  const stats = {
-    total: leads.length,
-    new: leads.filter((l) => l.status === "new").length,
-    won: leads.filter((l) => l.status === "won").length,
-    lost: leads.filter((l) => l.status === "lost").length,
+  const handlers: LeadActionHandlers = {
+    onMove: handleMove,
+    onEdit: openEdit,
+    onDelete: (id) => setDeleteId(id),
+    onConvert: handleConvert,
+    onAddAsContact: handleAddAsContact,
   };
 
-  // Map kanban-column → soft gradient + tone for the new stat tiles
-  const STAT_STYLE = [
-    { gradient: "softBlue"   as const, tone: "#1e3a8a" },
-    { gradient: "softAmber"  as const, tone: "#78350f" },
-    { gradient: "softViolet" as const, tone: "#3b1d6b" },
-    { gradient: "softTeal"   as const, tone: "#064e3b" },
-    { gradient: "softRose"   as const, tone: "#9f1239" },
-  ];
+  // ── render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <PageHeader
         title="Leads"
-        subtitle={`${stats.total} total · ${stats.new} new · ${stats.won} won · ${stats.lost} lost`}
+        subtitle={`${stats.total} total · ${stats.new} awaiting first contact`}
         accent="linear-gradient(180deg, #60a5fa 0%, #1d4ed8 100%)"
         actions={
           <>
@@ -244,118 +257,87 @@ export function LeadsClient({ leads: initial }: { leads: Lead[] }) {
         }
       />
 
-      {/* Stat tiles per stage + conversion rate */}
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
-        {COLUMNS.map((col, i) => {
-          const count = byStatus(col.status).length;
-          const style = STAT_STYLE[i] ?? STAT_STYLE[0];
-          return (
-            <FadeIn key={col.status} delay={60 + i * 40}>
-              <StatTile
-                gradient={style.gradient}
-                toneColor={style.tone}
-                icon={<span className={`block w-2.5 h-2.5 rounded-full ${col.dot}`} />}
-                label={col.label}
-                value={String(count)}
-                sub=" "
-              />
-            </FadeIn>
-          );
-        })}
-        <FadeIn delay={260}>
-          <StatTile
-            gradient="softTeal"
-            toneColor="#064e3b"
-            icon={<TrendingUp className="w-3.5 h-3.5" />}
-            label="Conv. rate"
-            value={`${stats.total > 0 ? Math.round((stats.won / stats.total) * 100) : 0}%`}
-            sub="won / total"
-          />
-        </FadeIn>
+      {/* Four KPIs — the numbers the board columns and list tabs don't repeat. */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          { icon: <Users className="w-3.5 h-3.5" />, label: "Total leads", value: String(stats.total), sub: "all time", gradient: "softBlue" as const, tone: "#1e3a8a" },
+          { icon: <Sparkles className="w-3.5 h-3.5" />, label: "New", value: String(stats.new), sub: "need first contact", gradient: "softAmber" as const, tone: "#78350f" },
+          { icon: <CheckCircle className="w-3.5 h-3.5" />, label: "Won", value: String(stats.won), sub: "converted", gradient: "softTeal" as const, tone: "#064e3b" },
+          { icon: <TrendingUp className="w-3.5 h-3.5" />, label: "Conv. rate", value: `${stats.conversion}%`, sub: "won / total", gradient: "softViolet" as const, tone: "#3b1d6b" },
+        ].map((k, i) => (
+          <FadeIn key={k.label} delay={60 + i * 40}>
+            <StatTile
+              gradient={k.gradient}
+              toneColor={k.tone}
+              icon={k.icon}
+              label={k.label}
+              value={k.value}
+              sub={k.sub}
+            />
+          </FadeIn>
+        ))}
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search leads…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9 h-10 rounded-xl"
-        />
-      </div>
-
-      {/* Kanban */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 min-h-[400px]">
-        {COLUMNS.map((col) => {
-          const colLeads = byStatus(col.status);
-          const isOver = dragOverCol === col.status;
-          return (
-            <div
-              key={col.status}
-              className="flex flex-col gap-2"
-              onDragOver={(e) => { e.preventDefault(); setDragOverCol(col.status); }}
-              onDragLeave={() => setDragOverCol((c) => c === col.status ? null : c)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setDragOverCol(null);
-                const id = e.dataTransfer.getData("text/lead-id");
-                const fromStatus = e.dataTransfer.getData("text/lead-status") as LeadStatus;
-                if (id && fromStatus !== col.status) handleMove(id, col.status);
-              }}
-            >
-              {/* Column header */}
-              <div className={`rounded-lg px-3 py-2 flex items-center gap-2 ${col.color}`}>
-                <span className={`h-2 w-2 rounded-full ${col.dot}`} />
-                <span className="text-sm font-semibold capitalize">{col.label}</span>
-                <span className="ml-auto text-xs font-medium text-muted-foreground bg-background/60 rounded px-1.5 py-0.5">
-                  {colLeads.length}
-                </span>
-              </div>
-
-              {/* Cards */}
-              <div className={`flex flex-col gap-2 rounded-lg p-1 transition-colors ${isOver ? "bg-primary/5 ring-2 ring-primary/30 ring-inset" : ""}`}>
-                {colLeads.map((lead) => (
-                  <div
-                    key={lead.id}
-                    draggable
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData("text/lead-id", lead.id);
-                      e.dataTransfer.setData("text/lead-status", lead.status);
-                      e.dataTransfer.effectAllowed = "move";
-                    }}
-                    className="cursor-grab active:cursor-grabbing"
-                  >
-                    <LeadCard
-                      lead={lead}
-                      converting={converting === lead.id}
-                      onMove={handleMove}
-                      onDelete={() => setDeleteId(lead.id)}
-                      onEdit={() => { setEditLead(lead); setEditForm({ name: lead.name, phone: lead.phone, email: lead.email, suburb: lead.suburb, service: lead.service, property_type: lead.property_type, timing: lead.timing, notes: lead.notes }); }}
-                      onConvert={(target) => handleConvert(lead.id, target)}
-                      onAddAsContact={() => handleAddAsContact(lead.id)}
-                    />
-                  </div>
-                ))}
-                {colLeads.length === 0 && (
-                  <div className={`rounded-lg border border-dashed p-4 text-center text-xs ${isOver ? "border-primary/50 text-primary" : "border-border/60 text-muted-foreground"}`}>
-                    {isOver ? "Drop here" : "No leads"}
-                  </div>
+      {/* View switcher + search */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-1 p-1 rounded-xl bg-muted/60 border border-border">
+          {VIEWS.map((v) => {
+            const active = view === v.id;
+            return (
+              <button
+                key={v.id}
+                type="button"
+                onClick={() => setView(v.id)}
+                className={`relative inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+                  active ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {active && (
+                  <motion.span
+                    layoutId="leads-view-pill"
+                    className="absolute inset-0 rounded-lg bg-background shadow-sm"
+                    transition={{ type: "spring", stiffness: 500, damping: 40 }}
+                  />
                 )}
-              </div>
-            </div>
-          );
-        })}
+                <v.icon className="w-3.5 h-3.5 relative z-10" />
+                <span className="relative z-10">{v.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="relative w-full sm:w-auto sm:min-w-[260px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search leads…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 h-10 rounded-xl"
+          />
+        </div>
       </div>
 
-      {/* Add Lead Dialog */}
+      {/* The active view */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={view}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.2 }}
+        >
+          {view === "board" && <LeadsBoard leads={filtered} busyId={busyId} handlers={handlers} />}
+          {view === "list" && <LeadsList leads={filtered} busyId={busyId} handlers={handlers} />}
+          {view === "calendar" && <LeadsCalendar leads={filtered} busyId={busyId} handlers={handlers} />}
+        </motion.div>
+      </AnimatePresence>
+
+      {/* Add */}
       <Dialog open={showAdd} onOpenChange={setShowAdd}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Add Lead</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Add lead</DialogTitle></DialogHeader>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-2">
-            <div className="col-span-2 space-y-1.5">
+            <div className="col-span-full space-y-1.5">
               <Label>Name *</Label>
               <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="John Smith" />
             </div>
@@ -376,7 +358,7 @@ export function LeadsClient({ leads: initial }: { leads: Lead[] }) {
               <Input value={form.service} onChange={(e) => setForm((f) => ({ ...f, service: e.target.value }))} placeholder="Gutter cleaning" />
             </div>
             <div className="space-y-1.5">
-              <Label>Property Type</Label>
+              <Label>Property type</Label>
               <Input value={form.property_type} onChange={(e) => setForm((f) => ({ ...f, property_type: e.target.value }))} placeholder="Residential" />
             </div>
             <div className="space-y-1.5">
@@ -392,38 +374,35 @@ export function LeadsClient({ leads: initial }: { leads: Lead[] }) {
                 placeholder="e.g. HiPages, referral, walk-in"
               />
               <datalist id="lead-source-suggestions">
-                {/* Built-in presets */}
                 {BUILT_IN_LEAD_SOURCES.map((s) => (
                   <option key={`builtin-${s}`} value={s}>{formatSourceLabel(s)}</option>
                 ))}
-                {/* Sources already used on this business's leads — keeps the
-                    list tidy and lets typing 'Hi…' autocomplete to a past value. */}
+                {/* Sources already on this business's leads, so typing 'Hi…'
+                    autocompletes to a value that's actually been used. */}
                 {Array.from(new Set(leads.map((l) => l.source).filter(Boolean) as string[]))
                   .filter((s) => !(BUILT_IN_LEAD_SOURCES as readonly string[]).includes(s))
                   .map((s) => <option key={`past-${s}`} value={s}>{formatSourceLabel(s)}</option>)}
               </datalist>
               <p className="text-[11px] text-muted-foreground">Pick a suggestion or type your own.</p>
             </div>
-            <div className="col-span-2 space-y-1.5">
+            <div className="col-span-full space-y-1.5">
               <Label>Notes</Label>
-              <Textarea value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} rows={3} placeholder="Any additional notes..." />
+              <Textarea value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} rows={3} placeholder="Anything else worth knowing…" />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAdd(false)}>Cancel</Button>
-            <Button onClick={handleAdd} disabled={saving}>{saving ? "Saving..." : "Add Lead"}</Button>
+            <Button onClick={handleAdd} disabled={saving}>{saving ? "Saving…" : "Add lead"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Edit Lead Dialog */}
+      {/* Edit */}
       <Dialog open={!!editLead} onOpenChange={(o) => { if (!o) setEditLead(null); }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Lead</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Edit lead</DialogTitle></DialogHeader>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-2">
-            <div className="col-span-2 space-y-1.5">
+            <div className="col-span-full space-y-1.5">
               <Label>Name *</Label>
               <Input value={editForm.name ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} />
             </div>
@@ -444,177 +423,40 @@ export function LeadsClient({ leads: initial }: { leads: Lead[] }) {
               <Input value={editForm.service ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, service: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <Label>Property Type</Label>
+              <Label>Property type</Label>
               <Input value={editForm.property_type ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, property_type: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
               <Label>Timing</Label>
               <Input value={editForm.timing ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, timing: e.target.value }))} />
             </div>
-            <div className="col-span-2 space-y-1.5">
+            <div className="col-span-full space-y-1.5">
               <Label>Notes</Label>
               <Textarea value={editForm.notes ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))} rows={3} />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditLead(null)}>Cancel</Button>
-            <Button onClick={handleEditSave} disabled={saving}>{saving ? "Saving..." : "Save Changes"}</Button>
+            <Button onClick={handleEditSave} disabled={saving}>{saving ? "Saving…" : "Save changes"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirm */}
+      {/* Delete */}
       <AlertDialog open={!!deleteId} onOpenChange={(o) => { if (!o) setDeleteId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete lead?</AlertDialogTitle>
-            <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
+            <AlertDialogDescription>This can&apos;t be undone.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
-  );
-}
-
-// Whole-card tinting per stage so a glance at the kanban tells you where each
-// lead stands. Soft surface + matching left rail; dark mode uses translucent
-// overlays so the prototype's neutral surface still shows through.
-const CARD_TONE: Record<LeadStatus, string> = {
-  new:       "bg-blue-50/80   dark:bg-blue-950/30   border-blue-200/70   dark:border-blue-900/60   border-l-4 border-l-blue-500",
-  contacted: "bg-amber-50/80  dark:bg-amber-950/30  border-amber-200/70  dark:border-amber-900/60  border-l-4 border-l-amber-500",
-  quoted:    "bg-violet-50/80 dark:bg-violet-950/30 border-violet-200/70 dark:border-violet-900/60 border-l-4 border-l-violet-500",
-  won:       "bg-emerald-50/90 dark:bg-emerald-950/40 border-emerald-200/80 dark:border-emerald-900/60 border-l-4 border-l-emerald-500",
-  lost:      "bg-rose-50/80   dark:bg-rose-950/30   border-rose-200/70   dark:border-rose-900/60   border-l-4 border-l-rose-500 opacity-90",
-};
-
-function LeadCard({
-  lead,
-  converting,
-  onMove,
-  onDelete,
-  onEdit,
-  onConvert,
-  onAddAsContact,
-}: {
-  lead: Lead;
-  converting: boolean;
-  onMove: (id: string, status: LeadStatus) => void;
-  onDelete: () => void;
-  onEdit: () => void;
-  onConvert: (target: "customer" | "quote" | "work_order") => void;
-  onAddAsContact: () => void;
-}) {
-  const NEXT_STATUS: Partial<Record<LeadStatus, LeadStatus>> = {
-    new: "contacted",
-    contacted: "quoted",
-    quoted: "won",
-  };
-  const next = NEXT_STATUS[lead.status];
-  const tone = CARD_TONE[lead.status] ?? "bg-card border-border";
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={`rounded-lg border shadow-sm p-3 space-y-2 hover:shadow-md transition-shadow ${tone}`}
-    >
-      {/* Name + menu */}
-      <div className="flex items-start justify-between gap-1">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-          <span className="font-medium text-sm break-words">{lead.name}</span>
-        </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={onEdit}>Edit</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onAddAsContact} disabled={converting}>
-              Add as contact
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onConvert("customer")} disabled={converting || !!lead.customer_id}>
-              Convert to customer{lead.customer_id ? " ✓" : ""}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onConvert("quote")} disabled={converting}>
-              Convert to quote
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onConvert("work_order")} disabled={converting}>
-              Convert to work order
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            {COLUMNS.filter((c) => c.status !== lead.status).map((c) => (
-              <DropdownMenuItem key={c.status} onClick={() => onMove(lead.id, c.status)}>
-                Move to {c.label}
-              </DropdownMenuItem>
-            ))}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive">
-              <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
-      {/* Details */}
-      <div className="space-y-1">
-        {lead.phone && (
-          <a href={`tel:${lead.phone.replace(/\s/g, "")}`} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
-            <Phone className="h-3 w-3 shrink-0" />
-            <span className="break-words">{lead.phone}</span>
-          </a>
-        )}
-        {lead.email && (
-          <a href={`mailto:${lead.email}`} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
-            <Mail className="h-3 w-3 shrink-0" />
-            <span className="break-words">{lead.email}</span>
-          </a>
-        )}
-        {lead.suburb && (
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <MapPin className="h-3 w-3 shrink-0" />
-            <span className="break-words">{lead.suburb}</span>
-          </div>
-        )}
-        {lead.service && (
-          <div className="text-xs text-muted-foreground break-words">{lead.service}</div>
-        )}
-      </div>
-
-      {/* Footer */}
-      <div className="flex items-center justify-between pt-1 border-t border-border/50">
-        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-          <Clock className="h-3 w-3" />
-          {formatDate(lead.created_at)}
-        </div>
-        {next && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 text-xs px-3 gap-1"
-            onClick={() => onMove(lead.id, next)}
-          >
-            {next.charAt(0).toUpperCase() + next.slice(1)}
-            <ChevronRight className="h-3 w-3" />
-          </Button>
-        )}
-      </div>
-
-      {/* Source badge */}
-      {lead.source && lead.source !== "manual" && (
-        <div className="pt-0">
-          <span className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded">
-            {formatSourceLabel(lead.source)}
-          </span>
-        </div>
-      )}
-    </motion.div>
   );
 }
