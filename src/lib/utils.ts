@@ -5,6 +5,31 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/**
+ * Coerce a value that *should* be a number but may not be.
+ *
+ * Postgres `numeric` columns arrive from PostgREST as STRINGS. The TypeScript
+ * types say `number`, so nothing warns you — and `+` then concatenates instead
+ * of adding: `0 + "500.00" + "250.00"` is `"0500.00250.00"`, which
+ * formatCurrency turns into `$NaN`.
+ *
+ * The reason this survives code review and shipping: it renders correctly with
+ * zero or one row and only breaks at two or more. Note that `-` coerces, so
+ * subtracting totals looks fine while summing them does not — which is why
+ * "outstanding" was right on the same screen where "paid" was NaN.
+ *
+ * Use this on any money column read from the database before doing arithmetic.
+ */
+export function num(v: unknown): number {
+  const n = typeof v === "number" ? v : parseFloat(String(v ?? 0));
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** Sum a money column across rows, coercing each value. */
+export function sumMoney<T>(rows: T[], pick: (row: T) => unknown): number {
+  return rows.reduce<number>((s, r) => s + num(pick(r)), 0);
+}
+
 export function formatCurrency(amount: number, currency = "GBP", locale = "en-GB"): string {
   return new Intl.NumberFormat(locale, {
     style: "currency",

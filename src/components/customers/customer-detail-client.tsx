@@ -29,7 +29,7 @@ import {
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { formatCurrency, formatDate, getStatusColor } from "@/lib/utils";
+import { formatCurrency, formatDate, getStatusColor, num, sumMoney } from "@/lib/utils";
 import { AddressLink, MapPinLink } from "@/components/ui/address-link";
 import { CustomerForm } from "./customer-form";
 import { PortalLinkButton } from "@/components/customer-portal/portal-link-button";
@@ -491,8 +491,13 @@ export function CustomerDetailClient({
   const [savingNote, startNote] = useTransition();
   const [, startDelete] = useTransition();
 
-  const totalSpent = invoices.filter(i => i.status === "paid").reduce((s, i) => s + i.total, 0);
-  const outstanding = invoices.filter(i => ["sent", "partial"].includes(i.status)).reduce((s, i) => s + (i.total - i.amount_paid), 0);
+  // Money columns are Postgres numerics — PostgREST returns them as strings, so
+  // `+` concatenated and "Total spent" read $NaN from two paid invoices onward.
+  const totalSpent = sumMoney(invoices.filter(i => i.status === "paid"), i => i.total);
+  const outstanding = sumMoney(
+    invoices.filter(i => ["sent", "partial"].includes(i.status)),
+    i => num(i.total) - num(i.amount_paid),
+  );
 
   const handleAddNote = () => {
     if (!noteText.trim()) return;

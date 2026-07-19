@@ -11,7 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { PageHeader } from "@/components/layout/page-header";
 import { CleanupButton } from "@/components/cleanup/cleanup-button";
 import { deleteInvoice, duplicateInvoice, updateInvoice } from "@/lib/actions/invoices";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, num, sumMoney } from "@/lib/utils";
 import {
   StatTile, KireiTabs, KireiPill, EmptyState, AnimatedPress, FadeIn, GradientTile,
 } from "@/components/ui/kirei";
@@ -65,12 +65,19 @@ export function InvoicesClient({ invoices: initial, currency = "GBP" }: Invoices
   }, [invoices]);
 
   const totalOutstanding = useMemo(
-    () => invoices.filter((i) => ["sent", "partial", "overdue"].includes(i.status))
-                  .reduce((s, i) => s + (i.total - i.amount_paid), 0),
+    // Correct before only by accident: `-` coerces its operands, so the inner
+    // subtraction produced a real number even with string inputs. Made explicit
+    // so nobody "simplifies" it into the same bug as the line below.
+    () => sumMoney(
+      invoices.filter((i) => ["sent", "partial", "overdue"].includes(i.status)),
+      (i) => num(i.total) - num(i.amount_paid),
+    ),
     [invoices]
   );
   const totalPaid = useMemo(
-    () => invoices.filter((i) => i.status === "paid").reduce((s, i) => s + i.total, 0),
+    // num(): `total` is a Postgres numeric, so PostgREST hands it over as a
+    // string and `+` concatenated instead of adding — $NaN from two rows up.
+    () => sumMoney(invoices.filter((i) => i.status === "paid"), (i) => i.total),
     [invoices]
   );
 
