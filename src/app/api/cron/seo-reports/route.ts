@@ -8,14 +8,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { assembleReport } from "@/lib/seo/report";
+import { requireCron } from "@/lib/cron-auth";
 
 export const maxDuration = 300;
 
 export async function GET(req: NextRequest) {
-  const auth = req.headers.get("authorization");
-  if (process.env.CRON_SECRET && auth !== `Bearer ${process.env.CRON_SECRET}`) {
-    return new NextResponse("Unauthorized", { status: 401 });
-  }
+  const denied = requireCron(req);
+  if (denied) return denied;
 
   const sb = createAdminClient();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

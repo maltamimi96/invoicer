@@ -8,15 +8,14 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { runSiteAudit } from "@/lib/seo/engine";
 import { sendEmail, buildBusinessFrom } from "@/lib/email";
 import { appUrl } from "@/lib/app-url";
+import { requireCron } from "@/lib/cron-auth";
 
 export const maxDuration = 300;
 const MAX_PER_TICK = 3;
 
 export async function GET(req: NextRequest) {
-  const auth = req.headers.get("authorization");
-  if (process.env.CRON_SECRET && auth !== `Bearer ${process.env.CRON_SECRET}`) {
-    return new NextResponse("Unauthorized", { status: 401 });
-  }
+  const denied = requireCron(req);
+  if (denied) return denied;
 
   const sb = createAdminClient();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

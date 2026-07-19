@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Resend } from "resend";
+import { requireCron } from "@/lib/cron-auth";
 
 const BUSINESS_ID = process.env.AGENT_BUSINESS_ID ?? "ff3a47f3-54b0-45e3-b7a9-69ddc9fa787e";
 const BOT_TOKEN   = process.env.TELEGRAM_BOT_TOKEN!;
@@ -74,10 +75,8 @@ async function getJobsForDate(sb: any, date: string) {
 
 export async function GET(req: NextRequest) {
   // Auth: Vercel sets CRON_SECRET, or allow explicit bearer
-  const auth = req.headers.get("authorization");
-  if (process.env.CRON_SECRET && auth !== `Bearer ${process.env.CRON_SECRET}`) {
-    return new NextResponse("Unauthorized", { status: 401 });
-  }
+  const denied = requireCron(req);
+  if (denied) return denied;
 
   const sb = createAdminClient();
   const today    = todayAEST();

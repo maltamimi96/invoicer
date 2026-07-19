@@ -12,16 +12,15 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { advanceOccurrence } from "@/lib/recurring/cadence";
 import { generateRecurringInvoice } from "@/lib/recurring/generate-invoice";
 import type { RecurringInvoice, LineItem } from "@/types/database";
+import { requireCron } from "@/lib/cron-auth";
 
 function todayISO(): string {
   return new Date().toISOString().split("T")[0];
 }
 
 export async function GET(req: NextRequest) {
-  const auth = req.headers.get("authorization");
-  if (process.env.CRON_SECRET && auth !== `Bearer ${process.env.CRON_SECRET}`) {
-    return new NextResponse("Unauthorized", { status: 401 });
-  }
+  const denied = requireCron(req);
+  if (denied) return denied;
 
   const sb = createAdminClient();
   const today = todayISO();
