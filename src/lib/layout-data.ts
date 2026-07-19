@@ -12,6 +12,7 @@
  * async functions, and we also export tag-name helpers (strings).
  */
 import { unstable_cache } from "next/cache";
+import { unwrap, unwrapRows } from "@/lib/db";
 import { createClient } from "@/lib/supabase/server";
 import type { Business } from "@/types/database";
 
@@ -73,14 +74,30 @@ export async function getPluginFlags(businessId: string): Promise<PluginFlagRows
   const sb = supabase as any;
   return unstable_cache(
     async () => {
-      const [{ data: installRows }, { data: quoting }, { data: onboarding }, { data: formBuilder }] = await Promise.all([
+      const [installRes, quotingRes, onboardingRes, formBuilderRes] = await Promise.all([
         sb.from("business_agent_installs").select("agent_id, enabled").eq("business_id", businessId),
         sb.from("quoting_agent_settings").select("enabled").eq("business_id", businessId).maybeSingle(),
         sb.from("onboarding_settings").select("enabled").eq("business_id", businessId).maybeSingle(),
         sb.from("form_builder_settings").select("enabled").eq("business_id", businessId).maybeSingle(),
       ]);
+
+      // Throw rather than fall through to `?? []`. On a failed query the old
+      // code resolved to "no install rows, no settings", the resolver fell back
+      // to registry defaults, and the business's enabled plugins silently
+      // vanished from the nav — then unstable_cache stored that wrong answer for
+      // five minutes, so a one-off blip persisted long after it cleared.
+      //
+      // Throwing widens the blast radius (this backs every dashboard page), but
+      // a 500 is recoverable by refresh and now reaches Sentry, whereas
+      // half the product quietly disappearing is neither. A missing settings
+      // row is NOT an error — maybeSingle gives data:null, error:null.
+      const installRows = unwrapRows(installRes, "plugin installs") as PluginFlagRows["installRows"];
+      const quoting = unwrap(quotingRes, "quoting agent settings") as { enabled: boolean } | null;
+      const onboarding = unwrap(onboardingRes, "onboarding settings") as { enabled: boolean } | null;
+      const formBuilder = unwrap(formBuilderRes, "form builder settings") as { enabled: boolean } | null;
+
       return {
-        installRows: (installRows ?? []) as PluginFlagRows["installRows"],
+        installRows,
         quoting: quoting ? !!quoting.enabled : null,
         onboarding: onboarding ? !!onboarding.enabled : null,
         formBuilder: formBuilder ? !!formBuilder.enabled : null,

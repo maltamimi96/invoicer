@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 
 import { getUser } from "@/lib/auth";
+import { unwrap, unwrapRows } from "@/lib/db";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: any, name: string) => sb.from(name);
 
@@ -58,13 +59,18 @@ export async function getBusinessAnalytics(range: AnalyticsRange = "90d"): Promi
   const toIso   = to.toISOString();
 
   // Pull everything in parallel — small businesses, all-rows is cheap.
+  //
+  // Each result is unwrapped rather than destructured to `{ data }` alone: a
+  // failed query used to fall through to `?? []` and render the page as
+  // £0 revenue / 0 invoices, which an owner reads as "my business earned
+  // nothing this month" rather than "the query broke".
   const [
-    { data: invoicesRaw },
-    { data: quotesRaw },
-    { data: leadsRaw },
-    { data: workOrdersRaw },
-    { data: customersRaw },
-    { data: business },
+    invoicesRes,
+    quotesRes,
+    leadsRes,
+    workOrdersRes,
+    customersRes,
+    businessRes,
   ] = await Promise.all([
     tbl(supabase, "invoices")
       .select("id, customer_id, total, amount_paid, status, issue_date, due_date, created_at, customers(name)")
@@ -85,15 +91,16 @@ export async function getBusinessAnalytics(range: AnalyticsRange = "90d"): Promi
     tbl(supabase, "businesses").select("currency").eq("id", businessId).maybeSingle(),
   ]);
 
-  const invoices = (invoicesRaw ?? []) as Array<{
+  const invoices = unwrapRows(invoicesRes, "invoices") as Array<{
     id: string; customer_id: string | null; total: unknown; amount_paid: unknown;
     status: string; issue_date: string | null; due_date: string | null; created_at: string;
     customers: { name: string } | null;
   }>;
-  const quotes  = (quotesRaw ?? []) as Array<{ status: string; total: unknown; created_at: string }>;
-  const leads   = (leadsRaw ?? []) as Array<{ status: string; created_at: string }>;
-  const wos     = (workOrdersRaw ?? []) as Array<{ status: string }>;
-  const customers = (customersRaw ?? []) as Array<{ id: string; name: string }>;
+  const quotes  = unwrapRows(quotesRes, "quotes") as Array<{ status: string; total: unknown; created_at: string }>;
+  const leads   = unwrapRows(leadsRes, "leads") as Array<{ status: string; created_at: string }>;
+  const wos     = unwrapRows(workOrdersRes, "work orders") as Array<{ status: string }>;
+  const customers = unwrapRows(customersRes, "customers") as Array<{ id: string; name: string }>;
+  const business = unwrap(businessRes, "business settings") as { currency: string } | null;
 
   // ─── Totals (in range) ─────────────────────────────────────────────────
   const inRange = (iso: string) => iso >= fromIso && iso <= toIso;

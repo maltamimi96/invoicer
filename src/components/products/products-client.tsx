@@ -11,7 +11,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { createProduct, updateProduct, deleteProduct, bulkImportProducts } from "@/lib/actions/products";
 import { BulkImportModal } from "@/components/shared/bulk-import-modal";
 import { ProductForm } from "./product-form";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, sumMoney } from "@/lib/utils";
 import {
   StatTile, KireiPill, EmptyState, AnimatedPress, FadeIn, GradientTile,
 } from "@/components/ui/kirei";
@@ -77,7 +77,10 @@ export function ProductsClient({ products: initial, currency = "GBP" }: { produc
     setDeleteId(null);
   };
 
-  const totalCatalogValue = products.reduce((s, p) => s + (p.unit_price ?? 0), 0);
+  // `?? 0` guarded null but not the string PostgREST actually returns for a
+  // numeric column, so this concatenated. Products is a default-on page, so
+  // any business with two products saw $NaN.
+  const totalCatalogValue = sumMoney(products, (p) => p.unit_price);
   const archivedCount = products.filter((p) => p.archived).length;
   const activeCount = products.length - archivedCount;
 
