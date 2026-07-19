@@ -19,6 +19,7 @@ import { getResolvedEmailTemplate } from "@/lib/emails/templates";
 import { customerAllowsCard } from "@/lib/payment-methods";
 import { appUrl } from "@/lib/app-url";
 import type { LineItem } from "@/types/database";
+import { requireCron } from "@/lib/cron-auth";
 
 export const maxDuration = 60;
 
@@ -201,10 +202,8 @@ async function dispatchQuote(
 }
 
 export async function GET(req: NextRequest) {
-  const auth = req.headers.get("authorization");
-  if (process.env.CRON_SECRET && auth !== `Bearer ${process.env.CRON_SECRET}`) {
-    return new NextResponse("Unauthorized", { status: 401 });
-  }
+  const denied = requireCron(req);
+  if (denied) return denied;
 
   const sb = createAdminClient();
   const nowIso = new Date().toISOString();

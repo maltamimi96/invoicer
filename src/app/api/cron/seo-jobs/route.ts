@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { advanceContentJob } from "@/lib/seo/engine";
+import { requireCron } from "@/lib/cron-auth";
 
 // Give each tick room for a few sequential Claude calls.
 export const maxDuration = 300;
@@ -16,10 +17,8 @@ export const maxDuration = 300;
 const MAX_JOBS_PER_TICK = 4;
 
 export async function GET(req: NextRequest) {
-  const auth = req.headers.get("authorization");
-  if (process.env.CRON_SECRET && auth !== `Bearer ${process.env.CRON_SECRET}`) {
-    return new NextResponse("Unauthorized", { status: 401 });
-  }
+  const denied = requireCron(req);
+  if (denied) return denied;
 
   const sb = createAdminClient();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

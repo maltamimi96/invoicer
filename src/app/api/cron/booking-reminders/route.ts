@@ -11,17 +11,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notifyBookingReminder, fireBookingWebhook } from "@/lib/booking/notify";
+import { requireCron } from "@/lib/cron-auth";
 import type { Appointment, BookingForm } from "@/types/database";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  // Light gate: allow Vercel Cron, or a matching CRON_SECRET if configured.
-  const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const ok = req.headers.get("authorization") === `Bearer ${secret}` || req.headers.get("x-vercel-cron") !== null;
-    if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  // Was a "light gate" that failed open when CRON_SECRET was unset AND accepted
+  // any request carrying an x-vercel-cron header — a header the caller controls,
+  // on a route the middleware makes public. Vercel Cron sends the bearer token
+  // itself when CRON_SECRET is set, so the header check bought nothing.
+  const denied = requireCron(req);
+  if (denied) return denied;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sb = createAdminClient() as any;
