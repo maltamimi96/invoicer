@@ -11,7 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { PageHeader } from "@/components/layout/page-header";
 import { CleanupButton } from "@/components/cleanup/cleanup-button";
 import { deleteQuote, convertQuoteToInvoice, updateQuote } from "@/lib/actions/quotes";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, sumMoney } from "@/lib/utils";
 import {
   StatTile, KireiTabs, KireiPill, EmptyState, AnimatedPress, FadeIn, GradientTile,
 } from "@/components/ui/kirei";
@@ -57,8 +57,11 @@ export function QuotesClient({ quotes: initial, currency = "GBP" }: { quotes: Qu
     return c;
   }, [quotes]);
 
-  const totalPipeline = useMemo(() => quotes.filter((q) => q.status === "sent").reduce((s, q) => s + q.total, 0), [quotes]);
-  const totalAccepted = useMemo(() => quotes.filter((q) => q.status === "accepted").reduce((s, q) => s + q.total, 0), [quotes]);
+  // quotes.total is a Postgres numeric → PostgREST returns a string → `+`
+  // concatenated. Both KPIs read $NaN from two quotes onward. Not in the audit's
+  // list; found by sweeping for the same pattern.
+  const totalPipeline = useMemo(() => sumMoney(quotes.filter((q) => q.status === "sent"), (q) => q.total), [quotes]);
+  const totalAccepted = useMemo(() => sumMoney(quotes.filter((q) => q.status === "accepted"), (q) => q.total), [quotes]);
   const acceptanceRate = quotes.length === 0
     ? 0
     : Math.round((counts.accepted / Math.max(counts.accepted + counts.rejected + counts.expired, 1)) * 100);
