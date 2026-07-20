@@ -55,16 +55,33 @@ function Inner() {
     if (!loaded) return;
     const inAuth = segments[0] === "(auth)";
     if (!session && !inAuth) router.replace("/(auth)/login");
-    if (session  &&  inAuth) router.replace("/(tabs)");
-  }, [loaded, session, segments, router]);
+    // Land signed-in users on the group their role belongs to. Until the role
+    // resolves, hold at the auth screen rather than flashing the admin UI at a
+    // worker — the swap is jarring and briefly shows them things they can't use.
+    if (session && inAuth && !roleLoading) {
+      router.replace(isWorker(role) ? "/(worker)" : "/(tabs)");
+    }
+  }, [loaded, session, segments, router, roleLoading, role]);
 
-  // Worker hard-isolation: bounce a worker off any admin route (invoices,
-  // leads, customers, quotes, etc.) — covers deep links + programmatic nav
-  // that the hidden tabs wouldn't stop. Wait until role is resolved so we
-  // don't bounce a still-loading admin.
+  // Role/group mismatch. Two genuinely separate navigators now exist —
+  // (worker) has two screens, (tabs) has the full admin app — so this is not
+  // hiding buttons, it is making sure each role is inside its own tree.
+  //
+  // Still needed for: a role that changes while the app is open, a restored
+  // deep link into the wrong group, and any legacy /(tabs) link. The
+  // isRouteBlockedForWorker list keeps covering the stack routes that sit
+  // outside both groups (invoices, customers, settings...).
   useEffect(() => {
     if (!loaded || !session || roleLoading) return;
-    if (isWorker(role) && isRouteBlockedForWorker(segments as string[])) {
+    const worker = isWorker(role);
+    const top = segments[0];
+
+    if (worker && (top === "(tabs)" || isRouteBlockedForWorker(segments as string[]))) {
+      router.replace("/(worker)");
+      return;
+    }
+    // An admin who somehow lands in the worker group gets their own app back.
+    if (!worker && top === "(worker)") {
       router.replace("/(tabs)");
     }
   }, [loaded, session, roleLoading, role, segments, router]);
@@ -77,6 +94,7 @@ function Inner() {
           <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.canvas } }}>
             <Stack.Screen name="(auth)" />
             <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="(worker)" />
             <Stack.Screen name="job/[id]" options={{ presentation: "card", animation: "slide_from_right" }} />
           </Stack>
         </QueryClientProvider>

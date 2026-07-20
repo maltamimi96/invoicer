@@ -39,20 +39,37 @@ export function canCaptureJobData(role: Role): boolean {
 
 /** Top-level route segments a worker must NEVER reach. The tab bar hides the
  *  admin areas, but this guards deep links + programmatic navigation too —
- *  a worker is hard-isolated to their jobs + tasks. */
+ *  a worker is hard-isolated to their own jobs. */
 export const WORKER_BLOCKED_SEGMENTS = [
   'invoices', 'leads', 'customers', 'quotes', 'products', 'reports',
   'recurring', 'team', 'analytics', 'agents', 'agent', 'assistant', 'messages',
+  // Every settings screen. Workers no longer have a Profile tab to reach these
+  // from, and a route you can only arrive at by accident is worse than one that
+  // doesn't exist. Dark mode still follows the OS, so nothing is lost.
+  'settings',
 ] as const;
 
+/** Tab routes a worker must not land on. These are NOT caught by the top-level
+ *  list because expo-router reports them as ['(tabs)', 'tasks'] — segments[0]
+ *  is the group, not the screen. `href: null` removes them from the bar, but
+ *  programmatic navigation and restored deep links still resolve. */
+export const WORKER_BLOCKED_TABS = ['tasks', 'sales', 'profile'] as const;
+
 /** True if a worker should be bounced off this route. `segments` is expo-router's
- *  useSegments() output (e.g. ['invoices'] or ['settings','bank']). */
+ *  useSegments() output — e.g. ['invoices'], ['settings','bank'],
+ *  ['(tabs)','tasks']. */
 export function isRouteBlockedForWorker(segments: string[]): boolean {
   const top = segments[0];
   if (!top) return false;
+
   if ((WORKER_BLOCKED_SEGMENTS as readonly string[]).includes(top)) return true;
-  // Settings: only the appearance (theme) screen is allowed for workers.
-  if (top === 'settings' && segments[1] && segments[1] !== 'appearance') return true;
+
+  // Hidden tabs: the group is segments[0], the screen is segments[1].
+  if (top === '(tabs)' && segments[1]
+      && (WORKER_BLOCKED_TABS as readonly string[]).includes(segments[1])) {
+    return true;
+  }
+
   return false;
 }
 

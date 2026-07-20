@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator, Alert, Image, Linking, Modal, Platform,
-  Pressable, ScrollView, Text, TextInput, View,
+  Pressable, RefreshControl, ScrollView, Text, TextInput, View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
@@ -13,7 +13,7 @@ import {
   Camera, Image as ImageIcon, Send, Play, CheckCircle2, X, Trash2, Briefcase,
 } from "lucide-react-native";
 import {
-  fetchWorkOrder, setWorkOrderStatus, addWorkOrderPhoto, setWorkerNotes,
+  fetchWorkOrder, setWorkOrderStatus, addWorkOrderPhoto, setWorkerNotes, fetchJobPhotos,
   fetchJobContacts, removeWorkOrderPhoto,
 } from "@/lib/jobs";
 import { uploadJobPhoto } from "@/lib/storage";
@@ -35,11 +35,35 @@ export default function JobDetail() {
   const router = useRouter();
   const qc = useQueryClient();
 
-  const { data: job, isLoading, error } = useQuery({
+  const { data: job, isLoading, error, refetch: refetchJob } = useQuery({
     queryKey: ["work-order", id],
     queryFn:  () => fetchWorkOrder(id!),
     enabled:  !!id,
   });
+
+  // Photos come from job_photos, the canonical table the web writes to.
+  // Separate query so a pull-to-refresh or an invalidate after upload re-reads
+  // them without refetching the whole work order.
+  const { data: jobPhotos, refetch: refetchPhotos } = useQuery({
+    queryKey: ["job-photos", id],
+    queryFn:  () => fetchJobPhotos(id!),
+    enabled:  !!id,
+  });
+
+  // This screen had NO refresh mechanism — a plain ScrollView, no
+  // RefreshControl — so once it was open there was no way to pull in a change
+  // made on the web. With the client's 30s staleTime, even leaving and coming
+  // straight back served the cached copy. Deleting a photo on the web and
+  // "refreshing" the phone genuinely could not work.
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([refetchJob(), refetchPhotos()]);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   // Load per-account contacts (booker + onsite) so the worker has someone to
   // call about the actual job, not just the master customer record.
@@ -81,6 +105,9 @@ export default function JobDetail() {
     },
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // job-photos is the display source now — invalidating only "work-order"
+      // would leave the freshly uploaded photo invisible until a cold reload.
+      qc.invalidateQueries({ queryKey: ["job-photos", id] });
       qc.invalidateQueries({ queryKey: ["work-order", id] });
     },
     onError: (e: Error) => Alert.alert("Couldn't upload photo", e.message),
@@ -90,6 +117,7 @@ export default function JobDetail() {
     mutationFn: (url: string) => removeWorkOrderPhoto(id!, url),
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      qc.invalidateQueries({ queryKey: ["job-photos", id] });
       qc.invalidateQueries({ queryKey: ["work-order", id] });
       setPhotoZoom(null);
     },
@@ -114,7 +142,10 @@ export default function JobDetail() {
     );
   }
 
-  const photos = Array.isArray(job.photos) ? job.photos : [];
+  // Canonical source. Was `job.photos` (the legacy JSONB), which only the
+  // phone ever wrote to — so anything added or removed on the web never showed
+  // up here. See fetchJobPhotos for the full story.
+  const photos = jobPhotos ?? [];
   const customerPhone = job.customers?.phone ?? null;
   const customerEmail = job.customers?.email ?? null;
 
@@ -158,7 +189,17 @@ export default function JobDetail() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={["top", "left", "right"]}>
       <Stack.Screen options={{ headerShown: false }} />
-      <ScrollView contentContainerStyle={{ padding: space.lg, paddingBottom: 40 }}>
+      <ScrollView
+        contentContainerStyle={{ padding: space.lg, paddingBottom: 40 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
+      >
         {/* Top bar */}
         <View style={{ flexDirection: "row", alignItems: "center", marginBottom: space.lg }}>
           <Pressable
