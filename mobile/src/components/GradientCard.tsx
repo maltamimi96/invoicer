@@ -2,9 +2,11 @@ import React from "react";
 import { Pressable, View, ViewStyle, StyleProp } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
-import { gradients, GradientName, radius } from "@/lib/theme";
+import { colors as theme, cardShadow, gradients, GradientName, radius } from "@/lib/theme";
 
 interface Props {
+  /** Omit for a clean flat white card (the default in the white+teal system).
+   *  Pass a gradient name only for the few surfaces that genuinely want one. */
   gradient?: GradientName;
   /** Manual override — beats `gradient` if provided. */
   colors?: readonly [string, string];
@@ -17,11 +19,11 @@ interface Props {
   children: React.ReactNode;
 }
 
-/** Card with a gradient background and an optional press-scale animation.
- *  Wraps the children in a transparent inner view so callers can lay out
- *  with normal padding/gap props. */
+/** Card with an optional press-scale animation. Flat white by default (card +
+ *  hairline + soft shadow); renders a gradient only when `gradient`/`colors`
+ *  is supplied. Wraps children in an inner view so callers lay out normally. */
 export function GradientCard({
-  gradient = "primary",
+  gradient,
   colors,
   start = { x: 0, y: 0 },
   end   = { x: 1, y: 1 },
@@ -34,9 +36,9 @@ export function GradientCard({
   const scale = useSharedValue(1);
   const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
-  const palette = colors ?? gradients[gradient];
+  const palette = colors ?? (gradient ? gradients[gradient] : null);
 
-  const inner = (
+  const inner = palette ? (
     <LinearGradient
       colors={palette as unknown as readonly [string, string, ...string[]]}
       start={start}
@@ -48,6 +50,20 @@ export function GradientCard({
     >
       <View style={contentStyle}>{children}</View>
     </LinearGradient>
+  ) : (
+    <View
+      style={[
+        {
+          borderRadius, overflow: "hidden",
+          backgroundColor: theme.card,
+          borderWidth: 1, borderColor: theme.hairline,
+          ...cardShadow(1),
+        },
+        style,
+      ]}
+    >
+      <View style={contentStyle}>{children}</View>
+    </View>
   );
 
   if (!onPress) return inner;

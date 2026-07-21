@@ -4,16 +4,15 @@ import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { AlertTriangle, Clock, DollarSign, FileCheck, Wrench, UserPlus, ArrowRight } from "lucide-react-native";
 import { supabase } from "@/lib/supabase";
-import { colors, gradients, radius, space, timeOfDayGradient } from "@/lib/theme";
+import { colors, gradients, radius, space } from "@/lib/theme";
 import type { MobileBusiness } from "@/lib/active-business";
 import { BriefingWidget } from "./BriefingWidget";
 import { TasksWidget } from "./TasksWidget";
 import { OutlookWidget } from "./OutlookWidget";
 import { GradientCard } from "./GradientCard";
+import { StatTile } from "./StatTile";
 import { FadeIn } from "./FadeIn";
 import { PatternBackground } from "./PatternBackground";
-import { AnimatedNumber } from "./AnimatedNumber";
-import { Skeleton } from "./Skeleton";
 import { BrandedRefresh } from "./BrandedRefresh";
 import { useResponsive } from "@/lib/responsive";
 import { scheduleOwnerBriefing } from "@/lib/notifications";
@@ -119,7 +118,7 @@ export function OwnerDashboard({ business }: { business: MobileBusiness }) {
     setRefreshing(false);
   };
 
-  const heroPalette = timeOfDayGradient();
+  const heroPalette = gradients.primary;
 
   return (
     <ScrollView
@@ -175,54 +174,48 @@ export function OwnerDashboard({ business }: { business: MobileBusiness }) {
         </FadeIn>
       )}
 
-      {/* KPI grid — clean cards with a small coloured icon chip + a bold,
-          max-contrast value (colors.text). The previous "dark teal on pale
-          teal" combo read as muddy on light mode and washed out on dark. */}
+      {/* KPI grid — clean white tiles with a small tinted icon chip and a bold,
+          max-contrast value. Replaces the old muddy gradient stat cards. */}
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
         <FadeIn delay={120} style={{ flexBasis: r.gridBasis, flexGrow: 1 }}>
-          <GradientStat
-            gradient="softTeal"
+          <StatTile
             icon={<DollarSign size={16} color={colors.primary} />}
             label="Outstanding"
             value={stats.outstanding}
             format={(n) => fmtMoney(n, currency)}
             loading={loading}
-            valueColor={colors.text}
-            labelColor={colors.primary}
+            onPress={() => router.push("/invoices" as never)}
           />
         </FadeIn>
         <FadeIn delay={160} style={{ flexBasis: r.gridBasis, flexGrow: 1 }}>
-          <GradientStat
-            gradient="softRose"
+          <StatTile
             icon={<Clock size={16} color="#dc2626" />}
             label="Overdue"
             value={stats.overdue}
             format={(n) => fmtMoney(n, currency)}
             loading={loading}
-            valueColor={colors.text}
-            labelColor="#dc2626"
+            tint="#dc2626"
+            onPress={() => router.push("/invoices" as never)}
           />
         </FadeIn>
         <FadeIn delay={200} style={{ flexBasis: r.gridBasis, flexGrow: 1 }}>
-          <GradientStat
-            gradient="softBlue"
+          <StatTile
             icon={<Wrench size={16} color="#1d4ed8" />}
             label="Jobs today"
             value={stats.jobs_today}
             loading={loading}
-            valueColor={colors.text}
-            labelColor="#1d4ed8"
+            tint="#1d4ed8"
+            onPress={() => router.push("/work-orders" as never)}
           />
         </FadeIn>
         <FadeIn delay={240} style={{ flexBasis: r.gridBasis, flexGrow: 1 }}>
-          <GradientStat
-            gradient="softViolet"
+          <StatTile
             icon={<FileCheck size={16} color="#7c3aed" />}
             label="Draft quotes"
             value={stats.draft_quotes}
             loading={loading}
-            valueColor={colors.text}
-            labelColor="#7c3aed"
+            tint="#7c3aed"
+            onPress={() => router.push("/quotes" as never)}
           />
         </FadeIn>
       </View>
@@ -265,44 +258,6 @@ export function OwnerDashboard({ business }: { business: MobileBusiness }) {
         <OutlookWidget businessId={business.id} />
       </FadeIn>
     </ScrollView>
-  );
-}
-
-function GradientStat({ gradient, icon, label, value, format, loading, valueColor, labelColor }: {
-  gradient: "softTeal" | "softRose" | "softBlue" | "softViolet" | "softAmber";
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-  format?: (n: number) => string;
-  loading?: boolean;
-  valueColor: string;
-  labelColor: string;
-}) {
-  return (
-    <LinearGradient
-      colors={gradients[gradient] as unknown as readonly [string, string, ...string[]]}
-      start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-      style={{
-        padding: space.md,
-        borderRadius: radius.lg,
-        gap: 6,
-        minHeight: 92,
-      }}
-    >
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-        {icon}
-        <Text style={{ fontSize: 11, fontWeight: "700", color: labelColor, textTransform: "uppercase", letterSpacing: 0.6 }}>{label}</Text>
-      </View>
-      {loading ? (
-        <Skeleton width="70%" height={22} style={{ marginTop: 4 }} />
-      ) : (
-        <AnimatedNumber
-          value={value}
-          format={format}
-          style={{ fontSize: 22, fontWeight: "800", color: valueColor, letterSpacing: -0.5, marginTop: 2 }}
-        />
-      )}
-    </LinearGradient>
   );
 }
 

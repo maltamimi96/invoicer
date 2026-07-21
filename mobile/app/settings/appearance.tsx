@@ -2,11 +2,11 @@ import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
-import { ArrowLeft, Save, Palette, Check, Sun, Moon, Smartphone } from "lucide-react-native";
+import { ArrowLeft, Save, Palette, Check } from "lucide-react-native";
 import { supabase } from "@/lib/supabase";
 import { useActiveBusiness } from "@/lib/active-business";
 import { colors, radius, space } from "@/lib/theme";
-import { useThemeMode, ThemeMode } from "@/lib/theme-provider";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const ACCENTS: Array<{ id: string; label: string; hex: string }> = [
   { id: "blue",    label: "Blue",    hex: "#1d4ed8" },
@@ -76,7 +76,11 @@ export default function AppearanceSettings() {
       </View>
 
       <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.lg }}>
-        <ThemeModePicker />
+        <View style={{ gap: space.sm }}>
+          <Text style={{ fontSize: 11, color: colors.muted, textTransform: "uppercase", letterSpacing: 0.6, fontWeight: "700" }}>Theme</Text>
+          <ThemeToggle variant="segmented" />
+          <Text style={{ fontSize: 11, color: colors.muted, lineHeight: 16 }}>System follows your phone&apos;s setting.</Text>
+        </View>
 
         <Text style={{ fontSize: 12, color: colors.muted, lineHeight: 18 }}>
           Accent + pattern below affect invoice/quote PDFs and the customer hub.
@@ -149,48 +153,3 @@ export default function AppearanceSettings() {
   );
 }
 
-const MODE_OPTIONS: Array<{ id: ThemeMode; label: string; icon: React.ReactNode }> = [
-  { id: "system", label: "System", icon: <Smartphone size={16} /> },
-  { id: "light",  label: "Light",  icon: <Sun        size={16} /> },
-  { id: "dark",   label: "Dark",   icon: <Moon       size={16} /> },
-];
-
-function ThemeModePicker() {
-  const { mode, setMode } = useThemeMode();
-  return (
-    <View style={{ gap: space.sm }}>
-      <Text style={{ fontSize: 11, color: colors.muted, textTransform: "uppercase", letterSpacing: 0.6, fontWeight: "700" }}>Theme</Text>
-      <View style={{
-        flexDirection: "row", gap: 4,
-        padding: 4, borderRadius: radius.lg,
-        backgroundColor: colors.surface2,
-        borderWidth: 1, borderColor: colors.hairline,
-      }}>
-        {MODE_OPTIONS.map((opt) => {
-          const selected = opt.id === mode;
-          return (
-            <Pressable
-              key={opt.id}
-              onPress={() => setMode(opt.id)}
-              style={({ pressed }) => ({
-                flex: 1,
-                flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
-                paddingVertical: 10, borderRadius: radius.md,
-                backgroundColor: selected ? colors.card : pressed ? colors.hairline : "transparent",
-                borderWidth: selected ? 1 : 0,
-                borderColor: colors.hairline,
-              })}>
-              {React.cloneElement(opt.icon as React.ReactElement<{ color?: string }>, {
-                color: selected ? colors.text : colors.muted,
-              })}
-              <Text style={{ fontSize: 13, fontWeight: "700", color: selected ? colors.text : colors.muted }}>{opt.label}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
-      <Text style={{ fontSize: 11, color: colors.muted, lineHeight: 16 }}>
-        System follows your phone&apos;s setting.
-      </Text>
-    </View>
-  );
-}

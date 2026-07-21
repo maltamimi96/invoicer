@@ -1,46 +1,44 @@
 import { useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { RefreshControl } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
-import { ArrowDownUp } from "lucide-react-native";
 import { fetchMyWorkOrders } from "@/lib/jobs";
 import { JobCard } from "@/components/JobCard";
+import { DayChips } from "@/components/Chip";
 import { colors, radius, space } from "@/lib/theme";
 import type { WorkOrderWithCustomer } from "@/lib/types";
 
-type SortMode = "soonest" | "newest";
-
-interface DayGroup { date: string; jobs: WorkOrderWithCustomer[] }
-interface ListSection {
-  kind: "today-header" | "today-empty" | "today-job" | "rest-header" | "day-header" | "day-job";
-  id: string;
-  date?: string;
-  job?: WorkOrderWithCustomer;
-}
-
+/**
+ * "When am I on" — a day-strip across the top (fitness-app vocabulary) drives
+ * which day's agenda shows below. Jobs are bucketed by scheduled_date; the
+ * strip spans today → the furthest scheduled day, so a worker taps a day and
+ * sees exactly that day's run, ordered by start time.
+ */
 export function ScheduleView() {
-  const [sort, setSort] = useState<SortMode>("soonest");
   const { data: jobs, isLoading, isRefetching, refetch } = useQuery({
     queryKey: ["work-orders"],
     queryFn:  fetchMyWorkOrders,
   });
 
-  const { todayKey, today, rest } = useMemo(() => groupSchedule(jobs ?? [], sort), [jobs, sort]);
+  const { byDay, dayKeys } = useMemo(() => groupByDay(jobs ?? []), [jobs]);
+  const todayKey = new Date().toISOString().split("T")[0];
 
-  // Flatten everything into one list so a single FlatList renders both the
-  // pinned Today section and the rest below it.
-  const items: ListSection[] = useMemo(() => {
-    const out: ListSection[] = [{ kind: "today-header", id: "today-h", date: todayKey }];
-    if (today.length === 0) out.push({ kind: "today-empty", id: "today-empty" });
-    else today.forEach((j) => out.push({ kind: "today-job", id: "t-" + j.id, job: j }));
-    if (rest.length > 0) out.push({ kind: "rest-header", id: "rest-h" });
-    for (const g of rest) {
-      out.push({ kind: "day-header", id: "d-" + g.date, date: g.date });
-      for (const j of g.jobs) out.push({ kind: "day-job", id: g.date + "-" + j.id, job: j });
-    }
-    return out;
-  }, [todayKey, today, rest]);
+  // Default selection: today if it has jobs or is in range, else the first day.
+  const [selected, setSelected] = useState<string | null>(null);
+  const activeKey = selected ?? (dayKeys.includes(todayKey) ? todayKey : dayKeys[0] ?? todayKey);
+
+  const chips = useMemo(
+    () =>
+      dayKeys.map((k) => {
+        const d = parseISO(k);
+        return { key: k, weekday: format(d, "EEE"), day: format(d, "d"), count: byDay.get(k)?.length ?? 0 };
+      }),
+    [dayKeys, byDay],
+  );
+
+  const dayJobs = byDay.get(activeKey) ?? [];
 
   if (isLoading) {
     return (
@@ -55,61 +53,42 @@ export function ScheduleView() {
       <FlatList
         contentContainerStyle={{ paddingHorizontal: space.lg, paddingBottom: space.xxl }}
         ListHeaderComponent={
-          <View style={{ paddingTop: space.md, paddingBottom: space.md }}>
-            <Text style={{ fontSize: 28, fontWeight: "700", color: colors.text, letterSpacing: -0.5 }}>Schedule</Text>
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 6 }}>
-              <Text style={{ fontSize: 13, color: colors.muted }}>
-                {today.length} today · {rest.reduce((s, g) => s + g.jobs.length, 0)} upcoming
-              </Text>
-              <Pressable onPress={() => setSort((s) => s === "soonest" ? "newest" : "soonest")}
-                style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 6, paddingHorizontal: 10, borderRadius: radius.pill ?? 999, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.hairline }}>
-                <ArrowDownUp size={13} color={colors.text} />
-                <Text style={{ fontSize: 12, color: colors.text, fontWeight: "700" }}>
-                  {sort === "soonest" ? "Soonest first" : "Newest first"}
-                </Text>
-              </Pressable>
+          <View style={{ paddingTop: space.sm, paddingBottom: space.md }}>
+            <Text style={{ fontSize: 28, fontWeight: "800", color: colors.text, letterSpacing: -0.6 }}>Schedule</Text>
+            <Text style={{ fontSize: 13, color: colors.muted, marginTop: 3, marginBottom: space.md }}>
+              {byDay.get(todayKey)?.length ?? 0} today · {(jobs ?? []).filter((j) => j.scheduled_date && j.status !== "completed" && j.status !== "cancelled").length} scheduled
+            </Text>
+
+            {chips.length > 0 ? (
+              <DayChips days={chips} selectedKey={activeKey} onSelect={setSelected} />
+            ) : null}
+
+            <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, marginTop: space.lg, marginBottom: space.xs }}>
+              <View style={{ width: 4, height: 18, borderRadius: 2, backgroundColor: colors.primary }} />
+              <Text style={{ fontSize: 16, fontWeight: "800", color: colors.text }}>{prettyDay(activeKey)}</Text>
             </View>
           </View>
         }
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
-        data={items}
-        keyExtractor={(it) => it.id}
-        renderItem={({ item }) => {
-          if (item.kind === "today-header") return (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, marginBottom: space.sm, marginTop: space.sm }}>
-              <View style={{ width: 4, height: 18, borderRadius: 2, backgroundColor: colors.primary }} />
-              <Text style={{ fontSize: 16, fontWeight: "800", color: colors.text }}>Today</Text>
-              <Text style={{ fontSize: 12, color: colors.muted }}>· {format(parseISO(item.date!), "EEE d MMM")}</Text>
-            </View>
-          );
-          if (item.kind === "today-empty") return (
-            <View style={{ padding: space.md, borderRadius: radius.lg, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.hairline, marginBottom: space.lg }}>
-              <Text style={{ fontSize: 13, color: colors.muted, textAlign: "center" }}>No jobs today.</Text>
-            </View>
-          );
-          if (item.kind === "today-job") return <View style={{ marginBottom: space.xs ?? 6 }}><JobCard job={item.job!} /></View>;
-          if (item.kind === "rest-header") return (
-            <View style={{ marginTop: space.lg, marginBottom: space.sm, flexDirection: "row", alignItems: "center", gap: 8 }}>
-              <View style={{ flex: 1, height: 1, backgroundColor: colors.hairline }} />
-              <Text style={{ fontSize: 11, color: colors.muted, textTransform: "uppercase", letterSpacing: 0.6, fontWeight: "700" }}>Upcoming</Text>
-              <View style={{ flex: 1, height: 1, backgroundColor: colors.hairline }} />
-            </View>
-          );
-          if (item.kind === "day-header") return (
-            <Text style={{ fontSize: 13, fontWeight: "700", color: colors.text, marginBottom: space.sm, marginTop: space.md }}>{prettyDay(item.date!)}</Text>
-          );
-          return <View style={{ marginBottom: space.xs ?? 6 }}><JobCard job={item.job!} /></View>;
-        }}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
+        data={dayJobs}
+        keyExtractor={(j) => j.id}
+        renderItem={({ item }) => <JobCard job={item} />}
         ListEmptyComponent={
-          <Text style={{ color: colors.muted, textAlign: "center", marginTop: space.xxl }}>No scheduled jobs yet.</Text>
+          <View style={{
+            padding: space.lg, borderRadius: radius.lg, backgroundColor: colors.card,
+            borderWidth: 1, borderColor: colors.hairline,
+          }}>
+            <Text style={{ fontSize: 13, color: colors.muted, textAlign: "center" }}>
+              {chips.length === 0 ? "No scheduled jobs yet." : "Nothing scheduled this day."}
+            </Text>
+          </View>
         }
       />
     </SafeAreaView>
   );
 }
 
-function groupSchedule(jobs: WorkOrderWithCustomer[], sort: SortMode) {
-  const todayKey = new Date().toISOString().split("T")[0];
+function groupByDay(jobs: WorkOrderWithCustomer[]) {
   const byDay = new Map<string, WorkOrderWithCustomer[]>();
   for (const j of jobs) {
     if (!j.scheduled_date) continue;
@@ -118,16 +97,25 @@ function groupSchedule(jobs: WorkOrderWithCustomer[], sort: SortMode) {
     arr.push(j);
     byDay.set(j.scheduled_date, arr);
   }
-  // Sort jobs within each day by start_time ascending (earliest first).
   for (const arr of byDay.values()) {
     arr.sort((a, b) => (a.start_time ?? "23:59").localeCompare(b.start_time ?? "23:59"));
   }
-  const today = byDay.get(todayKey) ?? [];
-  byDay.delete(todayKey);
-  const rest: DayGroup[] = Array.from(byDay.entries())
-    .sort(([a], [b]) => sort === "soonest" ? a.localeCompare(b) : b.localeCompare(a))
-    .map(([date, jobs]) => ({ date, jobs }));
-  return { todayKey, today, rest };
+
+  // Build a contiguous day strip from today → the furthest scheduled day, so
+  // the chips read like a calendar week even when some days are empty.
+  const todayKey = new Date().toISOString().split("T")[0];
+  const keys = new Set<string>([todayKey, ...byDay.keys()]);
+  const sorted = Array.from(keys).sort();
+  const last = sorted[sorted.length - 1];
+  const dayKeys: string[] = [];
+  const cursor = new Date(todayKey);
+  const end = new Date(last);
+  // Cap the strip at ~28 days so a stray far-future job can't explode the row.
+  for (let i = 0; cursor <= end && i < 28; i++) {
+    dayKeys.push(cursor.toISOString().split("T")[0]);
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return { byDay, dayKeys };
 }
 
 function prettyDay(iso: string) {
@@ -136,6 +124,7 @@ function prettyDay(iso: string) {
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const cmp   = new Date(iso); cmp.setHours(0, 0, 0, 0);
     const diff  = Math.round((cmp.getTime() - today.getTime()) / 86_400_000);
+    if (diff === 0)  return "Today · " + format(d, "EEE d MMM");
     if (diff === 1)  return "Tomorrow · " + format(d, "EEE d MMM");
     if (diff === -1) return "Yesterday · " + format(d, "EEE d MMM");
     return format(d, "EEEE d MMM");

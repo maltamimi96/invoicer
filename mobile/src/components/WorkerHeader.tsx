@@ -3,14 +3,15 @@ import { Alert, Pressable, Text, View } from "react-native";
 import { LogOut } from "lucide-react-native";
 import { supabase } from "@/lib/supabase";
 import { colors, space } from "@/lib/theme";
+import { ThemeToggle } from "./ThemeToggle";
 
 /**
  * The worker's only chrome.
  *
- * Workers get two tabs (Jobs, Schedule) and no Profile screen, so sign-out has
- * to live somewhere — it's here. Deliberately minimal: who you are, which
- * business, and a way out. No settings, no switcher unless there's genuinely
- * more than one business to switch to.
+ * Workers get two tabs (Jobs, Schedule) and no Profile screen, so sign-out and
+ * the theme toggle have to live somewhere — they're here. Deliberately minimal:
+ * who you are, which business, flip light/dark, and a way out. The theme toggle
+ * matters because a worker has no settings screen to reach the picker.
  *
  * Styles are a function, not a module-scope const: `colors` is MUTATED in place
  * by applyTheme(), so a const captured at import time freezes the light palette
@@ -48,6 +49,8 @@ export function WorkerHeader({
         {workerName ? <Text style={name()} numberOfLines={1}>{workerName}</Text> : null}
         {businessName ? <Text style={biz()} numberOfLines={1}>{businessName}</Text> : null}
       </View>
+
+      <ThemeToggle variant="icon" />
 
       <Pressable
         onPress={signOut}

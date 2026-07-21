@@ -32,12 +32,16 @@ export type GradientTokens = Record<
   [string, string]
 >;
 
+// Clean white + teal. Near-white cool canvas, pure-white cards that lift on a
+// hairline + soft shadow, near-black teal-undertone ink, one confident teal
+// accent. The status hues (violet/rose/amber/…) are kept because they carry
+// meaning in pills, but the surfaces are neutral, not tinted.
 const LIGHT: ColorTokens = {
-  canvas: "#fafaf7", card: "#ffffff", surface2: "#f5f4ef",
-  hairline: "#e5e3d9", hairlineSoft: "#ecebe4",
-  text: "#1a1a17", muted: "#6b6a62", subtle: "#9a988e",
-  primary: "#3a847e", primaryDeep: "#1f4f4a", primarySoft: "#e7f1f0", primaryText: "#1f4f4a",
-  accent: "#3a847e", lime: "#3a847e", limeDeep: "#1f4f4a",
+  canvas: "#f5f7f7", card: "#ffffff", surface2: "#eef2f2",
+  hairline: "#e3e9e8", hairlineSoft: "#eef2f1",
+  text: "#0e1a1a", muted: "#5c6b6b", subtle: "#93a1a1",
+  primary: "#0f766e", primaryDeep: "#0b5b54", primarySoft: "#e6f2f1", primaryText: "#0b5b54",
+  accent: "#0f766e", lime: "#0f766e", limeDeep: "#0b5b54",
   violet: "#c4b5fd", violetDeep: "#3b1d6b",
   rose: "#fecdd3", roseDeep: "#7f1d1d",
   amber: "#fde68a", amberDeep: "#78350f",
@@ -49,19 +53,19 @@ const LIGHT: ColorTokens = {
 };
 
 const DARK: ColorTokens = {
-  canvas: "#0c0d0f",
-  card: "#181a1d",
-  surface2: "#1f2125",
-  hairline: "#2a2c30",
-  hairlineSoft: "#22242a",
-  text: "#f5f4ef",
-  muted: "#9a988e",
-  subtle: "#6b6a62",
-  primary: "#4ea69e",         // lifted on dark
-  primaryDeep: "#2d6c66",
-  primarySoft: "#143536",     // dark teal-tinted bg
-  primaryText: "#a7d7d3",
-  accent: "#4ea69e", lime: "#4ea69e", limeDeep: "#2d6c66",
+  canvas: "#0b1211",          // near-black, faint teal undertone
+  card: "#121a19",
+  surface2: "#17211f",
+  hairline: "#243230",
+  hairlineSoft: "#1b2523",
+  text: "#eef4f3",
+  muted: "#8ea0a0",
+  subtle: "#61716f",
+  primary: "#2fbfb2",         // lifted teal on dark
+  primaryDeep: "#1f8f85",
+  primarySoft: "#0f2624",     // dark teal-tinted bg
+  primaryText: "#8fe3db",
+  accent: "#2fbfb2", lime: "#2fbfb2", limeDeep: "#1f8f85",
   violet: "#a78bfa", violetDeep: "#c4b5fd",
   rose: "#fda4af", roseDeep: "#fecaca",
   amber: "#fbbf24", amberDeep: "#fde68a",
@@ -72,45 +76,47 @@ const DARK: ColorTokens = {
   black: "#000000", white: "#ffffff",
 };
 
+// Gradients are largely retired in the white+teal system. Brand gradients
+// become subtle teal-on-teal (near-flat), and the soft* tints go near-white so
+// any card still built on `gradients.softX` renders as a clean, almost-flat
+// surface instead of a coloured blob. Keys are all kept so no call-site breaks.
 const LIGHT_GRADIENTS: GradientTokens = {
-  primary:    ["#3a847e", "#1f4f4a"],
-  primaryLit: ["#5fa8a2", "#2d6c66"],
-  emerald:    ["#34d399", "#047857"],
-  amber:      ["#fbbf24", "#b45309"],
-  rose:       ["#fb7185", "#9f1239"],
-  violet:     ["#a78bfa", "#6d28d9"],
-  blue:       ["#60a5fa", "#1d4ed8"],
-  coral:      ["#fb923c", "#c2410c"],
-  softTeal:   ["#e7f1f0", "#d6e9e7"],
-  softViolet: ["#ede9fe", "#dccef9"],
-  softRose:   ["#fee2e2", "#fecaca"],
-  softAmber:  ["#fef3c7", "#fde68a"],
-  softBlue:   ["#dbeafe", "#bfdbfe"],
-  sunrise:    ["#fda4af", "#fcd34d"],
-  dusk:       ["#7c3aed", "#3a847e"],
-  ocean:      ["#06b6d4", "#1f4f4a"],
+  primary:    ["#0f766e", "#0b5b54"],
+  primaryLit: ["#149a8f", "#0f766e"],
+  emerald:    ["#10b981", "#047857"],
+  amber:      ["#f59e0b", "#b45309"],
+  rose:       ["#f43f5e", "#9f1239"],
+  violet:     ["#8b5cf6", "#6d28d9"],
+  blue:       ["#3b82f6", "#1d4ed8"],
+  coral:      ["#fb7185", "#c2410c"],
+  softTeal:   ["#ffffff", "#eef4f3"],
+  softViolet: ["#ffffff", "#f1eefb"],
+  softRose:   ["#ffffff", "#fdeef0"],
+  softAmber:  ["#ffffff", "#fbf3e2"],
+  softBlue:   ["#ffffff", "#eef3fc"],
+  sunrise:    ["#0f766e", "#149a8f"],
+  dusk:       ["#0b5b54", "#0f766e"],
+  ocean:      ["#0f766e", "#0b5b54"],
 };
 
 const DARK_GRADIENTS: GradientTokens = {
-  // Brand gradients stay punchy on dark — make them brighter, not muddier
-  primary:    ["#4ea69e", "#2d6c66"],
-  primaryLit: ["#7ec5be", "#3a847e"],
+  primary:    ["#2fbfb2", "#1f8f85"],
+  primaryLit: ["#5bd6cb", "#2fbfb2"],
   emerald:    ["#34d399", "#0f766e"],
   amber:      ["#fbbf24", "#92400e"],
   rose:       ["#fb7185", "#7f1d1d"],
   violet:     ["#a78bfa", "#5b21b6"],
   blue:       ["#60a5fa", "#1e3a8a"],
   coral:      ["#fb923c", "#9a3412"],
-  // Soft cards on dark = deep tinted backgrounds
-  softTeal:   ["#143536", "#0f2625"],
-  softViolet: ["#2a1d4a", "#1a1133"],
-  softRose:   ["#3f1a1f", "#2a1015"],
-  softAmber:  ["#3a2a0f", "#2a1f08"],
-  softBlue:   ["#0e234a", "#08182f"],
-  // Heroes — brighter on dark for confident contrast
-  sunrise:    ["#fb7185", "#fbbf24"],
-  dusk:       ["#7c3aed", "#1f4f4a"],
-  ocean:      ["#06b6d4", "#1f4f4a"],
+  // Soft cards on dark = barely-lifted neutral surfaces (near-flat)
+  softTeal:   ["#17211f", "#121a19"],
+  softViolet: ["#1c1a26", "#141119"],
+  softRose:   ["#241619", "#181012"],
+  softAmber:  ["#231d12", "#17130a"],
+  softBlue:   ["#141d2b", "#0e1420"],
+  sunrise:    ["#2fbfb2", "#1f8f85"],
+  dusk:       ["#1f8f85", "#2fbfb2"],
+  ocean:      ["#2fbfb2", "#1f8f85"],
 };
 
 // Mutable exports — applyTheme() rewrites them in place so any code that
@@ -132,6 +138,19 @@ export function applyTheme(mode: "light" | "dark"): void {
 }
 
 export type GradientName = keyof GradientTokens;
+
+/** Soft card elevation. Call at render (not a module const) so it re-reads the
+ *  live palette. Shadows are near-invisible on the dark canvas, where the
+ *  hairline border does the separating instead — that's fine, it's by design. */
+export function cardShadow(level: 1 | 2 = 1) {
+  return {
+    shadowColor: "#0b3b37",
+    shadowOpacity: level === 1 ? 0.06 : 0.1,
+    shadowRadius: level === 1 ? 10 : 18,
+    shadowOffset: { width: 0, height: level === 1 ? 4 : 8 },
+    elevation: level === 1 ? 2 : 4,
+  } as const;
+}
 
 /** Status → small pill (used in lists). Uses live colour tokens. */
 export const STATUS_PILL: Record<string, { bg: string; fg: string; label: string }> = {

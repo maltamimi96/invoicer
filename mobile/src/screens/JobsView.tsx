@@ -1,10 +1,14 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, FlatList, RefreshControl, Text, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { fetchMyWorkOrders } from "@/lib/jobs";
 import { scheduleJobReminders } from "@/lib/notifications";
 import { JobCard } from "@/components/JobCard";
-import { colors, space } from "@/lib/theme";
+import { Chip } from "@/components/Chip";
+import { colors, radius, space } from "@/lib/theme";
+import type { WorkOrderWithCustomer } from "@/lib/types";
+
+type Filter = "today" | "upcoming" | "done" | "all";
 
 /**
  * The worker's job list — "what am I on".
@@ -13,10 +17,12 @@ import { colors, space } from "@/lib/theme";
  * group. The (tabs) group is now purely the admin UI; nothing in it branches on
  * role any more.
  *
- * Deliberately distinct from ScheduleView, which answers "when": this groups by
- * state (today/active, upcoming, recently done), the schedule groups by day.
+ * A chip row filters by state (Today / Upcoming / Done / All); the list itself
+ * is a real FlatList over the filtered jobs so windowing works. Distinct from
+ * ScheduleView, which answers "when" and groups by day.
  */
 export function JobsView() {
+  const [filter, setFilter] = useState<Filter>("today");
   const { data: jobs, isLoading, isRefetching, refetch, error } = useQuery({
     queryKey: ["work-orders"],
     queryFn:  fetchMyWorkOrders,
@@ -27,18 +33,24 @@ export function JobsView() {
     if (jobs && jobs.length) scheduleJobReminders(jobs).catch(() => undefined);
   }, [jobs]);
 
-  const { todayJobs, upcoming, completed } = useMemo(() => {
+  const buckets = useMemo(() => {
     const today = new Date().toISOString().split("T")[0];
-    const todayJobs: NonNullable<typeof jobs> = [];
-    const upcoming:  NonNullable<typeof jobs> = [];
-    const completed: NonNullable<typeof jobs> = [];
+    const t: WorkOrderWithCustomer[] = [];
+    const u: WorkOrderWithCustomer[] = [];
+    const d: WorkOrderWithCustomer[] = [];
     for (const j of jobs ?? []) {
-      if (j.status === "completed" || j.status === "cancelled") completed.push(j);
-      else if (j.scheduled_date === today || j.status === "in_progress") todayJobs.push(j);
-      else upcoming.push(j);
+      if (j.status === "completed" || j.status === "cancelled") d.push(j);
+      else if (j.scheduled_date === today || j.status === "in_progress") t.push(j);
+      else u.push(j);
     }
-    return { todayJobs, upcoming, completed };
+    return { today: t, upcoming: u, done: d };
   }, [jobs]);
+
+  const visible =
+    filter === "today" ? buckets.today
+    : filter === "upcoming" ? buckets.upcoming
+    : filter === "done" ? buckets.done
+    : [...buckets.today, ...buckets.upcoming, ...buckets.done];
 
   if (isLoading) {
     return (
@@ -49,73 +61,57 @@ export function JobsView() {
   }
 
   return (
-    <View style={{ flex: 1 }}>
-      <FlatList
-        contentContainerStyle={{ paddingHorizontal: space.lg, paddingBottom: space.xxl }}
-        ListHeaderComponent={
-          <View style={{ paddingTop: space.md, paddingBottom: space.lg }}>
-            <Text style={{ fontSize: 28, fontWeight: "700", color: colors.text, letterSpacing: -0.5 }}>
-              My jobs
-            </Text>
-            <Text style={{ fontSize: 13, color: colors.muted, marginTop: 4 }}>
-              {jobs?.length ?? 0} total · pull to refresh
-            </Text>
+    <FlatList
+      style={{ flex: 1 }}
+      contentContainerStyle={{ paddingHorizontal: space.lg, paddingBottom: space.xxl }}
+      data={visible}
+      keyExtractor={(j) => j.id}
+      renderItem={({ item }) => <JobCard job={item} />}
+      refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
+      ListHeaderComponent={
+        <View style={{ paddingTop: space.sm, paddingBottom: space.md }}>
+          <Text style={{ fontSize: 28, fontWeight: "800", color: colors.text, letterSpacing: -0.6 }}>
+            My jobs
+          </Text>
+          <Text style={{ fontSize: 13, color: colors.muted, marginTop: 3, marginBottom: space.md }}>
+            {jobs?.length ?? 0} total · pull to refresh
+          </Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            <Chip label="Today"    count={buckets.today.length}    selected={filter === "today"}    onPress={() => setFilter("today")} />
+            <Chip label="Upcoming" count={buckets.upcoming.length} selected={filter === "upcoming"} onPress={() => setFilter("upcoming")} />
+            <Chip label="Done"     count={buckets.done.length}     selected={filter === "done"}     onPress={() => setFilter("done")} />
+            <Chip label="All"      selected={filter === "all"}     onPress={() => setFilter("all")} />
           </View>
-        }
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
-        data={[]}
-        keyExtractor={() => "section-shell"}
-        renderItem={null}
-        ListFooterComponent={
-          <View>
-            {error ? (
-              <ErrorBox message={(error as Error).message} />
-            ) : (
-              <>
-                <Section title="Today & active" jobs={todayJobs} emptyHint="Nothing scheduled for today." />
-                <Section title="Upcoming"        jobs={upcoming}  emptyHint="No upcoming jobs assigned to you." />
-                {completed.length > 0 && (
-                  <Section title="Recently completed" jobs={completed.slice(0, 5)} />
-                )}
-              </>
-            )}
+        </View>
+      }
+      ListEmptyComponent={
+        error ? (
+          <ErrorBox message={(error as Error).message} />
+        ) : (
+          <View style={{
+            padding: space.lg, borderRadius: radius.lg, backgroundColor: colors.card,
+            borderWidth: 1, borderColor: colors.hairline, marginTop: space.sm,
+          }}>
+            <Text style={{ fontSize: 14, fontWeight: "700", color: colors.text }}>{emptyTitle(filter)}</Text>
+            <Text style={{ fontSize: 13, color: colors.muted, marginTop: 4 }}>{emptyHint(filter)}</Text>
           </View>
-        }
-      />
-    </View>
+        )
+      }
+    />
   );
 }
 
-function Section({
-  title, jobs, emptyHint,
-}: {
-  title: string;
-  jobs: NonNullable<Awaited<ReturnType<typeof fetchMyWorkOrders>>>;
-  emptyHint?: string;
-}) {
-  return (
-    <View style={{ marginBottom: space.xl }}>
-      <Text
-        style={{
-          fontSize: 11,
-          fontWeight: "700",
-          color: colors.muted,
-          textTransform: "uppercase",
-          letterSpacing: 1,
-          marginBottom: space.sm,
-        }}
-      >
-        {title}
-      </Text>
-      {jobs.length === 0 ? (
-        emptyHint ? (
-          <Text style={{ color: colors.muted, fontSize: 13, paddingVertical: 8 }}>{emptyHint}</Text>
-        ) : null
-      ) : (
-        jobs.map((j) => <JobCard key={j.id} job={j} />)
-      )}
-    </View>
-  );
+function emptyTitle(f: Filter): string {
+  if (f === "today") return "Nothing on today";
+  if (f === "upcoming") return "No upcoming jobs";
+  if (f === "done") return "Nothing completed yet";
+  return "No jobs assigned";
+}
+function emptyHint(f: Filter): string {
+  if (f === "today") return "Jobs scheduled for today land here.";
+  if (f === "upcoming") return "Future assignments will show up here.";
+  if (f === "done") return "Finished jobs move here.";
+  return "When a job is assigned to you it appears here.";
 }
 
 function ErrorBox({ message }: { message: string }) {
