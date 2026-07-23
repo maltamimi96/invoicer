@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getInvoice } from "@/lib/actions/invoices";
 import { getBusiness } from "@/lib/actions/business";
+import { resolveDocumentConfig } from "@/lib/documents/resolve";
+import { registerPdfFonts } from "@/lib/documents/template-config";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -15,9 +17,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     let inv: any;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let business: any;
+    // Client used to resolve the template config (admin for token path, the
+    // RLS-scoped server client for signed-in users).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let resolverSb: any;
 
     if (token) {
       const sb = createAdminClient();
+      resolverSb = sb;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const tbl = (s: any, n: string) => s.from(n);
 
@@ -51,6 +58,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       business = bizData as any;
     } else {
       const supabase = await createClient();
+      resolverSb = supabase;
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -64,17 +72,29 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const customer = inv.customers ?? null;
     const lineItems = inv.line_items ?? [];
 
+    // Resolve the template config. `?template=` lets the authenticated editor
+    // preview a specific template without saving it to the invoice; the public
+    // token path never honours it.
+    const previewTemplateId = token ? null : req.nextUrl.searchParams.get("template");
+    const config = await resolveDocumentConfig(resolverSb, {
+      businessId: business.id,
+      docType: "invoice",
+      templateId: previewTemplateId ?? inv.template_id ?? null,
+      pdfSettings: business.pdf_settings ?? null,
+    });
+
     // Dynamic import to avoid SSR issues
-    const { renderToStream } = await import("@react-pdf/renderer");
+    const { renderToStream, Font } = await import("@react-pdf/renderer");
     const { InvoicePDFDocument } = await import("@/components/invoices/invoice-pdf-document");
     const React = await import("react");
+    registerPdfFonts(Font);
 
     const element = React.createElement(InvoicePDFDocument, {
       invoice: inv,
       customer,
       business,
       lineItems,
-      pdfSettings: business.pdf_settings ?? null,
+      config,
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

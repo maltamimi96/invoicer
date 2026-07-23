@@ -18,6 +18,7 @@ import { scheduleSend } from "@/lib/actions/scheduled-sends";
 import { SendDocumentModal } from "@/components/send/send-document-modal";
 import { QuoteEditor } from "./quote-editor";
 import { QuotePDFDownload } from "./quote-pdf";
+import { TemplatePicker } from "@/components/documents/template-picker";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import {
   DetailHero, FactCard, AnimatedPress, FadeIn,
@@ -135,6 +136,7 @@ export function QuoteDetailClient({ quote: initial, customers, products, busines
                 <Link2 className="w-4 h-4" /> Share
               </AnimatedPress>
             )}
+            <TemplatePicker docType="quote" docId={quote.id} currentTemplateId={quote.template_id} />
             <QuotePDFDownload quoteId={quote.id} quoteNumber={quote.number} />
             <AnimatedPress
               onClick={() => setEditing(true)}
