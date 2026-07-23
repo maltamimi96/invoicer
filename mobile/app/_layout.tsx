@@ -9,7 +9,7 @@ import { supabase } from "@/lib/supabase";
 import { colors } from "@/lib/theme";
 import { ThemeProvider, useThemeMode } from "@/lib/theme-provider";
 import { useActiveBusiness } from "@/lib/active-business";
-import { isWorker, isRouteBlockedForWorker } from "@/lib/permissions";
+import { isWorker } from "@/lib/permissions";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
@@ -51,38 +51,37 @@ function Inner() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  // ONE deterministic gate that decides where a user belongs. The previous
+  // version split this across two effects — one that only fired on the auth
+  // screen, one for "mismatch" — and they could both run and fight each other,
+  // so the outcome depended on render timing. That flip-flopped: sometimes a
+  // worker leaked into the admin group, sometimes an admin got stuck in the
+  // worker group. This runs the same rule every time, from any starting route.
   useEffect(() => {
     if (!loaded) return;
-    const inAuth = segments[0] === "(auth)";
-    if (!session && !inAuth) router.replace("/(auth)/login");
-    // Land signed-in users on the group their role belongs to. Until the role
-    // resolves, hold at the auth screen rather than flashing the admin UI at a
-    // worker — the swap is jarring and briefly shows them things they can't use.
-    if (session && inAuth && !roleLoading) {
-      router.replace(isWorker(role) ? "/(worker)" : "/(tabs)");
-    }
-  }, [loaded, session, segments, router, roleLoading, role]);
-
-  // Role/group mismatch. Two genuinely separate navigators now exist —
-  // (worker) has two screens, (tabs) has the full admin app — so this is not
-  // hiding buttons, it is making sure each role is inside its own tree.
-  //
-  // Still needed for: a role that changes while the app is open, a restored
-  // deep link into the wrong group, and any legacy /(tabs) link. The
-  // isRouteBlockedForWorker list keeps covering the stack routes that sit
-  // outside both groups (invoices, customers, settings...).
-  useEffect(() => {
-    if (!loaded || !session || roleLoading) return;
-    const worker = isWorker(role);
     const top = segments[0];
 
-    if (worker && (top === "(tabs)" || isRouteBlockedForWorker(segments as string[]))) {
-      router.replace("/(worker)");
+    // Not signed in → auth (and don't bother routing while there).
+    if (!session) {
+      if (top !== "(auth)") router.replace("/(auth)/login");
       return;
     }
-    // An admin who somehow lands in the worker group gets their own app back.
-    if (!worker && top === "(worker)") {
-      router.replace("/(tabs)");
+    // Signed in but role not yet confirmed → wait. Never guess the group from
+    // the default role; guessing is exactly what flashed the wrong UI.
+    if (roleLoading) return;
+
+    // job/[id] is a shared stack route both roles legitimately open — leave it.
+    if (top === "job") return;
+
+    if (isWorker(role)) {
+      // A worker belongs ONLY in the (worker) group. Everything else — the admin
+      // tabs, settings, invoices, a stale (auth) — bounces back.
+      if (top !== "(worker)") router.replace("/(worker)");
+    } else {
+      // Admin/owner/editor/viewer: rescue them only OUT of the worker group or
+      // the auth screen. Do NOT touch other admin routes (settings, invoices,
+      // customers…) — those are legitimate places for them to be.
+      if (top === "(worker)" || top === "(auth)") router.replace("/(tabs)");
     }
   }, [loaded, session, roleLoading, role, segments, router]);
 
@@ -91,6 +90,11 @@ function Inner() {
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
           <StatusBar style={resolved === "dark" ? "light" : "dark"} />
+          {/* NOT keyed on the theme: re-keying the ROOT navigator resets which
+              group you're in, which dumped workers back into the admin (tabs)
+              group. Theme repaint is handled one level down — each group's Tabs
+              navigator is keyed on `resolved` — so screens re-read the mutated
+              palette without ever disturbing worker/admin routing. */}
           <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.canvas } }}>
             <Stack.Screen name="(auth)" />
             <Stack.Screen name="(tabs)" />

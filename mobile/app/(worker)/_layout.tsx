@@ -1,6 +1,7 @@
 import { Tabs } from "expo-router";
 import { Wrench, Calendar } from "lucide-react-native";
 import { colors } from "@/lib/theme";
+import { useThemeMode } from "@/lib/theme-provider";
 import { GradientTabBar } from "@/components/GradientTabBar";
 
 /**
@@ -19,8 +20,13 @@ import { GradientTabBar } from "@/components/GradientTabBar";
  * Routing between the two groups happens once, in app/_layout.tsx.
  */
 export default function WorkerLayout() {
+  const { resolved } = useThemeMode();
   return (
+    // key={resolved}: remounts only THIS group's tabs on a theme change so the
+    // worker's screens re-read the mutated palette. Scoped to the group, so it
+    // never touches worker↔admin routing (that lives in the root Stack).
     <Tabs
+      key={resolved}
       tabBar={(props) => <GradientTabBar {...props} />}
       screenOptions={{
         headerShown: false,
