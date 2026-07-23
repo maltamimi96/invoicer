@@ -407,6 +407,22 @@ export function SettingsClient({ business: initial, apiKeys, emailConfig, webhoo
         <TabsContent value="documents" className="space-y-4 mt-6">
           <Card>
             <CardHeader className="flex flex-row items-center gap-2.5 space-y-0">
+              <GradientTile gradient="primary" size={28} radius={8}><FileText className="w-3.5 h-3.5" /></GradientTile>
+              <CardTitle className="text-base">PDF templates</CardTitle>
+            </CardHeader>
+            <CardContent className="flex items-center justify-between gap-4">
+              <p className="text-sm text-muted-foreground">
+                Design the look of your invoice and quote PDFs — colours, fonts, background,
+                logo, custom fields and columns. Save as many templates as you like, set a
+                default, and pick one per document.
+              </p>
+              <Button asChild variant="outline" className="shrink-0">
+                <a href="/settings/document-templates">Manage templates</a>
+              </Button>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center gap-2.5 space-y-0">
               <GradientTile gradient="amber" size={28} radius={8}><FileText className="w-3.5 h-3.5" /></GradientTile>
               <CardTitle className="text-base">Invoice & Quote Numbering</CardTitle>
             </CardHeader>

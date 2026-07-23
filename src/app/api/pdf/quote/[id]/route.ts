@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getQuote } from "@/lib/actions/quotes";
 import { getBusiness } from "@/lib/actions/business";
+import { resolveDocumentConfig } from "@/lib/documents/resolve";
+import { registerPdfFonts } from "@/lib/documents/template-config";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -17,9 +19,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     let business: any;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let customer: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let resolverSb: any;
 
     if (token) {
       const sb = createAdminClient();
+      resolverSb = sb;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const tbl = (s: any, n: string) => s.from(n);
 
@@ -52,6 +57,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       customer = cust;
     } else {
       const supabase = await createClient();
+      resolverSb = supabase;
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -63,16 +69,25 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const lineItems = quote.line_items ?? [];
 
-    const { renderToStream } = await import("@react-pdf/renderer");
+    const previewTemplateId = token ? null : req.nextUrl.searchParams.get("template");
+    const config = await resolveDocumentConfig(resolverSb, {
+      businessId: business.id,
+      docType: "quote",
+      templateId: previewTemplateId ?? quote.template_id ?? null,
+      pdfSettings: business?.pdf_settings ?? null,
+    });
+
+    const { renderToStream, Font } = await import("@react-pdf/renderer");
     const { QuotePDFDocument } = await import("@/components/quotes/quote-pdf-document");
     const React = await import("react");
+    registerPdfFonts(Font);
 
     const element = React.createElement(QuotePDFDocument, {
       quote,
       customer,
       business,
       lineItems,
-      pdfSettings: business?.pdf_settings ?? null,
+      config,
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

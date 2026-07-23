@@ -26,6 +26,8 @@ import {
   type EmailTemplateType,
 } from "@/lib/emails/templates";
 import { customerAllowsCard } from "@/lib/payment-methods";
+import { DEFAULT_TEMPLATE_CONFIG } from "@/lib/documents/template-config";
+import { presetByKey, TEMPLATE_PRESETS } from "@/lib/documents/presets";
 import type { LineItem } from "@/types/database";
 import { ctxFrom, appBase, UUID, getOrMintPortalToken, type ToolFn } from "./tools/shared";
 import { registerPluginFormTools } from "./tools/plugin-form-tools";
@@ -653,6 +655,107 @@ export function registerTools(register: ToolFn): void {
       const { error } = await t(ctx, "email_templates").delete().eq("business_id", ctx.businessId).eq("template_type", args.template_type);
       if (error) throw error;
       return text({ reset: true, defaults: EMAIL_TEMPLATE_DEFAULTS[args.template_type as EmailTemplateType] });
+    });
+
+  // ===== DOCUMENT TEMPLATES (invoice / quote PDF templates) =====
+  const DOC_TPL_TYPE = z.enum(["invoice", "quote", "both"]);
+
+  tool("list_document_templates", "List saved PDF templates for invoices/quotes (name, doc_type, is_default). Optionally filter by doc_type. Also returns the built-in starter presets you can create from.",
+    { doc_type: z.enum(["invoice", "quote"]).optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "settings:read");
+      let q = t(ctx, "document_templates").select("id, name, doc_type, is_default, source, preset_key, created_at").eq("business_id", ctx.businessId).order("created_at", { ascending: true });
+      if (args.doc_type) q = q.in("doc_type", [args.doc_type, "both"]);
+      const { data, error } = await q;
+      if (error) throw error;
+      return text({ templates: data ?? [], presets: TEMPLATE_PRESETS.map((p) => ({ key: p.key, name: p.name, description: p.description })) });
+    });
+
+  tool("get_document_template", "Get a document template's full config.",
+    { id: z.string() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "settings:read");
+      const { data, error } = await t(ctx, "document_templates").select("*").eq("id", args.id).eq("business_id", ctx.businessId).maybeSingle();
+      if (error) throw error;
+      if (!data) return errorText("Template not found.");
+      return text(data);
+    });
+
+  tool("create_document_template", "Create a saved PDF template. Start from a built-in preset (from_preset, see list_document_templates) and/or pass a partial config to override (palette, fonts, background_image_url, watermark_text, custom_fields, columns, section toggles, labels — see the TemplateConfig shape). Optionally make it the default for its doc_type.",
+    {
+      name: z.string(),
+      doc_type: DOC_TPL_TYPE,
+      from_preset: z.string().optional(),
+      config: z.record(z.any()).optional(),
+      make_default: z.boolean().optional(),
+    },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "settings:write");
+      const name = args.name?.trim();
+      if (!name) return errorText("name is required.");
+      const preset = args.from_preset ? presetByKey(args.from_preset) : undefined;
+      const config = { ...DEFAULT_TEMPLATE_CONFIG, ...(preset?.config ?? {}), ...(args.config ?? {}) };
+      const { data, error } = await t(ctx, "document_templates").insert({
+        business_id: ctx.businessId, name, doc_type: args.doc_type, config,
+        source: preset ? "preset" : "user", preset_key: preset?.key ?? null, is_default: false,
+      }).select().single();
+      if (error) throw error;
+      if (args.make_default) {
+        const overlap = args.doc_type === "both" ? ["invoice", "quote", "both"] : [args.doc_type, "both"];
+        await t(ctx, "document_templates").update({ is_default: false }).eq("business_id", ctx.businessId).in("doc_type", overlap);
+        await t(ctx, "document_templates").update({ is_default: true }).eq("id", data.id).eq("business_id", ctx.businessId);
+      }
+      return text({ created: true, id: data.id });
+    });
+
+  tool("update_document_template", "Update a template's name, doc_type, and/or config. config is merged onto the stored config, so pass only the fields you want to change.",
+    { id: z.string(), name: z.string().optional(), doc_type: DOC_TPL_TYPE.optional(), config: z.record(z.any()).optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "settings:write");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const fields: Record<string, any> = {};
+      if (args.name !== undefined) fields.name = args.name.trim();
+      if (args.doc_type !== undefined) fields.doc_type = args.doc_type;
+      if (args.config !== undefined) {
+        const { data: ex } = await t(ctx, "document_templates").select("config").eq("id", args.id).eq("business_id", ctx.businessId).maybeSingle();
+        fields.config = { ...(ex?.config ?? {}), ...args.config };
+      }
+      if (Object.keys(fields).length === 0) return errorText("No fields to update.");
+      const { error } = await t(ctx, "document_templates").update(fields).eq("id", args.id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ updated: true });
+    });
+
+  tool("set_default_document_template", "Make a template the default for its doc_type (clears the previous default).",
+    { id: z.string() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "settings:write");
+      const { data: row } = await t(ctx, "document_templates").select("doc_type").eq("id", args.id).eq("business_id", ctx.businessId).maybeSingle();
+      if (!row) return errorText("Template not found.");
+      const overlap = row.doc_type === "both" ? ["invoice", "quote", "both"] : [row.doc_type, "both"];
+      await t(ctx, "document_templates").update({ is_default: false }).eq("business_id", ctx.businessId).in("doc_type", overlap);
+      const { error } = await t(ctx, "document_templates").update({ is_default: true }).eq("id", args.id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ default: true });
+    });
+
+  tool("delete_document_template", "Delete a saved template. Documents using it revert to the business default.",
+    { id: z.string() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "settings:write");
+      const { error } = await t(ctx, "document_templates").delete().eq("id", args.id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ deleted: true });
+    });
+
+  tool("set_document_template", "Attach a saved template to a specific invoice or quote (or clear it with template_id null to fall back to the business default).",
+    { doc_type: z.enum(["invoice", "quote"]), doc_id: z.string(), template_id: z.string().nullable() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "settings:write");
+      const table = args.doc_type === "invoice" ? "invoices" : "quotes";
+      const { error } = await t(ctx, table).update({ template_id: args.template_id }).eq("id", args.doc_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ attached: true });
     });
 
   // ===== STATS =====

@@ -165,7 +165,7 @@ export function resolveTemplateConfig(opts: {
           : (pdfSettings.invoice_template as TemplateBase | undefined),
         primary_color: pdfSettings.primary_color,
         logo_size: pdfSettings.logo_size,
-        document_title: docType === "quote" ? "QUOTE" : pdfSettings.invoice_title,
+        document_title: docType === "quote" ? "QUOTATION" : pdfSettings.invoice_title,
         label_tax: pdfSettings.label_tax,
         label_bank: pdfSettings.label_bank,
         label_account_name: pdfSettings.label_account_name,
@@ -176,7 +176,7 @@ export function resolveTemplateConfig(opts: {
 
   const base: TemplateConfig = {
     ...DEFAULT_TEMPLATE_CONFIG,
-    document_title: docType === "quote" ? "QUOTE" : DEFAULT_TEMPLATE_CONFIG.document_title,
+    document_title: docType === "quote" ? "QUOTATION" : DEFAULT_TEMPLATE_CONFIG.document_title,
   };
 
   // Drop undefined so a partial override never clobbers a good default.

@@ -157,6 +157,31 @@ export async function deleteDocumentTemplate(id: string): Promise<void> {
   revalidatePath("/settings/document-templates");
 }
 
+/** Upload a background/letterhead image for a template. Returns the public URL
+ *  to store in config.background_image_url. */
+export async function uploadTemplateAsset(formData: FormData): Promise<{ url: string }> {
+  const supabase = await createClient();
+  const user = await getUser();
+  const businessId = await getActiveBizId(supabase, user.id);
+
+  const file = formData.get("file");
+  if (!(file instanceof File)) throw new Error("No file provided.");
+  if (file.size > 5 * 1024 * 1024) throw new Error("Image must be under 5MB.");
+  if (!file.type.startsWith("image/")) throw new Error("Only image files are allowed.");
+
+  const ext = (file.name.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "");
+  // No Math.random in some sandboxes; a timestamp+size key is unique enough here.
+  const key = `${businessId}/${Date.now()}-${file.size}.${ext}`;
+
+  const { error } = await supabase.storage.from("document-assets").upload(key, file, {
+    contentType: file.type, upsert: false,
+  });
+  if (error) throw new Error(error.message);
+
+  const { data } = supabase.storage.from("document-assets").getPublicUrl(key);
+  return { url: data.publicUrl };
+}
+
 /** Attach (or clear, with null) a template on a specific invoice or quote. */
 export async function setDocumentTemplate(
   docType: "invoice" | "quote",

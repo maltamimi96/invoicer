@@ -21,6 +21,7 @@ import { chargeSavedCardNow } from "@/lib/actions/stripe";
 import { SendDocumentModal } from "@/components/send/send-document-modal";
 import { InvoiceEditor } from "./invoice-editor";
 import { InvoicePDFDownload } from "./invoice-pdf";
+import { TemplatePicker } from "@/components/documents/template-picker";
 import { ProgressInvoiceModal } from "./progress-invoice-modal";
 import { DeliveryStatusCard } from "@/components/delivery/delivery-status-card";
 import { ScheduledSendsCard } from "@/components/delivery/scheduled-sends-card";
@@ -236,6 +237,7 @@ export function InvoiceDetailClient({
                 <Link2 className="w-4 h-4" /> Share
               </AnimatedPress>
             )}
+            <TemplatePicker docType="invoice" docId={invoice.id} currentTemplateId={invoice.template_id} />
             <InvoicePDFDownload invoiceId={invoice.id} invoiceNumber={invoice.number} />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
