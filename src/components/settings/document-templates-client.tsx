@@ -396,7 +396,14 @@ function CustomFieldsEditor({ config, setConfig }: { config: TemplateConfig; set
             <Input value={f.label} onChange={(e) => update(f.id, { label: e.target.value })} placeholder="Label" className="h-8" />
             <button onClick={() => remove(f.id)} className="text-destructive px-1"><Trash2 className="w-3.5 h-3.5" /></button>
           </div>
-          <Input value={f.value} onChange={(e) => update(f.id, { value: e.target.value })} placeholder="Value — supports {{customer_name}}, {{document_number}}…" className="h-8" />
+          <textarea
+            value={f.value}
+            onChange={(e) => update(f.id, { value: e.target.value })}
+            rows={4}
+            placeholder={"Value — one line per new line.\nStart a line with - for a bullet, wrap **text** for bold.\nPlaceholders: {{customer_name}}, {{document_number}}…"}
+            className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-sm min-h-[72px] resize-y font-[inherit]"
+          />
+          <p className="text-[10px] text-muted-foreground">New lines, <code>-</code> bullets and <code>**bold**</code> supported.</p>
           <Select value={f.placement} onChange={(v) => update(f.id, { placement: v as FieldPlacement })} options={[["header", "In the header"], ["meta", "Near the dates"], ["footer", "In the footer"]]} />
         </div>
       ))}
