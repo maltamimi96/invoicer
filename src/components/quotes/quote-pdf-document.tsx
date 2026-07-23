@@ -303,10 +303,14 @@ export function QuotePDFDocument({ quote, customer, business, lineItems, config,
             </View>
           </View>
 
-          {allNotes.length > 0 && (
+          {(allNotes.length > 0 || fieldsAt("footer").length > 0) && (
             <View style={styles.notesBox}>
-              <Text style={styles.notesTitle}>{cfg.section_title_notes.toUpperCase()} &amp; CONDITIONS</Text>
-              {allNotes.map((line, i) => <Text key={i} style={styles.notesItem}>• {line}</Text>)}
+              {allNotes.length > 0 && (
+                <>
+                  <Text style={styles.notesTitle}>{cfg.section_title_notes.toUpperCase()} &amp; CONDITIONS</Text>
+                  {allNotes.map((line, i) => <Text key={i} style={styles.notesItem}>• {line}</Text>)}
+                </>
+              )}
               <CustomFields where="footer" />
             </View>
           )}
