@@ -20,6 +20,7 @@ import { createInvoice, updateInvoice, sendInvoiceEmail, sendInvoiceSms } from "
 import { SendDocumentModal } from "@/components/send/send-document-modal";
 import { LineItemsEditor } from "./line-items-editor";
 import { SmartFillModal } from "./smart-fill-modal";
+import { DocumentPreviewPane } from "@/components/documents/document-preview-pane";
 import type { SmartFillData } from "./smart-fill-modal";
 import { formatCurrency } from "@/lib/utils";
 import { ClientSelect } from "@/components/customers/client-select";
@@ -72,6 +73,7 @@ export function InvoiceEditor({ customers, products, business, invoice, defaultC
   const [propertyAddress, setPropertyAddress] = useState<string>(invoice?.property_address ?? "");
   const [sendOpen, setSendOpen] = useState(false);
   const [savedInvoice, setSavedInvoice] = useState<Invoice | null>(invoice ?? null);
+  const [templateId, setTemplateId] = useState<string | null>(invoice?.template_id ?? null);
 
   const { register, handleSubmit, watch, setValue } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -130,6 +132,7 @@ export function InvoiceEditor({ customers, products, business, invoice, defaultC
         terms: data.terms ?? null,
         site_id: siteId,
         property_address: propertyAddress || null,
+        template_id: templateId,
       };
 
       if (invoice) {
@@ -169,6 +172,25 @@ export function InvoiceEditor({ customers, products, business, invoice, defaultC
   });
 
   const selectedCustomer = localCustomers.find((c) => c.id === watch("customer_id")) ?? null;
+
+  const fv = watch();
+  const previewDraft = {
+    number: invoice?.number ?? "PREVIEW",
+    status: invoice?.status ?? "draft",
+    issue_date: fv.issue_date,
+    due_date: fv.due_date,
+    line_items: lineItems,
+    subtotal,
+    discount_type: fv.discount_type ?? null,
+    discount_value: fv.discount_value ?? 0,
+    discount_amount: discountAmount,
+    tax_total: taxTotal,
+    total,
+    amount_paid: invoice?.amount_paid ?? 0,
+    notes: fv.notes ?? null,
+    terms: fv.terms ?? null,
+    property_address: propertyAddress || null,
+  };
 
   return (
     <div className="space-y-6">
@@ -370,6 +392,14 @@ export function InvoiceEditor({ customers, products, business, invoice, defaultC
           }}
         />
       )}
+
+      <DocumentPreviewPane
+        docType="invoice"
+        templateId={templateId}
+        onTemplateChange={setTemplateId}
+        draft={previewDraft}
+        customerId={fv.customer_id || null}
+      />
 
       <SmartFillModal
         open={smartFillOpen}

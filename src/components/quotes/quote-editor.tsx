@@ -30,6 +30,7 @@ import { DEFAULT_PDF_SETTINGS } from "@/types/database";
 import Link from "next/link";
 import { AiAssistButton } from "@/components/ai/ai-assist-button";
 import { AiImageAnalyzer } from "@/components/ai/ai-image-analyzer";
+import { DocumentPreviewPane } from "@/components/documents/document-preview-pane";
 
 const schema = z.object({
   customer_id: z.string().optional(),
@@ -70,6 +71,7 @@ export function QuoteEditor({ customers, products, business, quote, defaultCusto
   const [propertyAddress, setPropertyAddress] = useState<string>(quote?.property_address ?? "");
   const [sendOpen, setSendOpen] = useState(false);
   const [savedQuote, setSavedQuote] = useState<Quote | null>(quote ?? null);
+  const [templateId, setTemplateId] = useState<string | null>(quote?.template_id ?? null);
 
   const { register, handleSubmit, watch, setValue } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -122,6 +124,7 @@ export function QuoteEditor({ customers, products, business, quote, defaultCusto
         invoice_id: quote?.invoice_id ?? null,
         site_id: siteId,
         property_address: propertyAddress || null,
+        template_id: templateId,
       };
 
       if (quote) {
@@ -157,6 +160,24 @@ export function QuoteEditor({ customers, products, business, quote, defaultCusto
   });
 
   const selectedCustomer = localCustomers.find((c) => c.id === watch("customer_id")) ?? null;
+
+  const fv = watch();
+  const previewDraft = {
+    number: quote?.number ?? "PREVIEW",
+    status: quote?.status ?? "draft",
+    issue_date: fv.issue_date,
+    expiry_date: fv.expiry_date,
+    line_items: lineItems,
+    subtotal,
+    discount_type: fv.discount_type ?? null,
+    discount_value: fv.discount_value ?? 0,
+    discount_amount: discountAmount,
+    tax_total: taxTotal,
+    total,
+    notes: fv.notes ?? null,
+    terms: fv.terms ?? null,
+    property_address: propertyAddress || null,
+  };
 
   return (
     <div className="space-y-6">
@@ -313,6 +334,14 @@ export function QuoteEditor({ customers, products, business, quote, defaultCusto
           }}
         />
       )}
+
+      <DocumentPreviewPane
+        docType="quote"
+        templateId={templateId}
+        onTemplateChange={setTemplateId}
+        draft={previewDraft}
+        customerId={fv.customer_id || null}
+      />
 
       <SmartFillModal
         open={smartFillOpen}
