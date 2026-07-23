@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator, Alert, Image, Linking, Modal, Platform,
-  Pressable, ScrollView, Text, TextInput, View,
+  Pressable, RefreshControl, ScrollView, Text, TextInput, View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
@@ -13,13 +13,24 @@ import {
   Camera, Image as ImageIcon, Send, Play, CheckCircle2, X, Trash2, Briefcase,
 } from "lucide-react-native";
 import {
-  fetchWorkOrder, setWorkOrderStatus, addWorkOrderPhoto, setWorkerNotes,
+  fetchWorkOrder, setWorkOrderStatus, addWorkOrderPhoto, setWorkerNotes, fetchJobPhotos,
   fetchJobContacts, removeWorkOrderPhoto,
 } from "@/lib/jobs";
 import { uploadJobPhoto } from "@/lib/storage";
 import { StatusPill } from "@/components/StatusPill";
-import { colors, radius, space } from "@/lib/theme";
+import { Button } from "@/components/Button";
+import { colors, cardShadow, radius, space } from "@/lib/theme";
 import type { WorkOrderStatus } from "@/lib/types";
+
+/** The single next status a worker can advance this job to, if any. Drives the
+ *  sticky bottom CTA — one clear action instead of a row of coloured buttons. */
+function nextStatusAction(status: string): { label: string; to: WorkOrderStatus; Icon: typeof Play } | null {
+  if (status === "assigned")    return { label: "Start job",         to: "in_progress", Icon: Play };
+  if (status === "in_progress") return { label: "Submit for review", to: "submitted",   Icon: Send };
+  if (status === "submitted" || status === "reviewed")
+    return { label: "Mark complete", to: "completed", Icon: CheckCircle2 };
+  return null;
+}
 
 /** Native maps deep-link — Apple Maps on iOS, Google Maps everywhere else. */
 function openMaps(address: string) {
@@ -35,11 +46,35 @@ export default function JobDetail() {
   const router = useRouter();
   const qc = useQueryClient();
 
-  const { data: job, isLoading, error } = useQuery({
+  const { data: job, isLoading, error, refetch: refetchJob } = useQuery({
     queryKey: ["work-order", id],
     queryFn:  () => fetchWorkOrder(id!),
     enabled:  !!id,
   });
+
+  // Photos come from job_photos, the canonical table the web writes to.
+  // Separate query so a pull-to-refresh or an invalidate after upload re-reads
+  // them without refetching the whole work order.
+  const { data: jobPhotos, refetch: refetchPhotos } = useQuery({
+    queryKey: ["job-photos", id],
+    queryFn:  () => fetchJobPhotos(id!),
+    enabled:  !!id,
+  });
+
+  // This screen had NO refresh mechanism — a plain ScrollView, no
+  // RefreshControl — so once it was open there was no way to pull in a change
+  // made on the web. With the client's 30s staleTime, even leaving and coming
+  // straight back served the cached copy. Deleting a photo on the web and
+  // "refreshing" the phone genuinely could not work.
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([refetchJob(), refetchPhotos()]);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   // Load per-account contacts (booker + onsite) so the worker has someone to
   // call about the actual job, not just the master customer record.
@@ -81,6 +116,9 @@ export default function JobDetail() {
     },
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // job-photos is the display source now — invalidating only "work-order"
+      // would leave the freshly uploaded photo invisible until a cold reload.
+      qc.invalidateQueries({ queryKey: ["job-photos", id] });
       qc.invalidateQueries({ queryKey: ["work-order", id] });
     },
     onError: (e: Error) => Alert.alert("Couldn't upload photo", e.message),
@@ -90,6 +128,7 @@ export default function JobDetail() {
     mutationFn: (url: string) => removeWorkOrderPhoto(id!, url),
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      qc.invalidateQueries({ queryKey: ["job-photos", id] });
       qc.invalidateQueries({ queryKey: ["work-order", id] });
       setPhotoZoom(null);
     },
@@ -98,23 +137,28 @@ export default function JobDetail() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={center}>
-        <ActivityIndicator color={colors.text} />
+      <SafeAreaView style={center()}>
+        <ActivityIndicator color={colors.primary} />
       </SafeAreaView>
     );
   }
   if (error || !job) {
     return (
-      <SafeAreaView style={center}>
+      <SafeAreaView style={center()}>
         <Text style={{ color: colors.muted }}>Couldn&apos;t load this job.</Text>
-        <Pressable onPress={() => router.back()} style={backBtn}>
+        <Pressable onPress={() => router.back()} style={backBtn()}>
           <Text style={{ color: colors.white, fontWeight: "600" }}>Back</Text>
         </Pressable>
       </SafeAreaView>
     );
   }
 
-  const photos = Array.isArray(job.photos) ? job.photos : [];
+  const action = nextStatusAction(job.status);
+
+  // Canonical source. Was `job.photos` (the legacy JSONB), which only the
+  // phone ever wrote to — so anything added or removed on the web never showed
+  // up here. See fetchJobPhotos for the full story.
+  const photos = jobPhotos ?? [];
   const customerPhone = job.customers?.phone ?? null;
   const customerEmail = job.customers?.email ?? null;
 
@@ -158,7 +202,17 @@ export default function JobDetail() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={["top", "left", "right"]}>
       <Stack.Screen options={{ headerShown: false }} />
-      <ScrollView contentContainerStyle={{ padding: space.lg, paddingBottom: 40 }}>
+      <ScrollView
+        contentContainerStyle={{ padding: space.lg, paddingBottom: action ? 120 : 40 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
+      >
         {/* Top bar */}
         <View style={{ flexDirection: "row", alignItems: "center", marginBottom: space.lg }}>
           <Pressable
@@ -219,7 +273,7 @@ export default function JobDetail() {
           <Card>
             <SectionLabel>Where</SectionLabel>
             <Row icon={<MapPin size={16} color={colors.muted} />} label="Address" value={job.property_address} />
-            <Pressable onPress={() => openMaps(job.property_address!)} style={openMapsBtn}>
+            <Pressable onPress={() => openMaps(job.property_address!)} style={openMapsBtn()}>
               <MapPin size={14} color={colors.white} />
               <Text style={{ color: colors.white, fontWeight: "700", marginLeft: 6 }}>
                 {Platform.OS === "ios" ? "Open in Apple Maps" : "Open in Google Maps"}
@@ -367,43 +421,26 @@ export default function JobDetail() {
           </Pressable>
         </Card>
 
-        {/* Status actions */}
-        <View style={{ marginTop: space.md }}>
-          <SectionLabel>Update status</SectionLabel>
-          <View style={{ flexDirection: "row", gap: space.sm, flexWrap: "wrap" }}>
-            {job.status === "assigned" && (
-              <BigAction
-                color={colors.amber}
-                fg={colors.amberDeep}
-                icon={<Play size={16} color={colors.amberDeep} />}
-                label="Start job"
-                onPress={() => statusMutation.mutate({ status: "in_progress" })}
-                busy={statusMutation.isPending}
-              />
-            )}
-            {job.status === "in_progress" && (
-              <BigAction
-                color={colors.violet}
-                fg={colors.violetDeep}
-                icon={<Send size={16} color={colors.violetDeep} />}
-                label="Submit for review"
-                onPress={() => statusMutation.mutate({ status: "submitted" })}
-                busy={statusMutation.isPending}
-              />
-            )}
-            {(job.status === "submitted" || job.status === "reviewed") && (
-              <BigAction
-                color={colors.emerald}
-                fg={colors.emeraldDeep}
-                icon={<CheckCircle2 size={16} color={colors.emeraldDeep} />}
-                label="Mark complete"
-                onPress={() => statusMutation.mutate({ status: "completed" })}
-                busy={statusMutation.isPending}
-              />
-            )}
-          </View>
-        </View>
       </ScrollView>
+
+      {/* Sticky status CTA — one clear next action, delivery-app style. */}
+      {action && (
+        <View
+          style={{
+            position: "absolute", left: 0, right: 0, bottom: 0,
+            paddingHorizontal: space.lg, paddingTop: space.md, paddingBottom: space.xl,
+            backgroundColor: colors.canvas,
+            borderTopWidth: 1, borderTopColor: colors.hairline,
+          }}
+        >
+          <Button
+            label={statusMutation.isPending ? "Updating…" : action.label}
+            icon={<action.Icon size={18} color="#fff" />}
+            loading={statusMutation.isPending}
+            onPress={() => statusMutation.mutate({ status: action.to })}
+          />
+        </View>
+      )}
 
       {/* Full-screen photo viewer w/ delete */}
       <Modal visible={!!photoZoom} transparent animationType="fade" onRequestClose={() => setPhotoZoom(null)}>
@@ -453,23 +490,27 @@ export default function JobDetail() {
   );
 }
 
-const center = {
+// Functions, not module consts: `colors` is mutated in place by applyTheme(),
+// so a const captured at import time freezes the light palette (the dark-mode
+// trap in CLAUDE.md). `center` reads colors.canvas — as a const it would paint
+// a white loading screen on the dark canvas.
+const center = () => ({
   flex: 1, backgroundColor: colors.canvas,
   alignItems: "center" as const, justifyContent: "center" as const, gap: 12,
-};
-const backBtn = {
+});
+const backBtn = () => ({
   marginTop: 12,
   paddingHorizontal: 16, paddingVertical: 10,
   backgroundColor: colors.primary, borderRadius: 999,
-};
-const openMapsBtn = {
+});
+const openMapsBtn = () => ({
   marginTop: 12,
   alignSelf: "flex-start" as const,
   flexDirection: "row" as const,
   alignItems: "center" as const,
   paddingHorizontal: 14, paddingVertical: 8,
   backgroundColor: colors.primary, borderRadius: 999,
-};
+});
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
@@ -481,6 +522,7 @@ function Card({ children }: { children: React.ReactNode }) {
         marginBottom: space.md,
         borderWidth: 1,
         borderColor: colors.hairline,
+        ...cardShadow(1),
       }}
     >
       {children}
@@ -550,32 +592,3 @@ function PhotoButton({ icon, label, onPress, disabled }: { icon: React.ReactNode
   );
 }
 
-function BigAction({
-  color, fg, icon, label, onPress, busy,
-}: {
-  color: string; fg: string; icon: React.ReactNode; label: string; onPress: () => void; busy?: boolean;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={busy}
-      style={({ pressed }) => ({
-        flexGrow: 1,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 6,
-        paddingVertical: 14,
-        paddingHorizontal: space.lg,
-        borderRadius: radius.pill,
-        backgroundColor: color,
-        opacity: pressed || busy ? 0.7 : 1,
-      })}
-    >
-      {icon}
-      <Text style={{ color: fg, fontWeight: "700", fontSize: 14 }}>
-        {busy ? "Updating…" : label}
-      </Text>
-    </Pressable>
-  );
-}

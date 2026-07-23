@@ -1,15 +1,14 @@
 import React from "react";
 import { Pressable, Text, View, Platform } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import { colors, gradients, radius } from "@/lib/theme";
+import { colors } from "@/lib/theme";
 
-/** Custom bottom tab bar — flat icons sit above a soft surface; the active
- *  tab gets a small gradient pill underneath the icon plus a colour shift on
- *  the label. Each tap fires a tiny haptic for tactile feedback. */
+/** Custom bottom tab bar — flat icons on a clean surface; the active tab gets a
+ *  solid teal pill under the icon and a teal label. Each tap fires a tiny
+ *  haptic for tactile feedback. */
 export function GradientTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
 
@@ -87,18 +86,17 @@ function TabButton({
     >
       <Animated.View style={[{ alignItems: "center", gap: 3 }, animatedStyle]}>
         {isFocused ? (
-          <LinearGradient
-            colors={gradients.primary as unknown as readonly [string, string, ...string[]]}
-            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+          <View
             style={{
-              width: 42, height: 28, borderRadius: 14,
+              width: 44, height: 30, borderRadius: 15,
+              backgroundColor: colors.primary,
               alignItems: "center", justifyContent: "center",
             }}
           >
             {renderIcon("#ffffff")}
-          </LinearGradient>
+          </View>
         ) : (
-          <View style={{ width: 42, height: 28, alignItems: "center", justifyContent: "center" }}>
+          <View style={{ width: 44, height: 30, alignItems: "center", justifyContent: "center" }}>
             {renderIcon(colors.muted)}
           </View>
         )}
@@ -107,7 +105,7 @@ function TabButton({
           style={{
             fontSize: 10,
             fontWeight: isFocused ? "800" : "600",
-            color: isFocused ? colors.primaryDeep : colors.muted,
+            color: isFocused ? colors.primary : colors.muted,
             letterSpacing: 0.3,
           }}
         >

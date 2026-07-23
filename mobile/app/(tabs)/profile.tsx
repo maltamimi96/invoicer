@@ -7,10 +7,11 @@ import { useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { ensureNotificationPermissions } from "@/lib/notifications";
 import { useActiveBusiness } from "@/lib/active-business";
-import { colors, gradients, radius, space } from "@/lib/theme";
+import { colors, cardShadow, gradients, radius, space } from "@/lib/theme";
 import { FadeIn } from "@/components/FadeIn";
 import { AnimatedPress } from "@/components/AnimatedPress";
 import { PatternBackground } from "@/components/PatternBackground";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -31,30 +32,28 @@ export default function ProfileScreen() {
 
   const initials = email?.slice(0, 2).toUpperCase() ?? "??";
 
-  const settingsItems: Array<{
-    href: string; label: string; icon: React.ReactNode; gradient: keyof typeof gradients;
-  }> = [
+  const settingsItems: Array<{ href: string; label: string; icon: React.ReactNode }> = [
     // Admin-only business config — hidden from workers/editors/viewers.
     ...(canEditBusiness ? [
-      { href: "/settings/business", label: "Business profile", icon: <Building2 size={18} color="#fff" />, gradient: "primary" as const },
-      { href: "/settings/bank",     label: "Bank details",     icon: <Landmark  size={18} color="#fff" />, gradient: "emerald" as const },
-      { href: "/settings/booking",  label: "Online Booking",   icon: <CalendarClock size={18} color="#fff" />, gradient: "dusk" as const },
+      { href: "/settings/business", label: "Business profile", icon: <Building2 size={18} color={colors.primary} /> },
+      { href: "/settings/bank",     label: "Bank details",     icon: <Landmark  size={18} color={colors.primary} /> },
+      { href: "/settings/booking",  label: "Online Booking",   icon: <CalendarClock size={18} color={colors.primary} /> },
     ] : []),
-    // Available to everyone (incl. workers) — just appearance.
-    { href: "/settings/appearance", label: "Appearance", icon: <Palette size={18} color="#fff" />, gradient: "violet" as const },
+    // Available to everyone (incl. workers).
+    { href: "/settings/appearance", label: "Appearance", icon: <Palette size={18} color={colors.primary} /> },
     ...(canEditBusiness ? [
-      { href: "/settings/advanced", label: "Advanced", icon: <Sparkles size={18} color="#fff" />, gradient: "dusk" as const },
+      { href: "/settings/advanced", label: "Advanced", icon: <Sparkles size={18} color={colors.primary} /> },
     ] : []),
   ];
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={["top", "left", "right"]}>
       <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.md, paddingBottom: space.xxl }}>
-        {/* Avatar + email hero */}
+        {/* Avatar + email hero — solid teal */}
         <FadeIn>
           <View style={{ borderRadius: radius.xxl, overflow: "hidden" }}>
             <LinearGradient
-              colors={gradients.dusk as unknown as readonly [string, string, ...string[]]}
+              colors={gradients.primary as unknown as readonly [string, string, ...string[]]}
               start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
               style={{ padding: space.lg + 4, gap: space.md, alignItems: "center", minHeight: 160 }}
             >
@@ -76,9 +75,9 @@ export default function ProfileScreen() {
 
         {/* Notifications row */}
         <FadeIn delay={60}>
-          <View style={{ padding: space.md, borderRadius: radius.lg, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.hairline, flexDirection: "row", alignItems: "center", gap: space.sm }}>
+          <View style={{ padding: space.md, borderRadius: radius.lg, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.hairline, flexDirection: "row", alignItems: "center", gap: space.sm, ...cardShadow(1) }}>
             <View style={{ width: 36, height: 36, borderRadius: radius.md, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" }}>
-              <Bell size={18} color={colors.primaryDeep} />
+              <Bell size={18} color={colors.primary} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 13, fontWeight: "700", color: colors.text }}>Notifications</Text>
@@ -89,7 +88,15 @@ export default function ProfileScreen() {
           </View>
         </FadeIn>
 
-        {/* Settings tiles */}
+        {/* Appearance — quick theme toggle inline (no need to open Settings) */}
+        <FadeIn delay={90}>
+          <View style={{ padding: space.md, borderRadius: radius.lg, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.hairline, gap: space.sm, ...cardShadow(1) }}>
+            <Text style={{ fontSize: 11, color: colors.muted, textTransform: "uppercase", letterSpacing: 0.6, fontWeight: "700" }}>Appearance</Text>
+            <ThemeToggle variant="segmented" />
+          </View>
+        </FadeIn>
+
+        {/* Settings tiles — uniform soft-teal icon chips */}
         {settingsItems.map((item, idx) => (
           <FadeIn key={item.href} delay={120 + idx * 50}>
             <AnimatedPress
@@ -99,17 +106,16 @@ export default function ProfileScreen() {
                 padding: space.md, borderRadius: radius.lg,
                 backgroundColor: colors.card,
                 borderWidth: 1, borderColor: colors.hairline,
+                ...cardShadow(1),
               }}
             >
-              <LinearGradient
-                colors={gradients[item.gradient] as unknown as readonly [string, string, ...string[]]}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                style={{ width: 44, height: 44, borderRadius: radius.lg, alignItems: "center", justifyContent: "center" }}
+              <View
+                style={{ width: 44, height: 44, borderRadius: radius.lg, alignItems: "center", justifyContent: "center", backgroundColor: colors.primarySoft }}
               >
                 {item.icon}
-              </LinearGradient>
+              </View>
               <Text style={{ flex: 1, color: colors.text, fontWeight: "700", fontSize: 15 }}>{item.label}</Text>
-              <ChevronRight size={16} color={colors.muted} />
+              <ChevronRight size={16} color={colors.subtle} />
             </AnimatedPress>
           </FadeIn>
         ))}
@@ -145,4 +151,3 @@ export default function ProfileScreen() {
     </SafeAreaView>
   );
 }
-

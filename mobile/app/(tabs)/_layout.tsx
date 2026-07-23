@@ -1,21 +1,27 @@
 import { Tabs } from "expo-router";
-import { Wrench, Calendar, User, CheckSquare, Briefcase, Home } from "lucide-react-native";
+import { Calendar, User, CheckSquare, Briefcase, Home } from "lucide-react-native";
 import { colors } from "@/lib/theme";
-import { useActiveBusiness } from "@/lib/active-business";
-import { isWorker } from "@/lib/permissions";
+import { useThemeMode } from "@/lib/theme-provider";
 import { GradientTabBar } from "@/components/GradientTabBar";
 
-/** Role-aware tab bar.
- *  - Workers: Jobs · Tasks · Profile (3 tabs) — hard-isolated to their own work.
- *  - Owners + admin/editor/viewer: Home (dashboard) · Sales · Tasks · Schedule · Profile.
- *  Tabs are always registered; href: null hides them from users who
- *  shouldn't see them — keeps the file-based routing simple. */
+/** The ADMIN app — owner / admin / editor / viewer.
+ *
+ *  Home · Sales · Tasks · Schedule · Profile, unchanged.
+ *
+ *  This used to be one navigator shared with workers, branching on role and
+ *  hiding screens with `href: null`. Workers now have their own group at
+ *  app/(worker)/, so nothing here needs to know about roles: a worker never
+ *  mounts this layout at all. app/_layout.tsx decides which group to send
+ *  someone to.
+ */
 export default function TabsLayout() {
-  const { role, loading } = useActiveBusiness();
-  const worker = !loading && isWorker(role);
-
+  const { resolved } = useThemeMode();
   return (
+    // key={resolved}: remounts only the admin tabs on a theme change so screens
+    // re-read the mutated palette. Scoped to this group — the root Stack (and
+    // thus worker↔admin routing) is never remounted.
     <Tabs
+      key={resolved}
       tabBar={(props) => <GradientTabBar {...props} />}
       screenOptions={{
         headerShown: false,
@@ -25,10 +31,8 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: worker ? "Jobs" : "Home",
-          tabBarIcon: ({ color }) => (worker
-            ? <Wrench size={20} color={color} />
-            : <Home   size={20} color={color} />),
+          title: "Home",
+          tabBarIcon: ({ color }) => <Home size={20} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -36,7 +40,6 @@ export default function TabsLayout() {
         options={{
           title: "Sales",
           tabBarIcon: ({ color }) => <Briefcase size={20} color={color} />,
-          href: worker ? null : "/sales",
         }}
       />
       <Tabs.Screen
@@ -51,7 +54,6 @@ export default function TabsLayout() {
         options={{
           title: "Schedule",
           tabBarIcon: ({ color }) => <Calendar size={20} color={color} />,
-          href: worker ? null : "/schedule",
         }}
       />
       <Tabs.Screen

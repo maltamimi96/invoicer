@@ -265,19 +265,12 @@ export async function updateWorkOrderStatus(id: string, status: WorkOrderStatus)
   }
 }
 
-export async function updateWorkOrderPhotos(id: string, photos: WorkOrderPhoto[]): Promise<void> {
-  const supabase = await createClient();
-  const user = await getUser();
-
-  const businessId = await getActiveBizId(supabase, user.id);
-
-  const { error } = await tbl(supabase, "work_orders")
-    .update({ photos })
-    .eq("id", id)
-    .eq("business_id", businessId);
-  if (error) throw error;
-  revalidatePath(`/work-orders/${id}`);
-}
+// updateWorkOrderPhotos() was removed here. It had no callers, and
+// work_orders.photos is now a derived mirror rebuilt from job_photos by
+// trg_mirror_job_photos — writing it directly would be overwritten on the next
+// photo change, and re-introducing a client-side writer is exactly what caused
+// deleted photos to come back. Use the job_photos actions instead
+// (src/lib/actions/job-photos.ts).
 
 export async function submitWorkOrder(id: string, workerNotes: string): Promise<void> {
   const supabase = await createClient();
