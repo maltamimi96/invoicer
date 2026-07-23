@@ -2,6 +2,7 @@ import { Document, Page, Text, View, StyleSheet, Image } from "@react-pdf/render
 import type { Business, Customer, Quote, LineItem, PdfSettings } from "@/types/database";
 import type { TemplateConfig, TemplateColumn } from "@/lib/documents/template-config";
 import { resolveTemplateConfig, fontFamilyFor, resolvePlaceholders } from "@/lib/documents/template-config";
+import { RichPdfText } from "@/components/documents/rich-pdf-text";
 
 interface Props {
   quote: Quote;
@@ -179,12 +180,18 @@ export function QuotePDFDocument({ quote, customer, business, lineItems, config,
   const CustomFields = ({ where }: { where: "header" | "meta" | "footer" }) => {
     const list = fieldsAt(where);
     if (!list.length) return null;
+    const inFooter = where === "footer";
     return (
       <View style={{ marginTop: 6 }}>
         {list.map((f) => (
-          <View key={f.id} style={styles.fieldRow}>
-            {f.label ? <Text style={styles.fieldLabel}>{f.label}:</Text> : null}
-            <Text style={{ fontSize: fs(9), color: midDark }}>{resolvePlaceholders(f.value, vars)}</Text>
+          <View key={f.id} style={{ marginBottom: 5 }}>
+            {f.label ? <Text style={inFooter ? styles.notesTitle : styles.fieldLabel}>{f.label}</Text> : null}
+            <RichPdfText
+              text={resolvePlaceholders(f.value, vars)}
+              style={{ fontSize: fs(8.5), color: midDark, lineHeight: 1.6 }}
+              boldStyle={bold}
+              bulletColor={accent}
+            />
           </View>
         ))}
       </View>
