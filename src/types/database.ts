@@ -174,6 +174,7 @@ export interface Invoice {
   site_id: string | null;
   property_address: string | null;
   parent_invoice_id?: string | null;
+  template_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -198,6 +199,22 @@ export interface Quote {
   invoice_id: string | null;
   site_id: string | null;
   property_address: string | null;
+  template_id?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A saved, named PDF template for invoices/quotes. `config` is a
+ *  Partial<TemplateConfig> (see src/lib/documents/template-config.ts). */
+export interface DocumentTemplate {
+  id: string;
+  business_id: string;
+  name: string;
+  doc_type: "invoice" | "quote" | "both";
+  is_default: boolean;
+  config: Record<string, unknown>;
+  source: "preset" | "user";
+  preset_key: string | null;
   created_at: string;
   updated_at: string;
 }
