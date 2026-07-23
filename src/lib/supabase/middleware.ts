@@ -59,6 +59,10 @@ export async function updateSession(request: NextRequest) {
     pathname === "/api/stripe/webhook" ||
     pathname === "/api/stripe/checkout" ||
     pathname === "/api/stripe/save-card" ||
+    // Resend delivery webhook (verifies its own Svix signature). Without this it
+    // was 307'd to /auth/login, so delivered/bounced events never reached the
+    // handler and every email stayed frozen at "Sent (in transit)".
+    pathname === "/api/webhooks/resend" ||
     (isBearerAuthRoute && hasBearer) ||
     (pathname.startsWith("/api/pdf/") && new URL(request.url).searchParams.get("token") !== null);
 
