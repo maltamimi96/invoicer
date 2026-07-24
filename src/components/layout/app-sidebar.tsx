@@ -58,6 +58,7 @@ const navSections: NavSection[] = [
   ]},
   { section: "Catalog", items: [
     { label: "Products",   href: "/products",   icon: Package,       plugin: "products" },
+    { label: "Materials",  href: "/materials",  icon: Package,       plugin: "materials" },
     { label: "Inventory",  href: "/inventory",  icon: Boxes,         plugin: "inventory" },
   ]},
   { section: "Workforce", items: [

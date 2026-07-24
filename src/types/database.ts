@@ -132,6 +132,24 @@ export interface Product {
   updated_at: string;
 }
 
+/** A material in the cost catalog (materials plugin). Mirrors Product but holds
+ *  a COST price (what we pay) rather than a retail/sell price. */
+export interface Material {
+  id: string;
+  business_id: string;
+  user_id: string;
+  name: string;
+  description: string | null;
+  sku: string | null;
+  supplier: string | null;
+  cost_price: number;
+  tax_rate: number;
+  unit: string | null;
+  archived: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 /** Product with the inventory columns (migration 20260710160000). */
 export interface InventoryProduct extends Product {
   track_stock: boolean;
@@ -1513,6 +1531,8 @@ export type ApiScope =
   | 'tasks:write'
   | 'products:read'
   | 'products:write'
+  | 'materials:read'
+  | 'materials:write'
   | 'settings:read'
   | 'settings:write'
   | 'bookings:read'
@@ -1557,6 +1577,8 @@ export const ALL_API_SCOPES: { value: ApiScope; label: string; group: string }[]
   { value: 'tasks:write',      label: 'Create / edit tasks', group: 'Tasks' },
   { value: 'products:read',    label: 'Read products',     group: 'Products' },
   { value: 'products:write',   label: 'Create / edit products', group: 'Products' },
+  { value: 'materials:read',   label: 'Read materials',    group: 'Materials' },
+  { value: 'materials:write',  label: 'Create / edit materials', group: 'Materials' },
   { value: 'settings:read',    label: 'Read settings',     group: 'Settings' },
   { value: 'settings:write',   label: 'Edit settings & preferences', group: 'Settings' },
   { value: 'bookings:read',    label: 'Read bookings & config', group: 'Bookings' },
