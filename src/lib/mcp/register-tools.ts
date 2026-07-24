@@ -34,6 +34,7 @@ import { registerPluginFormTools } from "./tools/plugin-form-tools";
 import { registerSeoTools } from "./tools/seo-tools";
 import { registerContentTools } from "./tools/content-tools";
 import { registerExpenseTools } from "./tools/expenses-tools";
+import { registerMaterialTools } from "./tools/materials-tools";
 import { registerInventoryTools } from "./tools/inventory-tools";
 import { registerTimesheetTools } from "./tools/timesheets-tools";
 import { registerAssetTools } from "./tools/assets-tools";
@@ -1521,6 +1522,8 @@ export function registerTools(register: ToolFn): void {
 
   // ===== EXPENSES & JOB COSTING =====
   registerExpenseTools(tool);
+
+  registerMaterialTools(tool);
 
   // ===== INVENTORY & STOCK =====
   registerInventoryTools(tool);
