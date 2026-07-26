@@ -59,6 +59,9 @@ export async function updateSession(request: NextRequest) {
     pathname === "/api/stripe/webhook" ||
     pathname === "/api/stripe/checkout" ||
     pathname === "/api/stripe/save-card" ||
+    // Revolut payment provider — signed webhook + token-gated hosted checkout.
+    pathname === "/api/revolut/webhook" ||
+    pathname === "/api/revolut/checkout" ||
     // Resend delivery webhook (verifies its own Svix signature). Without this it
     // was 307'd to /auth/login, so delivered/bounced events never reached the
     // handler and every email stayed frozen at "Sent (in transit)".

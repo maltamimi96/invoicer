@@ -27,6 +27,8 @@ import {
 } from "@/lib/emails/templates";
 import { customerAllowsCard } from "@/lib/payment-methods";
 import { DEFAULT_TEMPLATE_CONFIG } from "@/lib/documents/template-config";
+import { createRevolutOrder, toRevolutAmount, type RevolutMode } from "@/lib/revolut";
+import { decryptSecret } from "@/lib/crypto";
 import { presetByKey, TEMPLATE_PRESETS } from "@/lib/documents/presets";
 import type { LineItem } from "@/types/database";
 import { ctxFrom, appBase, UUID, getOrMintPortalToken, type ToolFn } from "./tools/shared";
@@ -1008,6 +1010,47 @@ export function registerTools(register: ToolFn): void {
       }, { stripeAccount: biz.stripe_account_id });
 
       return text({ payment_url: session.url, expires_at: session.expires_at, amount: requested });
+    });
+
+  tool("create_revolut_payment_link", "Create a Revolut hosted-checkout link for an invoice's balance (card + Revolut Pay). Requires the business to have Revolut enabled in Settings → Payments. Returns a URL to send the customer.",
+    { invoice_id: UUID, amount: z.number().positive().optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "invoices:write");
+      const { data: biz } = await t(ctx, "businesses")
+        .select("revolut_enabled, revolut_secret_enc, revolut_mode, currency, name").eq("id", ctx.businessId).single();
+      if (!biz?.revolut_enabled || !biz.revolut_secret_enc) return errorText("Revolut isn't enabled for this business.");
+
+      const { data: invoice } = await t(ctx, "invoices")
+        .select("id, number, total, amount_paid, customer_id").eq("id", args.invoice_id).eq("business_id", ctx.businessId).maybeSingle();
+      if (!invoice) return errorText("Invoice not found.");
+
+      const balance = Math.max(0, Number(invoice.total) - Number(invoice.amount_paid ?? 0));
+      const requested = args.amount ?? balance;
+      if (requested < 0.5) return errorText("Nothing to pay on this invoice.");
+
+      const { data: customer } = invoice.customer_id
+        ? await t(ctx, "customers").select("email").eq("id", invoice.customer_id).maybeSingle()
+        : { data: null };
+
+      const base = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "https://kireihq.com";
+      const order = await createRevolutOrder({
+        secret: decryptSecret(biz.revolut_secret_enc),
+        mode: (biz.revolut_mode as RevolutMode) ?? "sandbox",
+        amountMinor: toRevolutAmount(requested),
+        currency: (biz.currency as string) || "AUD",
+        description: `Invoice ${invoice.number}`,
+        customerEmail: customer?.email ?? null,
+        reference: invoice.id,
+        redirectUrl: `${base}/invoices/${invoice.id}?paid=1`,
+      });
+      if (!order.checkout_url) return errorText("Revolut did not return a checkout URL.");
+
+      await t(ctx, "revolut_orders").upsert({
+        order_id: order.id, business_id: ctx.businessId, invoice_id: invoice.id,
+        amount: requested, currency: (biz.currency as string) || "AUD", portal_token: null,
+      });
+
+      return text({ payment_url: order.checkout_url, amount: requested });
     });
 
   tool("get_save_card_link", "Get a secure link to send a customer so they can save a card on file for automatic payments (autopay). Requires the business to have connected Stripe.",

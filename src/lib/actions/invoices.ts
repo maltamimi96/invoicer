@@ -570,6 +570,7 @@ export async function sendInvoiceEmail(id: string, opts?: { recipients?: string[
   let portalUrl: string | null = null;
   let pdfUrl: string | null = null;
   let payUrl: string | null = null;
+  let revolutPayUrl: string | null = null;
   if (customer?.id) {
     const { data: existing } = await tbl(supabase, "customer_portal_tokens")
       .select("token")
@@ -598,6 +599,10 @@ export async function sendInvoiceEmail(id: string, opts?: { recipients?: string[
       if (businessData.stripe_charges_enabled && balance > 0.01 && customerAllowsCard(customer?.allowed_payment_methods)) {
         payUrl = `${base}/api/stripe/checkout?invoice=${invoiceData.id}&token=${token}`;
       }
+      // Revolut pay link — independent of Stripe (works when Stripe isn't set up).
+      if (businessData.revolut_enabled && balance > 0.01 && customerAllowsCard(customer?.allowed_payment_methods)) {
+        revolutPayUrl = `${base}/api/revolut/checkout?invoice=${invoiceData.id}&token=${token}`;
+      }
     }
   }
 
@@ -606,7 +611,7 @@ export async function sendInvoiceEmail(id: string, opts?: { recipients?: string[
   await sendEmail({
     to: recipients,
     subject: opts?.subject ?? invoiceEmailSubject({ invoice: invoiceData, customer, business: businessData }, emailTemplate),
-    html: invoiceEmailHtml({ invoice: invoiceData, customer, business: businessData, lineItems, portalUrl, pdfUrl, payUrl, template: emailTemplate }),
+    html: invoiceEmailHtml({ invoice: invoiceData, customer, business: businessData, lineItems, portalUrl, pdfUrl, payUrl, revolutPayUrl, template: emailTemplate }),
     attachments: [{ filename: `${invoiceData.number}.pdf`, content: pdfBuffer }],
     from: buildBusinessFrom({ name: businessData.name, localPart: "invoices" }),
     replyTo: businessData.email || undefined,
