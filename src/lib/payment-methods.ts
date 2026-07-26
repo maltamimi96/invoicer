@@ -20,7 +20,12 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
 };
 
 export interface OfferedPaymentMethods {
+  /** Stripe card checkout. */
   card: boolean;
+  /** Revolut hosted checkout (card + Revolut Pay). Uses the same "card"
+   *  permission as Stripe, but a separate provider gate — so it can be offered
+   *  even when Stripe isn't connected. */
+  revolut: boolean;
   bank_transfer: boolean;
   cash: boolean;
 }
@@ -34,6 +39,8 @@ export function resolveOfferedMethods(opts: {
   allowed: string[] | null | undefined;
   /** business has Stripe charges enabled. */
   stripeEnabled: boolean;
+  /** business has Revolut enabled. */
+  revolutEnabled?: boolean;
   /** business has bank-transfer details filled in. */
   hasBankDetails: boolean;
 }): OfferedPaymentMethods {
@@ -43,6 +50,7 @@ export function resolveOfferedMethods(opts: {
   const permits = (m: PaymentMethod) => (list ? list.has(m) : true);
   return {
     card: opts.stripeEnabled && permits("card"),
+    revolut: !!opts.revolutEnabled && permits("card"),
     bank_transfer: opts.hasBankDetails && permits("bank_transfer"),
     // Cash is opt-in only: never shown unless explicitly allow-listed.
     cash: list ? list.has("cash") : false,

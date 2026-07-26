@@ -33,7 +33,7 @@ export default async function PortalInvoicePage({ params }: { params: Promise<{ 
       .eq("business_id", link.business_id)
       .eq("customer_id", link.customer_id)
       .maybeSingle(),
-    tbl(sb, "businesses").select("name, logo_url, currency, bank_name, bank_account_name, bank_account_number, bank_sort_code, bank_iban, phone, email, stripe_charges_enabled, card_surcharge_enabled, card_surcharge_percent, card_surcharge_fixed, card_surcharge_note").eq("id", link.business_id).maybeSingle(),
+    tbl(sb, "businesses").select("name, logo_url, currency, bank_name, bank_account_name, bank_account_number, bank_sort_code, bank_iban, phone, email, stripe_charges_enabled, revolut_enabled, card_surcharge_enabled, card_surcharge_percent, card_surcharge_fixed, card_surcharge_note").eq("id", link.business_id).maybeSingle(),
     tbl(sb, "customers").select("name, company, email, phone, address, city, postcode, country, allowed_payment_methods, autopay_enabled, stripe_payment_method_id, stripe_pm_brand, stripe_pm_last4").eq("id", link.customer_id).maybeSingle(),
     tbl(sb, "payments")
       .select("amount, date, method, reference")
@@ -53,6 +53,7 @@ export default async function PortalInvoicePage({ params }: { params: Promise<{ 
   const offered = resolveOfferedMethods({
     allowed: customer?.allowed_payment_methods,
     stripeEnabled: !!business?.stripe_charges_enabled,
+    revolutEnabled: !!business?.revolut_enabled,
     hasBankDetails,
   });
 
@@ -253,6 +254,15 @@ export default async function PortalInvoicePage({ params }: { params: Promise<{ 
                 {surcharge > 0
                   ? `Pay ${formatCurrency(balance + surcharge, currency)} with card (incl. ${formatCurrency(surcharge, currency)} fee)`
                   : `Pay ${formatCurrency(balance, currency)} with card`}
+              </a>
+            )}
+            {!isPaid && balance > 0 && offered.revolut && (
+              <a
+                href={`/api/revolut/checkout?invoice=${invoice.id}&token=${token}`}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-[#0666EB] text-white text-sm font-semibold hover:opacity-90 transition-opacity shadow-sm"
+              >
+                <CreditCard className="w-4 h-4" />
+                Pay {formatCurrency(balance, currency)} with Revolut
               </a>
             )}
             <a
