@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { GradientTile } from "@/components/ui/kirei";
 import { CreditCard, Loader2, CheckCircle } from "@/components/ui/icons";
-import { saveRevolutCredentials, disconnectRevolut, testRevolutConnection, type RevolutStatus } from "@/lib/actions/revolut";
+import { saveRevolutCredentials, disconnectRevolut, testRevolutConnection, setupRevolutWebhook, type RevolutStatus } from "@/lib/actions/revolut";
 
 export function RevolutSettings({ initial }: { initial: RevolutStatus }) {
   const [status, setStatus] = useState(initial);
@@ -19,6 +19,7 @@ export function RevolutSettings({ initial }: { initial: RevolutStatus }) {
   const [enabled, setEnabled] = useState(initial.enabled);
   const [saving, startSave] = useTransition();
   const [testing, setTesting] = useState(false);
+  const [webhooking, setWebhooking] = useState(false);
 
   const save = () =>
     startSave(async () => {
@@ -53,6 +54,21 @@ export function RevolutSettings({ initial }: { initial: RevolutStatus }) {
       r.ok ? toast.success(r.message) : toast.error(r.message);
     } finally {
       setTesting(false);
+    }
+  };
+
+  const createWebhook = async () => {
+    setWebhooking(true);
+    try {
+      const r = await setupRevolutWebhook();
+      if (r.ok) {
+        setStatus((s) => ({ ...s, hasWebhookSecret: true }));
+        toast.success(r.message);
+      } else {
+        toast.error(r.message);
+      }
+    } finally {
+      setWebhooking(false);
     }
   };
 
@@ -97,7 +113,7 @@ export function RevolutSettings({ initial }: { initial: RevolutStatus }) {
         <div className="space-y-1.5">
           <Label>Webhook signing secret <span className="text-muted-foreground font-normal">(from your Revolut webhook)</span></Label>
           <Input type="password" autoComplete="off" placeholder={status.hasWebhookSecret ? "•••••••• (saved — leave blank to keep)" : "wsk_..."} value={webhookSecret} onChange={(e) => setWebhookSecret(e.target.value)} />
-          <p className="text-[11px] text-muted-foreground">In Revolut, create a webhook to <code>{typeof window !== "undefined" ? window.location.origin : ""}/api/revolut/webhook</code> and paste its signing secret here.</p>
+          <p className="text-[11px] text-muted-foreground">Can&rsquo;t find the webhook screen in Revolut? Save your Secret key, then click <strong>Create webhook</strong> below and Kirei sets it up for you.</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -120,6 +136,7 @@ export function RevolutSettings({ initial }: { initial: RevolutStatus }) {
         <div className="flex flex-wrap gap-2 pt-1">
           <Button onClick={save} disabled={saving}>{saving && <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />}Save</Button>
           <Button variant="outline" onClick={test} disabled={testing || !status.hasSecret}>{testing && <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />}Test connection</Button>
+          <Button variant="outline" onClick={createWebhook} disabled={webhooking || !status.hasSecret}>{webhooking && <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />}Create webhook</Button>
           {status.hasSecret && <Button variant="ghost" className="text-destructive ml-auto" onClick={disconnect} disabled={saving}>Disconnect</Button>}
         </div>
       </CardContent>

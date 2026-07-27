@@ -133,6 +133,49 @@ export function verifyRevolutSignature(opts: {
   });
 }
 
+interface RevolutWebhook {
+  id: string;
+  url: string;
+  events?: string[];
+  signing_secret?: string;
+}
+
+/**
+ * Ensure a Revolut webhook exists for `webhookUrl` and return its signing
+ * secret — so the app can wire the webhook itself instead of the user hunting
+ * for Revolut's dashboard. Reuses an existing webhook for the same URL (Revolut
+ * only allows 10), otherwise creates one for ORDER_COMPLETED/ORDER_AUTHORISED.
+ */
+export async function ensureRevolutWebhook(
+  secret: string, mode: RevolutMode, webhookUrl: string,
+): Promise<{ id: string; signingSecret: string | null }> {
+  const events = ["ORDER_COMPLETED", "ORDER_AUTHORISED"];
+
+  // Look for an existing webhook on this URL first.
+  const listRes = await revolutFetch(secret, mode, "/api/1.0/webhooks", { method: "GET" });
+  if (listRes.ok) {
+    const list = (await listRes.json()) as RevolutWebhook[];
+    const existing = Array.isArray(list) ? list.find((w) => w.url === webhookUrl) : undefined;
+    if (existing) {
+      // The list may omit the signing secret; fetch the single webhook for it.
+      const oneRes = await revolutFetch(secret, mode, `/api/1.0/webhooks/${existing.id}`, { method: "GET" });
+      const one = oneRes.ok ? ((await oneRes.json()) as RevolutWebhook) : existing;
+      return { id: existing.id, signingSecret: one.signing_secret ?? existing.signing_secret ?? null };
+    }
+  }
+
+  const res = await revolutFetch(secret, mode, "/api/1.0/webhooks", {
+    method: "POST",
+    body: JSON.stringify({ url: webhookUrl, events }),
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(`Revolut webhook create failed (${res.status}): ${txt.slice(0, 300)}`);
+  }
+  const created = (await res.json()) as RevolutWebhook;
+  return { id: created.id, signingSecret: created.signing_secret ?? null };
+}
+
 /** True when an order's state means the money is in. */
 export function revolutOrderIsPaid(state: string | undefined): boolean {
   const s = (state ?? "").toLowerCase();
