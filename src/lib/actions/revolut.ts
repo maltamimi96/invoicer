@@ -5,8 +5,18 @@ import { createClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/auth";
 import { getActiveBizId } from "@/lib/active-business";
 import { canManageSettings, type Role } from "@/lib/permissions";
+import { headers } from "next/headers";
 import { encryptSecret, decryptSecret, encryptionAvailable } from "@/lib/crypto";
-import { revolutKeyWorks, type RevolutMode } from "@/lib/revolut";
+import { revolutKeyWorks, ensureRevolutWebhook, type RevolutMode } from "@/lib/revolut";
+
+async function appBaseUrl(): Promise<string> {
+  const env = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
+  if (env) return env;
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host");
+  const proto = h.get("x-forwarded-proto") ?? "https";
+  return host ? `${proto}://${host}` : "https://www.kireihq.com";
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: Awaited<ReturnType<typeof createClient>>, name: string) => (sb as any).from(name);
@@ -100,6 +110,41 @@ export async function disconnectRevolut(): Promise<void> {
   }).eq("id", businessId);
 
   revalidatePath("/settings");
+}
+
+/**
+ * Create (or reuse) the Revolut webhook via the API and store its signing
+ * secret — so the user never has to find Revolut's webhook screen. Requires the
+ * Merchant Secret key to be saved first.
+ */
+export async function setupRevolutWebhook(): Promise<{ ok: boolean; message: string }> {
+  const supabase = await createClient();
+  const user = await getUser();
+  const businessId = await getActiveBizId(supabase, user.id);
+  const role = await resolveRole(supabase, user.id, businessId);
+  if (!canManageSettings(role)) throw new Error("Only owners and admins can manage Revolut settings.");
+
+  const { data: biz } = await tbl(supabase, "businesses")
+    .select("revolut_secret_enc, revolut_mode").eq("id", businessId).single();
+  if (!biz?.revolut_secret_enc) return { ok: false, message: "Save your Merchant Secret key first, then create the webhook." };
+
+  try {
+    const secret = decryptSecret(biz.revolut_secret_enc);
+    const mode = (biz.revolut_mode as RevolutMode) ?? "sandbox";
+    const url = `${await appBaseUrl()}/api/revolut/webhook`;
+    const { signingSecret } = await ensureRevolutWebhook(secret, mode, url);
+
+    if (signingSecret) {
+      if (!encryptionAvailable()) return { ok: false, message: "Webhook created, but APP_ENCRYPTION_KEY isn't set to store its secret." };
+      await tbl(supabase, "businesses").update({ revolut_webhook_secret_enc: encryptSecret(signingSecret) }).eq("id", businessId);
+      revalidatePath("/settings");
+      return { ok: true, message: "Webhook created and secured. You're ready to take payments." };
+    }
+    revalidatePath("/settings");
+    return { ok: true, message: "Webhook created. (Revolut didn't return a signing secret — payments are still confirmed by re-checking the order.)" };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : "Couldn't create the webhook." };
+  }
 }
 
 /** Validate the stored key against Revolut (used by the "Test connection" button). */
