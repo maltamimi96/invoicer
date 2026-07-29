@@ -34,31 +34,22 @@ export function AppSidebar({ business, businesses, userRole, features, vocab, op
 
   const content = (
     <div className="flex flex-col h-full w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
-      {/* Header — business switcher (the brand/logo lives in the top bar) */}
-      <div className="px-3 pt-3 pb-2 border-b border-sidebar-border">
-        <div className="flex items-center gap-2">
-          <div className="flex-1 min-w-0">
-            <BusinessSwitcher
-              business={business}
-              businesses={businesses}
-              onClose={onClose}
-            />
-          </div>
-          {/* Close button — mobile only */}
-          <button
-            onClick={onClose}
-            className="md:hidden flex-shrink-0 p-1 rounded-md text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+      {/* Mobile-only close (desktop brand lives in the top bar) */}
+      <div className="md:hidden flex justify-end px-3 pt-3">
+        <button
+          onClick={onClose}
+          className="flex-shrink-0 p-1.5 rounded-md text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors"
+          aria-label="Close menu"
+        >
+          <X className="w-5 h-5" />
+        </button>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-2 overflow-y-auto">
+      <nav className="flex-1 px-3 py-3 overflow-y-auto">
         {visibleSections.map((group, gi) => (
-          <div key={group.section} className={cn("flex flex-col gap-px", gi > 0 && "mt-2")}>
-            <p className="px-2 pt-2.5 pb-1 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-sidebar-foreground/45">
+          <div key={group.section} className={cn("flex flex-col gap-1", gi > 0 && "mt-4")}>
+            <p className="px-2.5 pt-2 pb-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-sidebar-foreground/55">
               {group.section}
             </p>
             {group.items.map((item, i) => {
@@ -74,23 +65,22 @@ export function AppSidebar({ business, businesses, userRole, features, vocab, op
                     href={item.href}
                     onClick={onClose}
                     className={cn(
-                      "relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] transition-colors duration-150",
+                      "relative flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm transition-colors duration-150",
                       active
-                        ? "text-sidebar-foreground font-semibold"
-                        : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 font-medium"
+                        ? "text-primary-foreground font-semibold"
+                        : "text-sidebar-foreground hover:bg-sidebar-accent/60 font-medium"
                     )}
                   >
                     {active && (
                       <motion.span
                         layoutId="sidebar-active-pill"
-                        className="absolute inset-0 rounded-lg"
-                        style={{ backgroundColor: "hsl(var(--sidebar-primary) / 0.14)" }}
+                        className="absolute inset-0 rounded-lg bg-primary shadow-sm"
                         transition={{ type: "spring", stiffness: 380, damping: 30 }}
                       />
                     )}
                     <item.icon className={cn(
-                      "relative z-10 w-4 h-4 flex-shrink-0 transition-colors",
-                      active ? "text-sidebar-primary" : "text-sidebar-foreground/55 group-hover:text-sidebar-foreground"
+                      "relative z-10 w-[18px] h-[18px] flex-shrink-0 transition-colors",
+                      active ? "text-primary-foreground" : "text-sidebar-foreground/70"
                     )} />
                     <span className="relative z-10">{vocab?.[item.href] ?? item.label}</span>
                   </Link>
@@ -102,40 +92,48 @@ export function AppSidebar({ business, businesses, userRole, features, vocab, op
       </nav>
 
       {/* Footer */}
-      <div className="px-3 pb-3 pt-2 border-t border-sidebar-border space-y-px">
+      <div className="px-3 pb-3 pt-2 border-t border-sidebar-border space-y-1">
         {canManageSettings(userRole) && (
           <Link
             href="/settings"
             onClick={onClose}
             className={cn(
-              "relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] transition-colors duration-150",
+              "relative flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm transition-colors duration-150",
               pathname.startsWith("/settings")
-                ? "text-sidebar-foreground font-semibold"
-                : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 font-medium"
+                ? "text-primary-foreground font-semibold"
+                : "text-sidebar-foreground hover:bg-sidebar-accent/60 font-medium"
             )}
           >
             {pathname.startsWith("/settings") && (
               <motion.span
                 layoutId="sidebar-active-pill"
-                className="absolute inset-0 rounded-lg"
-                style={{ backgroundColor: "hsl(var(--sidebar-primary) / 0.14)" }}
+                className="absolute inset-0 rounded-lg bg-primary shadow-sm"
                 transition={{ type: "spring", stiffness: 380, damping: 30 }}
               />
             )}
             <Settings className={cn(
-              "w-4 h-4 relative z-10",
-              pathname.startsWith("/settings") ? "text-sidebar-primary" : "text-sidebar-foreground/50"
+              "w-[18px] h-[18px] relative z-10",
+              pathname.startsWith("/settings") ? "text-primary-foreground" : "text-sidebar-foreground/70"
             )} />
             <span className="relative z-10">Settings</span>
           </Link>
         )}
 
-        <div className="flex items-center justify-between px-3 pt-2">
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40">
+        {/* Business switcher — anchored at the bottom */}
+        <div className="pt-1">
+          <BusinessSwitcher
+            business={business}
+            businesses={businesses}
+            onClose={onClose}
+          />
+        </div>
+
+        <div className="flex items-center justify-between px-1 pt-1.5">
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/50">
             {ROLE_LABELS[userRole]}
           </span>
           {/* Kirei platform attribution — logo only, no text, no border */}
-          <Image src="/kirei-logo.png" alt="Kirei" width={28} height={28} className="object-contain opacity-70" />
+          <Image src="/kirei-logo.png" alt="Kirei" width={24} height={24} className="object-contain opacity-70" />
         </div>
       </div>
     </div>

@@ -9,6 +9,7 @@ import { AppLoadingProvider } from "./app-loading";
 import { ConfirmProvider } from "@/components/ui/confirm";
 import { RouteProgress } from "./route-progress";
 import { FocusModeProvider, useFocusMode } from "./focus-mode";
+import { AssistantProvider } from "./assistant-context";
 // The floating AI assistant starts closed and drags in framer-motion + voice
 // capture. Lazy-load it (client-only) so its chunk stays out of every dashboard
 // page's first load — the trigger button appears a beat after hydration.
@@ -40,7 +41,9 @@ export function DashboardShell(props: DashboardShellProps) {
       <AppLoadingProvider>
       <ConfirmProvider>
       <FocusModeProvider>
-        <ShellBody {...props} />
+        <AssistantProvider>
+          <ShellBody {...props} />
+        </AssistantProvider>
       </FocusModeProvider>
       </ConfirmProvider>
       </AppLoadingProvider>

@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { Moon, Sun, LogOut, Settings, User, Menu } from "@/components/ui/icons";
+import { Moon, Sun, LogOut, Settings, User, Menu, Bot } from "@/components/ui/icons";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { BriefingBell } from "@/components/briefing/briefing-bell";
 import { GlobalSearch } from "./global-search";
+import { useAssistant } from "./assistant-context";
 import type { Business } from "@/types/database";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 
@@ -35,6 +36,7 @@ interface AppHeaderProps {
 export function AppHeader({ user, onMenuClick, workerView, features, vocab }: AppHeaderProps) {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
+  const { toggle: toggleAssistant } = useAssistant();
   const supabase = createClient();
 
   const initials = (user.user_metadata?.full_name as string)
@@ -78,6 +80,9 @@ export function AppHeader({ user, onMenuClick, workerView, features, vocab }: Ap
 
       {/* Actions */}
       <div className="flex items-center gap-0.5 pr-2 md:pr-4">
+        <button className={iconBtn} onClick={toggleAssistant} aria-label="AI assistant" title="Ask Kirei">
+          <Bot className="h-[18px] w-[18px]" />
+        </button>
         <div className="[&_button]:text-primary-foreground [&_button:hover]:bg-white/15">
           <BriefingBell />
         </div>

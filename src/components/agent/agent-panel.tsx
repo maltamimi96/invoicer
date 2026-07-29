@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { motion, AnimatePresence } from "framer-motion";
 import { useVoiceCapture } from "./use-voice-capture";
 import { getAgentContext } from "@/lib/actions/agent-context";
+import { useAssistant } from "@/components/layout/assistant-context";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -182,7 +183,7 @@ function EmptyState({ onSuggestion }: { onSuggestion: (text: string) => void }) 
 export function AgentPanel() {
   const router = useRouter();
   const pathname = usePathname();
-  const [open, setOpen] = useState(false);
+  const { open, setOpen } = useAssistant();
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [apiHistory, setApiHistory] = useState<ApiMessage[]>([]);
@@ -395,27 +396,7 @@ export function AgentPanel() {
 
   return (
     <>
-      {/* Floating trigger */}
-      <AnimatePresence>
-        {!open && (
-          <motion.button
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 400, damping: 25 }}
-            onClick={() => setOpen(true)}
-            aria-label="Open AI assistant"
-            title="AI assistant"
-            // Positioned bottom-LEFT to avoid clobbering page-level primary CTAs
-            // (Send / Save / Mark paid) which conventionally sit bottom-right.
-            // Mobile pushes it up clear of any sticky thumb bar.
-            className="fixed bottom-4 left-4 sm:bottom-5 sm:left-5 z-50 w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center rounded-full shadow-lg bg-gradient-to-br from-purple-600 to-violet-700 text-white hover:from-purple-500 hover:to-violet-600 transition-all hover:shadow-xl"
-            style={{ paddingBottom: "env(safe-area-inset-bottom, 0)" }}
-          >
-            <Bot className="w-5 h-5" />
-          </motion.button>
-        )}
-      </AnimatePresence>
+      {/* The panel is opened from the top-bar Assistant button (shared context). */}
 
       {/* Panel */}
       <AnimatePresence>
