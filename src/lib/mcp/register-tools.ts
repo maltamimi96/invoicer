@@ -1120,6 +1120,29 @@ export function registerTools(register: ToolFn): void {
       return text({ deleted: true });
     });
 
+  tool("list_attachments", "List files attached to a record (customer/work_order/invoice/quote/lead).",
+    { entity_type: z.enum(["customer", "work_order", "invoice", "quote", "lead"]), entity_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "attachments:read");
+      const { data, error } = await t(ctx, "attachments")
+        .select("id, name, mime_type, size_bytes, created_at")
+        .eq("business_id", ctx.businessId)
+        .eq("entity_type", args.entity_type)
+        .eq("entity_id", args.entity_id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return text(data);
+    });
+
+  tool("delete_attachment", "Delete a file attachment by id.",
+    { attachment_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "attachments:write");
+      const { error } = await t(ctx, "attachments").delete().eq("id", args.attachment_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ deleted: true });
+    });
+
   tool("convert_lead_to_customer", "Create a customer from a lead and link them (sets lead status to contacted).",
     { lead_id: UUID },
     async (args, extra) => {
