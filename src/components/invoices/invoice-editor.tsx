@@ -2,20 +2,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Loader2, ArrowLeft, Save, Send, Sparkles } from "@/components/ui/icons";
+import { Loader2, Save, Send, Sparkles } from "@/components/ui/icons";
 import { AiAssistButton } from "@/components/ai/ai-assist-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { createInvoice, updateInvoice, sendInvoiceEmail, sendInvoiceSms } from "@/lib/actions/invoices";
 import { SendDocumentModal } from "@/components/send/send-document-modal";
 import { LineItemsEditor } from "./line-items-editor";
@@ -25,11 +20,14 @@ import type { SmartFillData } from "./smart-fill-modal";
 import { formatCurrency } from "@/lib/utils";
 import { ClientSelect } from "@/components/customers/client-select";
 import { AddressSelect } from "@/components/addresses/address-select";
-import { PageHeader } from "@/components/layout/page-header";
 import { PdfSettingsPanel } from "@/components/pdf/pdf-settings-panel";
+import { MyobDocumentShell, MyobHeaderBlock } from "@/components/ui/myob/myob-document-shell";
+import { MyobField } from "@/components/ui/myob/myob-field";
+import { MyobDateField } from "@/components/ui/myob/myob-date-field";
+import { MyobTextarea } from "@/components/ui/myob/myob-input";
+import { MyobAmount } from "@/components/ui/myob/myob-amount";
 import type { Business, Customer, Invoice, LineItem, Material, Product } from "@/types/database";
 import { DEFAULT_PDF_SETTINGS } from "@/types/database";
-import Link from "next/link";
 
 const schema = z.object({
   customer_id: z.string().optional(),
@@ -65,6 +63,7 @@ function addDays(days: number) {
 
 export function InvoiceEditor({ customers, products, materials, business, invoice, defaultCustomerId, onSaved }: InvoiceEditorProps) {
   const router = useRouter();
+  const currency = business.currency;
   const [lineItems, setLineItems] = useState<LineItem[]>((invoice?.line_items as LineItem[]) ?? []);
   const [saving, setSaving] = useState(false);
   const [pdfSettings, setPdfSettings] = useState({ ...DEFAULT_PDF_SETTINGS, ...(business.pdf_settings ?? {}) });
@@ -111,6 +110,7 @@ export function InvoiceEditor({ customers, products, materials, business, invoic
     return s + ((i.subtotal - lineDiscount) * i.tax_rate) / 100;
   }, 0);
   const total = subtotal - discountAmount + taxTotal;
+  const amountPaid = invoice?.amount_paid ?? 0;
 
   const onSubmit = async (data: FormData): Promise<Invoice | null> => {
     setSaving(true);
@@ -193,181 +193,138 @@ export function InvoiceEditor({ customers, products, materials, business, invoic
     property_address: propertyAddress || null,
   };
 
-  return (
-    <div className="space-y-6">
-      <PageHeader
-        title={invoice ? `Edit ${invoice.number}` : "New invoice"}
-        subtitle={invoice ? "Update line items, dates, and totals" : "Bill a customer for work or products"}
-      />
-      <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="outline" size="sm" className="gap-1.5 flex-1 sm:flex-initial" onClick={() => setSmartFillOpen(true)}>
-            <Sparkles className="w-3.5 h-3.5 text-purple-500" />Smart fill
-          </Button>
-          <PdfSettingsPanel settings={pdfSettings} business={business} mode="invoice" onSettingsChange={setPdfSettings} />
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1 sm:flex-initial"
-            disabled={saving}
-            onClick={handleSaveDraft}
-          >
-            {saving ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-1.5" />}
-            Save draft
-          </Button>
-          <Button
-            size="sm"
-            className="flex-1 sm:flex-initial"
-            disabled={saving}
-            onClick={handleSaveAndSend}
-          >
-            {saving ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Send className="w-3.5 h-3.5 mr-1.5" />}
-            Save & send
-          </Button>
-      </div>
+  const actions = (
+    <>
+      <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => setSmartFillOpen(true)}>
+        <Sparkles className="w-3.5 h-3.5 text-purple-500" />Smart fill
+      </Button>
+      <PdfSettingsPanel settings={pdfSettings} business={business} mode="invoice" onSettingsChange={setPdfSettings} />
+      <Button variant="outline" size="sm" disabled={saving} onClick={handleSaveDraft}>
+        {saving ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-1.5" />}
+        Save draft
+      </Button>
+      <Button size="sm" disabled={saving} onClick={handleSaveAndSend}>
+        {saving ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Send className="w-3.5 h-3.5 mr-1.5" />}
+        Save &amp; send
+      </Button>
+    </>
+  );
 
-      <form className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Invoice details */}
-          <Card>
-            <CardContent className="p-5 space-y-4">
-              <h3 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">Invoice Details</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label>Client</Label>
-                  <ClientSelect
-                    customers={localCustomers}
-                    value={watch("customer_id") ?? ""}
-                    onValueChange={(v) => setValue("customer_id", v === "none" ? "" : v)}
-                    onCustomerCreated={(c) => setLocalCustomers((prev) => [...prev, c])}
-                  />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label>Issue date</Label>
-                    <Input type="date" {...register("issue_date")} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Due date</Label>
-                    <Input type="date" {...register("due_date")} />
-                  </div>
-                </div>
-              </div>
+  const mobileActions = (
+    <>
+      <Button variant="outline" size="sm" className="flex-1" disabled={saving} onClick={handleSaveDraft}>Save draft</Button>
+      <Button size="sm" className="flex-1" disabled={saving} onClick={handleSaveAndSend}>Save &amp; send</Button>
+    </>
+  );
+
+  return (
+    <MyobDocumentShell
+      title={invoice ? `Edit ${invoice.number}` : "New invoice"}
+      backHref="/invoices"
+      actions={actions}
+      mobileActions={mobileActions}
+    >
+      <form className="space-y-7">
+        {/* Header block */}
+        <MyobHeaderBlock
+          left={
+            <>
+              <MyobField label="Client" noUnderline>
+                <ClientSelect
+                  className="h-11"
+                  customers={localCustomers}
+                  value={watch("customer_id") ?? ""}
+                  onValueChange={(v) => setValue("customer_id", v === "none" ? "" : v)}
+                  onCustomerCreated={(c) => setLocalCustomers((prev) => [...prev, c])}
+                />
+              </MyobField>
               <AddressSelect
-                customer={localCustomers.find((c) => c.id === watch("customer_id")) ?? null}
+                label="Site / address"
+                customer={selectedCustomer}
                 value={{ site_id: siteId, property_address: propertyAddress }}
                 onChange={(v) => { setSiteId(v.site_id); setPropertyAddress(v.property_address); }}
               />
-            </CardContent>
-          </Card>
+            </>
+          }
+          right={
+            <>
+              <MyobField label="Issue date">
+                <MyobDateField value={watch("issue_date")} onChange={(v) => setValue("issue_date", v)} />
+              </MyobField>
+              <MyobField label="Due date">
+                <MyobDateField value={watch("due_date")} onChange={(v) => setValue("due_date", v)} />
+              </MyobField>
+            </>
+          }
+        />
 
-          {/* Line items */}
-          <Card>
-            <CardContent className="p-5 space-y-4">
-              <h3 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">Line Items</h3>
-              <LineItemsEditor items={lineItems} products={products} materials={materials} onChange={setLineItems} currency={business.currency} />
+        {/* Line items + totals */}
+        <div className="space-y-4">
+          <LineItemsEditor items={lineItems} products={products} materials={materials} onChange={setLineItems} currency={currency} />
 
-              <Separator />
+          <div className="h-px bg-border" />
 
-              {/* Totals */}
-              <div className="space-y-2 ml-auto max-w-xs">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span>{formatCurrency(subtotal, business.currency)}</span>
-                </div>
-                {/* Discount */}
-                <div className="flex items-center gap-2">
-                  <Select value={discountType ?? "none"} onValueChange={(v) => setValue("discount_type", v === "none" ? undefined : v as "percent" | "fixed")}>
-                    <SelectTrigger className="h-7 text-xs flex-1">
-                      <SelectValue placeholder="Discount" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No discount</SelectItem>
-                      <SelectItem value="percent">% discount</SelectItem>
-                      <SelectItem value="fixed">Fixed discount</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {discountType && (
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      className="h-7 text-xs w-24"
-                      {...register("discount_value")}
-                    />
-                  )}
-                </div>
-                {discountAmount > 0 && (
-                  <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>Discount</span>
-                    <span>- {formatCurrency(discountAmount, business.currency)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Tax</span>
-                  <span>{formatCurrency(taxTotal, business.currency)}</span>
-                </div>
-                <Separator />
-                <div className="flex justify-between font-semibold">
-                  <span>Total</span>
-                  <span className="text-lg">{formatCurrency(total, business.currency)}</span>
-                </div>
+          <div className="ml-auto w-full max-w-xs space-y-2">
+            <div className="flex h-8 items-center justify-between text-sm">
+              <span className="text-muted-foreground">Subtotal</span>
+              <span className="tabular-nums">{formatCurrency(subtotal, currency)}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Select value={discountType ?? "none"} onValueChange={(v) => setValue("discount_type", v === "none" ? undefined : v as "percent" | "fixed")}>
+                <SelectTrigger className="h-8 flex-1 text-xs">
+                  <SelectValue placeholder="Discount" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No discount</SelectItem>
+                  <SelectItem value="percent">% discount</SelectItem>
+                  <SelectItem value="fixed">Fixed discount</SelectItem>
+                </SelectContent>
+              </Select>
+              {discountType && (
+                <Input type="number" min="0" step="0.01" className="h-8 w-24 text-xs" {...register("discount_value")} />
+              )}
+            </div>
+            {discountAmount > 0 && (
+              <div className="flex h-8 items-center justify-between text-sm text-muted-foreground">
+                <span>Discount</span>
+                <span className="tabular-nums">- {formatCurrency(discountAmount, currency)}</span>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Notes */}
-          <Card>
-            <CardContent className="p-5 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-1">
-                    <Label>Notes to client</Label>
-                    <AiAssistButton
-                      value={watch("notes") ?? ""}
-                      onResult={(text) => setValue("notes", text)}
-                    />
-                  </div>
-                  <Textarea placeholder="Thank you for your business..." rows={3} {...register("notes")} />
+            )}
+            <div className="flex h-8 items-center justify-between text-sm">
+              <span className="text-muted-foreground">Tax</span>
+              <span className="tabular-nums">{formatCurrency(taxTotal, currency)}</span>
+            </div>
+            <div className="h-px bg-border" />
+            <div className="flex items-center justify-between py-1">
+              <span className="text-base font-semibold">Total</span>
+              <MyobAmount value={total} currency={currency} className="text-base font-semibold tabular-nums" />
+            </div>
+            {amountPaid > 0 && (
+              <>
+                <div className="flex h-8 items-center justify-between text-sm text-muted-foreground">
+                  <span>Amount paid</span>
+                  <span className="tabular-nums">- {formatCurrency(amountPaid, currency)}</span>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Payment terms</Label>
-                  <Textarea placeholder="Payment due within 30 days..." rows={3} {...register("terms")} />
+                <div className="flex h-8 items-center justify-between text-sm font-medium">
+                  <span>Balance due</span>
+                  <span className="tabular-nums">{formatCurrency(total - amountPaid, currency)}</span>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </>
+            )}
+          </div>
         </div>
 
-        {/* Sidebar */}
-        <div className="space-y-4">
-          <Card>
-            <CardContent className="p-5 space-y-3">
-              <h3 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">Summary</h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-muted-foreground">Items</span><span>{lineItems.length}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatCurrency(subtotal, business.currency)}</span></div>
-                {discountAmount > 0 && <div className="flex justify-between text-muted-foreground"><span>Discount</span><span>- {formatCurrency(discountAmount, business.currency)}</span></div>}
-                <div className="flex justify-between"><span className="text-muted-foreground">Tax</span><span>{formatCurrency(taxTotal, business.currency)}</span></div>
-                <Separator />
-                <div className="flex justify-between font-bold text-base"><span>Total</span><span>{formatCurrency(total, business.currency)}</span></div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {business.bank_account_name && (
-            <Card>
-              <CardContent className="p-5 space-y-2">
-                <h3 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">Payment details</h3>
-                <div className="text-xs space-y-1 text-muted-foreground">
-                  {business.bank_name && <p>{business.bank_name}</p>}
-                  {business.bank_account_name && <p>Name: {business.bank_account_name}</p>}
-                  {business.bank_account_number && <p>Account: {business.bank_account_number}</p>}
-                  {business.bank_sort_code && <p>Sort code: {business.bank_sort_code}</p>}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+        {/* Notes */}
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <MyobField
+            label="Notes to client"
+            labelAction={<AiAssistButton value={watch("notes") ?? ""} onResult={(text) => setValue("notes", text)} />}
+          >
+            <MyobTextarea placeholder="Thank you for your business..." rows={3} {...register("notes")} />
+          </MyobField>
+          <MyobField label="Payment terms">
+            <MyobTextarea placeholder="Payment due within 30 days..." rows={3} {...register("terms")} />
+          </MyobField>
         </div>
       </form>
 
@@ -412,6 +369,6 @@ export function InvoiceEditor({ customers, products, materials, business, invoic
         currency={business.currency}
         preselectedCustomerId={watch("customer_id") || null}
       />
-    </div>
+    </MyobDocumentShell>
   );
 }

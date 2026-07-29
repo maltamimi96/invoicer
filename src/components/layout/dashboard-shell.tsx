@@ -8,6 +8,7 @@ import { AppearanceProvider } from "./appearance-provider";
 import { AppLoadingProvider } from "./app-loading";
 import { ConfirmProvider } from "@/components/ui/confirm";
 import { RouteProgress } from "./route-progress";
+import { FocusModeProvider, useFocusMode } from "./focus-mode";
 // The floating AI assistant starts closed and drags in framer-motion + voice
 // capture. Lazy-load it (client-only) so its chunk stays out of every dashboard
 // page's first load — the trigger button appears a beat after hydration.
@@ -32,25 +33,42 @@ interface DashboardShellProps {
   children: React.ReactNode;
 }
 
-export function DashboardShell({ business, businesses, user, userRole, features, vocab, children }: DashboardShellProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
+export function DashboardShell(props: DashboardShellProps) {
   return (
-    <AppearanceProvider accentColor={business.accent_color} bgPattern={business.bg_pattern} sidebarTheme={business.sidebar_theme}>
+    <AppearanceProvider accentColor={props.business.accent_color} bgPattern={props.business.bg_pattern} sidebarTheme={props.business.sidebar_theme}>
       <AppLoadingProvider>
       <ConfirmProvider>
+      <FocusModeProvider>
+        <ShellBody {...props} />
+      </FocusModeProvider>
+      </ConfirmProvider>
+      </AppLoadingProvider>
+    </AppearanceProvider>
+  );
+}
+
+function ShellBody({ business, businesses, user, userRole, features, vocab, children }: DashboardShellProps) {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { focus } = useFocusMode();
+
+  return (
+    <>
       <Suspense fallback={null}><RouteProgress /></Suspense>
       <div className="flex h-screen overflow-hidden bg-background">
-        {/* Sidebar */}
-        <AppSidebar
-          business={business}
-          businesses={businesses}
-          userRole={userRole}
-          features={features}
-          vocab={vocab}
-          open={sidebarOpen}
-          onClose={() => setSidebarOpen(false)}
-        />
+        {/* Sidebar — hidden on desktop when Focus mode is on (MYOB-style
+            document focus). The wrapper's `md:hidden` collapses the desktop
+            aside; on mobile the sidebar is already a hidden drawer. */}
+        <div className={focus ? "md:hidden" : "contents"}>
+          <AppSidebar
+            business={business}
+            businesses={businesses}
+            userRole={userRole}
+            features={features}
+            vocab={vocab}
+            open={sidebarOpen}
+            onClose={() => setSidebarOpen(false)}
+          />
+        </div>
 
         {/* Mobile overlay */}
         {sidebarOpen && (
@@ -82,8 +100,6 @@ export function DashboardShell({ business, businesses, user, userRole, features,
       </div>
 
       <AgentPanel />
-      </ConfirmProvider>
-      </AppLoadingProvider>
-    </AppearanceProvider>
+    </>
   );
 }
