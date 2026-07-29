@@ -16,6 +16,7 @@ const schema = z.object({
   sku: z.string().optional(),
   supplier: z.string().optional(),
   cost_price: z.coerce.number().min(0, "Cost must be positive"),
+  sell_price: z.coerce.number().min(0, "Sell price must be positive"),
   tax_rate: z.coerce.number().min(0).max(100),
   unit: z.string().optional(),
 });
@@ -37,6 +38,7 @@ export function MaterialForm({ material, onSubmit, onCancel }: MaterialFormProps
       sku: material.sku ?? "",
       supplier: material.supplier ?? "",
       cost_price: material.cost_price,
+      sell_price: material.sell_price,
       tax_rate: material.tax_rate,
       unit: material.unit ?? "",
     } : { tax_rate: 20 },
@@ -59,14 +61,21 @@ export function MaterialForm({ material, onSubmit, onCancel }: MaterialFormProps
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1.5">
-          <Label>Cost price</Label>
+          <Label>Base cost</Label>
           <Input type="number" step="0.01" placeholder="0.00" {...register("cost_price")} />
+          <p className="text-[11px] text-muted-foreground">What you pay</p>
           {errors.cost_price && <p className="text-xs text-destructive">{errors.cost_price.message}</p>}
         </div>
         <div className="space-y-1.5">
-          <Label>Tax rate (%)</Label>
-          <Input type="number" step="0.01" placeholder="20" {...register("tax_rate")} />
+          <Label>Sell price</Label>
+          <Input type="number" step="0.01" placeholder="0.00" {...register("sell_price")} />
+          <p className="text-[11px] text-muted-foreground">What you charge on a quote</p>
+          {errors.sell_price && <p className="text-xs text-destructive">{errors.sell_price.message}</p>}
         </div>
+      </div>
+      <div className="space-y-1.5">
+        <Label>Tax rate (%)</Label>
+        <Input type="number" step="0.01" placeholder="20" {...register("tax_rate")} />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1.5">

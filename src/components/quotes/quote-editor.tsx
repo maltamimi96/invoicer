@@ -25,7 +25,7 @@ import { SmartFillModal } from "@/components/invoices/smart-fill-modal";
 import type { SmartFillData } from "@/components/invoices/smart-fill-modal";
 import { formatCurrency } from "@/lib/utils";
 import { PdfSettingsPanel } from "@/components/pdf/pdf-settings-panel";
-import type { Business, Customer, LineItem, Product, Quote } from "@/types/database";
+import type { Business, Customer, LineItem, Material, Product, Quote } from "@/types/database";
 import { DEFAULT_PDF_SETTINGS } from "@/types/database";
 import Link from "next/link";
 import { AiAssistButton } from "@/components/ai/ai-assist-button";
@@ -47,6 +47,7 @@ type FormData = z.infer<typeof schema>;
 interface QuoteEditorProps {
   customers: Customer[];
   products: Product[];
+  materials?: Material[];
   business: Business;
   quote?: Quote & { customers?: Customer | null };
   defaultCustomerId?: string;
@@ -59,7 +60,7 @@ function addDays(days: number) {
   return d.toISOString().split("T")[0];
 }
 
-export function QuoteEditor({ customers, products, business, quote, defaultCustomerId, onSaved }: QuoteEditorProps) {
+export function QuoteEditor({ customers, products, materials, business, quote, defaultCustomerId, onSaved }: QuoteEditorProps) {
   const router = useRouter();
   const [lineItems, setLineItems] = useState<LineItem[]>((quote?.line_items as LineItem[]) ?? []);
   const [saving, setSaving] = useState(false);
@@ -230,7 +231,7 @@ export function QuoteEditor({ customers, products, business, quote, defaultCusto
           <Card>
             <CardContent className="p-5 space-y-4">
               <h3 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">Line Items</h3>
-              <LineItemsEditor items={lineItems} products={products} onChange={setLineItems} currency={business.currency} />
+              <LineItemsEditor items={lineItems} products={products} materials={materials} onChange={setLineItems} currency={business.currency} />
               <Separator />
               <div className="space-y-2 ml-auto max-w-xs">
                 <div className="flex justify-between text-sm"><span className="text-muted-foreground">Subtotal</span><span>{formatCurrency(subtotal, business.currency)}</span></div>

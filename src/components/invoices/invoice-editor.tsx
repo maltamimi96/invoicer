@@ -27,7 +27,7 @@ import { ClientSelect } from "@/components/customers/client-select";
 import { AddressSelect } from "@/components/addresses/address-select";
 import { PageHeader } from "@/components/layout/page-header";
 import { PdfSettingsPanel } from "@/components/pdf/pdf-settings-panel";
-import type { Business, Customer, Invoice, LineItem, Product } from "@/types/database";
+import type { Business, Customer, Invoice, LineItem, Material, Product } from "@/types/database";
 import { DEFAULT_PDF_SETTINGS } from "@/types/database";
 import Link from "next/link";
 
@@ -46,6 +46,7 @@ type FormData = z.infer<typeof schema>;
 interface InvoiceEditorProps {
   customers: Customer[];
   products: Product[];
+  materials?: Material[];
   business: Business;
   invoice?: Invoice & { customers?: Customer | null; payments?: unknown[] };
   defaultCustomerId?: string;
@@ -62,7 +63,7 @@ function addDays(days: number) {
   return d.toISOString().split("T")[0];
 }
 
-export function InvoiceEditor({ customers, products, business, invoice, defaultCustomerId, onSaved }: InvoiceEditorProps) {
+export function InvoiceEditor({ customers, products, materials, business, invoice, defaultCustomerId, onSaved }: InvoiceEditorProps) {
   const router = useRouter();
   const [lineItems, setLineItems] = useState<LineItem[]>((invoice?.line_items as LineItem[]) ?? []);
   const [saving, setSaving] = useState(false);
@@ -264,7 +265,7 @@ export function InvoiceEditor({ customers, products, business, invoice, defaultC
           <Card>
             <CardContent className="p-5 space-y-4">
               <h3 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">Line Items</h3>
-              <LineItemsEditor items={lineItems} products={products} onChange={setLineItems} currency={business.currency} />
+              <LineItemsEditor items={lineItems} products={products} materials={materials} onChange={setLineItems} currency={business.currency} />
 
               <Separator />
 

@@ -13,7 +13,7 @@ export function registerMaterialTools(tool: ToolFn): void {
     async (args, extra) => {
       const ctx = ctxFrom(extra); assertScope(ctx, "materials:read");
       let q = t(ctx, "materials")
-        .select("id, name, description, sku, supplier, cost_price, tax_rate, unit, archived")
+        .select("id, name, description, sku, supplier, cost_price, sell_price, tax_rate, unit, archived")
         .eq("business_id", ctx.businessId).order("name").limit(args.limit ?? 100);
       if (!args.include_archived) q = q.eq("archived", false);
       if (args.search) q = q.ilike("name", `%${args.search}%`);
@@ -22,10 +22,11 @@ export function registerMaterialTools(tool: ToolFn): void {
       return text(data);
     });
 
-  tool("create_material", "Add a material to the cost catalog. cost_price is what YOU pay (not the customer price).",
+  tool("create_material", "Add a material to the catalog. cost_price is what YOU pay (base cost); sell_price is what you charge when quoting.",
     {
       name: z.string().min(1),
       cost_price: z.number(),
+      sell_price: z.number().optional(),
       tax_rate: z.number().optional(),
       description: z.string().optional(),
       sku: z.string().optional(),
@@ -36,7 +37,7 @@ export function registerMaterialTools(tool: ToolFn): void {
       const ctx = ctxFrom(extra); assertScope(ctx, "materials:write");
       const { data, error } = await t(ctx, "materials").insert({
         business_id: ctx.businessId, user_id: ctx.userId,
-        name: args.name, cost_price: args.cost_price, tax_rate: args.tax_rate ?? 20,
+        name: args.name, cost_price: args.cost_price, sell_price: args.sell_price ?? args.cost_price, tax_rate: args.tax_rate ?? 20,
         description: args.description ?? null, sku: args.sku ?? null, supplier: args.supplier ?? null,
         unit: args.unit ?? null, archived: false,
       }).select().single();
@@ -44,11 +45,12 @@ export function registerMaterialTools(tool: ToolFn): void {
       return text({ created: true, material: data });
     });
 
-  tool("update_material", "Update a material in the cost catalog. Only provided fields change.",
+  tool("update_material", "Update a material in the catalog. Only provided fields change. cost_price = base cost you pay; sell_price = what you charge when quoting.",
     {
       material_id: UUID,
       name: z.string().optional(),
       cost_price: z.number().optional(),
+      sell_price: z.number().optional(),
       tax_rate: z.number().optional(),
       description: z.string().optional(),
       sku: z.string().optional(),

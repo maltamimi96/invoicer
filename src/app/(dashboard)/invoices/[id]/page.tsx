@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getInvoice, getChildInvoices } from "@/lib/actions/invoices";
 import { getCustomers } from "@/lib/actions/customers";
 import { getProducts } from "@/lib/actions/products";
+import { getMaterials } from "@/lib/actions/materials";
 import { getBusiness } from "@/lib/actions/business";
 import { InvoiceDetailClient } from "@/components/invoices/invoice-detail-client";
 import type { Invoice } from "@/types/database";
@@ -9,8 +10,8 @@ import type { Invoice } from "@/types/database";
 export default async function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   try {
-    const [invoice, customers, products, business] = await Promise.all([
-      getInvoice(id), getCustomers(), getProducts(), getBusiness(),
+    const [invoice, customers, products, materials, business] = await Promise.all([
+      getInvoice(id), getCustomers(), getProducts(), getMaterials().catch(() => []), getBusiness(),
     ]);
 
     // Surface linked progress invoices on both sides — viewing the parent
@@ -33,6 +34,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
         invoice={invoice}
         customers={customers}
         products={products}
+        materials={materials}
         business={business}
         progressInvoices={progressInvoices}
         parentInvoice={parentInvoice}
