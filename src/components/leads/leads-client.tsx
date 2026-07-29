@@ -38,13 +38,14 @@ import {
 import { LeadsBoard } from "./leads-board";
 import { LeadsList } from "./leads-list";
 import { LeadsCalendar } from "./leads-calendar";
+import { LeadDrawer } from "./lead-drawer";
 import { formatSourceLabel, type ConvertTarget, type LeadActionHandlers } from "./lead-shared";
 import {
   updateLeadStatus, deleteLead, createLead, updateLead,
   convertLeadToCustomer, convertLeadToQuote, convertLeadToWorkOrder,
 } from "@/lib/actions/leads";
 import { addLeadAsContact } from "@/lib/actions/contacts";
-import type { Lead, LeadStatus, LeadSource } from "@/types/database";
+import type { Lead, LeadStatus, LeadSource, LeadTagPreset } from "@/types/database";
 import { BUILT_IN_LEAD_SOURCES } from "@/types/database";
 
 type View = "board" | "list" | "calendar";
@@ -65,7 +66,7 @@ const EMPTY_FORM: NewLeadForm = {
   service: "", property_type: "", timing: "", notes: "", source: "manual",
 };
 
-export function LeadsClient({ leads: initial }: { leads: Lead[] }) {
+export function LeadsClient({ leads: initial, tagPresets: initialPresets = [] }: { leads: Lead[]; tagPresets?: LeadTagPreset[] }) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -79,6 +80,8 @@ export function LeadsClient({ leads: initial }: { leads: Lead[] }) {
   const [saving, setSaving] = useState(false);
   const [editLead, setEditLead] = useState<Lead | null>(null);
   const [editForm, setEditForm] = useState<Partial<Lead>>({});
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [tagPresets, setTagPresets] = useState<LeadTagPreset[]>(initialPresets);
 
   // View lives in the URL so it survives a refresh and can be linked to —
   // same pattern as the Content Studio hub.
@@ -234,7 +237,10 @@ export function LeadsClient({ leads: initial }: { leads: Lead[] }) {
     onDelete: (id) => setDeleteId(id),
     onConvert: handleConvert,
     onAddAsContact: handleAddAsContact,
+    onOpen: (id) => setOpenId(id),
   };
+
+  const openLead = openId ? leads.find((l) => l.id === openId) ?? null : null;
 
   // ── render ────────────────────────────────────────────────────────────────
 
@@ -441,6 +447,16 @@ export function LeadsClient({ leads: initial }: { leads: Lead[] }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Lead drawer — details, tags, notes */}
+      <LeadDrawer
+        lead={openLead}
+        open={!!openLead}
+        onOpenChange={(o) => { if (!o) setOpenId(null); }}
+        presets={tagPresets}
+        onLeadUpdated={(id, patch) => setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)))}
+        onPresetsChanged={setTagPresets}
+      />
 
       {/* Delete */}
       <AlertDialog open={!!deleteId} onOpenChange={(o) => { if (!o) setDeleteId(null); }}>
