@@ -9,9 +9,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { PageHeader } from "@/components/layout/page-header";
 import { CleanupButton } from "@/components/cleanup/cleanup-button";
-import { deleteWorkOrder } from "@/lib/actions/work-orders";
+import { BulkBar } from "@/components/shared/bulk-bar";
+import { useConfirm } from "@/components/ui/confirm";
+import { deleteWorkOrder, bulkDeleteWorkOrders, updateWorkOrderStatus } from "@/lib/actions/work-orders";
 import {
-  StatTile, KireiTabs, KireiPill, EmptyState, AnimatedPress, FadeIn, GradientTile,
+  StatTile, KireiTabs, EmptyState, AnimatedPress, FadeIn, GradientTile,
 } from "@/components/ui/kirei";
 import type { GradientName as KireiGradient } from "@/components/ui/kirei";
 import type { WorkOrderWithCustomer, WorkOrderStatus, BusinessMember } from "@/types/database";
@@ -26,6 +28,16 @@ const TABS: { value: WorkOrderStatus | "all"; label: string }[] = [
   { value: "submitted",   label: "Submitted"   },
   { value: "reviewed",    label: "Reviewed"    },
   { value: "completed",   label: "Completed"   },
+];
+
+const STATUS_OPTIONS: { value: WorkOrderStatus; label: string }[] = [
+  { value: "draft",       label: "Draft"       },
+  { value: "assigned",    label: "Assigned"    },
+  { value: "in_progress", label: "In progress" },
+  { value: "submitted",   label: "Submitted"   },
+  { value: "reviewed",    label: "Reviewed"    },
+  { value: "completed",   label: "Completed"   },
+  { value: "cancelled",   label: "Cancelled"   },
 ];
 
 const STATUS_GRADIENT: Record<WorkOrderStatus, KireiGradient> = {
@@ -50,6 +62,9 @@ export function WorkOrdersClient({ workOrders, userRole }: WorkOrdersClientProps
   const [tab, setTab] = useState<typeof TABS[number]["value"]>("all");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const confirm = useConfirm();
 
   const filtered = useMemo(
     () => tab === "all" ? workOrders : workOrders.filter((w) => w.status === tab),
@@ -80,6 +95,32 @@ export function WorkOrdersClient({ workOrders, userRole }: WorkOrdersClientProps
     } catch { toast.error("Failed to delete"); }
     setBusy(false);
     setDeleteId(null);
+  };
+
+  const toggle = (id: string) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const allSelected = filtered.length > 0 && filtered.every((w) => selected.has(w.id));
+  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(filtered.map((w) => w.id)));
+
+  const handleBulkDelete = async () => {
+    const ids = [...selected];
+    if (!ids.length) return;
+    if (!(await confirm({ title: `Delete ${ids.length} work order${ids.length === 1 ? "" : "s"}?`, body: "This permanently deletes the orders and their photos." }))) return;
+    setBulkBusy(true);
+    try {
+      await bulkDeleteWorkOrders(ids);
+      setSelected(new Set());
+      toast.success(`${ids.length} work order${ids.length === 1 ? "" : "s"} deleted`);
+      router.refresh();
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Failed to delete"); }
+    setBulkBusy(false);
+  };
+
+  const changeStatus = async (id: string, status: WorkOrderStatus) => {
+    try {
+      await updateWorkOrderStatus(id, status);
+      toast.success("Status updated");
+      router.refresh();
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't update status"); }
   };
 
   return (
@@ -113,6 +154,8 @@ export function WorkOrdersClient({ workOrders, userRole }: WorkOrdersClientProps
         tabs={TABS.map((t) => ({ value: t.value, label: t.label, count: counts[t.value] ?? 0 }))}
       />
 
+      {canDelete && <BulkBar count={selected.size} noun="work order" busy={bulkBusy} onDelete={handleBulkDelete} onClear={() => setSelected(new Set())} />}
+
       {filtered.length === 0 ? (
         <EmptyState
           icon={<Wrench className="w-7 h-7" />}
@@ -124,6 +167,7 @@ export function WorkOrdersClient({ workOrders, userRole }: WorkOrdersClientProps
       ) : (
         <div className="rounded-xl border border-border bg-card overflow-hidden">
           <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border bg-muted/40 text-[10px] uppercase tracking-wide font-bold text-muted-foreground">
+            {canDelete && <input type="checkbox" checked={allSelected} onChange={toggleAll} className="w-4 h-4 cursor-pointer shrink-0" aria-label="Select all" />}
             <span className="flex-1">Job</span>
             <span className="hidden lg:block w-44">Customer</span>
             <span className="hidden md:block w-44">Address</span>
@@ -140,6 +184,7 @@ export function WorkOrdersClient({ workOrders, userRole }: WorkOrdersClientProps
                 onMouseEnter={() => router.prefetch(`/work-orders/${wo.id}`)}
                 className="group flex flex-wrap items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-muted/40"
               >
+                {canDelete && <input type="checkbox" checked={selected.has(wo.id)} onChange={() => toggle(wo.id)} onClick={(e) => e.stopPropagation()} className="w-4 h-4 cursor-pointer shrink-0" aria-label="Select work order" />}
                 <GradientTile gradient={STATUS_GRADIENT[wo.status] ?? "primary"} size={40} radius={10}>
                   <Briefcase className="w-4 h-4" />
                 </GradientTile>
@@ -168,8 +213,15 @@ export function WorkOrdersClient({ workOrders, userRole }: WorkOrdersClientProps
                     <span className="inline-flex items-center gap-0.5"><Camera className="w-3 h-3" />{wo.photos?.length}</span>
                   ) : "—"}
                 </div>
-                <div className="ml-auto text-right">
-                  <KireiPill tone={wo.status} />
+                <div className="ml-auto text-right shrink-0" onClick={(e) => e.stopPropagation()}>
+                  <select
+                    value={wo.status}
+                    onChange={(e) => changeStatus(wo.id, e.target.value as WorkOrderStatus)}
+                    className="h-8 rounded-md border border-border bg-card px-2 text-xs font-medium cursor-pointer max-w-[132px]"
+                    aria-label="Change status"
+                  >
+                    {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
                 </div>
                 <div className="w-8 text-right shrink-0" onClick={(e) => e.stopPropagation()}>
                   <DropdownMenu>

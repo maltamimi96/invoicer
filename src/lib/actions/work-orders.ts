@@ -430,6 +430,27 @@ export async function deleteWorkOrder(id: string): Promise<void> {
   revalidatePath("/work-orders");
 }
 
+export async function bulkDeleteWorkOrders(ids: string[]): Promise<void> {
+  if (!ids.length) return;
+  const supabase = await createClient();
+  const user = await getUser();
+  const businessId = await getActiveBizId(supabase, user.id);
+
+  // Same gate as deleteWorkOrder — owners + admins only.
+  const { data: biz } = await tbl(supabase, "businesses").select("user_id").eq("id", businessId).single();
+  const isOwner = biz?.user_id === user.id;
+  if (!isOwner) {
+    const { data: member } = await tbl(supabase, "business_members")
+      .select("role").eq("business_id", businessId).eq("user_id", user.id).eq("status", "active").maybeSingle();
+    if (!member || member.role !== "admin") throw new Error("Only owners and admins can delete work orders");
+  }
+
+  const { error } = await tbl(supabase, "work_orders").delete().in("id", ids).eq("business_id", businessId);
+  if (error) throw error;
+  revalidatePath("/work-orders");
+  revalidatePath("/schedule");
+}
+
 // ── Share link (customer-facing portfolio) ───────────────────────────────────
 
 export async function enableWorkOrderShareLink(id: string): Promise<{ token: string }> {

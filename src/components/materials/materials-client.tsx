@@ -7,8 +7,10 @@ import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/layout/page-header";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { createMaterial, updateMaterial, deleteMaterial, bulkImportMaterials } from "@/lib/actions/materials";
+import { createMaterial, updateMaterial, deleteMaterial, bulkImportMaterials, bulkDeleteMaterials } from "@/lib/actions/materials";
 import { BulkImportModal } from "@/components/shared/bulk-import-modal";
+import { BulkBar } from "@/components/shared/bulk-bar";
+import { useConfirm } from "@/components/ui/confirm";
 import { MaterialForm } from "./material-form";
 import { formatCurrency, sumMoney } from "@/lib/utils";
 import {
@@ -35,10 +37,31 @@ export function MaterialsClient({ materials: initial, currency = "GBP" }: { mate
   const [showNew, setShowNew] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const confirm = useConfirm();
 
   const filtered = materials.filter((m) =>
     `${m.name} ${m.description ?? ""} ${m.sku ?? ""} ${m.supplier ?? ""}`.toLowerCase().includes(search.toLowerCase())
   );
+
+  const toggle = (id: string) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const allSelected = filtered.length > 0 && filtered.every((m) => selected.has(m.id));
+  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(filtered.map((m) => m.id)));
+
+  const handleBulkDelete = async () => {
+    const ids = [...selected];
+    if (!ids.length) return;
+    if (!(await confirm({ title: `Delete ${ids.length} material${ids.length === 1 ? "" : "s"}?`, body: "This removes them from your cost catalog. Quotes and invoices are unaffected." }))) return;
+    setBulkBusy(true);
+    try {
+      await bulkDeleteMaterials(ids);
+      setMaterials((prev) => prev.filter((m) => !selected.has(m.id)));
+      setSelected(new Set());
+      toast.success(`${ids.length} material${ids.length === 1 ? "" : "s"} deleted`);
+    } catch { toast.error("Failed to delete"); }
+    setBulkBusy(false);
+  };
 
   const handleCreate = async (data: FormValues) => {
     try {
@@ -127,6 +150,8 @@ export function MaterialsClient({ materials: initial, currency = "GBP" }: { mate
         </div>
       </div>
 
+      <BulkBar count={selected.size} noun="material" busy={bulkBusy} onDelete={handleBulkDelete} onClear={() => setSelected(new Set())} />
+
       {filtered.length === 0 ? (
         <EmptyState
           icon={<Package className="w-7 h-7" />}
@@ -138,6 +163,7 @@ export function MaterialsClient({ materials: initial, currency = "GBP" }: { mate
       ) : (
         <div className="rounded-xl border border-border bg-card overflow-hidden">
           <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border bg-muted/40 text-[10px] uppercase tracking-wide font-bold text-muted-foreground">
+            <input type="checkbox" checked={allSelected} onChange={toggleAll} className="w-4 h-4 cursor-pointer shrink-0" aria-label="Select all" />
             <span className="flex-1">Material</span>
             <span className="hidden md:block w-24">Supplier</span>
             <span className="hidden md:block w-20">Unit</span>
@@ -153,6 +179,7 @@ export function MaterialsClient({ materials: initial, currency = "GBP" }: { mate
                 onClick={() => setEditMaterial(material)}
                 className="group flex flex-wrap items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-muted/40"
               >
+                <input type="checkbox" checked={selected.has(material.id)} onChange={() => toggle(material.id)} onClick={(e) => e.stopPropagation()} className="w-4 h-4 cursor-pointer shrink-0" aria-label="Select material" />
                 <GradientTile gradient="amber" size={40} radius={10}>
                   <Package className="w-4 h-4" />
                 </GradientTile>
