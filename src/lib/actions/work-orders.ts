@@ -430,6 +430,15 @@ export async function deleteWorkOrder(id: string): Promise<void> {
   revalidatePath("/work-orders");
 }
 
+/** Apply a status to several work orders. Reuses updateWorkOrderStatus per row
+ *  so timeline events, started_at/completed_at, and the completed webhook all
+ *  fire exactly as they do for a single change. */
+export async function bulkUpdateWorkOrderStatus(ids: string[], status: WorkOrderStatus): Promise<void> {
+  for (const id of ids) {
+    await updateWorkOrderStatus(id, status);
+  }
+}
+
 export async function bulkDeleteWorkOrders(ids: string[]): Promise<void> {
   if (!ids.length) return;
   const supabase = await createClient();
