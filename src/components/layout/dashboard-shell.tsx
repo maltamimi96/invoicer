@@ -18,6 +18,7 @@ const AgentPanel = dynamic(
 );
 import type { Business } from "@/types/database";
 import type { Role } from "@/lib/permissions";
+import { isWorker } from "@/lib/permissions";
 import type { User } from "@supabase/supabase-js";
 
 interface DashboardShellProps {
@@ -50,42 +51,48 @@ export function DashboardShell(props: DashboardShellProps) {
 function ShellBody({ business, businesses, user, userRole, features, vocab, children }: DashboardShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { focus } = useFocusMode();
+  const workerView = isWorker(userRole);
 
   return (
     <>
       <Suspense fallback={null}><RouteProgress /></Suspense>
-      <div className="flex h-screen overflow-hidden bg-background">
-        {/* Sidebar — hidden on desktop when Focus mode is on (MYOB-style
-            document focus). The wrapper's `md:hidden` collapses the desktop
-            aside; on mobile the sidebar is already a hidden drawer. */}
-        <div className={focus ? "md:hidden" : "contents"}>
-          <AppSidebar
-            business={business}
-            businesses={businesses}
-            userRole={userRole}
-            features={features}
-            vocab={vocab}
-            open={sidebarOpen}
-            onClose={() => setSidebarOpen(false)}
-          />
-        </div>
+      {/* MYOB chrome: a full-width accent top bar spans over the sidebar
+          column, then a row of sidebar + content beneath it. */}
+      <div className="flex h-screen flex-col overflow-hidden bg-background">
+        <AppHeader
+          user={user}
+          business={business}
+          onMenuClick={() => setSidebarOpen((o) => !o)}
+          workerView={workerView}
+          features={features}
+          vocab={vocab}
+        />
 
-        {/* Mobile overlay */}
-        {sidebarOpen && (
-          <div
-            className="fixed inset-0 z-20 bg-black/40 md:hidden"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
+        <div className="flex min-h-0 flex-1 overflow-hidden">
+          {/* Sidebar — hidden on desktop when Focus mode is on (MYOB-style
+              document focus). The wrapper's `md:hidden` collapses the desktop
+              aside; on mobile the sidebar is already a hidden drawer. */}
+          <div className={focus ? "md:hidden" : "contents"}>
+            <AppSidebar
+              business={business}
+              businesses={businesses}
+              userRole={userRole}
+              features={features}
+              vocab={vocab}
+              open={sidebarOpen}
+              onClose={() => setSidebarOpen(false)}
+            />
+          </div>
 
-        {/* Right column: header + content */}
-        <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-          <AppHeader
-            user={user}
-            business={business}
-            onMenuClick={() => setSidebarOpen((o) => !o)}
-          />
-          <main className="app-content flex-1 overflow-auto">
+          {/* Mobile overlay */}
+          {sidebarOpen && (
+            <div
+              className="fixed inset-0 z-20 bg-black/40 md:hidden"
+              onClick={() => setSidebarOpen(false)}
+            />
+          )}
+
+          <main className="app-content min-w-0 flex-1 overflow-auto">
             {/* Connected Hub layout: content fills the main pane (no max-width
                 cap), with the prototype's uniform 24px padding.
                 Keyed by business.id so switching businesses fully remounts

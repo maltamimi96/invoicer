@@ -3,82 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  LayoutDashboard, FileText, FileCheck, Users,
-  Package, Settings, FileStack, X, ClipboardList, Wrench, Users2, UserPlus, CalendarDays, MessageSquare, Bot, Repeat, HelpCircle, Columns3, TrendingUp, Sparkles, ListChecks, Search, Receipt, Boxes, Clock, Hammer, Target, Megaphone,
-} from "@/components/ui/icons";
+import { Settings, X } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 import type { Business } from "@/types/database";
 import type { Role } from "@/lib/permissions";
 import { canManageSettings, isWorker, ROLE_LABELS } from "@/lib/permissions";
 import Image from "next/image";
 import { BusinessSwitcher } from "@/components/business/business-switcher";
-
-type NavItem = {
-  label: string;
-  href: string;
-  icon: typeof LayoutDashboard;
-  worker?: boolean;
-  /** Owning plugin id (src/lib/plugins/registry.ts). Untagged = core, always shown. */
-  plugin?: string;
-};
-type NavSection = { section: string; items: NavItem[] };
-
-const navSections: NavSection[] = [
-  { section: "Workspace", items: [
-    { label: "Dashboard",  href: "/dashboard",  icon: LayoutDashboard, worker: true },
-    { label: "Assistant",  href: "/assistant",  icon: Sparkles                      },
-    { label: "Messages",   href: "/messages",   icon: MessageSquare,   plugin: "messages" },
-    { label: "Tasks",      href: "/tasks",      icon: Columns3                      },
-  ]},
-  { section: "Sales", items: [
-    { label: "Leads",         href: "/leads",         icon: UserPlus,     plugin: "leads"             },
-    { label: "Forms",         href: "/forms",         icon: ListChecks,   plugin: "form-builder"      },
-    { label: "Quoting Agent", href: "/quoting-agent", icon: Sparkles,     plugin: "quoting-agent"     },
-    { label: "Quotes",        href: "/quotes",        icon: FileCheck,    plugin: "quotes"            },
-    { label: "Invoices",      href: "/invoices",      icon: FileText,     plugin: "invoicing"         },
-    { label: "Contracts",     href: "/contracts",     icon: FileStack,    plugin: "contracts"         },
-    { label: "Site Reports",  href: "/reports",       icon: ClipboardList, plugin: "site-reports"     },
-    { label: "Recurring",     href: "/recurring",     icon: Repeat,       plugin: "recurring-jobs"    },
-    { label: "Recurring billing", href: "/recurring-invoices", icon: Repeat, plugin: "recurring-billing" },
-    { label: "Expenses",      href: "/expenses",      icon: Receipt,      plugin: "expenses"          },
-  ]},
-  { section: "Service", items: [
-    { label: "Work Orders",    href: "/work-orders",     icon: Wrench,        worker: true, plugin: "jobs" },
-    { label: "Schedule",       href: "/schedule",        icon: CalendarDays,  worker: true, plugin: "scheduling" },
-    { label: "Bookings",       href: "/bookings",        icon: CalendarDays,  plugin: "booking" },
-    { label: "Online Booking", href: "/settings/booking", icon: CalendarDays,  plugin: "booking" },
-    { label: "Assets",         href: "/assets",          icon: Hammer,        plugin: "assets" },
-  ]},
-  { section: "Contacts", items: [
-    { label: "Prospects",  href: "/prospects",  icon: Target,        plugin: "prospects" },
-    { label: "Customers",  href: "/customers",  icon: Users                         },
-    { label: "Contacts",   href: "/contacts",   icon: Users2                        },
-    { label: "Onboarding", href: "/onboarding-forms", icon: ClipboardList, plugin: "client-onboarding" },
-  ]},
-  { section: "Catalog", items: [
-    { label: "Products",   href: "/products",   icon: Package,       plugin: "products" },
-    { label: "Materials",  href: "/materials",  icon: Package,       plugin: "materials" },
-    { label: "Inventory",  href: "/inventory",  icon: Boxes,         plugin: "inventory" },
-  ]},
-  { section: "Workforce", items: [
-    { label: "Team",       href: "/team",       icon: Users2                        },
-    { label: "Timesheets", href: "/timesheets", icon: Clock,        plugin: "timesheets" },
-    { label: "Plugins",    href: "/agents",     icon: Bot                           },
-  ]},
-  { section: "SEO", items: [
-    { label: "SEO Production", href: "/seo", icon: Search, plugin: "seo-production" },
-  ]},
-  { section: "Content", items: [
-    { label: "Content Studio", href: "/content", icon: Megaphone, plugin: "content-studio" },
-  ]},
-  { section: "Insights", items: [
-    { label: "Analytics",  href: "/analytics",  icon: TrendingUp,    plugin: "analytics" },
-  ]},
-  { section: "Account", items: [
-    { label: "Help",       href: "/help",       icon: HelpCircle,    worker: true   },
-  ]},
-];
+import { navSections, filterNav } from "./nav-config";
 
 interface AppSidebarProps {
   business: Business;
@@ -95,56 +27,23 @@ interface AppSidebarProps {
 export function AppSidebar({ business, businesses, userRole, features, vocab, open, onClose }: AppSidebarProps) {
   const pathname = usePathname();
   const workerView = isWorker(userRole);
-  const visibleSections = navSections
-    .map((s) => ({
-      ...s,
-      items: s.items.filter((i) => {
-        if (workerView && !i.worker) return false;
-        if (i.plugin && !features?.[i.plugin]) return false;
-        return true;
-      }),
-    }))
-    .filter((s) => s.items.length > 0);
+  const visibleSections = filterNav(navSections, { workerView, features });
 
   const isActive = (href: string) =>
     href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);
 
   const content = (
     <div className="flex flex-col h-full w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
-      {/* Header */}
-      <div className="px-4 pt-5 pb-4 border-b border-sidebar-border">
-        <div className="flex items-center gap-3">
-          {/* Logo */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.85 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
-            className="relative flex-shrink-0"
-          >
-            {business.logo_url ? (
-              <div className="w-10 h-10 rounded-xl overflow-hidden ring-2 ring-sidebar-primary/30 shadow-lg shadow-sidebar-primary/10">
-                <Image src={business.logo_url} alt={business.name} width={40} height={40} className="object-contain w-full h-full" />
-              </div>
-            ) : (
-              <Image src="/kirei-logo.png" alt="Kirei" width={48} height={48} className="object-contain w-12 h-12" />
-            )}
-            <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-sidebar" />
-          </motion.div>
-
-          {/* Business switcher */}
-          <motion.div
-            initial={{ opacity: 0, x: -8 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.3, delay: 0.05, ease: "easeOut" }}
-            className="flex-1 min-w-0"
-          >
+      {/* Header — business switcher (the brand/logo lives in the top bar) */}
+      <div className="px-3 pt-3 pb-2 border-b border-sidebar-border">
+        <div className="flex items-center gap-2">
+          <div className="flex-1 min-w-0">
             <BusinessSwitcher
               business={business}
               businesses={businesses}
               onClose={onClose}
             />
-          </motion.div>
-
+          </div>
           {/* Close button — mobile only */}
           <button
             onClick={onClose}
@@ -175,25 +74,25 @@ export function AppSidebar({ business, businesses, userRole, features, vocab, op
                     href={item.href}
                     onClick={onClose}
                     className={cn(
-                      "relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] transition-all duration-150",
+                      "relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] transition-colors duration-150",
                       active
-                        ? "bg-sidebar-accent text-sidebar-foreground font-semibold shadow-sm"
+                        ? "text-sidebar-foreground font-semibold"
                         : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 font-medium"
                     )}
                   >
                     {active && (
                       <motion.span
-                        layoutId="sidebar-active-rail"
-                        className="absolute -left-3 top-1.5 bottom-1.5 w-1 rounded-full"
-                        style={{ backgroundImage: "linear-gradient(180deg, hsl(var(--sidebar-primary)) 0%, hsl(var(--sidebar-primary) / 0.6) 100%)" }}
+                        layoutId="sidebar-active-pill"
+                        className="absolute inset-0 rounded-lg"
+                        style={{ backgroundColor: "hsl(var(--sidebar-primary) / 0.14)" }}
                         transition={{ type: "spring", stiffness: 380, damping: 30 }}
                       />
                     )}
                     <item.icon className={cn(
-                      "w-4 h-4 flex-shrink-0 transition-colors",
+                      "relative z-10 w-4 h-4 flex-shrink-0 transition-colors",
                       active ? "text-sidebar-primary" : "text-sidebar-foreground/55 group-hover:text-sidebar-foreground"
                     )} />
-                    <span>{vocab?.[item.href] ?? item.label}</span>
+                    <span className="relative z-10">{vocab?.[item.href] ?? item.label}</span>
                   </Link>
                 </motion.div>
               );
@@ -209,17 +108,17 @@ export function AppSidebar({ business, businesses, userRole, features, vocab, op
             href="/settings"
             onClick={onClose}
             className={cn(
-              "relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] transition-all duration-150",
+              "relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] transition-colors duration-150",
               pathname.startsWith("/settings")
-                ? "bg-sidebar-accent text-sidebar-foreground font-semibold shadow-sm"
+                ? "text-sidebar-foreground font-semibold"
                 : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 font-medium"
             )}
           >
             {pathname.startsWith("/settings") && (
               <motion.span
-                layoutId="sidebar-active-rail"
-                className="absolute -left-3 top-1.5 bottom-1.5 w-1 rounded-full"
-                style={{ backgroundImage: "linear-gradient(180deg, hsl(var(--sidebar-primary)) 0%, hsl(var(--sidebar-primary) / 0.6) 100%)" }}
+                layoutId="sidebar-active-pill"
+                className="absolute inset-0 rounded-lg"
+                style={{ backgroundColor: "hsl(var(--sidebar-primary) / 0.14)" }}
                 transition={{ type: "spring", stiffness: 380, damping: 30 }}
               />
             )}
