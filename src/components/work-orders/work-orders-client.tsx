@@ -11,7 +11,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { CleanupButton } from "@/components/cleanup/cleanup-button";
 import { BulkBar } from "@/components/shared/bulk-bar";
 import { useConfirm } from "@/components/ui/confirm";
-import { deleteWorkOrder, bulkDeleteWorkOrders, updateWorkOrderStatus } from "@/lib/actions/work-orders";
+import { deleteWorkOrder, bulkDeleteWorkOrders, updateWorkOrderStatus, bulkUpdateWorkOrderStatus } from "@/lib/actions/work-orders";
 import {
   StatTile, KireiTabs, EmptyState, AnimatedPress, FadeIn, GradientTile,
 } from "@/components/ui/kirei";
@@ -115,6 +115,19 @@ export function WorkOrdersClient({ workOrders, userRole }: WorkOrdersClientProps
     setBulkBusy(false);
   };
 
+  const handleBulkStatus = async (status: WorkOrderStatus) => {
+    const ids = [...selected];
+    if (!ids.length) return;
+    setBulkBusy(true);
+    try {
+      await bulkUpdateWorkOrderStatus(ids, status);
+      setSelected(new Set());
+      toast.success(`${ids.length} work order${ids.length === 1 ? "" : "s"} updated`);
+      router.refresh();
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't update status"); }
+    setBulkBusy(false);
+  };
+
   const changeStatus = async (id: string, status: WorkOrderStatus) => {
     try {
       await updateWorkOrderStatus(id, status);
@@ -154,7 +167,27 @@ export function WorkOrdersClient({ workOrders, userRole }: WorkOrdersClientProps
         tabs={TABS.map((t) => ({ value: t.value, label: t.label, count: counts[t.value] ?? 0 }))}
       />
 
-      {canDelete && <BulkBar count={selected.size} noun="work order" busy={bulkBusy} onDelete={handleBulkDelete} onClear={() => setSelected(new Set())} />}
+      {canDelete && (
+        <BulkBar
+          count={selected.size}
+          noun="work order"
+          busy={bulkBusy}
+          onDelete={handleBulkDelete}
+          onClear={() => setSelected(new Set())}
+          extra={
+            <select
+              defaultValue=""
+              disabled={bulkBusy}
+              onChange={(e) => { const v = e.target.value; if (v) handleBulkStatus(v as WorkOrderStatus); }}
+              className="h-8 rounded-md border border-border bg-card px-2 text-sm cursor-pointer"
+              aria-label="Set status for selected work orders"
+            >
+              <option value="" disabled>Set status…</option>
+              {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          }
+        />
+      )}
 
       {filtered.length === 0 ? (
         <EmptyState
