@@ -8,8 +8,10 @@ import { PageHeader } from "@/components/layout/page-header";
 import { CleanupButton } from "@/components/cleanup/cleanup-button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { createProduct, updateProduct, deleteProduct, bulkImportProducts } from "@/lib/actions/products";
+import { createProduct, updateProduct, deleteProduct, bulkImportProducts, bulkDeleteProducts } from "@/lib/actions/products";
 import { BulkImportModal } from "@/components/shared/bulk-import-modal";
+import { BulkBar } from "@/components/shared/bulk-bar";
+import { useConfirm } from "@/components/ui/confirm";
 import { ProductForm } from "./product-form";
 import { formatCurrency, sumMoney } from "@/lib/utils";
 import {
@@ -32,10 +34,31 @@ export function ProductsClient({ products: initial, currency = "GBP" }: { produc
   const [showNew, setShowNew] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const confirm = useConfirm();
 
   const filtered = products.filter((p) =>
     `${p.name} ${p.description}`.toLowerCase().includes(search.toLowerCase())
   );
+
+  const toggle = (id: string) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const allSelected = filtered.length > 0 && filtered.every((p) => selected.has(p.id));
+  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(filtered.map((p) => p.id)));
+
+  const handleBulkDelete = async () => {
+    const ids = [...selected];
+    if (!ids.length) return;
+    if (!(await confirm({ title: `Delete ${ids.length} product${ids.length === 1 ? "" : "s"}?`, body: "This can't be undone. Existing invoices and quotes are unaffected." }))) return;
+    setBulkBusy(true);
+    try {
+      await bulkDeleteProducts(ids);
+      setProducts((prev) => prev.filter((p) => !selected.has(p.id)));
+      setSelected(new Set());
+      toast.success(`${ids.length} product${ids.length === 1 ? "" : "s"} deleted`);
+    } catch { toast.error("Failed to delete"); }
+    setBulkBusy(false);
+  };
 
   const handleCreate = async (data: { name: string; unit_price: number; tax_rate: number; description?: string; unit?: string; archived: boolean }) => {
     try {
@@ -122,6 +145,8 @@ export function ProductsClient({ products: initial, currency = "GBP" }: { produc
         </div>
       </div>
 
+      <BulkBar count={selected.size} noun="product" busy={bulkBusy} onDelete={handleBulkDelete} onClear={() => setSelected(new Set())} />
+
       {filtered.length === 0 ? (
         <EmptyState
           icon={<Package className="w-7 h-7" />}
@@ -133,6 +158,7 @@ export function ProductsClient({ products: initial, currency = "GBP" }: { produc
       ) : (
         <div className="rounded-xl border border-border bg-card overflow-hidden">
           <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border bg-muted/40 text-[10px] uppercase tracking-wide font-bold text-muted-foreground">
+            <input type="checkbox" checked={allSelected} onChange={toggleAll} className="w-4 h-4 cursor-pointer shrink-0" aria-label="Select all" />
             <span className="flex-1">Product</span>
             <span className="hidden md:block w-20">Unit</span>
             <span className="hidden md:block w-16 text-right">Tax</span>
@@ -147,6 +173,7 @@ export function ProductsClient({ products: initial, currency = "GBP" }: { produc
                 onClick={() => setEditProduct(product)}
                 className="group flex flex-wrap items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-muted/40"
               >
+                <input type="checkbox" checked={selected.has(product.id)} onChange={() => toggle(product.id)} onClick={(e) => e.stopPropagation()} className="w-4 h-4 cursor-pointer shrink-0" aria-label="Select product" />
                 <GradientTile gradient="emerald" size={40} radius={10}>
                   <Package className="w-4 h-4" />
                 </GradientTile>

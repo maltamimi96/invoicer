@@ -67,6 +67,16 @@ export async function deleteMaterial(id: string): Promise<void> {
   revalidatePath("/materials");
 }
 
+export async function bulkDeleteMaterials(ids: string[]): Promise<void> {
+  if (!ids.length) return;
+  const supabase = await createClient();
+  const user = await getUser();
+  const businessId = await getActiveBizId(supabase, user.id);
+  const { error } = await tbl(supabase, "materials").delete().in("id", ids).eq("business_id", businessId);
+  if (error) throw error;
+  revalidatePath("/materials");
+}
+
 export async function bulkImportMaterials(
   rows: Array<Omit<Material, "id" | "created_at" | "updated_at" | "user_id" | "business_id" | "archived">>,
 ): Promise<{ imported: number; errors: string[] }> {
