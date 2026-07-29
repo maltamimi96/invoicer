@@ -142,7 +142,10 @@ export interface Material {
   description: string | null;
   sku: string | null;
   supplier: string | null;
+  /** What we pay (base cost). */
   cost_price: number;
+  /** What we charge — used when quoting from the catalog. */
+  sell_price: number;
   tax_rate: number;
   unit: string | null;
   archived: boolean;

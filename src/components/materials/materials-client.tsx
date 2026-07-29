@@ -20,7 +20,8 @@ import type { Material } from "@/types/database";
 
 const MATERIAL_COLUMNS = [
   { key: "name", label: "Name", required: true },
-  { key: "cost_price", label: "Cost Price", required: true, type: "number" as const },
+  { key: "cost_price", label: "Base Cost", required: true, type: "number" as const },
+  { key: "sell_price", label: "Sell Price", type: "number" as const },
   { key: "tax_rate", label: "Tax Rate (%)", type: "number" as const },
   { key: "description", label: "Description" },
   { key: "sku", label: "SKU" },
@@ -28,7 +29,7 @@ const MATERIAL_COLUMNS = [
   { key: "unit", label: "Unit" },
 ];
 
-type FormValues = { name: string; cost_price: number; tax_rate: number; description?: string; sku?: string; supplier?: string; unit?: string; archived: boolean };
+type FormValues = { name: string; cost_price: number; sell_price: number; tax_rate: number; description?: string; sku?: string; supplier?: string; unit?: string; archived: boolean };
 
 export function MaterialsClient({ materials: initial, currency = "GBP" }: { materials: Material[]; currency?: string }) {
   const [materials, setMaterials] = useState(initial);
@@ -68,6 +69,7 @@ export function MaterialsClient({ materials: initial, currency = "GBP" }: { mate
       const material = await createMaterial({
         name: data.name,
         cost_price: data.cost_price,
+        sell_price: data.sell_price,
         tax_rate: data.tax_rate,
         description: data.description ?? null,
         sku: data.sku ?? null,
@@ -168,8 +170,9 @@ export function MaterialsClient({ materials: initial, currency = "GBP" }: { mate
             <span className="hidden md:block w-24">Supplier</span>
             <span className="hidden md:block w-20">Unit</span>
             <span className="hidden md:block w-16 text-right">Tax</span>
-            <span className="w-24 text-right">Status</span>
-            <span className="w-28 text-right">Cost</span>
+            <span className="hidden sm:block w-24 text-right">Status</span>
+            <span className="hidden sm:block w-20 text-right">Base</span>
+            <span className="w-24 text-right">Sell</span>
             <span className="w-16" />
           </div>
           <div className="divide-y divide-border/60">
@@ -194,10 +197,11 @@ export function MaterialsClient({ materials: initial, currency = "GBP" }: { mate
                 <div className="hidden md:block w-24 text-xs text-muted-foreground break-words">{material.supplier ?? "—"}</div>
                 <div className="hidden md:block w-20 text-xs text-muted-foreground break-words">{material.unit ?? "—"}</div>
                 <div className="hidden md:block w-16 text-right text-xs text-muted-foreground">{material.tax_rate}%</div>
-                <div className="ml-auto md:ml-0 md:w-24 text-right">
+                <div className="ml-auto md:ml-0 hidden sm:block md:w-24 text-right">
                   <KireiPill tone={material.archived ? "archived" : "active"} />
                 </div>
-                <div className="md:w-28 text-right text-sm font-semibold tabular-nums">{formatCurrency(material.cost_price, currency)}</div>
+                <div className="hidden sm:block md:w-20 text-right text-xs text-muted-foreground tabular-nums">{formatCurrency(material.cost_price, currency)}</div>
+                <div className="ml-auto sm:ml-0 md:w-24 text-right text-sm font-semibold tabular-nums">{formatCurrency(material.sell_price, currency)}</div>
                 <div className="w-16 text-right shrink-0" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-end gap-1">
                     <button className="inline-flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setEditMaterial(material)}>

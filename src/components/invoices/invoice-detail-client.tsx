@@ -33,7 +33,7 @@ import {
   DetailHero, FactCard, AnimatedPress, FadeIn, GradientTile, KireiPill, Confetti,
 } from "@/components/ui/kirei";
 import type { GradientName } from "@/components/ui/kirei";
-import type { Business, Customer, Invoice, LineItem, Payment, Product } from "@/types/database";
+import type { Business, Customer, Invoice, LineItem, Material, Payment, Product } from "@/types/database";
 
 const STATUS_GRADIENT: Record<string, GradientName> = {
   paid:      "emerald",
@@ -48,6 +48,7 @@ interface InvoiceDetailClientProps {
   invoice: Invoice & { customers?: Customer | null; payments?: Payment[] };
   customers: Customer[];
   products: Product[];
+  materials?: Material[];
   business: Business;
   /** Children of THIS invoice if it's a parent, or siblings if this is itself a child. */
   progressInvoices?: Invoice[];
@@ -56,7 +57,7 @@ interface InvoiceDetailClientProps {
 }
 
 export function InvoiceDetailClient({
-  invoice: initial, customers, products, business,
+  invoice: initial, customers, products, materials, business,
   progressInvoices = [], parentInvoice = null,
 }: InvoiceDetailClientProps) {
   const router = useRouter();
@@ -163,6 +164,7 @@ export function InvoiceDetailClient({
       <InvoiceEditor
         customers={customers}
         products={products}
+        materials={materials}
         business={business}
         invoice={invoice}
         onSaved={(saved) => {

@@ -1,18 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2, ChevronDown, Package, ClipboardPaste } from "@/components/ui/icons";
+import { Plus, Trash2, ChevronDown, Package, ClipboardPaste, Boxes } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatCurrency } from "@/lib/utils";
-import type { LineItem, Product } from "@/types/database";
+import type { LineItem, Product, Material } from "@/types/database";
 import { v4 as uuidv4 } from "uuid";
 import { LineItemsImportModal } from "./line-items-import-modal";
 
 interface LineItemsEditorProps {
   items: LineItem[];
   products: Product[];
+  materials?: Material[];
   onChange: (items: LineItem[]) => void;
   currency?: string;
 }
@@ -23,8 +24,9 @@ function calcItem(item: Omit<LineItem, "subtotal" | "tax_amount" | "total">): Li
   return { ...item, subtotal, tax_amount, total: subtotal + tax_amount };
 }
 
-export function LineItemsEditor({ items, products, onChange, currency = "GBP" }: LineItemsEditorProps) {
+export function LineItemsEditor({ items, products, materials = [], onChange, currency = "GBP" }: LineItemsEditorProps) {
   const [productSearch, setProductSearch] = useState("");
+  const [materialSearch, setMaterialSearch] = useState("");
   const [importOpen, setImportOpen] = useState(false);
 
   const addItem = (product?: Product) => {
@@ -36,6 +38,19 @@ export function LineItemsEditor({ items, products, onChange, currency = "GBP" }:
       quantity: 1,
       unit_price: product?.unit_price ?? 0,
       tax_rate: product?.tax_rate ?? 20,
+      discount_percent: 0,
+    });
+    onChange([...items, newItem]);
+  };
+
+  const addMaterial = (material: Material) => {
+    const newItem = calcItem({
+      id: uuidv4(),
+      name: material.name,
+      description: material.description ?? "",
+      quantity: 1,
+      unit_price: material.sell_price ?? 0,
+      tax_rate: material.tax_rate ?? 20,
       discount_percent: 0,
     });
     onChange([...items, newItem]);
@@ -54,6 +69,10 @@ export function LineItemsEditor({ items, products, onChange, currency = "GBP" }:
 
   const filteredProducts = products.filter((p) =>
     `${p.name} ${p.description}`.toLowerCase().includes(productSearch.toLowerCase())
+  );
+
+  const filteredMaterials = materials.filter((m) =>
+    `${m.name} ${m.description ?? ""}`.toLowerCase().includes(materialSearch.toLowerCase())
   );
 
   return (
@@ -161,6 +180,41 @@ export function LineItemsEditor({ items, products, onChange, currency = "GBP" }:
                 ))}
                 {filteredProducts.length === 0 && (
                   <p className="text-xs text-muted-foreground text-center py-3">No products found</p>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
+        )}
+
+        {materials.length > 0 && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button type="button" variant="outline" size="sm" className="gap-1.5">
+                <Boxes className="w-3.5 h-3.5" /> From materials
+                <ChevronDown className="w-3 h-3 ml-1 opacity-60" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72 p-2" align="start">
+              <Input
+                placeholder="Search materials..."
+                value={materialSearch}
+                onChange={(e) => setMaterialSearch(e.target.value)}
+                className="mb-2 h-8 text-sm"
+              />
+              <div className="max-h-48 overflow-y-auto space-y-0.5">
+                {filteredMaterials.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    className="w-full flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-muted text-left text-sm"
+                    onClick={() => addMaterial(m)}
+                  >
+                    <span className="font-medium truncate">{m.name}</span>
+                    <span className="text-muted-foreground ml-2 flex-shrink-0">{formatCurrency(m.sell_price, currency)}</span>
+                  </button>
+                ))}
+                {filteredMaterials.length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-3">No materials found</p>
                 )}
               </div>
             </PopoverContent>

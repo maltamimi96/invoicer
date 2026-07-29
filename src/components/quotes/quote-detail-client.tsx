@@ -24,7 +24,7 @@ import {
   DetailHero, FactCard, AnimatedPress, FadeIn,
 } from "@/components/ui/kirei";
 import type { GradientName } from "@/components/ui/kirei";
-import type { Business, Customer, LineItem, Product, Quote } from "@/types/database";
+import type { Business, Customer, LineItem, Material, Product, Quote } from "@/types/database";
 
 const STATUS_GRADIENT: Record<string, GradientName> = {
   accepted: "emerald",
@@ -38,10 +38,11 @@ interface QuoteDetailClientProps {
   quote: Quote & { customers?: Customer | null };
   customers: Customer[];
   products: Product[];
+  materials?: Material[];
   business: Business;
 }
 
-export function QuoteDetailClient({ quote: initial, customers, products, business }: QuoteDetailClientProps) {
+export function QuoteDetailClient({ quote: initial, customers, products, materials, business }: QuoteDetailClientProps) {
   const router = useRouter();
   const [quote, setQuote] = useState(initial);
   const [editing, setEditing] = useState(false);
@@ -90,6 +91,7 @@ export function QuoteDetailClient({ quote: initial, customers, products, busines
     <QuoteEditor
       customers={customers}
       products={products}
+      materials={materials}
       business={business}
       quote={quote}
       onSaved={(saved) => {
