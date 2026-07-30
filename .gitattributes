@@ -1,0 +1,37 @@
+# Normalise line endings so a Windows checkout can't commit CRLF.
+#
+# This bit us repeatedly: `src/lib/content/agent-prompts.generated.ts` embeds
+# the .md agent prompts as string literals. Committed from Windows it picked up
+# \r inside those literals, so CI (which regenerates from LF sources) failed the
+# "prompts have not drifted" test. Pinning text files to LF in the index makes
+# that impossible regardless of a dev's core.autocrlf setting.
+
+# Default: treat as text, store LF in the repo.
+* text=auto eol=lf
+
+# Source + config — always LF.
+*.ts   text eol=lf
+*.tsx  text eol=lf
+*.js   text eol=lf
+*.mjs  text eol=lf
+*.cjs  text eol=lf
+*.json text eol=lf
+*.md   text eol=lf
+*.css  text eol=lf
+*.sql  text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+
+# Binaries — never touch.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.webp binary
+*.pdf  binary
+*.ttf  binary
+*.otf  binary
+*.woff binary
+*.woff2 binary
+*.p8   binary
