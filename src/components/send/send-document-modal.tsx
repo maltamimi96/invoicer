@@ -5,6 +5,7 @@ import { Loader2, Mail, MessageSquare, Plus, Send, X, Clock } from "@/components
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -247,11 +248,7 @@ export function SendDocumentModal({
             {schedule && (
               <div className="space-y-1.5 pl-6">
                 <Label>Send at</Label>
-                <Input
-                  type="datetime-local"
-                  value={sendAtLocal}
-                  onChange={(e) => setSendAtLocal(e.target.value)}
-                />
+                <DateTimePicker value={sendAtLocal} onChange={setSendAtLocal} />
                 <p className="text-[11px] text-muted-foreground">
                   Times are in your local timezone. We&apos;ll dispatch within ~1 minute of the scheduled moment.
                 </p>

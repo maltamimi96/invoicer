@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -416,9 +417,9 @@ function AssetModal({ siteId, asset, onSave, onClose }: {
           <Field label="Make"><Input value={form.make} onChange={(e) => setForm((f) => ({ ...f, make: e.target.value }))} /></Field>
           <Field label="Model"><Input value={form.model} onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))} /></Field>
           <Field label="Serial number"><Input value={form.serial_number} onChange={(e) => setForm((f) => ({ ...f, serial_number: e.target.value }))} /></Field>
-          <Field label="Install date"><Input type="date" value={form.install_date} onChange={(e) => setForm((f) => ({ ...f, install_date: e.target.value }))} /></Field>
-          <Field label="Last serviced"><Input type="date" value={form.last_serviced} onChange={(e) => setForm((f) => ({ ...f, last_serviced: e.target.value }))} /></Field>
-          <Field label="Warranty expiry"><Input type="date" value={form.warranty_expiry} onChange={(e) => setForm((f) => ({ ...f, warranty_expiry: e.target.value }))} /></Field>
+          <Field label="Install date"><DatePicker value={form.install_date} onChange={(v) => setForm((f) => ({ ...f, install_date: v }))} clearable /></Field>
+          <Field label="Last serviced"><DatePicker value={form.last_serviced} onChange={(v) => setForm((f) => ({ ...f, last_serviced: v }))} clearable /></Field>
+          <Field label="Warranty expiry"><DatePicker value={form.warranty_expiry} onChange={(v) => setForm((f) => ({ ...f, warranty_expiry: v }))} clearable /></Field>
           <Field label="Notes" wide><Textarea rows={2} value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} /></Field>
         </div>
         <DialogFooter>

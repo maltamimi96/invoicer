@@ -1,6 +1,7 @@
 "use client";
 
 import { useConfirm } from "@/components/ui/confirm";
+import { DatePicker } from "@/components/ui/date-picker";
 
 import { useMemo, useState, useTransition } from "react";
 import {
@@ -710,12 +711,7 @@ function TaskModal({
             </div>
             <div>
               <label className="text-xs text-neutral-500 block mb-1">Due</label>
-              <input
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className="w-full px-3 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-sm"
-              />
+              <DatePicker value={dueDate} onChange={setDueDate} clearable />
             </div>
           </div>
 

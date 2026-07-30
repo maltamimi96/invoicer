@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { PageHeader } from "@/components/layout/page-header";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { DatePicker } from "@/components/ui/date-picker";
 import { createExpense, deleteExpense, uploadReceipt, getReceiptUrl } from "@/lib/actions/expenses";
 import type { Expense } from "@/types/database";
 
@@ -230,7 +231,7 @@ export function ExpensesView({ expenses, workOrders }: Props) {
                   ))}
                 </select>
               </div>
-              <div className="space-y-1.5"><Label htmlFor="e-date">Date</Label><Input id="e-date" type="date" value={spentOn} onChange={(e) => setSpentOn(e.target.value)} /></div>
+              <div className="space-y-1.5"><Label htmlFor="e-date">Date</Label><DatePicker id="e-date" value={spentOn} onChange={setSpentOn} /></div>
             </div>
             <div className="space-y-1.5"><Label htmlFor="e-vendor">Vendor</Label><Input id="e-vendor" placeholder="Bunnings, fuel station…" value={vendor} onChange={(e) => setVendor(e.target.value)} /></div>
             <div className="grid grid-cols-2 gap-3">
