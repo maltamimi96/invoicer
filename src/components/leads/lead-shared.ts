@@ -18,14 +18,16 @@ export interface StageDef {
   soft: string;
   /** Left-rail border colour for cards. */
   rail: string;
+  /** Soft card background tint per status. */
+  cardBg: string;
 }
 
 export const STAGES: StageDef[] = [
-  { status: "new",       label: "New",       dot: "bg-blue-500",    soft: "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300",          rail: "border-l-blue-500" },
-  { status: "contacted", label: "Contacted", dot: "bg-amber-500",   soft: "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300",      rail: "border-l-amber-500" },
-  { status: "quoted",    label: "Quoted",    dot: "bg-violet-500",  soft: "bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300",  rail: "border-l-violet-500" },
-  { status: "won",       label: "Won",       dot: "bg-emerald-500", soft: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300", rail: "border-l-emerald-500" },
-  { status: "lost",      label: "Lost",      dot: "bg-rose-500",    soft: "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300",          rail: "border-l-rose-500" },
+  { status: "new",       label: "New",       dot: "bg-blue-500",    soft: "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300",          rail: "border-l-blue-500",    cardBg: "bg-blue-50/70 dark:bg-blue-950/20" },
+  { status: "contacted", label: "Contacted", dot: "bg-amber-500",   soft: "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300",      rail: "border-l-amber-500",   cardBg: "bg-amber-50/70 dark:bg-amber-950/20" },
+  { status: "quoted",    label: "Quoted",    dot: "bg-violet-500",  soft: "bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300",  rail: "border-l-violet-500",  cardBg: "bg-violet-50/70 dark:bg-violet-950/20" },
+  { status: "won",       label: "Won",       dot: "bg-emerald-500", soft: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300", rail: "border-l-emerald-500", cardBg: "bg-emerald-50/70 dark:bg-emerald-950/20" },
+  { status: "lost",      label: "Lost",      dot: "bg-rose-500",    soft: "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300",          rail: "border-l-rose-500",    cardBg: "bg-rose-50/70 dark:bg-rose-950/20" },
 ];
 
 export const STAGE_BY_STATUS: Record<LeadStatus, StageDef> = Object.fromEntries(
@@ -79,4 +81,6 @@ export interface LeadActionHandlers {
   onDelete: (id: string) => void;
   onConvert: (id: string, target: ConvertTarget) => void;
   onAddAsContact: (id: string) => void;
+  /** Open the lead's side drawer (details + tags + notes). */
+  onOpen: (id: string) => void;
 }

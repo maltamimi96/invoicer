@@ -33,10 +33,12 @@ export function LeadCard({
 }) {
   const stage = STAGE_BY_STATUS[lead.status];
   const next = NEXT_STATUS[lead.status];
+  const tags = lead.tags ?? [];
 
   return (
     <div
-      className={`rounded-xl border border-border border-l-[3px] ${stage?.rail ?? ""} bg-card p-3 space-y-2 transition-shadow ${
+      onClick={() => handlers.onOpen(lead.id)}
+      className={`cursor-pointer rounded-xl border border-border border-l-[3px] ${stage?.rail ?? ""} ${stage?.cardBg ?? "bg-card"} p-3 space-y-2 transition-shadow ${
         dragging ? "shadow-lg rotate-[1.5deg] cursor-grabbing" : "shadow-sm hover:shadow-md"
       }`}
     >
@@ -46,7 +48,9 @@ export function LeadCard({
           <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
           <span className="font-semibold text-sm break-words">{lead.name}</span>
         </div>
-        <LeadActions lead={lead} busy={busy} handlers={handlers} />
+        <div onClick={(e) => e.stopPropagation()}>
+          <LeadActions lead={lead} busy={busy} handlers={handlers} />
+        </div>
       </div>
 
       {/* Details */}
@@ -55,6 +59,7 @@ export function LeadCard({
           <a
             href={`tel:${lead.phone.replace(/\s/g, "")}`}
             onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
             className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
           >
             <Phone className="h-3 w-3 shrink-0" />
@@ -65,6 +70,7 @@ export function LeadCard({
           <a
             href={`mailto:${lead.email}`}
             onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
             className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
           >
             <Mail className="h-3 w-3 shrink-0" />
@@ -81,6 +87,17 @@ export function LeadCard({
           <p className="text-xs text-foreground/80 break-words">{lead.service}</p>
         )}
       </div>
+
+      {/* Tags */}
+      {tags.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {tags.map((tag) => (
+            <span key={tag} className="inline-flex items-center rounded-full bg-background/70 border border-border px-2 py-0.5 text-[10px] font-medium text-foreground/80">
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Footer */}
       <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-border/60">
@@ -100,7 +117,7 @@ export function LeadCard({
               size="sm"
               className="h-7 text-[11px] px-2 gap-0.5"
               onPointerDown={(e) => e.stopPropagation()}
-              onClick={() => handlers.onMove(lead.id, next)}
+              onClick={(e) => { e.stopPropagation(); handlers.onMove(lead.id, next); }}
             >
               {next.charAt(0).toUpperCase() + next.slice(1)}
               <ChevronRight className="h-3 w-3" />
