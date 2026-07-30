@@ -8,6 +8,8 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
+import { TimePicker } from "@/components/ui/time-picker";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
@@ -357,16 +359,16 @@ export function WorkOrderNewClient({
 
             <div className="space-y-1.5">
               <Label>Scheduled Date</Label>
-              <Input type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} />
+              <DatePicker value={scheduledDate} onChange={setScheduledDate} clearable />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div className="space-y-1.5">
                 <Label>Start Time</Label>
-                <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+                <TimePicker value={startTime} onChange={setStartTime} clearable />
               </div>
               <div className="space-y-1.5">
                 <Label>End Time</Label>
-                <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+                <TimePicker value={endTime} onChange={setEndTime} clearable />
               </div>
             </div>
           </div>

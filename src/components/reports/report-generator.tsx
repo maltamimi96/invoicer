@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -325,11 +326,11 @@ export function ReportGenerator({ customers: initialCustomers, business, default
                   </div>
                   <div className="space-y-1.5">
                     <Label>Inspection Date</Label>
-                    <Input type="date" value={inspectionDate} onChange={(e) => setInspectionDate(e.target.value)} />
+                    <DatePicker value={inspectionDate} onChange={setInspectionDate} />
                   </div>
                   <div className="space-y-1.5">
                     <Label>Report Date</Label>
-                    <Input type="date" value={reportDate} onChange={(e) => setReportDate(e.target.value)} />
+                    <DatePicker value={reportDate} onChange={setReportDate} />
                   </div>
                   <div className="space-y-1.5">
                     <Label>Inspector Name</Label>

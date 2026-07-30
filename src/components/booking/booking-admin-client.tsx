@@ -8,6 +8,8 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
+import { TimePicker } from "@/components/ui/time-picker";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
@@ -431,9 +433,9 @@ function ResourceRow({ resource, teamMembers, onLink, onDelete }: { resource: Bo
             <div key={d} className="flex items-center gap-2">
               <Switch checked={hours[wd].enabled} onCheckedChange={(v) => setHours((h) => h.map((x, i) => i === wd ? { ...x, enabled: v } : x))} />
               <span className="w-10 text-sm">{d}</span>
-              <Input type="time" value={hours[wd].start} disabled={!hours[wd].enabled} className="w-32" onChange={(e) => setHours((h) => h.map((x, i) => i === wd ? { ...x, start: e.target.value } : x))} />
+              <TimePicker value={hours[wd].start} disabled={!hours[wd].enabled} className="w-32" onChange={(v) => setHours((h) => h.map((x, i) => i === wd ? { ...x, start: v } : x))} />
               <span className="text-muted-foreground">–</span>
-              <Input type="time" value={hours[wd].end} disabled={!hours[wd].enabled} className="w-32" onChange={(e) => setHours((h) => h.map((x, i) => i === wd ? { ...x, end: e.target.value } : x))} />
+              <TimePicker value={hours[wd].end} disabled={!hours[wd].enabled} className="w-32" onChange={(v) => setHours((h) => h.map((x, i) => i === wd ? { ...x, end: v } : x))} />
             </div>
           ))}
           <Button size="sm" disabled={pending} onClick={save}>Save hours</Button>
@@ -448,7 +450,7 @@ function AddException({ onAdd }: { onAdd: (row: BookingAvailabilityException) =>
   const [pending, start] = useTransition();
   return (
     <div className="flex gap-2 items-end border-t pt-4">
-      <div><Label className="text-xs">Closed date</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
+      <div><Label className="text-xs">Closed date</Label><DatePicker value={date} onChange={setDate} /></div>
       <Button disabled={pending || !date} onClick={() => start(async () => {
         try { await createException({ date, isClosed: true }); onAdd({ id: crypto.randomUUID(), business_id: "", resource_id: null, date, is_closed: true, start_time: null, end_time: null, reason: null, created_at: new Date().toISOString() }); setDate(""); toast.success("Blackout date added"); }
         catch (e) { toast.error((e as Error).message); }

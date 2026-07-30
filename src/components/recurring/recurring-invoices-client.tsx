@@ -8,6 +8,7 @@ import { Plus, Repeat, Pause, Play, Trash2, Edit2, CreditCard, Zap } from "@/com
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -234,11 +235,11 @@ export function RecurringInvoicesClient({ initial, customers, products, currency
               </div>
               <div className="space-y-1.5">
                 <Label>First invoice date</Label>
-                <Input type="date" value={form.next_run_on} onChange={(e) => setForm({ ...form, next_run_on: e.target.value })} />
+                <DatePicker value={form.next_run_on} onChange={(v) => setForm({ ...form, next_run_on: v })} />
               </div>
               <div className="space-y-1.5">
                 <Label>Ends on (optional)</Label>
-                <Input type="date" value={form.ends_on} onChange={(e) => setForm({ ...form, ends_on: e.target.value })} />
+                <DatePicker value={form.ends_on} onChange={(v) => setForm({ ...form, ends_on: v })} clearable />
               </div>
             </div>
             <div className="space-y-3 rounded-lg border border-border p-3">

@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { Trash2, User, Clock, MapPin, Calendar, ChevronDown, Check } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
+import { TimePicker } from "@/components/ui/time-picker";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -140,15 +142,15 @@ export function JobModal({ mode, job, defaultDate, profiles, customers, onClose,
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="space-y-1.5">
                 <Label className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> Date *</Label>
-                <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+                <DatePicker value={date} onChange={setDate} />
               </div>
               <div className="space-y-1.5">
                 <Label className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> Start</Label>
-                <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+                <TimePicker value={startTime} onChange={setStartTime} clearable />
               </div>
               <div className="space-y-1.5">
                 <Label>End</Label>
-                <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+                <TimePicker value={endTime} onChange={setEndTime} clearable />
               </div>
             </div>
 

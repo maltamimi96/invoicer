@@ -5,6 +5,8 @@ import { Plus, Repeat, Pause, Play, Trash2, Edit2, MapPin, User as UserIcon, Cal
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
+import { TimePicker } from "@/components/ui/time-picker";
 import { PageHeader } from "@/components/layout/page-header";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -326,7 +328,7 @@ export function RecurringJobsClient({ initialSchedules, customers, profiles, pro
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <Label className="text-xs">Start time</Label>
-                <Input type="time" value={form.preferred_start_time ?? ""} onChange={(e) => setForm({ ...form, preferred_start_time: e.target.value || null })} />
+                <TimePicker value={form.preferred_start_time ?? ""} onChange={(v) => setForm({ ...form, preferred_start_time: v || null })} clearable />
               </div>
               <div>
                 <Label className="text-xs">Duration (min)</Label>
@@ -334,13 +336,13 @@ export function RecurringJobsClient({ initialSchedules, customers, profiles, pro
               </div>
               <div>
                 <Label className="text-xs">First occurrence *</Label>
-                <Input type="date" value={form.next_occurrence_at} onChange={(e) => setForm({ ...form, next_occurrence_at: e.target.value })} />
+                <DatePicker value={form.next_occurrence_at} onChange={(v) => setForm({ ...form, next_occurrence_at: v })} />
               </div>
             </div>
 
             <div>
               <Label className="text-xs">Ends on (optional)</Label>
-              <Input type="date" value={form.ends_on ?? ""} onChange={(e) => setForm({ ...form, ends_on: e.target.value || null })} />
+              <DatePicker value={form.ends_on ?? ""} onChange={(v) => setForm({ ...form, ends_on: v || null })} clearable />
             </div>
           </div>
 

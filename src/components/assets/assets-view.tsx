@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Hammer, Plus, Trash2, Wrench } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { PageHeader } from "@/components/layout/page-header";
@@ -140,7 +141,7 @@ export function AssetsView({ assets, members }: Props) {
                   <option value="">— Unassigned —</option>{members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
                 </select>
               </div>
-              <div className="space-y-1.5"><Label htmlFor="as-next">Next service</Label><Input id="as-next" type="date" value={nextService} onChange={(e) => setNextService(e.target.value)} /></div>
+              <div className="space-y-1.5"><Label htmlFor="as-next">Next service</Label><DatePicker id="as-next" value={nextService} onChange={setNextService} clearable /></div>
             </div>
             <div className="space-y-1.5"><Label htmlFor="as-cost">Purchase cost</Label><Input id="as-cost" type="number" step="0.01" value={cost} onChange={(e) => setCost(e.target.value)} /></div>
           </div>
@@ -157,8 +158,8 @@ export function AssetsView({ assets, members }: Props) {
           <DialogHeader><DialogTitle>Log service — {serviceFor?.name}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5"><Label htmlFor="sv-date">Serviced on</Label><Input id="sv-date" type="date" value={svcDate} onChange={(e) => setSvcDate(e.target.value)} /></div>
-              <div className="space-y-1.5"><Label htmlFor="sv-next">Next due</Label><Input id="sv-next" type="date" value={svcNext} onChange={(e) => setSvcNext(e.target.value)} /></div>
+              <div className="space-y-1.5"><Label htmlFor="sv-date">Serviced on</Label><DatePicker id="sv-date" value={svcDate} onChange={setSvcDate} /></div>
+              <div className="space-y-1.5"><Label htmlFor="sv-next">Next due</Label><DatePicker id="sv-next" value={svcNext} onChange={setSvcNext} clearable /></div>
             </div>
             <div className="space-y-1.5"><Label htmlFor="sv-cost">Cost</Label><Input id="sv-cost" type="number" step="0.01" value={svcCost} onChange={(e) => setSvcCost(e.target.value)} /></div>
             <div className="space-y-1.5"><Label htmlFor="sv-desc">What was done</Label><Textarea id="sv-desc" rows={2} value={svcDesc} onChange={(e) => setSvcDesc(e.target.value)} /></div>
