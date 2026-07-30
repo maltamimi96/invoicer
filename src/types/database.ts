@@ -252,6 +252,23 @@ export interface Payment {
   created_at: string;
 }
 
+/** The record types a file can be attached to. */
+export type AttachmentEntityType = "customer" | "work_order" | "invoice" | "quote" | "lead";
+
+/** A file attached to a record (documents, receipts, PDFs, images). */
+export interface Attachment {
+  id: string;
+  business_id: string;
+  entity_type: AttachmentEntityType;
+  entity_id: string;
+  name: string;
+  path: string;
+  mime_type: string | null;
+  size_bytes: number | null;
+  uploaded_by: string | null;
+  created_at: string;
+}
+
 export interface LineItem {
   id: string;
   product_id?: string;
@@ -1579,6 +1596,8 @@ export type ApiScope =
   | 'assets:write'
   | 'prospects:read'
   | 'prospects:write'
+  | 'attachments:read'
+  | 'attachments:write'
   | 'assistant:read'
   | 'assistant:write'
   | 'email:send'
@@ -1625,6 +1644,8 @@ export const ALL_API_SCOPES: { value: ApiScope; label: string; group: string }[]
   { value: 'assets:write',     label: 'Manage assets & equipment', group: 'Assets' },
   { value: 'prospects:read',   label: 'Read prospects', group: 'Prospects' },
   { value: 'prospects:write',  label: 'Create / edit / import prospects', group: 'Prospects' },
+  { value: 'attachments:read', label: 'Read file attachments', group: 'Attachments' },
+  { value: 'attachments:write', label: 'Delete file attachments', group: 'Attachments' },
   { value: 'assistant:read',   label: 'Read assistant conversations', group: 'Assistant' },
   { value: 'assistant:write',  label: 'Delete assistant conversations', group: 'Assistant' },
   { value: 'email:send',       label: 'Send emails to customers', group: 'Email' },

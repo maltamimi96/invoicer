@@ -7,8 +7,9 @@ import {
   Plus, Edit, Mail, Phone, Building2, MapPin, FileText,
   FileCheck, Wrench, ClipboardList, StickyNote, User, Users, Home,
   Trash2, Star, Save, X, ChevronDown, ChevronUp, ImageIcon, MessageSquare,
-  CreditCard, DollarSign,
+  CreditCard, DollarSign, Paperclip,
 } from "@/components/ui/icons";
+import { AttachmentsPanel } from "@/components/attachments/attachments-panel";
 import { Button } from "@/components/ui/button";
 import {
   DetailHero, StatTile, AnimatedPress, FadeIn, KireiAvatar, GradientTile,
@@ -693,6 +694,9 @@ export function CustomerDetailClient({
                 <TabsTrigger value="notes" className="gap-1.5">
                   <StickyNote className="w-3.5 h-3.5" />Notes ({notes.length})
                 </TabsTrigger>
+                <TabsTrigger value="files" className="gap-1.5">
+                  <Paperclip className="w-3.5 h-3.5" />Files
+                </TabsTrigger>
                 {onboarding && (
                   <TabsTrigger value="onboarding" className="gap-1.5">
                     <ClipboardList className="w-3.5 h-3.5" />Onboarding ({onboarding.requests.length})
@@ -711,6 +715,11 @@ export function CustomerDetailClient({
                   />
                 </TabsContent>
               )}
+
+              {/* ── Files ── */}
+              <TabsContent value="files" className="mt-3">
+                <AttachmentsPanel entityType="customer" entityId={customer.id} />
+              </TabsContent>
 
               {/* ── Properties ── */}
               <TabsContent value="properties" className="mt-3 space-y-3">

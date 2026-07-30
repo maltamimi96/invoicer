@@ -46,6 +46,7 @@ export {
   Moon,
   Newspaper,
   Package,
+  Paperclip,
   Palette,
   Pause,
   Pencil,
