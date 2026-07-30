@@ -100,7 +100,7 @@ export function GlobalSearch({
 
   return (
     <div ref={wrapRef} className="relative w-full">
-      <div className="flex h-9 items-center gap-2 rounded-full bg-white/15 px-3.5 text-primary-foreground focus-within:bg-white/25">
+      <div className="flex h-9 items-center gap-2 rounded-full bg-white/15 px-3.5 text-nav-foreground focus-within:bg-white/25">
         <Search className="h-4 w-4 shrink-0 opacity-80" />
         <input
           ref={inputRef}
@@ -109,9 +109,9 @@ export function GlobalSearch({
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
           placeholder="Search…"
-          className="w-full bg-transparent text-sm text-primary-foreground placeholder:text-primary-foreground/70 outline-none"
+          className="w-full bg-transparent text-sm text-nav-foreground placeholder:text-nav-foreground/70 outline-none"
         />
-        <kbd className="ml-auto hidden rounded border border-white/25 px-1.5 py-0.5 text-[10px] font-medium text-primary-foreground/70 sm:inline">
+        <kbd className="ml-auto hidden rounded border border-white/25 px-1.5 py-0.5 text-[10px] font-medium text-nav-foreground/70 sm:inline">
           ⌘K
         </kbd>
       </div>
