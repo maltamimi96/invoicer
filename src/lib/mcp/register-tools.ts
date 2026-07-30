@@ -1193,6 +1193,70 @@ export function registerTools(register: ToolFn): void {
       return text({ deleted: true });
     });
 
+  tool("list_payroll_employees", "List payroll employees (name, pay type, rate/salary, super %).",
+    { include_inactive: z.boolean().optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "payroll:read");
+      let q = t(ctx, "payroll_employees").select("*").eq("business_id", ctx.businessId).order("name");
+      if (!args.include_inactive) q = q.eq("active", true);
+      const { data, error } = await q;
+      if (error) throw error;
+      return text(data);
+    });
+
+  tool("create_payroll_employee", "Add a payroll employee.",
+    { name: z.string().min(1), email: z.string().optional(), pay_type: z.enum(["hourly", "salary"]).optional(), hourly_rate: z.number().optional(), annual_salary: z.number().optional(), super_rate: z.number().optional(), member_profile_id: UUID.optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "payroll:write");
+      const { data, error } = await t(ctx, "payroll_employees").insert({
+        business_id: ctx.businessId, name: args.name.trim(), email: args.email ?? null,
+        member_profile_id: args.member_profile_id ?? null, pay_type: args.pay_type ?? "hourly",
+        hourly_rate: args.hourly_rate ?? 0, annual_salary: args.annual_salary ?? 0, super_rate: args.super_rate ?? 11.5,
+      }).select().single();
+      if (error) throw error;
+      return text({ created: true, employee: data });
+    });
+
+  tool("list_pay_runs", "List pay runs (period, pay date, status, totals).",
+    {},
+    async (_args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "payroll:read");
+      const { data, error } = await t(ctx, "pay_runs").select("*").eq("business_id", ctx.businessId).order("pay_date", { ascending: false });
+      if (error) throw error;
+      return text(data);
+    });
+
+  tool("get_pay_run", "Get a pay run with its per-employee lines.",
+    { pay_run_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "payroll:read");
+      const { data: run } = await t(ctx, "pay_runs").select("*").eq("id", args.pay_run_id).eq("business_id", ctx.businessId).maybeSingle();
+      if (!run) return errorText("Pay run not found");
+      const { data: lines } = await t(ctx, "pay_run_lines").select("*").eq("pay_run_id", args.pay_run_id).eq("business_id", ctx.businessId).order("name");
+      return text({ run, lines: lines ?? [] });
+    });
+
+  tool("finalise_pay_run", "Finalise a pay run — locks it and posts wages + super to Expenses.",
+    { pay_run_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "payroll:write");
+      const { data: run } = await t(ctx, "pay_runs").select("*").eq("id", args.pay_run_id).eq("business_id", ctx.businessId).maybeSingle();
+      if (!run) return errorText("Pay run not found");
+      const r = run as { status: string; gross_total: number; super_total: number; pay_date: string; period_start: string; period_end: string };
+      if (r.status === "finalised") return text({ finalised: true, already: true });
+      const period = `${r.period_start} → ${r.period_end}`;
+      const mk = async (category: string, amount: number) => {
+        if (amount <= 0) return null;
+        const { data } = await t(ctx, "expenses").insert({ business_id: ctx.businessId, user_id: ctx.userId, category, amount, tax_amount: 0, spent_on: r.pay_date, description: `Payroll ${period}`, payment_method: "bank" }).select("id").single();
+        return (data as { id: string } | null)?.id ?? null;
+      };
+      const wagesId = await mk("wages", Number(r.gross_total));
+      const superId = await mk("superannuation", Number(r.super_total));
+      const { error } = await t(ctx, "pay_runs").update({ status: "finalised", finalised_at: new Date().toISOString(), wages_expense_id: wagesId, super_expense_id: superId }).eq("id", args.pay_run_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ finalised: true });
+    });
+
   tool("convert_lead_to_customer", "Create a customer from a lead and link them (sets lead status to contacted).",
     { lead_id: UUID },
     async (args, extra) => {

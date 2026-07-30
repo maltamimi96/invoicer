@@ -653,6 +653,61 @@ export interface Expense {
   updated_at: string;
 }
 
+// ── Payroll ──────────────────────────────────────────────────────────────────
+export type PayType = "hourly" | "salary";
+export type PayRunStatus = "draft" | "finalised";
+
+export interface PayrollEmployee {
+  id: string;
+  business_id: string;
+  member_profile_id: string | null;
+  name: string;
+  email: string | null;
+  pay_type: PayType;
+  hourly_rate: number;
+  annual_salary: number;
+  super_rate: number;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PayRun {
+  id: string;
+  business_id: string;
+  period_start: string;
+  period_end: string;
+  pay_date: string;
+  status: PayRunStatus;
+  notes: string | null;
+  gross_total: number;
+  super_total: number;
+  tax_total: number;
+  net_total: number;
+  wages_expense_id: string | null;
+  super_expense_id: string | null;
+  finalised_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PayRunLine {
+  id: string;
+  business_id: string;
+  pay_run_id: string;
+  employee_id: string | null;
+  name: string;
+  pay_type: PayType;
+  hours: number;
+  rate: number;
+  gross: number;
+  super_amount: number;
+  tax_amount: number;
+  net: number;
+  note: string | null;
+  created_at: string;
+}
+
 // ── Prospects (top-of-funnel cold list → converts into leads) ────────────────
 export type ProspectStatus = 'new' | 'contacted' | 'responded' | 'qualified' | 'unqualified' | 'converted';
 export interface Prospect {
@@ -1598,6 +1653,8 @@ export type ApiScope =
   | 'prospects:write'
   | 'attachments:read'
   | 'attachments:write'
+  | 'payroll:read'
+  | 'payroll:write'
   | 'assistant:read'
   | 'assistant:write'
   | 'email:send'
@@ -1646,6 +1703,8 @@ export const ALL_API_SCOPES: { value: ApiScope; label: string; group: string }[]
   { value: 'prospects:write',  label: 'Create / edit / import prospects', group: 'Prospects' },
   { value: 'attachments:read', label: 'Read file attachments', group: 'Attachments' },
   { value: 'attachments:write', label: 'Delete file attachments', group: 'Attachments' },
+  { value: 'payroll:read',     label: 'Read payroll (employees, pay runs)', group: 'Payroll' },
+  { value: 'payroll:write',    label: 'Manage payroll & run payroll', group: 'Payroll' },
   { value: 'assistant:read',   label: 'Read assistant conversations', group: 'Assistant' },
   { value: 'assistant:write',  label: 'Delete assistant conversations', group: 'Assistant' },
   { value: 'email:send',       label: 'Send emails to customers', group: 'Email' },
