@@ -13,6 +13,7 @@ interface ClientSelectProps {
   placeholder?: string;
   allowNone?: boolean;
   onCustomerCreated?: (customer: Customer) => void;
+  className?: string;
 }
 
 export function ClientSelect({
@@ -22,6 +23,7 @@ export function ClientSelect({
   placeholder = "Select client...",
   allowNone = true,
   onCustomerCreated,
+  className,
 }: ClientSelectProps) {
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -43,6 +45,7 @@ export function ClientSelect({
         items={items}
         value={value}
         onValueChange={onValueChange}
+        className={className}
         placeholder={placeholder}
         searchPlaceholder="Search clients by name, email, phone..."
         emptyText="No clients found."
