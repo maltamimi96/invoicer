@@ -7,7 +7,7 @@ import { dispatchWebhook } from "@/lib/webhooks";
 import { createCustomer } from "@/lib/actions/customers";
 import { createQuote } from "@/lib/actions/quotes";
 import { createWorkOrder } from "@/lib/actions/work-orders";
-import type { Lead, LeadStatus } from "@/types/database";
+import type { Lead, LeadStatus, LeadNote, LeadTagPreset } from "@/types/database";
 
 import { getUser } from "@/lib/auth";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -134,6 +134,125 @@ export async function updateLead(id: string, updates: Partial<Lead>): Promise<vo
   if (error) throw error;
   revalidatePath("/leads");
   revalidatePath(`/leads/${id}`);
+}
+
+// ── Tags ────────────────────────────────────────────────────────────────────
+
+/** Normalise a tag list: trim, drop empties, de-dupe (case-insensitive keep-first). */
+function cleanTags(tags: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of tags) {
+    const t = (raw ?? "").trim();
+    if (!t) continue;
+    const key = t.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(t);
+  }
+  return out;
+}
+
+export async function setLeadTags(id: string, tags: string[]): Promise<string[]> {
+  const supabase = await createClient();
+  const user = await getUser();
+  const businessId = await getActiveBizId(supabase, user.id);
+  const clean = cleanTags(tags);
+
+  const { error } = await tbl(supabase, "leads")
+    .update({ tags: clean })
+    .eq("id", id)
+    .eq("business_id", businessId);
+  if (error) throw error;
+  revalidatePath("/leads");
+  revalidatePath(`/leads/${id}`);
+  return clean;
+}
+
+export async function listLeadTagPresets(): Promise<LeadTagPreset[]> {
+  const supabase = await createClient();
+  const user = await getUser();
+  const businessId = await getActiveBizId(supabase, user.id);
+
+  const { data, error } = await tbl(supabase, "lead_tag_presets")
+    .select("*")
+    .eq("business_id", businessId)
+    .order("label");
+  if (error) throw error;
+  return data as LeadTagPreset[];
+}
+
+export async function createLeadTagPreset(label: string, color?: string | null): Promise<LeadTagPreset> {
+  const supabase = await createClient();
+  const user = await getUser();
+  const businessId = await getActiveBizId(supabase, user.id);
+  const clean = label.trim();
+  if (!clean) throw new Error("A tag label is required");
+
+  const { data, error } = await tbl(supabase, "lead_tag_presets")
+    .upsert({ business_id: businessId, label: clean, color: color ?? null }, { onConflict: "business_id,label" })
+    .select()
+    .single();
+  if (error) throw error;
+  revalidatePath("/leads");
+  return data as LeadTagPreset;
+}
+
+export async function deleteLeadTagPreset(id: string): Promise<void> {
+  const supabase = await createClient();
+  const user = await getUser();
+  const businessId = await getActiveBizId(supabase, user.id);
+
+  const { error } = await tbl(supabase, "lead_tag_presets")
+    .delete()
+    .eq("id", id)
+    .eq("business_id", businessId);
+  if (error) throw error;
+  revalidatePath("/leads");
+}
+
+// ── Notes log ───────────────────────────────────────────────────────────────
+
+export async function getLeadNotes(leadId: string): Promise<LeadNote[]> {
+  const supabase = await createClient();
+  const user = await getUser();
+  const businessId = await getActiveBizId(supabase, user.id);
+
+  const { data, error } = await tbl(supabase, "lead_notes")
+    .select("*")
+    .eq("lead_id", leadId)
+    .eq("business_id", businessId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data as LeadNote[];
+}
+
+export async function addLeadNote(leadId: string, body: string): Promise<LeadNote> {
+  const supabase = await createClient();
+  const user = await getUser();
+  const businessId = await getActiveBizId(supabase, user.id);
+  const clean = body.trim();
+  if (!clean) throw new Error("Note can't be empty");
+
+  const { data, error } = await tbl(supabase, "lead_notes")
+    .insert({ business_id: businessId, lead_id: leadId, user_id: user.id, body: clean })
+    .select()
+    .single();
+  if (error) throw error;
+  revalidatePath(`/leads/${leadId}`);
+  return data as LeadNote;
+}
+
+export async function deleteLeadNote(noteId: string): Promise<void> {
+  const supabase = await createClient();
+  const user = await getUser();
+  const businessId = await getActiveBizId(supabase, user.id);
+
+  const { error } = await tbl(supabase, "lead_notes")
+    .delete()
+    .eq("id", noteId)
+    .eq("business_id", businessId);
+  if (error) throw error;
 }
 
 // ── Pipeline conversions ────────────────────────────────────────────────────

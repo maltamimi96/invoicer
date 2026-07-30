@@ -2,22 +2,16 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Loader2, ArrowLeft, Save, Send, Sparkles, ChevronDown, ChevronUp } from "@/components/ui/icons";
+import { Loader2, Save, Send, Sparkles, ChevronDown, ChevronUp } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ClientSelect } from "@/components/customers/client-select";
 import { AddressSelect } from "@/components/addresses/address-select";
-import { PageHeader } from "@/components/layout/page-header";
-import { Card, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { createQuote, updateQuote, sendQuoteEmail, sendQuoteSms } from "@/lib/actions/quotes";
 import { SendDocumentModal } from "@/components/send/send-document-modal";
 import { LineItemsEditor } from "@/components/invoices/line-items-editor";
@@ -27,10 +21,14 @@ import { formatCurrency } from "@/lib/utils";
 import { PdfSettingsPanel } from "@/components/pdf/pdf-settings-panel";
 import type { Business, Customer, LineItem, Material, Product, Quote } from "@/types/database";
 import { DEFAULT_PDF_SETTINGS } from "@/types/database";
-import Link from "next/link";
 import { AiAssistButton } from "@/components/ai/ai-assist-button";
 import { AiImageAnalyzer } from "@/components/ai/ai-image-analyzer";
 import { DocumentPreviewPane } from "@/components/documents/document-preview-pane";
+import { MyobDocumentShell, MyobHeaderBlock } from "@/components/ui/myob/myob-document-shell";
+import { MyobField } from "@/components/ui/myob/myob-field";
+import { MyobDateField } from "@/components/ui/myob/myob-date-field";
+import { MyobTextarea } from "@/components/ui/myob/myob-input";
+import { MyobAmount } from "@/components/ui/myob/myob-amount";
 
 const schema = z.object({
   customer_id: z.string().optional(),
@@ -62,6 +60,7 @@ function addDays(days: number) {
 
 export function QuoteEditor({ customers, products, materials, business, quote, defaultCustomerId, onSaved }: QuoteEditorProps) {
   const router = useRouter();
+  const currency = business.currency;
   const [lineItems, setLineItems] = useState<LineItem[]>((quote?.line_items as LineItem[]) ?? []);
   const [saving, setSaving] = useState(false);
   const [showImageAi, setShowImageAi] = useState(false);
@@ -180,136 +179,144 @@ export function QuoteEditor({ customers, products, materials, business, quote, d
     property_address: propertyAddress || null,
   };
 
-  return (
-    <div className="space-y-6">
-      <PageHeader
-        title={quote ? `Edit ${quote.number}` : "New quote"}
-        subtitle={quote ? "Update line items, dates, and totals" : "Send an estimate to a customer"}
-        accent="linear-gradient(180deg, #a78bfa 0%, #6d28d9 100%)"
-      />
-      <div className="flex items-center gap-2 flex-wrap">
-        <Button variant="outline" size="sm" className="gap-1.5 rounded-xl h-10" onClick={() => setSmartFillOpen(true)}>
-          <Sparkles className="w-3.5 h-3.5 text-purple-500" />Smart fill
-        </Button>
-        <PdfSettingsPanel settings={pdfSettings} business={business} mode="quote" onSettingsChange={setPdfSettings} />
-        <Button variant="outline" size="sm" className="rounded-xl h-10" disabled={saving} onClick={handleSaveDraft}>
-          {saving ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-1.5" />}Save draft
-        </Button>
-        <Button size="sm" className="rounded-xl h-10" disabled={saving} onClick={handleSaveAndSend}>
-          {saving ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Send className="w-3.5 h-3.5 mr-1.5" />}Save & send
-        </Button>
-      </div>
+  const actions = (
+    <>
+      <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => setSmartFillOpen(true)}>
+        <Sparkles className="w-3.5 h-3.5 text-purple-500" />Smart fill
+      </Button>
+      <PdfSettingsPanel settings={pdfSettings} business={business} mode="quote" onSettingsChange={setPdfSettings} />
+      <Button variant="outline" size="sm" disabled={saving} onClick={handleSaveDraft}>
+        {saving ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-1.5" />}Save draft
+      </Button>
+      <Button size="sm" disabled={saving} onClick={handleSaveAndSend}>
+        {saving ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Send className="w-3.5 h-3.5 mr-1.5" />}Save &amp; send
+      </Button>
+    </>
+  );
 
-      <form className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          <Card>
-            <CardContent className="p-5 space-y-4">
-              <h3 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">Quote Details</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label>Client</Label>
-                  <ClientSelect
-                    customers={localCustomers}
-                    value={watch("customer_id") ?? ""}
-                    onValueChange={(v) => setValue("customer_id", v === "none" ? "" : v)}
-                    onCustomerCreated={(c) => setLocalCustomers((prev) => [...prev, c])}
-                  />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1.5"><Label>Issue date</Label><Input type="date" {...register("issue_date")} /></div>
-                  <div className="space-y-1.5"><Label>Expiry date</Label><Input type="date" {...register("expiry_date")} /></div>
-                </div>
-              </div>
+  const mobileActions = (
+    <>
+      <Button variant="outline" size="sm" className="flex-1" disabled={saving} onClick={handleSaveDraft}>Save draft</Button>
+      <Button size="sm" className="flex-1" disabled={saving} onClick={handleSaveAndSend}>Save &amp; send</Button>
+    </>
+  );
+
+  return (
+    <MyobDocumentShell
+      title={quote ? `Edit ${quote.number}` : "New quote"}
+      backHref="/quotes"
+      actions={actions}
+      mobileActions={mobileActions}
+    >
+      <form className="space-y-7">
+        {/* Header block */}
+        <MyobHeaderBlock
+          left={
+            <>
+              <MyobField label="Client" noUnderline>
+                <ClientSelect
+                  className="h-11"
+                  customers={localCustomers}
+                  value={watch("customer_id") ?? ""}
+                  onValueChange={(v) => setValue("customer_id", v === "none" ? "" : v)}
+                  onCustomerCreated={(c) => setLocalCustomers((prev) => [...prev, c])}
+                />
+              </MyobField>
               <AddressSelect
-                customer={localCustomers.find((c) => c.id === watch("customer_id")) ?? null}
+                label="Site / address"
+                customer={selectedCustomer}
                 value={{ site_id: siteId, property_address: propertyAddress }}
                 onChange={(v) => { setSiteId(v.site_id); setPropertyAddress(v.property_address); }}
               />
-            </CardContent>
-          </Card>
+            </>
+          }
+          right={
+            <>
+              <MyobField label="Issue date">
+                <MyobDateField value={watch("issue_date")} onChange={(v) => setValue("issue_date", v)} />
+              </MyobField>
+              <MyobField label="Expiry date">
+                <MyobDateField value={watch("expiry_date")} onChange={(v) => setValue("expiry_date", v)} />
+              </MyobField>
+            </>
+          }
+        />
 
-          <Card>
-            <CardContent className="p-5 space-y-4">
-              <h3 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">Line Items</h3>
-              <LineItemsEditor items={lineItems} products={products} materials={materials} onChange={setLineItems} currency={business.currency} />
-              <Separator />
-              <div className="space-y-2 ml-auto max-w-xs">
-                <div className="flex justify-between text-sm"><span className="text-muted-foreground">Subtotal</span><span>{formatCurrency(subtotal, business.currency)}</span></div>
-                <div className="flex items-center gap-2">
-                  <Select value={discountType ?? "none"} onValueChange={(v) => setValue("discount_type", v === "none" ? undefined : v as "percent" | "fixed")}>
-                    <SelectTrigger className="h-7 text-xs flex-1"><SelectValue placeholder="Discount" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No discount</SelectItem>
-                      <SelectItem value="percent">% discount</SelectItem>
-                      <SelectItem value="fixed">Fixed discount</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {discountType && <Input type="number" min="0" step="0.01" className="h-7 text-xs w-24" {...register("discount_value")} />}
-                </div>
-                {discountAmount > 0 && <div className="flex justify-between text-sm text-muted-foreground"><span>Discount</span><span>- {formatCurrency(discountAmount, business.currency)}</span></div>}
-                <div className="flex justify-between text-sm"><span className="text-muted-foreground">Tax</span><span>{formatCurrency(taxTotal, business.currency)}</span></div>
-                <Separator />
-                <div className="flex justify-between font-semibold"><span>Total</span><span className="text-lg">{formatCurrency(total, business.currency)}</span></div>
+        {/* Line items + totals */}
+        <div className="space-y-4">
+          <LineItemsEditor items={lineItems} products={products} materials={materials} onChange={setLineItems} currency={currency} />
+
+          <div className="h-px bg-border" />
+
+          <div className="ml-auto w-full max-w-xs space-y-2">
+            <div className="flex h-8 items-center justify-between text-sm">
+              <span className="text-muted-foreground">Subtotal</span>
+              <span className="tabular-nums">{formatCurrency(subtotal, currency)}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Select value={discountType ?? "none"} onValueChange={(v) => setValue("discount_type", v === "none" ? undefined : v as "percent" | "fixed")}>
+                <SelectTrigger className="h-8 flex-1 text-xs"><SelectValue placeholder="Discount" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No discount</SelectItem>
+                  <SelectItem value="percent">% discount</SelectItem>
+                  <SelectItem value="fixed">Fixed discount</SelectItem>
+                </SelectContent>
+              </Select>
+              {discountType && <Input type="number" min="0" step="0.01" className="h-8 w-24 text-xs" {...register("discount_value")} />}
+            </div>
+            {discountAmount > 0 && (
+              <div className="flex h-8 items-center justify-between text-sm text-muted-foreground">
+                <span>Discount</span>
+                <span className="tabular-nums">- {formatCurrency(discountAmount, currency)}</span>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-5 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-1">
-                    <Label>Notes / Scope of Works</Label>
-                    <AiAssistButton
-                      value={watch("notes") ?? ""}
-                      onResult={(text) => setValue("notes", text)}
-                    />
-                  </div>
-                  <Textarea rows={4} placeholder="Describe the scope of works..." {...register("notes")} />
-                </div>
-                <div className="space-y-1.5"><Label>Terms</Label><Textarea rows={4} {...register("terms")} /></div>
-              </div>
-
-              <div className="border-t pt-3">
-                <button
-                  type="button"
-                  className="flex items-center gap-1.5 text-xs text-purple-500 hover:text-purple-600 transition-colors font-medium"
-                  onClick={() => setShowImageAi((v) => !v)}
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  Generate scope from site photos
-                  {showImageAi ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                </button>
-
-                {showImageAi && (
-                  <div className="mt-3">
-                    <AiImageAnalyzer
-                      onResult={(text) => {
-                        setValue("notes", text);
-                        setShowImageAi(false);
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+            )}
+            <div className="flex h-8 items-center justify-between text-sm">
+              <span className="text-muted-foreground">Tax</span>
+              <span className="tabular-nums">{formatCurrency(taxTotal, currency)}</span>
+            </div>
+            <div className="h-px bg-border" />
+            <div className="flex items-center justify-between py-1">
+              <span className="text-base font-semibold">Total</span>
+              <MyobAmount value={total} currency={currency} className="text-base font-semibold tabular-nums" />
+            </div>
+          </div>
         </div>
 
+        {/* Notes / scope */}
         <div className="space-y-4">
-          <Card>
-            <CardContent className="p-5 space-y-3">
-              <h3 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">Summary</h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-muted-foreground">Items</span><span>{lineItems.length}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatCurrency(subtotal, business.currency)}</span></div>
-                {discountAmount > 0 && <div className="flex justify-between text-muted-foreground"><span>Discount</span><span>- {formatCurrency(discountAmount, business.currency)}</span></div>}
-                <div className="flex justify-between"><span className="text-muted-foreground">Tax</span><span>{formatCurrency(taxTotal, business.currency)}</span></div>
-                <Separator />
-                <div className="flex justify-between font-bold text-base"><span>Total</span><span>{formatCurrency(total, business.currency)}</span></div>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <MyobField
+              label="Notes / Scope of Works"
+              labelAction={<AiAssistButton value={watch("notes") ?? ""} onResult={(text) => setValue("notes", text)} />}
+            >
+              <MyobTextarea rows={4} placeholder="Describe the scope of works..." {...register("notes")} />
+            </MyobField>
+            <MyobField label="Terms">
+              <MyobTextarea rows={4} {...register("terms")} />
+            </MyobField>
+          </div>
+
+          <div className="border-t pt-3">
+            <button
+              type="button"
+              className="flex items-center gap-1.5 text-xs font-medium text-purple-500 transition-colors hover:text-purple-600"
+              onClick={() => setShowImageAi((v) => !v)}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Generate scope from site photos
+              {showImageAi ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            </button>
+            {showImageAi && (
+              <div className="mt-3">
+                <AiImageAnalyzer
+                  onResult={(text) => {
+                    setValue("notes", text);
+                    setShowImageAi(false);
+                  }}
+                />
               </div>
-            </CardContent>
-          </Card>
+            )}
+          </div>
         </div>
       </form>
 
@@ -354,6 +361,6 @@ export function QuoteEditor({ customers, products, materials, business, quote, d
         currency={business.currency}
         preselectedCustomerId={watch("customer_id") || null}
       />
-    </div>
+    </MyobDocumentShell>
   );
 }

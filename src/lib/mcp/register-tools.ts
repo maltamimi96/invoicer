@@ -1120,6 +1120,56 @@ export function registerTools(register: ToolFn): void {
       return text({ deleted: true });
     });
 
+  tool("set_lead_tags", "Replace a lead's tags with the given list (custom labels or preset labels).",
+    { lead_id: UUID, tags: z.array(z.string()) },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "leads:write");
+      const clean = Array.from(new Set(args.tags.map((s: string) => s.trim()).filter(Boolean)));
+      const { data, error } = await t(ctx, "leads").update({ tags: clean }).eq("id", args.lead_id).eq("business_id", ctx.businessId).select().single();
+      if (error) throw error;
+      return text({ updated: true, tags: clean, lead: data });
+    });
+
+  tool("list_lead_tag_presets", "List the business's preset lead tags.",
+    {},
+    async (_args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "leads:read");
+      const { data, error } = await t(ctx, "lead_tag_presets").select("*").eq("business_id", ctx.businessId).order("label");
+      if (error) throw error;
+      return text(data);
+    });
+
+  tool("create_lead_tag_preset", "Create a preset lead tag (label + optional colour tone).",
+    { label: z.string().min(1), color: z.string().optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "leads:write");
+      const { data, error } = await t(ctx, "lead_tag_presets")
+        .upsert({ business_id: ctx.businessId, label: args.label.trim(), color: args.color ?? null }, { onConflict: "business_id,label" })
+        .select().single();
+      if (error) throw error;
+      return text({ created: true, preset: data });
+    });
+
+  tool("list_lead_notes", "List the notes on a lead's follow-up log (newest first).",
+    { lead_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "leads:read");
+      const { data, error } = await t(ctx, "lead_notes").select("*").eq("lead_id", args.lead_id).eq("business_id", ctx.businessId).order("created_at", { ascending: false });
+      if (error) throw error;
+      return text(data);
+    });
+
+  tool("add_lead_note", "Add a timestamped note to a lead's follow-up log.",
+    { lead_id: UUID, body: z.string().min(1) },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "leads:write");
+      const { data, error } = await t(ctx, "lead_notes")
+        .insert({ business_id: ctx.businessId, lead_id: args.lead_id, user_id: ctx.userId, body: args.body.trim() })
+        .select().single();
+      if (error) throw error;
+      return text({ added: true, note: data });
+    });
+
   tool("list_attachments", "List files attached to a record (customer/work_order/invoice/quote/lead).",
     { entity_type: z.enum(["customer", "work_order", "invoice", "quote", "lead"]), entity_id: UUID },
     async (args, extra) => {

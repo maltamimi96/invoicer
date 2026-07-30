@@ -892,6 +892,8 @@ export interface Lead {
   property_type: string | null;
   timing: string | null;
   notes: string | null;
+  /** Free-typed + preset tags on this lead. */
+  tags: string[];
   status: LeadStatus;
   source: LeadSource;
   utm_source: string | null;
@@ -909,6 +911,25 @@ export interface Lead {
   identity_key?: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/** A single timestamped note on a lead (append-only follow-up log). */
+export interface LeadNote {
+  id: string;
+  business_id: string;
+  lead_id: string;
+  user_id: string | null;
+  body: string;
+  created_at: string;
+}
+
+/** A business-managed preset tag for leads (label + optional colour tone). */
+export interface LeadTagPreset {
+  id: string;
+  business_id: string;
+  label: string;
+  color: string | null;
+  created_at: string;
 }
 
 // ----------------------------------------------------------------
