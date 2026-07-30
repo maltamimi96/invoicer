@@ -70,6 +70,7 @@ export const PLUGIN_REGISTRY: PluginDefinition[] = [
   { id: "booking", icon: "calendar-days",    name: "Online booking", description: "Public booking pages with reminders.",   kind: "module", category: "service", defaultEnabled: true, routePrefixes: ["/bookings"] },
 
   { id: "expenses", icon: "receipt", name: "Expenses", description: "Track job & business costs with receipts — true profit per job.", kind: "module", category: "service", defaultEnabled: false, routePrefixes: ["/expenses"] },
+  { id: "payroll", icon: "dollar-sign", name: "Payroll", description: "Pay runs from timesheet hours — payslips, super, and wages posted to expenses.", kind: "module", category: "service", defaultEnabled: false, routePrefixes: ["/payroll"] },
 
   // ── Catalog / comms / insights ────────────────────────────────────────────
   { id: "products", icon: "package",   name: "Products",      description: "Price list used across quotes and invoices.", kind: "module", category: "catalog", defaultEnabled: true, routePrefixes: ["/products"] },
