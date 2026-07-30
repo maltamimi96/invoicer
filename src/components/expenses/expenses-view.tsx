@@ -19,7 +19,15 @@ import type { Expense } from "@/types/database";
 interface WO { id: string; number: string | null; title: string | null }
 interface Props { expenses: Expense[]; workOrders: WO[] }
 
-const CATEGORIES = ["materials", "fuel", "tools", "subcontractor", "equipment-hire", "permits", "vehicle", "office", "travel", "other"];
+// Grouped so the dropdown reads as: job costs, overheads/bills, payroll.
+const CATEGORY_GROUPS: { label: string; options: string[] }[] = [
+  { label: "Job costs", options: ["materials", "subcontractor", "equipment-hire", "permits", "fuel", "vehicle", "travel", "tools"] },
+  { label: "Overheads & bills", options: ["rent", "utilities", "insurance", "software", "subscriptions", "phone-internet", "marketing", "accounting", "bank-fees", "office", "tax"] },
+  { label: "Payroll", options: ["wages", "superannuation"] },
+  { label: "Other", options: ["other"] },
+];
+const CATEGORIES = CATEGORY_GROUPS.flatMap((g) => g.options);
+const catLabel = (c: string) => c.replace(/-/g, " ");
 const selectCls = "h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring";
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
 const woLabel = (w?: WO) => w ? (w.title || w.number || "Job") : null;
@@ -41,14 +49,23 @@ export function ExpensesView({ expenses, workOrders }: Props) {
   const [workOrderId, setWorkOrderId] = useState("");
   const [billable, setBillable] = useState(false);
   const [receiptPath, setReceiptPath] = useState<string | null>(null);
+  const [filterCategory, setFilterCategory] = useState("all");
 
   const woById = new Map(workOrders.map((w) => [w.id, w]));
+  const gross = (e: Expense) => Number(e.amount) + Number(e.tax_amount);
 
   // KPI: this month
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0];
   const monthExpenses = expenses.filter((e) => e.spent_on >= monthStart);
-  const monthTotal = monthExpenses.reduce((s, e) => s + Number(e.amount) + Number(e.tax_amount), 0);
-  const billableTotal = expenses.filter((e) => e.billable).reduce((s, e) => s + Number(e.amount) + Number(e.tax_amount), 0);
+  const monthTotal = monthExpenses.reduce((s, e) => s + gross(e), 0);
+  const billableTotal = expenses.filter((e) => e.billable).reduce((s, e) => s + gross(e), 0);
+
+  // Spend by category, this month (biggest first) — where the money goes.
+  const byCategory = Object.entries(
+    monthExpenses.reduce((acc, e) => { acc[e.category] = (acc[e.category] ?? 0) + gross(e); return acc; }, {} as Record<string, number>),
+  ).sort((a, b) => b[1] - a[1]);
+
+  const visible = filterCategory === "all" ? expenses : expenses.filter((e) => e.category === filterCategory);
 
   function reset() {
     setAmount(""); setTax(""); setCategory("materials"); setVendor(""); setDescription("");
@@ -121,6 +138,31 @@ export function ExpensesView({ expenses, workOrders }: Props) {
         <Stat label="Total records" value={String(expenses.length)} />
       </div>
 
+      {/* Where the money went, this month */}
+      {byCategory.length > 0 && (
+        <div className="mb-6 rounded-xl border border-border bg-card p-4">
+          <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Spend by category · this month</p>
+          <div className="flex flex-wrap gap-2">
+            {byCategory.map(([cat, amt]) => {
+              const pct = monthTotal > 0 ? Math.round((amt / monthTotal) * 100) : 0;
+              return (
+                <button
+                  key={cat}
+                  onClick={() => setFilterCategory((f) => (f === cat ? "all" : cat))}
+                  className={cn(
+                    "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs transition-colors",
+                    filterCategory === cat ? "border-primary/40 bg-primary/10 text-foreground" : "border-border bg-background/50 hover:bg-muted",
+                  )}
+                >
+                  <span className="font-medium capitalize">{catLabel(cat)}</span>
+                  <span className="tabular-nums text-muted-foreground">{money(amt)} · {pct}%</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {expenses.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card/50 p-12 text-center">
           <div className="w-12 h-12 rounded-xl bg-muted mx-auto flex items-center justify-center mb-3"><Receipt className="w-6 h-6 text-muted-foreground" /></div>
@@ -129,16 +171,32 @@ export function ExpensesView({ expenses, workOrders }: Props) {
           <Button className="mt-4" onClick={() => setOpen(true)}><Plus className="w-4 h-4 mr-1.5" /> Add your first expense</Button>
         </div>
       ) : (
+        <>
+        <div className="mb-3 flex items-center gap-2">
+          <Label htmlFor="e-filter" className="text-xs text-muted-foreground">Filter</Label>
+          <select id="e-filter" className={cn(selectCls, "h-8 w-auto")} value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}>
+            <option value="all">All categories</option>
+            {CATEGORY_GROUPS.map((g) => (
+              <optgroup key={g.label} label={g.label}>
+                {g.options.map((c) => <option key={c} value={c}>{catLabel(c)}</option>)}
+              </optgroup>
+            ))}
+          </select>
+          <span className="text-xs text-muted-foreground">{visible.length} of {expenses.length}</span>
+        </div>
+        {visible.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-border bg-card/50 p-8 text-center text-sm text-muted-foreground">No {catLabel(filterCategory)} expenses.</p>
+        ) : (
         <div className="ch-table-wrap">
           <table className="ch-table w-full">
             <thead><tr>
               <th>Date</th><th>Category</th><th>Vendor</th><th>Job</th><th className="num">Amount</th><th></th><th></th>
             </tr></thead>
             <tbody>
-              {expenses.map((e) => (
+              {visible.map((e) => (
                 <tr key={e.id}>
                   <td>{new Date(e.spent_on).toLocaleDateString("en-AU")}</td>
-                  <td><span className="capitalize">{e.category.replace("-", " ")}</span>{e.billable && <span className="ml-2 text-[10px] font-medium bg-emerald-100 text-emerald-700 rounded-full px-1.5 py-0.5">billable</span>}</td>
+                  <td><span className="capitalize">{catLabel(e.category)}</span>{e.billable && <span className="ml-2 text-[10px] font-medium bg-emerald-100 text-emerald-700 rounded-full px-1.5 py-0.5">billable</span>}</td>
                   <td className="break-words">{e.vendor ?? "—"}</td>
                   <td>{e.work_order_id ? (woLabel(woById.get(e.work_order_id)) ?? "Job") : "—"}</td>
                   <td className="num">{money(Number(e.amount) + Number(e.tax_amount))}</td>
@@ -149,6 +207,8 @@ export function ExpensesView({ expenses, workOrders }: Props) {
             </tbody>
           </table>
         </div>
+        )}
+        </>
       )}
 
       {/* Add dialog */}
@@ -163,7 +223,11 @@ export function ExpensesView({ expenses, workOrders }: Props) {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5"><Label htmlFor="e-cat">Category</Label>
                 <select id="e-cat" className={selectCls} value={category} onChange={(e) => setCategory(e.target.value)}>
-                  {CATEGORIES.map((c) => <option key={c} value={c} className="capitalize">{c.replace("-", " ")}</option>)}
+                  {CATEGORY_GROUPS.map((g) => (
+                    <optgroup key={g.label} label={g.label}>
+                      {g.options.map((c) => <option key={c} value={c} className="capitalize">{catLabel(c)}</option>)}
+                    </optgroup>
+                  ))}
                 </select>
               </div>
               <div className="space-y-1.5"><Label htmlFor="e-date">Date</Label><Input id="e-date" type="date" value={spentOn} onChange={(e) => setSpentOn(e.target.value)} /></div>
