@@ -62,6 +62,10 @@
     {
       "path": "/api/cron/seo-gsc-sync",
       "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/outreach",
+      "schedule": "0 * * * *"
     }
   ]
 }
