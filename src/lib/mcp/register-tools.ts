@@ -42,6 +42,7 @@ import { registerTimesheetTools } from "./tools/timesheets-tools";
 import { registerAssetTools } from "./tools/assets-tools";
 import { registerProspectTools } from "./tools/prospects-tools";
 import { registerOutreachTools } from "./tools/outreach-tools";
+import { registerTelephonyTools } from "./tools/telephony-tools";
 import { registerAssistantTools } from "./tools/assistant-tools";
 import { ilikeAcross } from "@/lib/pg-filter";
 
@@ -1721,6 +1722,7 @@ export function registerTools(register: ToolFn): void {
   // ===== PROSPECTS =====
   registerProspectTools(tool);
   registerOutreachTools(tool);
+  registerTelephonyTools(tool);
 
   // ===== SCHEDULE =====
   tool("get_schedule", "Get jobs scheduled on a given date (YYYY-MM-DD), or today if omitted.",

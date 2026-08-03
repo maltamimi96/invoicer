@@ -51,6 +51,7 @@ export {
   Pause,
   Pencil,
   Phone,
+  PhoneOff,
   Play,
   Plus,
   Receipt,

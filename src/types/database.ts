@@ -1651,6 +1651,8 @@ export type ApiScope =
   | 'assets:write'
   | 'prospects:read'
   | 'prospects:write'
+  | 'telephony:read'
+  | 'telephony:write'
   | 'outreach:read'
   | 'outreach:write'
   | 'attachments:read'
@@ -1703,6 +1705,8 @@ export const ALL_API_SCOPES: { value: ApiScope; label: string; group: string }[]
   { value: 'assets:write',     label: 'Manage assets & equipment', group: 'Assets' },
   { value: 'prospects:read',   label: 'Read prospects', group: 'Prospects' },
   { value: 'prospects:write',  label: 'Create / edit / import prospects', group: 'Prospects' },
+  { value: 'telephony:read',  label: 'Read call logs & telephony settings', group: 'Telephony' },
+  { value: 'telephony:write', label: 'Manage telephony & call records', group: 'Telephony' },
   { value: 'outreach:read',    label: 'Read outreach sequences, campaigns & tracking', group: 'Outreach' },
   { value: 'outreach:write',   label: 'Manage outreach & send cold email', group: 'Outreach' },
   { value: 'attachments:read', label: 'Read file attachments', group: 'Attachments' },
@@ -2104,4 +2108,62 @@ export interface OutreachMessage {
   status: OutreachMessageStatus; error: string | null;
   sent_at: string; delivered_at: string | null; opened_at: string | null;
   clicked_at: string | null; bounced_at: string | null; replied_at: string | null;
+}
+
+// ── Telephony (VoIPcloud PBX plugin) ────────────────────────────────────────
+export type CallDirection = 'inbound' | 'outbound';
+export type CallStatus = 'ringing' | 'answered' | 'completed' | 'missed' | 'voicemail' | 'failed';
+
+export interface TelephonySettings {
+  business_id: string;
+  enabled: boolean;
+  provider: string;
+  /** Identifies the business in the webhook URL. Unguessable, rotatable. */
+  webhook_token: string;
+  /** Shared secret VoIPcloud returns as the X-Pbx-Token header. */
+  webhook_secret: string | null;
+  api_key_enc: string | null;
+  api_base_url: string | null;
+  log_calls: boolean;
+  create_lead_on_missed: boolean;
+  create_task_on_missed: boolean;
+  create_task_on_voicemail: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Call {
+  id: string;
+  business_id: string;
+  provider: string;
+  /** The PBX's unique_call_id — collapses a call's several events into one row. */
+  external_id: string | null;
+  direction: CallDirection;
+  status: CallStatus;
+  from_number: string | null;
+  to_number: string | null;
+  counterparty_digits: string | null;
+  caller_name: string | null;
+  user_name: string | null;
+  user_number: string | null;
+  started_at: string;
+  answered_at: string | null;
+  ended_at: string | null;
+  duration_seconds: number | null;
+  recording_url: string | null;
+  customer_id: string | null;
+  contact_id: string | null;
+  lead_id: string | null;
+  prospect_id: string | null;
+  created_lead_id: string | null;
+  created_task_id: string | null;
+  notes: string | null;
+  raw: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  /** Joined labels from listCalls. */
+  customers?: { name: string } | null;
+  leads?: { name: string } | null;
+  contacts?: { name: string } | null;
+  prospects?: { company: string | null } | null;
 }
