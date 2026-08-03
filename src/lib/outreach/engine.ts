@@ -144,7 +144,10 @@ export async function runOutreachForBusiness(
     }
 
     const subject = mergeFields(step.subject, p);
-    const bodyHtml = mergeFields(esc(step.body), p).replace(/\n/g, "<br>");
+    // Merge FIRST, then escape — escaping the template first would leave the
+    // substituted prospect values (name/company, which can come from a CSV
+    // import or the crawler) as raw HTML in the outgoing email.
+    const bodyHtml = esc(mergeFields(step.body, p)).replace(/\n/g, "<br>");
     const unsubUrl = `${appUrl()}/unsubscribe/${token}`;
     const html =
       `<div style="font-family:system-ui,Segoe UI,sans-serif;max-width:560px;margin:0 auto;color:#0f172a;line-height:1.5">` +

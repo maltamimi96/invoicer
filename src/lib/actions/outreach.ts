@@ -11,6 +11,8 @@ import { getActiveBizId } from "@/lib/active-business";
 import { getUser } from "@/lib/auth";
 import { encryptSecret, encryptionAvailable } from "@/lib/crypto";
 import { autoEnroll, runOutreachForBusiness, stopEnrollments } from "@/lib/outreach/engine";
+import { sourceProspects, type SourcingResult } from "@/lib/outreach/sourcing";
+import { SEEDS_BY_VERTICAL } from "@/lib/outreach/seed-sequences";
 import type {
   OutreachSettings, OutreachSequence, OutreachSequenceStep,
   OutreachCampaign, OutreachEnrollment, OutreachMessage,
@@ -151,6 +153,42 @@ export async function saveSequenceSteps(
   const { error } = await tbl(supabase, "outreach_sequence_steps").insert(rows);
   if (error) throw error;
   revalidatePath("/outreach");
+}
+
+/** Create a sequence pre-filled from the seed library (editable afterwards). */
+export async function seedSequence(vertical: string): Promise<OutreachSequence> {
+  const { supabase, businessId } = await ctx();
+  const seed = SEEDS_BY_VERTICAL[vertical];
+  if (!seed) throw new Error("Unknown template");
+
+  const { data: seq, error } = await tbl(supabase, "outreach_sequences").insert({
+    business_id: businessId, name: seed.name, description: seed.description,
+    vertical: seed.vertical, status: "draft",
+  }).select().single();
+  if (error) throw error;
+
+  const rows = seed.steps.map((s, i) => ({
+    business_id: businessId, sequence_id: seq.id, step_order: i + 1,
+    delay_days: i === 0 ? 0 : s.delay_days, subject: s.subject, body: s.body,
+  }));
+  const { error: stepErr } = await tbl(supabase, "outreach_sequence_steps").insert(rows);
+  if (stepErr) {
+    await tbl(supabase, "outreach_sequences").delete().eq("id", seq.id);
+    throw stepErr;
+  }
+  revalidatePath("/outreach");
+  return seq as OutreachSequence;
+}
+
+// ── Sourcing ─────────────────────────────────────────────────────────────────
+
+/** Run a Google Places sourcing pass now. Returns what it found/created. */
+export async function runSourcingNow(limit?: number): Promise<SourcingResult> {
+  const { supabase, businessId } = await ctx();
+  const res = await sourceProspects(supabase, businessId, { limit });
+  revalidatePath("/outreach");
+  revalidatePath("/prospects");
+  return res;
 }
 
 // ── Campaigns ────────────────────────────────────────────────────────────────

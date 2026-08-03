@@ -1651,6 +1651,8 @@ export type ApiScope =
   | 'assets:write'
   | 'prospects:read'
   | 'prospects:write'
+  | 'outreach:read'
+  | 'outreach:write'
   | 'attachments:read'
   | 'attachments:write'
   | 'payroll:read'
@@ -1701,6 +1703,8 @@ export const ALL_API_SCOPES: { value: ApiScope; label: string; group: string }[]
   { value: 'assets:write',     label: 'Manage assets & equipment', group: 'Assets' },
   { value: 'prospects:read',   label: 'Read prospects', group: 'Prospects' },
   { value: 'prospects:write',  label: 'Create / edit / import prospects', group: 'Prospects' },
+  { value: 'outreach:read',    label: 'Read outreach sequences, campaigns & tracking', group: 'Outreach' },
+  { value: 'outreach:write',   label: 'Manage outreach & send cold email', group: 'Outreach' },
   { value: 'attachments:read', label: 'Read file attachments', group: 'Attachments' },
   { value: 'attachments:write', label: 'Delete file attachments', group: 'Attachments' },
   { value: 'payroll:read',     label: 'Read payroll (employees, pay runs)', group: 'Payroll' },
