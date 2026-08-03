@@ -10,6 +10,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveBizId } from "@/lib/active-business";
+import { mintUpload, assertSize, safeExt, UPLOAD_LIMITS, type SignedUpload } from "@/lib/uploads";
 import { getUser } from "@/lib/auth";
 import type { Expense, ExpenseStatus } from "@/types/database";
 
@@ -107,18 +108,18 @@ export async function deleteExpense(id: string): Promise<void> {
   revalidatePath("/expenses");
 }
 
-/** Upload a receipt image; returns the storage path (private bucket). */
-export async function uploadReceipt(formData: FormData): Promise<string> {
+/**
+ * Mint a signed URL the browser uploads the receipt straight to.
+ *
+ * Receipts are phone photos, so they routinely exceed the 1MB server-action
+ * body cap — see src/lib/uploads.ts. Returns the storage path to store on the
+ * expense once the browser has finished uploading.
+ */
+export async function createReceiptUpload(fileName: string, sizeBytes: number): Promise<SignedUpload> {
   const businessId = await biz();
-  const file = formData.get("file") as File | null;
-  if (!file) throw new Error("No file");
-  if (file.size > 10 * 1024 * 1024) throw new Error("Receipt must be under 10MB");
-  const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
-  const path = `${businessId}/${randomUUID()}.${ext}`;
-  const admin = createAdminClient();
-  const { error } = await admin.storage.from("expense-receipts").upload(path, file, { contentType: file.type || undefined, upsert: false });
-  if (error) throw error;
-  return path;
+  assertSize(sizeBytes, UPLOAD_LIMITS.receipt, "Receipt");
+  const path = `${businessId}/${randomUUID()}.${safeExt(fileName, "jpg")}`;
+  return mintUpload("expense-receipts", path);
 }
 
 /** Signed URL for a stored receipt. */

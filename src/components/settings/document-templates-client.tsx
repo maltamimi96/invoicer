@@ -16,8 +16,9 @@ import { DEFAULT_TEMPLATE_CONFIG, DEFAULT_COLUMNS, FONT_LABELS } from "@/lib/doc
 import { TEMPLATE_PRESETS } from "@/lib/documents/presets";
 import {
   createDocumentTemplate, updateDocumentTemplate, deleteDocumentTemplate,
-  setDefaultDocumentTemplate, uploadTemplateAsset,
+  setDefaultDocumentTemplate, createTemplateAssetUpload,
 } from "@/lib/actions/document-templates";
+import { putSignedUpload } from "@/lib/uploads-client";
 
 type DocType = "invoice" | "quote" | "both";
 
@@ -216,9 +217,9 @@ function TemplateEditor({ editing, setEditing, onSaved }: {
   const onUpload = async (file: File) => {
     setUploading(true);
     try {
-      const fd = new FormData(); fd.append("file", file);
-      const { url } = await uploadTemplateAsset(fd);
-      set("background_image_url", url);
+      const upload = await createTemplateAssetUpload(file.name, file.type, file.size);
+      await putSignedUpload("document-assets", upload, file);
+      set("background_image_url", upload.url);
     } catch (e) {
       alert(e instanceof Error ? e.message : "Upload failed");
     } finally { setUploading(false); }

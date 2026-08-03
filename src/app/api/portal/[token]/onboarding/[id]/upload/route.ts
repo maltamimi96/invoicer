@@ -6,7 +6,13 @@ import type { OnboardingField } from "@/types/database";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: any, name: string) => sb.from(name);
 
-const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
+// Vercel rejects any serverless request body over 4.5MB, so a larger limit
+// here would be a promise the platform breaks — the caller would get an opaque
+// 413 from the edge instead of this route's message. Public uploads keep
+// travelling through the route (rather than a signed URL straight to storage)
+// because these endpoints are unauthenticated: the server-side size and type
+// check is the only gate before bytes land in the bucket.
+const MAX_BYTES = 4 * 1024 * 1024;
 const IMAGE_TYPES = /^image\/(png|jpe?g|webp|gif|heic|heif)$/i;
 
 /** Customer file/image upload for an onboarding field (token-gated). */
@@ -29,7 +35,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   const file = form.get("file");
   const fieldId = String(form.get("field_id") ?? "");
   if (!(file instanceof File) || !fieldId) return NextResponse.json({ error: "file and field_id are required" }, { status: 400 });
-  if (file.size > MAX_BYTES) return NextResponse.json({ error: "File must be under 10 MB" }, { status: 413 });
+  if (file.size > MAX_BYTES) return NextResponse.json({ error: "File must be under 4 MB" }, { status: 413 });
 
   // The field must exist on the form and be an upload type.
   const { data: f } = await tbl(sb, "onboarding_forms").select("schema").eq("id", request.form_id).maybeSingle();

@@ -15,7 +15,8 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { createContract, uploadContractPdf } from "@/lib/actions/contracts";
+import { createContract, createContractPdfUpload } from "@/lib/actions/contracts";
+import { putSignedUpload } from "@/lib/uploads-client";
 import { CONTRACT_MERGE_FIELDS } from "@/lib/contracts/merge-fields";
 import { formatDate } from "@/lib/utils";
 import type { Contract, ContractTemplate, Customer } from "@/types/database";
@@ -60,8 +61,9 @@ export function ContractsClient({ initial, customers, templates }: Props) {
       let source_path: string | undefined;
       if (mode === "pdf") {
         if (!pdfFile) { setSaving(false); return toast.error("Choose a PDF"); }
-        const fd = new FormData(); fd.append("file", pdfFile);
-        source_path = (await uploadContractPdf(fd)).path;
+        const upload = await createContractPdfUpload(pdfFile.name, pdfFile.type, pdfFile.size);
+        await putSignedUpload("contracts", upload, pdfFile);
+        source_path = upload.path;
       } else if (!content.trim()) {
         setSaving(false); return toast.error("Write the contract content");
       }
