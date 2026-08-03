@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import type { Business } from "@/types/database";
 import type { Role } from "@/lib/permissions";
 import { canManageSettings, isWorker, ROLE_LABELS } from "@/lib/permissions";
-import Image from "next/image";
+import { KireiMark } from "@/components/brand/kirei-logo";
 import { BusinessSwitcher } from "@/components/business/business-switcher";
 import { navSections, filterNav } from "./nav-config";
 
@@ -132,8 +132,8 @@ export function AppSidebar({ business, businesses, userRole, features, vocab, op
           <span className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/50">
             {ROLE_LABELS[userRole]}
           </span>
-          {/* Kirei platform attribution — logo only, no text, no border */}
-          <Image src="/kirei-logo.png" alt="Kirei" width={24} height={24} className="object-contain opacity-70" />
+          {/* Kirei platform attribution — mark only, no text, no border */}
+          <KireiMark className="h-5 w-auto text-sidebar-foreground/60" />
         </div>
       </div>
     </div>

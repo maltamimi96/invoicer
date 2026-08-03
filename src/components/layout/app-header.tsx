@@ -1,8 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
+import { KireiWordmark, KireiMark } from "@/components/brand/kirei-logo";
 import { Moon, Sun, LogOut, Settings, User, Menu, Bot } from "@/components/ui/icons";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
@@ -57,18 +57,18 @@ export function AppHeader({ user, onMenuClick, workerView, features, vocab }: Ap
 
   return (
     <header className="flex h-16 shrink-0 items-center bg-primary text-primary-foreground">
-      {/* Brand segment — over the sidebar column (desktop) */}
-      <div className="hidden md:flex h-full w-64 shrink-0 items-center gap-2.5 border-r border-white/15 px-4">
-        <Image src="/kirei-logo.png" alt="Kirei" width={30} height={30} className="object-contain" />
-        <span className="text-lg font-semibold tracking-tight">Kirei</span>
+      {/* Brand segment — over the sidebar column (desktop). The lockup carries
+          the name, so there's no wordmark text beside it. */}
+      <div className="hidden md:flex h-full w-64 shrink-0 items-center border-r border-white/15 px-4">
+        <KireiWordmark className="h-6 w-auto" accentClassName="fill-[#F05A42]" />
       </div>
 
-      {/* Mobile: menu + logo */}
-      <div className="flex items-center gap-1.5 pl-3 md:hidden">
+      {/* Mobile: menu + mark (the full lockup won't fit beside the search) */}
+      <div className="flex items-center gap-2 pl-3 md:hidden">
         <button onClick={onMenuClick} className={iconBtn} aria-label="Menu">
           <Menu className="h-5 w-5" />
         </button>
-        <Image src="/kirei-logo.png" alt="Kirei" width={26} height={26} className="object-contain" />
+        <KireiMark className="h-6 w-auto" accentClassName="fill-[#F05A42]" />
       </div>
 
       {/* Search */}
