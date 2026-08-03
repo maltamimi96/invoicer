@@ -2052,6 +2052,11 @@ export interface OutreachSettings {
   from_local_part: string;
   reply_to: string | null;
   signature_html: string | null;
+  email_font: string;
+  email_accent: string;
+  email_text_color: string;
+  email_width: number;
+  email_show_logo: boolean;
   sourcing_enabled: boolean;
   places_api_key_enc: string | null;
   sourcing_queries: string[];

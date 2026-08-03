@@ -15,27 +15,14 @@
 import { randomBytes } from "node:crypto";
 import { sendEmail, buildBusinessFrom } from "@/lib/email";
 import { appUrl } from "@/lib/app-url";
+import { renderOutreachEmail, mergeFields } from "./render";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SB = any;
 
-const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** Fill {{first_name}} / {{name}} / {{company}} / {{title}} / {{website}}. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function mergeFields(tpl: string, p: any): string {
-  const first = String(p.name ?? "").trim().split(/\s+/)[0] || "there";
-  return tpl.replace(/\{\{\s*(first_name|name|company|title|website)\s*\}\}/gi, (_m, k: string) => {
-    switch (k.toLowerCase()) {
-      case "first_name": return first;
-      case "company": return String(p.company ?? "");
-      case "title": return String(p.title ?? "");
-      case "website": return String(p.website ?? "");
-      default: return String(p.name ?? "there");
-    }
-  });
-}
+export { mergeFields };
 
 /** Is `now` inside the business's configured send window + days? */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -98,7 +85,7 @@ export async function runOutreachForBusiness(
   if (!due?.length) return out;
 
   const [{ data: business }, { data: supp }] = await Promise.all([
-    sb.from("businesses").select("name,email").eq("id", businessId).maybeSingle(),
+    sb.from("businesses").select("name,email,logo_url").eq("id", businessId).maybeSingle(),
     sb.from("prospect_suppressions").select("email").eq("business_id", businessId),
   ]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -144,18 +131,16 @@ export async function runOutreachForBusiness(
     }
 
     const subject = mergeFields(step.subject, p);
-    // Merge FIRST, then escape — escaping the template first would leave the
-    // substituted prospect values (name/company, which can come from a CSV
-    // import or the crawler) as raw HTML in the outgoing email.
-    const bodyHtml = esc(mergeFields(step.body, p)).replace(/\n/g, "<br>");
-    const unsubUrl = `${appUrl()}/unsubscribe/${token}`;
-    const html =
-      `<div style="font-family:system-ui,Segoe UI,sans-serif;max-width:560px;margin:0 auto;color:#0f172a;line-height:1.5">` +
-      bodyHtml +
-      (settings.signature_html ? `<div style="margin-top:20px">${settings.signature_html}</div>` : "") +
-      `<hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0 12px">` +
-      `<p style="font-size:11px;color:#94a3b8">You received this from ${esc(business?.name ?? "us")}. ` +
-      `<a href="${unsubUrl}" style="color:#94a3b8">Unsubscribe</a>.</p></div>`;
+    // Rendered through the SAME function the builder previews with, so what the
+    // user saw is byte-for-byte what goes out (src/lib/outreach/render.ts).
+    const html = renderOutreachEmail({
+      body: step.body,
+      design: settings,
+      businessName: business?.name ?? "us",
+      businessLogoUrl: business?.logo_url ?? null,
+      unsubUrl: `${appUrl()}/unsubscribe/${token}`,
+      prospect: p,
+    });
 
     // Record the message first so a webhook that beats us still has a row.
     const { data: msg } = await sb.from("outreach_messages").insert({
