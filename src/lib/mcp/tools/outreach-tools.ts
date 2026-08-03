@@ -12,6 +12,7 @@ import { ctxFrom, UUID, type ToolFn } from "./shared";
 import { autoEnroll, runOutreachForBusiness, stopEnrollments } from "@/lib/outreach/engine";
 import { sourceProspects } from "@/lib/outreach/sourcing";
 import { SEED_SEQUENCES, SEEDS_BY_VERTICAL } from "@/lib/outreach/seed-sequences";
+import { renderOutreachEmail, mergeFields, PREVIEW_PROSPECT } from "@/lib/outreach/render";
 
 const STEP = z.object({
   subject: z.string().min(1),
@@ -46,6 +47,11 @@ export function registerOutreachTools(tool: ToolFn): void {
       from_local_part: z.string().optional(),
       reply_to: z.string().optional(),
       signature_html: z.string().optional(),
+      email_font: z.enum(["system", "sans", "serif", "mono"]).optional(),
+      email_accent: z.string().optional(),
+      email_text_color: z.string().optional(),
+      email_width: z.number().int().min(320).max(900).optional(),
+      email_show_logo: z.boolean().optional(),
       sourcing_enabled: z.boolean().optional(),
       sourcing_queries: z.array(z.string()).optional(),
       sourcing_daily_quota: z.number().int().min(0).max(500).optional(),
@@ -301,6 +307,40 @@ export function registerOutreachTools(tool: ToolFn): void {
         ignoreWindow: true, limit: args.limit ?? 25,
       });
       return text({ sent: res.sent, skipped: res.skipped, failed: res.failed, completed: res.completed });
+    });
+
+  tool("preview_outreach_email",
+    "Render a step to the exact HTML that would be sent, using the business's current email design and a sample prospect. Same renderer the engine uses, so this is the email — not an approximation. Pass a sequence_id + step_order, or raw body copy.",
+    { sequence_id: UUID.optional(), step_order: z.number().int().min(1).optional(), body: z.string().optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "outreach:read");
+
+      let body = args.body ?? "";
+      let subject = "(preview)";
+      if (args.sequence_id) {
+        const { data: step } = await t(ctx, "outreach_sequence_steps")
+          .select("subject, body").eq("sequence_id", args.sequence_id)
+          .eq("business_id", ctx.businessId).eq("step_order", args.step_order ?? 1).maybeSingle();
+        if (!step) return errorText("Step not found");
+        body = step.body; subject = step.subject;
+      }
+      if (!body) return errorText("Provide a sequence_id or body copy to preview");
+
+      const [{ data: settings }, { data: business }] = await Promise.all([
+        t(ctx, "outreach_settings").select("*").eq("business_id", ctx.businessId).maybeSingle(),
+        t(ctx, "businesses").select("name, logo_url").eq("id", ctx.businessId).maybeSingle(),
+      ]);
+
+      return text({
+        subject: mergeFields(subject, PREVIEW_PROSPECT),
+        html: renderOutreachEmail({
+          body, design: settings, businessName: business?.name ?? "us",
+          businessLogoUrl: business?.logo_url ?? null,
+          unsubUrl: "https://example.invalid/unsubscribe/preview",
+          prospect: PREVIEW_PROSPECT,
+        }),
+        rendered_with: PREVIEW_PROSPECT,
+      });
     });
 
   tool("source_prospects",

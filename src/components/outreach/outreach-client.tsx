@@ -23,6 +23,8 @@ import {
   runOutreachNow, runSourcingNow, setPlacesApiKey, acknowledgeCrawlerCompliance,
 } from "@/lib/actions/outreach";
 import { SEED_SEQUENCES } from "@/lib/outreach/seed-sequences";
+import { EMAIL_FONTS } from "@/lib/outreach/render";
+import { EmailPreview } from "./email-preview";
 import type { OutreachStats } from "@/lib/actions/outreach";
 import type {
   OutreachSettings, OutreachSequence, OutreachCampaign, OutreachMessage,
@@ -31,19 +33,30 @@ import type {
 type Tab = "overview" | "campaigns" | "sequences" | "activity" | "settings";
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+/** Stand-in copy so the design preview has something realistic in it. */
+const SAMPLE_BODY = `Hi {{first_name}},
+
+I wanted to introduce ourselves to {{company}} as a contractor for your portfolio.
+
+Strata managers need someone they can call at any hour — and who leaves a paper trail the committee will accept.
+
+Would a quick 10-minute call be worth it?`;
+
 function pct(n: number, of: number): string {
   if (!of) return "—";
   return `${Math.round((n / of) * 100)}%`;
 }
 
 export function OutreachClient({
-  settings: initialSettings, stats, campaigns, sequences, messages,
+  settings: initialSettings, stats, campaigns, sequences, messages, businessName, businessLogoUrl,
 }: {
   settings: OutreachSettings;
   stats: OutreachStats;
   campaigns: OutreachCampaign[];
   sequences: (OutreachSequence & { step_count: number })[];
   messages: OutreachMessage[];
+  businessName: string;
+  businessLogoUrl: string | null;
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("overview");
@@ -67,6 +80,11 @@ export function OutreachClient({
           from_local_part: settings.from_local_part,
           reply_to: settings.reply_to,
           signature_html: settings.signature_html,
+          email_font: settings.email_font,
+          email_accent: settings.email_accent,
+          email_text_color: settings.email_text_color,
+          email_width: settings.email_width,
+          email_show_logo: settings.email_show_logo,
           sourcing_enabled: settings.sourcing_enabled,
           sourcing_queries: settings.sourcing_queries,
           sourcing_daily_quota: settings.sourcing_daily_quota,
@@ -207,6 +225,7 @@ export function OutreachClient({
       {tab === "settings" && (
         <SettingsTab
           settings={settings} patch={patch} save={saveSettings} busy={busy}
+          businessName={businessName} businessLogoUrl={businessLogoUrl}
           onDone={() => router.refresh()}
         />
       )}
@@ -470,12 +489,14 @@ function ActivityTab({ messages }: { messages: OutreachMessage[] }) {
 // ── Settings ─────────────────────────────────────────────────────────────────
 
 function SettingsTab({
-  settings, patch, save, busy, onDone,
+  settings, patch, save, busy, businessName, businessLogoUrl, onDone,
 }: {
   settings: OutreachSettings;
   patch: (p: Partial<OutreachSettings>) => void;
   save: () => void;
   busy: boolean;
+  businessName: string;
+  businessLogoUrl: string | null;
   onDone: () => void;
 }) {
   const [placesKey, setPlacesKey] = useState("");
@@ -550,18 +571,100 @@ function SettingsTab({
             <Input id="reply" type="email" value={settings.reply_to ?? ""} placeholder="info@yourbusiness.com.au"
               onChange={(e) => patch({ reply_to: e.target.value })} />
           </div>
-          <div className="sm:col-span-2">
-            <Label htmlFor="sig">Signature (HTML)</Label>
-            <Textarea id="sig" rows={4} value={settings.signature_html ?? ""}
-              onChange={(e) => patch({ signature_html: e.target.value })}
-              placeholder="<strong>Your Name</strong><br>Your Business<br>0400 000 000" />
-            <p className="mt-1 text-xs text-muted-foreground">Appended to every step, above the unsubscribe line.</p>
-          </div>
         </div>
         <div className="mt-4">
           <Button onClick={save} disabled={busy}>
             {busy && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />} Save settings
           </Button>
+        </div>
+      </div>
+
+      {/* Email design — rendered by the same function that sends, so this
+          preview is the email, not an approximation of it. */}
+      <div className="rounded-xl border border-border bg-card p-5">
+        <p className="text-sm font-semibold">Email design</p>
+        <p className="mb-4 text-xs text-muted-foreground">
+          These sends should read like a personal email, not a newsletter — which is why there&rsquo;s no banner or
+          button styling here. Keep it plain and it lands in the inbox rather than the promotions tab.
+        </p>
+
+        <div className="grid gap-5 lg:grid-cols-2">
+          <div className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="font">Font</Label>
+                <select
+                  id="font" value={settings.email_font}
+                  onChange={(e) => patch({ email_font: e.target.value })}
+                  className="flex h-9 w-full rounded-md border border-input bg-card px-3 text-sm"
+                >
+                  {Object.entries(EMAIL_FONTS).map(([k, f]) => (
+                    <option key={k} value={k}>{f.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="width">Width (px)</Label>
+                <Input id="width" type="number" min={320} max={900} value={settings.email_width}
+                  onChange={(e) => patch({ email_width: Number(e.target.value) })} />
+              </div>
+              <div>
+                <Label htmlFor="accent">Accent</Label>
+                <div className="flex gap-2">
+                  <input id="accent" type="color" value={settings.email_accent}
+                    onChange={(e) => patch({ email_accent: e.target.value })}
+                    className="h-9 w-12 cursor-pointer rounded-md border border-input bg-card p-1" />
+                  <Input value={settings.email_accent} onChange={(e) => patch({ email_accent: e.target.value })} />
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">The rule above your signature.</p>
+              </div>
+              <div>
+                <Label htmlFor="textcol">Text colour</Label>
+                <div className="flex gap-2">
+                  <input id="textcol" type="color" value={settings.email_text_color}
+                    onChange={(e) => patch({ email_text_color: e.target.value })}
+                    className="h-9 w-12 cursor-pointer rounded-md border border-input bg-card p-1" />
+                  <Input value={settings.email_text_color} onChange={(e) => patch({ email_text_color: e.target.value })} />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <Label>Show your logo</Label>
+                <p className="text-xs text-muted-foreground">
+                  Off by default — a logo makes a cold email look like marketing.
+                </p>
+              </div>
+              <Switch checked={settings.email_show_logo}
+                onCheckedChange={(v) => patch({ email_show_logo: v })} />
+            </div>
+
+            <div>
+              <Label htmlFor="sig">Signature (HTML)</Label>
+              <Textarea id="sig" rows={5} value={settings.signature_html ?? ""}
+                onChange={(e) => patch({ signature_html: e.target.value })}
+                placeholder="<strong>Your Name</strong><br>Your Business<br>0400 000 000" />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Appended to every step, above the unsubscribe line.
+              </p>
+            </div>
+
+            <Button onClick={save} disabled={busy}>
+              {busy && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />} Save design
+            </Button>
+          </div>
+
+          <div>
+            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Preview</p>
+            <EmailPreview
+              subject="Preferred contractor for your strata portfolio"
+              body={SAMPLE_BODY}
+              design={settings}
+              businessName={businessName}
+              businessLogoUrl={businessLogoUrl}
+            />
+          </div>
         </div>
       </div>
 

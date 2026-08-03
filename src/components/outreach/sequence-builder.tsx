@@ -12,7 +12,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, Plus, Trash2, Loader2, ChevronUp, ChevronDown, AlertCircle } from "@/components/ui/icons";
 import { saveSequenceSteps, updateSequence } from "@/lib/actions/outreach";
 import { unfilledPlaceholders } from "@/lib/outreach/seed-sequences";
-import type { OutreachSequence, OutreachSequenceStep } from "@/types/database";
+import { EmailPreview } from "./email-preview";
+import { KireiTabs } from "@/components/ui/kirei/tabs";
+import type { OutreachSequence, OutreachSequenceStep, OutreachSettings } from "@/types/database";
 
 interface Draft { subject: string; body: string; delay_days: number }
 
@@ -24,10 +26,13 @@ function dayOf(steps: Draft[], i: number): number {
 }
 
 export function SequenceBuilder({
-  sequence, initialSteps,
+  sequence, initialSteps, settings, businessName, businessLogoUrl,
 }: {
   sequence: OutreachSequence;
   initialSteps: OutreachSequenceStep[];
+  settings: OutreachSettings;
+  businessName: string;
+  businessLogoUrl: string | null;
 }) {
   const router = useRouter();
   const [name, setName] = useState(sequence.name);
@@ -35,6 +40,7 @@ export function SequenceBuilder({
     initialSteps.map((s) => ({ subject: s.subject, body: s.body, delay_days: s.delay_days })),
   );
   const [saving, setSaving] = useState(false);
+  const [mode, setMode] = useState<"edit" | "preview">("edit");
 
   const placeholders = useMemo(
     () => [...new Set(steps.flatMap((s) => [...unfilledPlaceholders(s.subject), ...unfilledPlaceholders(s.body)]))],
@@ -87,6 +93,14 @@ export function SequenceBuilder({
             {saving && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />} Save sequence
           </Button>
         }
+      />
+
+      {/* Narrow screens can't fit editor + preview side by side, so they toggle. */}
+      <KireiTabs
+        className="mb-4 xl:hidden"
+        value={mode}
+        onChange={setMode}
+        tabs={[{ value: "edit", label: "Edit" }, { value: "preview", label: "Preview" }]}
       />
 
       <div className="mb-4 rounded-xl border border-border bg-card p-5">
@@ -148,18 +162,35 @@ export function SequenceBuilder({
               </div>
             </div>
 
-            <div className="space-y-3">
-              <div>
-                <Label htmlFor={`s-${i}`}>Subject</Label>
-                <Input id={`s-${i}`} value={s.subject} onChange={(e) => update(i, { subject: e.target.value })} />
+            {/* Edit and preview sit side by side on a wide screen so a copy
+                tweak shows up in the rendered email without a round trip. */}
+            <div className="grid gap-4 xl:grid-cols-2">
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor={`s-${i}`}>Subject</Label>
+                  <Input id={`s-${i}`} value={s.subject} onChange={(e) => update(i, { subject: e.target.value })} />
+                </div>
+                <div>
+                  <Label htmlFor={`b-${i}`}>Body</Label>
+                  <Textarea id={`b-${i}`} rows={14} value={s.body} onChange={(e) => update(i, { body: e.target.value })}
+                    className="font-mono text-[13px]" />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Plain text — line breaks are preserved. Your signature and the unsubscribe link are added automatically.
+                  </p>
+                </div>
               </div>
-              <div>
-                <Label htmlFor={`b-${i}`}>Body</Label>
-                <Textarea id={`b-${i}`} rows={10} value={s.body} onChange={(e) => update(i, { body: e.target.value })}
-                  className="font-mono text-[13px]" />
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Plain text — line breaks are preserved. Your signature and the unsubscribe link are added automatically.
+
+              <div className={mode === "preview" ? "" : "hidden xl:block"}>
+                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  As it lands
                 </p>
+                <EmailPreview
+                  subject={s.subject}
+                  body={s.body}
+                  design={settings}
+                  businessName={businessName}
+                  businessLogoUrl={businessLogoUrl}
+                />
               </div>
             </div>
           </div>

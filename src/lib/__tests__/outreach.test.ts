@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { mergeFields, withinSendWindow } from "@/lib/outreach/engine";
+import { renderOutreachEmail, PREVIEW_PROSPECT } from "@/lib/outreach/render";
 import { SEED_SEQUENCES, SEEDS_BY_VERTICAL, unfilledPlaceholders } from "@/lib/outreach/seed-sequences";
 
 describe("mergeFields", () => {
@@ -115,5 +116,71 @@ describe("seed sequence library", () => {
     // The strata seed deliberately leaves licence/insurance details blank.
     const strata = SEEDS_BY_VERTICAL.strata.steps[0].body;
     expect(unfilledPlaceholders(strata).length).toBeGreaterThan(0);
+  });
+});
+
+describe("renderOutreachEmail", () => {
+  const base = {
+    businessName: "Crown Services",
+    unsubUrl: "https://kireihq.com/unsubscribe/u_abc",
+  };
+
+  it("fills merge fields and preserves line breaks", () => {
+    const html = renderOutreachEmail({ ...base, body: "Hi {{first_name}},\n\nSecond line.", prospect: PREVIEW_PROSPECT });
+    expect(html).toContain("Hi Sarah,");
+    expect(html).toContain("<br><br>Second line.");
+  });
+
+  it("escapes the body AND the merged prospect values", () => {
+    const html = renderOutreachEmail({
+      ...base,
+      body: "Hi {{company}} <b>bold</b>",
+      prospect: { name: "X", company: "<script>alert(1)</script>" },
+    });
+    expect(html).not.toContain("<script>");
+    expect(html).not.toContain("<b>bold</b>");
+    expect(html).toContain("&lt;script&gt;");
+  });
+
+  it("always includes the unsubscribe link — it is not optional", () => {
+    const html = renderOutreachEmail({ ...base, body: "Hi" });
+    expect(html).toContain(base.unsubUrl);
+    expect(html.toLowerCase()).toContain("unsubscribe");
+  });
+
+  it("applies the design: font, width, accent and text colour", () => {
+    const html = renderOutreachEmail({
+      ...base, body: "Hi",
+      design: { email_font: "serif", email_width: 700, email_accent: "#ff0000", email_text_color: "#123456", signature_html: "<b>Me</b>" },
+    });
+    expect(html).toContain("Georgia");
+    expect(html).toContain("max-width:700px");
+    expect(html).toContain("#123456");
+    expect(html).toContain("border-top:2px solid #ff0000");
+  });
+
+  it("rejects a non-hex colour rather than injecting it into the style attribute", () => {
+    const html = renderOutreachEmail({
+      ...base, body: "Hi",
+      design: { email_accent: "red;background:url(javascript:alert(1))", signature_html: "<b>Me</b>" },
+    });
+    expect(html).not.toContain("javascript:");
+    expect(html).toContain("#1f4f4a"); // fell back to the default
+  });
+
+  it("clamps the width to something that still reads as a personal email", () => {
+    expect(renderOutreachEmail({ ...base, body: "Hi", design: { email_width: 5000 } })).toContain("max-width:900px");
+    expect(renderOutreachEmail({ ...base, body: "Hi", design: { email_width: 10 } })).toContain("max-width:320px");
+  });
+
+  it("only shows the logo when asked AND one exists", () => {
+    const on = renderOutreachEmail({ ...base, body: "Hi", businessLogoUrl: "https://x/l.png", design: { email_show_logo: true } });
+    expect(on).toContain("<img src=\"https://x/l.png\"");
+    expect(renderOutreachEmail({ ...base, body: "Hi", businessLogoUrl: "https://x/l.png" })).not.toContain("<img");
+    expect(renderOutreachEmail({ ...base, body: "Hi", design: { email_show_logo: true } })).not.toContain("<img");
+  });
+
+  it("omits the signature block entirely when there's no signature", () => {
+    expect(renderOutreachEmail({ ...base, body: "Hi" })).not.toContain("border-top:2px solid");
   });
 });
