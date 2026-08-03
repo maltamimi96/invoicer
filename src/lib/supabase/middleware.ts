@@ -66,6 +66,10 @@ export async function updateSession(request: NextRequest) {
     // was 307'd to /auth/login, so delivered/bounced events never reached the
     // handler and every email stayed frozen at "Sent (in transit)".
     pathname === "/api/webhooks/resend" ||
+    // VoIPcloud PBX call events. Authenticates itself: the business is keyed by
+    // the unguessable token in the path, and the configured shared secret is
+    // checked against the X-Pbx-Token header.
+    pathname.startsWith("/api/webhooks/voipcloud/") ||
     (isBearerAuthRoute && hasBearer) ||
     (pathname.startsWith("/api/pdf/") && new URL(request.url).searchParams.get("token") !== null);
 
