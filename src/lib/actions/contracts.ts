@@ -5,6 +5,7 @@ import { randomBytes } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveBizId } from "@/lib/active-business";
+import { mintUpload, assertSize, safeExt, UPLOAD_LIMITS, type SignedUpload } from "@/lib/uploads";
 import { getUser } from "@/lib/auth";
 import { renderTemplateVars } from "@/lib/emails/templates";
 import { appUrl } from "@/lib/app-url";
@@ -83,7 +84,7 @@ export interface CreateContractInput {
   customer_id: string;
   kind: "rich_text" | "pdf";
   content_html?: string | null;   // for rich_text
-  source_path?: string | null;    // for pdf (from uploadContractPdf)
+  source_path?: string | null;    // for pdf (from createContractPdfUpload)
 }
 
 export async function createContract(input: CreateContractInput): Promise<Contract> {
@@ -139,24 +140,27 @@ export async function voidContract(id: string): Promise<void> {
   revalidatePath("/contracts");
 }
 
-/** Upload a source PDF to the private contracts bucket; returns its storage path. */
-export async function uploadContractPdf(formData: FormData): Promise<{ path: string }> {
+/**
+ * Mint a signed URL the browser uploads the contract PDF straight to.
+ *
+ * A scanned contract comfortably exceeds the 1MB server-action body cap — see
+ * src/lib/uploads.ts. The path always ends `.pdf` (server-chosen), so a
+ * mis-declared content type can't change what the file is stored as.
+ */
+export async function createContractPdfUpload(
+  fileName: string, mimeType: string, sizeBytes: number,
+): Promise<SignedUpload> {
   const supabase = await createClient();
   const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
-  const file = formData.get("file");
-  if (!(file instanceof File)) throw new Error("No file provided");
-  if (file.type !== "application/pdf") throw new Error("Only PDF files are supported");
-  if (file.size > 15 * 1024 * 1024) throw new Error("PDF must be under 15 MB");
+  if (mimeType !== "application/pdf" && safeExt(fileName, "") !== "pdf") {
+    throw new Error("Only PDF files are supported");
+  }
+  assertSize(sizeBytes, UPLOAD_LIMITS.contractPdf, "PDF");
 
-  const admin = createAdminClient();
   const path = `${businessId}/${Date.now()}-${randomBytes(6).toString("hex")}.pdf`;
-  const bytes = Buffer.from(await file.arrayBuffer());
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any).storage.from("contracts").upload(path, bytes, { contentType: "application/pdf", upsert: false });
-  if (error) throw error;
-  return { path };
+  return mintUpload("contracts", path);
 }
 
 /** Signed URL (1h) for a contract's source or signed PDF, served from the private bucket. */

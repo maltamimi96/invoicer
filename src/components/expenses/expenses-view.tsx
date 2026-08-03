@@ -14,7 +14,8 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { DatePicker } from "@/components/ui/date-picker";
-import { createExpense, deleteExpense, uploadReceipt, getReceiptUrl } from "@/lib/actions/expenses";
+import { createExpense, deleteExpense, createReceiptUpload, getReceiptUrl } from "@/lib/actions/expenses";
+import { putSignedUpload } from "@/lib/uploads-client";
 import type { Expense } from "@/types/database";
 
 interface WO { id: string; number: string | null; title: string | null }
@@ -79,9 +80,9 @@ export function ExpensesView({ expenses, workOrders }: Props) {
     if (!file) return;
     setUploading(true);
     try {
-      const fd = new FormData(); fd.append("file", file);
-      const path = await uploadReceipt(fd);
-      setReceiptPath(path);
+      const upload = await createReceiptUpload(file.name, file.size);
+      await putSignedUpload("expense-receipts", upload, file);
+      setReceiptPath(upload.path);
       toast.success("Receipt attached");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Upload failed");

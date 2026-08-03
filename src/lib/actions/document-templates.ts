@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/auth";
 import { getActiveBizId } from "@/lib/active-business";
+import { mintUpload, assertSize, safeExt, UPLOAD_LIMITS, type SignedUpload } from "@/lib/uploads";
 import type { DocumentTemplate } from "@/types/database";
 import type { TemplateConfig } from "@/lib/documents/template-config";
 import { DEFAULT_TEMPLATE_CONFIG } from "@/lib/documents/template-config";
@@ -157,29 +158,27 @@ export async function deleteDocumentTemplate(id: string): Promise<void> {
   revalidatePath("/settings/document-templates");
 }
 
-/** Upload a background/letterhead image for a template. Returns the public URL
- *  to store in config.background_image_url. */
-export async function uploadTemplateAsset(formData: FormData): Promise<{ url: string }> {
+/**
+ * Mint a signed URL the browser uploads a background/letterhead image straight
+ * to (see src/lib/uploads.ts — a letterhead scan won't fit through a server
+ * action). Returns the public URL to store in config.background_image_url; the
+ * bucket is public, so the URL is known before the bytes arrive.
+ */
+export async function createTemplateAssetUpload(
+  fileName: string, mimeType: string, sizeBytes: number,
+): Promise<SignedUpload & { url: string }> {
   const supabase = await createClient();
   const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
-  const file = formData.get("file");
-  if (!(file instanceof File)) throw new Error("No file provided.");
-  if (file.size > 5 * 1024 * 1024) throw new Error("Image must be under 5MB.");
-  if (!file.type.startsWith("image/")) throw new Error("Only image files are allowed.");
+  if (!mimeType.startsWith("image/")) throw new Error("Only image files are allowed.");
+  assertSize(sizeBytes, UPLOAD_LIMITS.templateAsset, "Image");
 
-  const ext = (file.name.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "");
   // No Math.random in some sandboxes; a timestamp+size key is unique enough here.
-  const key = `${businessId}/${Date.now()}-${file.size}.${ext}`;
-
-  const { error } = await supabase.storage.from("document-assets").upload(key, file, {
-    contentType: file.type, upsert: false,
-  });
-  if (error) throw new Error(error.message);
-
+  const key = `${businessId}/${Date.now()}-${sizeBytes}.${safeExt(fileName, "png")}`;
+  const upload = await mintUpload("document-assets", key);
   const { data } = supabase.storage.from("document-assets").getPublicUrl(key);
-  return { url: data.publicUrl };
+  return { ...upload, url: data.publicUrl };
 }
 
 /** Attach (or clear, with null) a template on a specific invoice or quote. */
