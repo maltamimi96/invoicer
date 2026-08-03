@@ -36,7 +36,9 @@ export async function listAttachments(entityType: AttachmentEntityType, entityId
   return data as Attachment[];
 }
 
-export const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
+// NOT exported: a "use server" file may only export async functions, and a
+// non-async export breaks EVERY export in the file at runtime (not at build).
+const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 
 /**
  * Step 1 of 2 — mint a signed URL the BROWSER uploads straight to Supabase
