@@ -7,6 +7,7 @@
  *   client-onboarding  ↔ onboarding_settings.enabled
  *   form-builder       ↔ form_builder_settings.enabled
  *   quoting-agent      ↔ quoting_agent_settings.enabled
+ *   telephony          ↔ telephony_settings.enabled
  */
 import { revalidateTag } from "next/cache";
 import { pluginFlagsTag } from "@/lib/layout-data";

@@ -178,6 +178,42 @@ export function CallsClient({
               <Switch checked={settings.enabled} onCheckedChange={(v) => save({ enabled: v })} />
             </div>
 
+            {/* Connection status — an empty call list used to mean either
+                "quiet" or "never connected", with no way to tell which. */}
+            <div className={`mb-4 rounded-lg border p-3 text-sm ${
+              settings.last_error_at && (!settings.last_event_at || settings.last_error_at > settings.last_event_at)
+                ? "border-destructive/40 bg-destructive/10"
+                : settings.last_event_at
+                  ? "border-emerald-500/40 bg-emerald-500/10"
+                  : "border-border bg-muted/40"}`}>
+              {settings.last_error_at && (!settings.last_event_at || settings.last_error_at > settings.last_event_at) ? (
+                <>
+                  <p className="font-semibold">VoIPcloud is reaching us, but the request was rejected</p>
+                  <p className="text-muted-foreground">
+                    {settings.last_error} — {new Date(settings.last_error_at).toLocaleString("en-AU")}.
+                    Check the Secret Token matches on both sides.
+                  </p>
+                </>
+              ) : settings.last_event_at ? (
+                <>
+                  <p className="font-semibold">Connected</p>
+                  <p className="text-muted-foreground">
+                    Last event {new Date(settings.last_event_at).toLocaleString("en-AU")}
+                    {settings.last_event_type ? ` (${settings.last_event_type})` : ""} ·{" "}
+                    {settings.events_received} received in total.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="font-semibold">Waiting for the first event</p>
+                  <p className="text-muted-foreground">
+                    Nothing has arrived yet. Paste the URL below into VoIPcloud, then make a test call — this box
+                    updates as soon as anything reaches us, including a rejected request.
+                  </p>
+                </>
+              )}
+            </div>
+
             <Label htmlFor="hook">Webhook URL</Label>
             <div className="flex gap-2">
               <Input id="hook" readOnly value={url} className="font-mono text-xs" />
