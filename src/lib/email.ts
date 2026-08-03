@@ -79,7 +79,7 @@ function isDevFromAddress(from: string): boolean {
   return /onboarding@resend\.dev/i.test(from);
 }
 
-export type EmailDocType = "invoice" | "quote" | "team_invite" | "lead" | "payment_receipt" | "custom";
+export type EmailDocType = "invoice" | "quote" | "team_invite" | "lead" | "payment_receipt" | "outreach" | "custom";
 
 export interface EmailTags {
   business_id?: string | null;

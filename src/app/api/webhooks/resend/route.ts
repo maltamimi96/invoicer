@@ -67,5 +67,46 @@ export async function POST(req: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (sb as any).from("email_events").update(update).eq("resend_id", resendId);
 
+  // Outreach messages carry their own copy of the lifecycle so the campaign
+  // dashboard can report open/click/bounce rates without joining email_events.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: msg } = await (sb as any)
+    .from("outreach_messages")
+    .select("id, business_id, prospect_id")
+    .eq("resend_id", resendId)
+    .maybeSingle();
+
+  if (msg) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mUpdate: any = { status };
+    if (status === "delivered") mUpdate.delivered_at = now;
+    if (status === "opened")    mUpdate.opened_at    = now;
+    if (status === "clicked")   mUpdate.clicked_at   = now;
+    if (status === "bounced")   { mUpdate.bounced_at = now; mUpdate.error = evt.data?.bounce?.message ?? null; }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (sb as any).from("outreach_messages").update(mUpdate).eq("id", msg.id);
+
+    // A hard bounce or a spam complaint must stop the sequence immediately —
+    // continuing to email that address is what wrecks sender reputation.
+    if ((status === "bounced" || status === "complained") && msg.prospect_id) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (sb as any).from("outreach_enrollments").update({
+        status: status === "bounced" ? "bounced" : "unsubscribed",
+        next_send_at: null,
+        stop_reason: status,
+      }).eq("business_id", msg.business_id).eq("prospect_id", msg.prospect_id).eq("status", "active");
+
+      // Complaints also go on the suppression list so no future campaign can
+      // re-enrol them. The table's uniqueness is a lower(email) expression
+      // index, which PostgREST's on_conflict can't target — so this is a plain
+      // insert whose duplicate error is deliberately ignored.
+      if (status === "complained" && evt.data?.to?.[0]) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (sb as any).from("prospect_suppressions")
+          .insert({ business_id: msg.business_id, email: String(evt.data.to[0]).toLowerCase(), reason: "complained" });
+      }
+    }
+  }
+
   return NextResponse.json({ ok: true });
 }
