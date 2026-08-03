@@ -2025,3 +2025,74 @@ export interface Database {
     };
   };
 }
+
+// ── Outreach agent (cold-email sequences over prospects) ─────────────────────
+export type OutreachSequenceStatus = 'draft' | 'active' | 'archived';
+export type OutreachCampaignStatus = 'draft' | 'running' | 'paused' | 'completed';
+export type OutreachEnrollmentStatus =
+  'active' | 'completed' | 'stopped' | 'bounced' | 'replied' | 'unsubscribed';
+export type OutreachMessageStatus =
+  'sent' | 'delivered' | 'opened' | 'clicked' | 'bounced' | 'complained' | 'failed';
+
+export interface OutreachLocation { label: string; lat: number; lng: number; radius_m: number }
+
+export interface OutreachSettings {
+  business_id: string;
+  enabled: boolean;
+  daily_send_cap: number;
+  send_window_start: string;
+  send_window_end: string;
+  send_days: number[];
+  seconds_between_sends: number;
+  timezone: string;
+  from_local_part: string;
+  reply_to: string | null;
+  signature_html: string | null;
+  sourcing_enabled: boolean;
+  places_api_key_enc: string | null;
+  sourcing_queries: string[];
+  sourcing_locations: OutreachLocation[];
+  sourcing_daily_quota: number;
+  crawler_enabled: boolean;
+  compliance_ack_at: string | null;
+  compliance_ack_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OutreachSequence {
+  id: string; business_id: string; name: string; description: string | null;
+  vertical: string | null; status: OutreachSequenceStatus;
+  created_at: string; updated_at: string;
+}
+
+export interface OutreachSequenceStep {
+  id: string; business_id: string; sequence_id: string;
+  step_order: number; delay_days: number; subject: string; body: string;
+  created_at: string; updated_at: string;
+}
+
+export interface OutreachCampaign {
+  id: string; business_id: string; name: string; sequence_id: string | null;
+  status: OutreachCampaignStatus;
+  filter: { tags?: string[]; status?: string[]; sources?: string[] };
+  auto_enroll: boolean; daily_cap: number | null; started_at: string | null;
+  created_at: string; updated_at: string;
+}
+
+export interface OutreachEnrollment {
+  id: string; business_id: string; campaign_id: string; prospect_id: string;
+  sequence_id: string | null; current_step: number; next_send_at: string | null;
+  status: OutreachEnrollmentStatus; stop_reason: string | null;
+  enrolled_at: string; completed_at: string | null;
+}
+
+export interface OutreachMessage {
+  id: string; business_id: string; enrollment_id: string | null;
+  campaign_id: string | null; prospect_id: string | null; step_id: string | null;
+  step_order: number | null; recipient: string; subject: string | null;
+  body_preview: string | null; resend_id: string | null;
+  status: OutreachMessageStatus; error: string | null;
+  sent_at: string; delivered_at: string | null; opened_at: string | null;
+  clicked_at: string | null; bounced_at: string | null; replied_at: string | null;
+}

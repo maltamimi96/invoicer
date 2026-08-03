@@ -53,10 +53,10 @@ export function AppHeader({ user, onMenuClick, workerView, features, vocab }: Ap
     router.refresh();
   };
 
-  const iconBtn = "inline-flex h-9 w-9 items-center justify-center rounded-md text-primary-foreground/90 transition-colors hover:bg-white/15";
+  const iconBtn = "inline-flex h-9 w-9 items-center justify-center rounded-md text-nav-foreground/90 transition-colors hover:bg-white/15";
 
   return (
-    <header className="flex h-16 shrink-0 items-center bg-primary text-primary-foreground">
+    <header className="flex h-16 shrink-0 items-center bg-nav text-nav-foreground">
       {/* Brand segment — over the sidebar column (desktop). The lockup carries
           the name, so there's no wordmark text beside it. */}
       <div className="hidden md:flex h-full w-64 shrink-0 items-center border-r border-white/15 px-4">
@@ -83,7 +83,7 @@ export function AppHeader({ user, onMenuClick, workerView, features, vocab }: Ap
         <button className={iconBtn} onClick={toggleAssistant} aria-label="AI assistant" title="Ask Kirei">
           <Bot className="h-[18px] w-[18px]" />
         </button>
-        <div className="[&_button]:text-primary-foreground [&_button:hover]:bg-white/15">
+        <div className="[&_button]:text-nav-foreground [&_button:hover]:bg-white/15">
           <BriefingBell />
         </div>
         <button
@@ -101,7 +101,7 @@ export function AppHeader({ user, onMenuClick, workerView, features, vocab }: Ap
           <DropdownMenuTrigger asChild>
             <button className="ml-1 inline-flex items-center justify-center rounded-full ring-1 ring-white/30 transition hover:ring-white/60" aria-label="Account">
               <Avatar className="h-8 w-8">
-                <AvatarFallback className="bg-white/20 text-xs font-semibold text-primary-foreground">{initials}</AvatarFallback>
+                <AvatarFallback className="bg-white/20 text-xs font-semibold text-nav-foreground">{initials}</AvatarFallback>
               </Avatar>
             </button>
           </DropdownMenuTrigger>

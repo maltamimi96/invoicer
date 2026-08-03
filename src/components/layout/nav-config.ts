@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, FileText, FileCheck, Users,
-  Package, FileStack, ClipboardList, Wrench, Users2, UserPlus, CalendarDays, MessageSquare, Bot, Repeat, HelpCircle, Columns3, TrendingUp, Sparkles, ListChecks, Search, Receipt, Boxes, Clock, Hammer, Target, Megaphone, DollarSign,
+  Package, FileStack, ClipboardList, Wrench, Users2, UserPlus, CalendarDays, MessageSquare, Bot, Repeat, HelpCircle, Columns3, TrendingUp, Sparkles, ListChecks, Search, Receipt, Boxes, Clock, Hammer, Target, Megaphone, DollarSign, Send,
 } from "@/components/ui/icons";
 
 export type NavItem = {
@@ -41,6 +41,7 @@ export const navSections: NavSection[] = [
   ]},
   { section: "Contacts", items: [
     { label: "Prospects",  href: "/prospects",  icon: Target,        plugin: "prospects" },
+    { label: "Outreach",   href: "/outreach",   icon: Send,          plugin: "outreach" },
     { label: "Customers",  href: "/customers",  icon: Users                         },
     { label: "Contacts",   href: "/contacts",   icon: Users2                        },
     { label: "Onboarding", href: "/onboarding-forms", icon: ClipboardList, plugin: "client-onboarding" },
