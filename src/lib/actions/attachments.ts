@@ -36,44 +36,85 @@ export async function listAttachments(entityType: AttachmentEntityType, entityId
   return data as Attachment[];
 }
 
-export async function uploadAttachment(formData: FormData): Promise<Attachment> {
-  const { supabase, user, businessId } = await ctx();
-  const file = formData.get("file") as File | null;
-  const entityType = String(formData.get("entity_type") || "") as AttachmentEntityType;
-  const entityId = String(formData.get("entity_id") || "");
-  if (!file) throw new Error("No file");
-  if (!entityType || !entityId) throw new Error("Missing entity");
-  if (file.size > 25 * 1024 * 1024) throw new Error("File must be under 25MB");
+export const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 
-  const ext = (file.name.split(".").pop() || "bin").toLowerCase().replace(/[^a-z0-9]/g, "");
+/**
+ * Step 1 of 2 — mint a signed URL the BROWSER uploads straight to Supabase
+ * Storage with.
+ *
+ * The bytes must not travel through this server. A Next.js server action body
+ * is capped at 1MB by default, and Vercel caps any serverless request body at
+ * 4.5MB regardless of that setting — so posting a phone photo (routinely
+ * 2–8MB) through an action fails before the handler ever runs, surfacing as
+ * the opaque "An unexpected response was received from the server."
+ *
+ * Only this small token request crosses the server, so the real ceiling is the
+ * storage bucket's, not the platform's.
+ */
+export async function createAttachmentUpload(
+  entityType: AttachmentEntityType,
+  entityId: string,
+  fileName: string,
+  sizeBytes: number,
+): Promise<{ path: string; token: string }> {
+  const { businessId } = await ctx();
+  if (!entityType || !entityId) throw new Error("Missing entity");
+  if (!Number.isFinite(sizeBytes) || sizeBytes <= 0) throw new Error("Empty file");
+  if (sizeBytes > MAX_ATTACHMENT_BYTES) throw new Error("File must be under 25MB");
+
+  const ext = (fileName.split(".").pop() || "bin").toLowerCase().replace(/[^a-z0-9]/g, "");
   const path = `${businessId}/${entityType}/${entityId}/${randomUUID()}.${ext}`;
 
   const admin = createAdminClient();
-  const { error: upErr } = await admin.storage
-    .from("attachments")
-    .upload(path, file, { contentType: file.type || undefined, upsert: false });
-  if (upErr) throw upErr;
+  const { data, error } = await admin.storage.from("attachments").createSignedUploadUrl(path);
+  if (error || !data) throw error ?? new Error("Couldn't start upload");
+  return { path: data.path, token: data.token };
+}
+
+/** Step 2 of 2 — record the row once the browser has finished uploading. */
+export async function finalizeAttachment(
+  entityType: AttachmentEntityType,
+  entityId: string,
+  path: string,
+  name: string,
+  mimeType: string | null,
+  sizeBytes: number,
+): Promise<Attachment> {
+  const { supabase, user, businessId } = await ctx();
+
+  // The path is minted server-side above, but it round-trips through the
+  // client — so re-check it belongs to this business before trusting it.
+  if (!path.startsWith(`${businessId}/${entityType}/${entityId}/`)) {
+    throw new Error("Invalid upload path");
+  }
 
   const { data, error } = await tbl(supabase, "attachments")
     .insert({
       business_id: businessId,
       entity_type: entityType,
       entity_id: entityId,
-      name: file.name,
+      name,
       path,
-      mime_type: file.type || null,
-      size_bytes: file.size,
+      mime_type: mimeType || null,
+      size_bytes: sizeBytes,
       uploaded_by: user.id,
     })
     .select()
     .single();
   if (error) {
     // Best-effort cleanup so we don't orphan the object if the row insert fails.
-    await admin.storage.from("attachments").remove([path]);
+    await createAdminClient().storage.from("attachments").remove([path]);
     throw error;
   }
   revalidatePath(`/${entityType === "work_order" ? "work-orders" : entityType + "s"}/${entityId}`);
   return data as Attachment;
+}
+
+/** Drop an uploaded object whose row never got written (client-side failure). */
+export async function discardAttachmentUpload(path: string): Promise<void> {
+  const { businessId } = await ctx();
+  if (!path.startsWith(`${businessId}/`)) return;
+  await createAdminClient().storage.from("attachments").remove([path]);
 }
 
 export async function deleteAttachment(id: string): Promise<void> {
