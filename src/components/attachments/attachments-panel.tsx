@@ -5,9 +5,13 @@ import { toast } from "sonner";
 import { FileText, Image as ImageIcon, Download, Trash2, Upload, Loader2, Paperclip } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import {
-  listAttachments, uploadAttachment, deleteAttachment, getAttachmentUrl,
+  listAttachments, deleteAttachment, getAttachmentUrl,
+  createAttachmentUpload, finalizeAttachment, discardAttachmentUpload,
 } from "@/lib/actions/attachments";
+import { createClient } from "@/lib/supabase/client";
 import type { Attachment, AttachmentEntityType } from "@/types/database";
+
+const MAX_BYTES = 25 * 1024 * 1024;
 
 function formatBytes(n: number | null): string {
   if (!n) return "";
@@ -44,19 +48,43 @@ export function AttachmentsPanel({
     return () => { cancelled = true; };
   }, [entityType, entityId]);
 
+  /**
+   * Upload straight from the browser to Supabase Storage via a signed URL.
+   * The bytes must NOT go through a server action — Vercel rejects request
+   * bodies over 4.5MB, which is well under a typical phone photo.
+   */
   const onPick = async (list: FileList | null) => {
     if (!list || list.length === 0) return;
+    const picked = Array.from(list);
+    const tooBig = picked.find((f) => f.size > MAX_BYTES);
+    if (tooBig) {
+      toast.error(`"${tooBig.name}" is over 25MB`);
+      if (inputRef.current) inputRef.current.value = "";
+      return;
+    }
+
     setUploading(true);
+    const sb = createClient();
+    let done = 0;
     try {
-      for (const file of Array.from(list)) {
-        const fd = new FormData();
-        fd.set("file", file);
-        fd.set("entity_type", entityType);
-        fd.set("entity_id", entityId);
-        const saved = await uploadAttachment(fd);
-        setFiles((prev) => [saved, ...prev]);
+      for (const file of picked) {
+        const { path, token } = await createAttachmentUpload(entityType, entityId, file.name, file.size);
+        const { error } = await sb.storage.from("attachments").uploadToSignedUrl(path, token, file, {
+          contentType: file.type || undefined,
+        });
+        if (error) throw error;
+
+        try {
+          const saved = await finalizeAttachment(entityType, entityId, path, file.name, file.type || null, file.size);
+          setFiles((prev) => [saved, ...prev]);
+          done++;
+        } catch (e) {
+          // The object landed but the row didn't — don't leave it orphaned.
+          void discardAttachmentUpload(path);
+          throw e;
+        }
       }
-      toast.success(list.length > 1 ? `${list.length} files uploaded` : "File uploaded");
+      toast.success(done > 1 ? `${done} files uploaded` : "File uploaded");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Upload failed");
     } finally {
