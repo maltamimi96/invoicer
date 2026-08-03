@@ -12,6 +12,11 @@
   --color-popover-foreground: hsl(var(--popover-foreground));
   --color-primary: hsl(var(--primary));
   --color-primary-foreground: hsl(var(--primary-foreground));
+  /* Top-bar fill. Separate from --primary because primary doubles as accent
+     TEXT (which must lighten on a dark canvas) while the nav bar wants to stay
+     a deep, saturated surface with white text in both modes. */
+  --color-nav: hsl(var(--nav));
+  --color-nav-foreground: hsl(var(--nav-foreground));
   --color-secondary: hsl(var(--secondary));
   --color-secondary-foreground: hsl(var(--secondary-foreground));
   --color-muted: hsl(var(--muted));
@@ -141,6 +146,8 @@
   --popover-foreground: 60 5% 9%;
   --primary: 191 38% 36%;             /* deep teal — oklch(0.55 0.08 195) ish */
   --primary-foreground: 0 0% 100%;
+  --nav: 191 38% 30%;                 /* top bar — deeper than primary */
+  --nav-foreground: 0 0% 100%;
   --secondary: 50 22% 95%;            /* surface-2 */
   --secondary-foreground: 60 5% 9%;
   --muted: 50 22% 95%;
@@ -165,6 +172,8 @@
   --popover-foreground: 50 17% 92%;
   --primary: 191 50% 55%;             /* lighter teal for dark mode contrast */
   --primary-foreground: 60 4% 8%;
+  --nav: 191 42% 22%;                 /* top bar stays deep in dark mode */
+  --nav-foreground: 0 0% 100%;
   --secondary: 60 4% 16%;
   --secondary-foreground: 50 17% 92%;
   --muted: 60 4% 16%;
@@ -274,38 +283,140 @@
   --sidebar-border: 214 22% 84%;
 }
 
-/* ─── Accent colour overrides ─────────────────────────────── */
+/* The two LIGHT sidebar presets have to flip in dark mode — otherwise the
+   sidebar stayed pure white with near-black text next to a dark canvas and a
+   dark top bar (and "light" is the default preset, so most users saw it).
+   The other presets are already dark surfaces, so they need no override. */
+:root[data-sidebar-theme="light"].dark {
+  --sidebar: 60 4% 11%;
+  --sidebar-foreground: 50 17% 92%;
+  --sidebar-accent: 60 4% 17%;
+  --sidebar-accent-foreground: 50 17% 96%;
+  --sidebar-border: 60 4% 19%;
+}
+:root[data-sidebar-theme="soft"].dark {
+  --sidebar: 210 12% 13%;
+  --sidebar-foreground: 210 16% 90%;
+  --sidebar-accent: 210 12% 19%;
+  --sidebar-accent-foreground: 210 16% 96%;
+  --sidebar-border: 210 12% 21%;
+}
+
+/* ─── Accent colour overrides ─────────────────────────────────────────────
+   Each accent MUST set its own --primary-foreground. These used to override
+   only --primary, so text on a filled accent surface (top bar, active nav
+   pill, primary buttons) inherited the theme's foreground and could end up
+   near-black on a mid-tone accent in dark mode, or white on bright amber in
+   light mode. Both were unreadable.
+
+   The rule now:
+     light mode → accent is deep enough to carry WHITE text
+     dark  mode → accent lightens (so accent TEXT reads on the dark canvas),
+                  and the paired foreground flips to near-black
+     --nav      → always a deep shade + white text, in both modes, so the top
+                  bar looks the same whichever mode you're in
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Light mode ------------------------------------------------------------- */
 :root[data-accent="teal"] {
-  --primary: 191 38% 36%; --ring: 191 38% 36%; --accent: 191 38% 36%;
-  --sidebar-primary: 191 50% 45%; --sidebar-ring: 191 50% 45%;
+  --primary: 191 38% 36%; --primary-foreground: 0 0% 100%;
+  --ring: 191 38% 36%; --accent: 191 38% 36%; --accent-foreground: 0 0% 100%;
+  --nav: 191 38% 30%; --nav-foreground: 0 0% 100%;
+  --sidebar-primary: 191 38% 36%; --sidebar-primary-foreground: 0 0% 100%; --sidebar-ring: 191 50% 45%;
 }
 :root[data-accent="blue"] {
-  --primary: 221 83% 53%; --ring: 221 83% 53%;
-  --sidebar-primary: 217 91% 60%; --sidebar-ring: 217 91% 60%;
+  --primary: 221 83% 48%; --primary-foreground: 0 0% 100%;
+  --ring: 221 83% 48%; --accent: 221 83% 48%; --accent-foreground: 0 0% 100%;
+  --nav: 221 75% 38%; --nav-foreground: 0 0% 100%;
+  --sidebar-primary: 221 83% 48%; --sidebar-primary-foreground: 0 0% 100%; --sidebar-ring: 217 91% 60%;
 }
 :root[data-accent="violet"] {
-  --primary: 263 70% 52%; --ring: 263 70% 52%;
-  --sidebar-primary: 258 90% 66%; --sidebar-ring: 258 90% 66%;
+  --primary: 263 70% 50%; --primary-foreground: 0 0% 100%;
+  --ring: 263 70% 50%; --accent: 263 70% 50%; --accent-foreground: 0 0% 100%;
+  --nav: 263 62% 40%; --nav-foreground: 0 0% 100%;
+  --sidebar-primary: 263 70% 50%; --sidebar-primary-foreground: 0 0% 100%; --sidebar-ring: 258 90% 66%;
 }
 :root[data-accent="emerald"] {
-  --primary: 160 84% 35%; --ring: 160 84% 35%;
-  --sidebar-primary: 158 64% 45%; --sidebar-ring: 158 64% 45%;
+  --primary: 160 84% 28%; --primary-foreground: 0 0% 100%;
+  --ring: 160 84% 28%; --accent: 160 84% 28%; --accent-foreground: 0 0% 100%;
+  --nav: 160 76% 24%; --nav-foreground: 0 0% 100%;
+  --sidebar-primary: 160 84% 28%; --sidebar-primary-foreground: 0 0% 100%; --sidebar-ring: 158 64% 45%;
 }
 :root[data-accent="rose"] {
-  --primary: 347 77% 50%; --ring: 347 77% 50%;
-  --sidebar-primary: 347 77% 62%; --sidebar-ring: 347 77% 62%;
+  --primary: 347 77% 45%; --primary-foreground: 0 0% 100%;
+  --ring: 347 77% 45%; --accent: 347 77% 45%; --accent-foreground: 0 0% 100%;
+  --nav: 347 70% 36%; --nav-foreground: 0 0% 100%;
+  --sidebar-primary: 347 77% 45%; --sidebar-primary-foreground: 0 0% 100%; --sidebar-ring: 347 77% 62%;
 }
+/* Orange + amber are perceptually bright: their light-mode shade is pulled
+   down so white text still clears AA (the old 53%/48% did not). */
 :root[data-accent="orange"] {
-  --primary: 25 95% 53%; --ring: 25 95% 53%;
-  --sidebar-primary: 25 95% 60%; --sidebar-ring: 25 95% 60%;
+  --primary: 25 90% 39%; --primary-foreground: 0 0% 100%;
+  --ring: 25 90% 39%; --accent: 25 90% 39%; --accent-foreground: 0 0% 100%;
+  --nav: 25 84% 34%; --nav-foreground: 0 0% 100%;
+  --sidebar-primary: 25 90% 39%; --sidebar-primary-foreground: 0 0% 100%; --sidebar-ring: 25 95% 60%;
 }
 :root[data-accent="amber"] {
-  --primary: 38 92% 48%; --ring: 38 92% 48%;
-  --sidebar-primary: 38 92% 56%; --sidebar-ring: 38 92% 56%;
+  --primary: 38 90% 33%; --primary-foreground: 0 0% 100%;
+  --ring: 38 90% 33%; --accent: 38 90% 33%; --accent-foreground: 0 0% 100%;
+  --nav: 38 84% 28%; --nav-foreground: 0 0% 100%;
+  --sidebar-primary: 38 90% 33%; --sidebar-primary-foreground: 0 0% 100%; --sidebar-ring: 38 92% 56%;
 }
 :root[data-accent="slate"] {
-  --primary: 215 16% 47%; --ring: 215 16% 47%;
-  --sidebar-primary: 215 20% 72%; --sidebar-ring: 215 20% 72%;
+  --primary: 215 20% 38%; --primary-foreground: 0 0% 100%;
+  --ring: 215 20% 38%; --accent: 215 20% 38%; --accent-foreground: 0 0% 100%;
+  --nav: 215 25% 26%; --nav-foreground: 0 0% 100%;
+  --sidebar-primary: 215 20% 38%; --sidebar-primary-foreground: 0 0% 100%; --sidebar-ring: 215 20% 72%;
+}
+
+/* Dark mode -------------------------------------------------------------- */
+:root[data-accent="teal"].dark {
+  --primary: 191 50% 58%; --primary-foreground: 191 45% 10%;
+  --ring: 191 50% 58%; --accent: 191 50% 58%; --accent-foreground: 191 45% 10%;
+  --nav: 191 42% 22%; --nav-foreground: 0 0% 100%;
+  --sidebar-primary: 191 50% 58%; --sidebar-primary-foreground: 191 45% 10%;
+}
+:root[data-accent="blue"].dark {
+  --primary: 217 91% 66%; --primary-foreground: 221 60% 12%;
+  --ring: 217 91% 66%; --accent: 217 91% 66%; --accent-foreground: 221 60% 12%;
+  --nav: 221 60% 24%; --nav-foreground: 0 0% 100%;
+  --sidebar-primary: 217 91% 66%; --sidebar-primary-foreground: 221 60% 12%;
+}
+:root[data-accent="violet"].dark {
+  --primary: 258 90% 72%; --primary-foreground: 263 50% 13%;
+  --ring: 258 90% 72%; --accent: 258 90% 72%; --accent-foreground: 263 50% 13%;
+  --nav: 263 50% 26%; --nav-foreground: 0 0% 100%;
+  --sidebar-primary: 258 90% 72%; --sidebar-primary-foreground: 263 50% 13%;
+}
+:root[data-accent="emerald"].dark {
+  --primary: 158 64% 56%; --primary-foreground: 160 55% 9%;
+  --ring: 158 64% 56%; --accent: 158 64% 56%; --accent-foreground: 160 55% 9%;
+  --nav: 160 60% 17%; --nav-foreground: 0 0% 100%;
+  --sidebar-primary: 158 64% 56%; --sidebar-primary-foreground: 160 55% 9%;
+}
+:root[data-accent="rose"].dark {
+  --primary: 347 80% 68%; --primary-foreground: 347 55% 12%;
+  --ring: 347 80% 68%; --accent: 347 80% 68%; --accent-foreground: 347 55% 12%;
+  --nav: 347 55% 24%; --nav-foreground: 0 0% 100%;
+  --sidebar-primary: 347 80% 68%; --sidebar-primary-foreground: 347 55% 12%;
+}
+:root[data-accent="orange"].dark {
+  --primary: 25 95% 63%; --primary-foreground: 25 60% 10%;
+  --ring: 25 95% 63%; --accent: 25 95% 63%; --accent-foreground: 25 60% 10%;
+  --nav: 25 70% 22%; --nav-foreground: 0 0% 100%;
+  --sidebar-primary: 25 95% 63%; --sidebar-primary-foreground: 25 60% 10%;
+}
+:root[data-accent="amber"].dark {
+  --primary: 38 92% 60%; --primary-foreground: 38 60% 10%;
+  --ring: 38 92% 60%; --accent: 38 92% 60%; --accent-foreground: 38 60% 10%;
+  --nav: 38 70% 20%; --nav-foreground: 0 0% 100%;
+  --sidebar-primary: 38 92% 60%; --sidebar-primary-foreground: 38 60% 10%;
+}
+:root[data-accent="slate"].dark {
+  --primary: 215 25% 70%; --primary-foreground: 215 35% 12%;
+  --ring: 215 25% 70%; --accent: 215 25% 70%; --accent-foreground: 215 35% 12%;
+  --nav: 215 28% 20%; --nav-foreground: 0 0% 100%;
+  --sidebar-primary: 215 25% 70%; --sidebar-primary-foreground: 215 35% 12%;
 }
 
 /* ─── Background patterns (applied to .app-content area) ──── */
