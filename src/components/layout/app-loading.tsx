@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
-import Image from "next/image";
+import { KireiMark } from "@/components/brand/kirei-logo";
 
 interface AppLoadingValue {
   /** Show a full-screen takeover with the Kirei logo + spinner and a label
@@ -32,14 +32,7 @@ export function AppLoadingProvider({ children }: { children: ReactNode }) {
           {/* Kirei logo inside a spinning accent ring */}
           <div className="relative flex items-center justify-center w-24 h-24">
             <span className="absolute inset-0 rounded-full border-[3px] border-primary/15 border-t-primary animate-spin" />
-            <Image
-              src="/kirei-logo.png"
-              alt="Kirei"
-              width={56}
-              height={56}
-              priority
-              className="object-contain"
-            />
+            <KireiMark className="h-10 w-auto text-foreground" />
           </div>
           {busy && <span className="text-sm font-medium text-muted-foreground">{busy}</span>}
         </div>

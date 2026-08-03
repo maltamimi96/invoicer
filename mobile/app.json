@@ -11,7 +11,7 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#3a847e"
+      "backgroundColor": "#162339"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -33,7 +33,7 @@
       "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#3a847e"
+        "backgroundColor": "#162339"
       },
       "permissions": [
         "android.permission.CAMERA",

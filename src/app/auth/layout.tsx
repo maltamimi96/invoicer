@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { KireiWordmark } from "@/components/brand/kirei-logo";
 
 export const dynamic = "force-dynamic";
 
@@ -17,10 +17,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <div className="absolute bottom-0 right-0 w-[28rem] h-[28rem] rounded-full bg-violet-500/20 blur-3xl" aria-hidden />
 
         <div className="relative z-10 flex items-center mb-auto">
-          <div className="w-14 h-14 rounded-2xl bg-white/15 backdrop-blur flex items-center justify-center mr-3">
-            <Image src="/kirei-logo.png" alt="Kirei" width={42} height={42} className="object-contain" priority />
-          </div>
-          <span className="text-2xl font-bold tracking-tight">Kirei</span>
+          <KireiWordmark className="h-9 w-auto" accentClassName="fill-[#F05A42]" />
         </div>
 
         <div className="relative z-10 space-y-6 max-w-md">
@@ -42,14 +39,8 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       {/* Right panel */}
       <div className="flex items-center justify-center p-8 bg-background">
         <div className="w-full max-w-sm">
-          <div className="flex items-center gap-3 mb-8 lg:hidden">
-            <div
-              className="w-12 h-12 rounded-xl flex items-center justify-center shadow-sm"
-              style={{ backgroundImage: "linear-gradient(135deg, #3a847e, #1f4f4a)" }}
-            >
-              <Image src="/kirei-logo.png" alt="Kirei" width={36} height={36} className="object-contain" priority />
-            </div>
-            <span className="text-xl font-bold tracking-tight">Kirei</span>
+          <div className="flex items-center mb-8 lg:hidden">
+            <KireiWordmark className="h-8 w-auto text-foreground" />
           </div>
           {children}
         </div>
