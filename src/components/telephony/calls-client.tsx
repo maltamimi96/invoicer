@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -18,6 +18,8 @@ import {
   setTelephonyApiKey, testTelephonyConnection, syncCallsNow, setTelephonyEndpoint,
 } from "@/lib/actions/telephony";
 import { formatAuPhone } from "@/lib/telephony/phone";
+import { CallDrawer } from "./call-drawer";
+import { createClient } from "@/lib/supabase/client";
 import type { CallStats } from "@/lib/actions/telephony";
 import type { TelephonySettings, Call } from "@/types/database";
 
@@ -61,6 +63,7 @@ export function CallsClient({
   const [busy, startTransition] = useTransition();
   const [syncing, setSyncing] = useState(false);
   const [apiKey, setApiKey] = useState("");
+  const [openCallId, setOpenCallId] = useState<string | null>(null);
 
   const save = (p: Partial<TelephonySettings>) => {
     setSettings((s) => ({ ...s, ...p }));
@@ -73,6 +76,34 @@ export function CallsClient({
       }
     });
   };
+
+  // Screen pop. A call log you have to refresh is a log; a call log that tells
+  // you who is ringing WHILE it rings is the point of a phone integration.
+  useEffect(() => {
+    if (!settings.enabled) return;
+    const sb = createClient();
+    const channel = sb
+      .channel("calls-live")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "calls", filter: `business_id=eq.${settings.business_id}` },
+        (payload) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const c = payload.new as any;
+          // Only the moment it starts ringing — later stages of the same call
+          // would pop again for something you already answered.
+          if (c.direction !== "inbound" || c.status !== "ringing") return;
+          toast(c.caller_name ? `${c.caller_name} is calling` : "Incoming call", {
+            description: formatAuPhone(c.from_number),
+            action: { label: "Open", onClick: () => setOpenCallId(c.id) },
+            duration: 20000,
+          });
+          router.refresh();
+        },
+      )
+      .subscribe();
+    return () => { void sb.removeChannel(channel); };
+  }, [settings.enabled, settings.business_id, router]);
 
   const missed = calls.filter((c) => c.status === "missed" || c.status === "voicemail");
   const shown = tab === "missed" ? missed : calls;
@@ -157,7 +188,7 @@ export function CallsClient({
                   {shown.map((c) => {
                     const other = c.direction === "inbound" ? c.from_number : c.to_number;
                     return (
-                      <tr key={c.id}>
+                      <tr key={c.id} onClick={() => setOpenCallId(c.id)} className="cursor-pointer hover:bg-muted/40">
                         <td><Party call={c} /></td>
                         <td className="ch-mono">{formatAuPhone(other)}</td>
                         <td className="capitalize">{c.direction}</td>
@@ -185,6 +216,8 @@ export function CallsClient({
           )}
         </>
       )}
+
+      <CallDrawer callId={openCallId} onClose={() => setOpenCallId(null)} />
 
       {tab === "setup" && (
         <div className="space-y-4">
