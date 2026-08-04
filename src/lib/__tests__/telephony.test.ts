@@ -173,28 +173,34 @@ describe("E.164 for click-to-call", () => {
   });
 });
 
-describe("per-business endpoint (multi-tenant SaaS)", () => {
-  it("accepts a reseller's own branded portal", () => {
-    // VoIPcloud is white-label — the host can't be hardcoded.
+describe("per-business endpoint — VoIPcloud domains only", () => {
+  it("accepts VoIPcloud regional portals", () => {
     expect(assertSafeBaseUrl("https://au.voipcloud.online")).toBe("https://au.voipcloud.online");
-    expect(assertSafeBaseUrl("https://pbx.somereseller.com.au/")).toBe("https://pbx.somereseller.com.au");
     expect(assertSafeBaseUrl("  https://uk.voipcloud.online/api  ")).toBe("https://uk.voipcloud.online");
+    expect(assertSafeBaseUrl("https://voipcloud.online")).toBe("https://voipcloud.online");
   });
 
-  it("blocks SSRF into our own infrastructure", () => {
-    // A tenant-supplied URL that OUR server fetches is an SSRF vector: the
+  it("blocks SSRF outright — the allow-list removes the whole class", () => {
+    // A tenant-controlled URL fetched by OUR server is an SSRF vector; the
     // cloud metadata endpoint is the classic target.
-    expect(() => assertSafeBaseUrl("https://169.254.169.254")).toThrow(/hostname, not an IP/);
-    expect(() => assertSafeBaseUrl("https://127.0.0.1")).toThrow(/hostname, not an IP/);
-    expect(() => assertSafeBaseUrl("https://10.0.0.5")).toThrow(/hostname, not an IP/);
-    expect(() => assertSafeBaseUrl("https://localhost")).toThrow(/reachable/);
-    expect(() => assertSafeBaseUrl("https://vault.internal")).toThrow(/reachable/);
+    expect(() => assertSafeBaseUrl("https://169.254.169.254")).toThrow(/VoIPcloud only/);
+    expect(() => assertSafeBaseUrl("https://127.0.0.1")).toThrow(/VoIPcloud only/);
+    expect(() => assertSafeBaseUrl("https://10.0.0.5")).toThrow(/VoIPcloud only/);
+    expect(() => assertSafeBaseUrl("https://localhost")).toThrow(/VoIPcloud only/);
+    expect(() => assertSafeBaseUrl("https://vault.internal")).toThrow(/VoIPcloud only/);
+  });
+
+  it("is not fooled by lookalike domains", () => {
+    // The two classic bypasses for a naive "contains" or "endsWith" check.
+    expect(() => assertSafeBaseUrl("https://voipcloud.online.evil.com")).toThrow(/VoIPcloud only/);
+    expect(() => assertSafeBaseUrl("https://notvoipcloud.online")).toThrow(/VoIPcloud only/);
+    expect(() => assertSafeBaseUrl("https://evil.com/?x=voipcloud.online")).toThrow(/VoIPcloud only/);
   });
 
   it("requires https on the default port", () => {
     expect(() => assertSafeBaseUrl("http://au.voipcloud.online")).toThrow(/https/);
-    expect(() => assertSafeBaseUrl("file:///etc/passwd")).toThrow(/https/);
     expect(() => assertSafeBaseUrl("https://au.voipcloud.online:8080")).toThrow(/default https port/);
+    expect(() => assertSafeBaseUrl("file:///etc/passwd")).toThrow(/https/);
   });
 
   it("rejects nonsense rather than silently defaulting", () => {

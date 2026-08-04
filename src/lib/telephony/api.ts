@@ -210,20 +210,23 @@ export function groupCallToEvent(row: GroupCallRow, kind: "queue" | "ringgroup")
 /**
  * Validate a business-supplied API endpoint.
  *
- * VoIPcloud is white-label: resellers run their own branded portals, so the
- * host can't be hardcoded. But a URL one tenant controls, fetched by OUR
- * server, is a server-side request forgery vector — point it at an internal
- * address and Kirei becomes a proxy into its own infrastructure. So:
+ * This plugin is VoIPcloud-only by design, so the host is restricted to
+ * VoIPcloud's own domains. That is both a scope decision and the strongest
+ * available defence: a URL one tenant controls, fetched by OUR server, is a
+ * server-side request forgery vector — an open field would let a tenant point
+ * Kirei at cloud metadata (169.254.169.254) or anything else inside our
+ * network. An allow-list removes that class of attack outright rather than
+ * trying to enumerate the bad destinations, and it closes off DNS rebinding
+ * too, since the resolved address no longer matters.
  *
- *   · https only (their portals are, and it stops h2c/file/gopher tricks)
- *   · no IP literals — a real portal is a hostname, and this is what kills
- *     the cloud-metadata endpoint (169.254.169.254) and private ranges
- *   · no loopback or internal-only names
- *   · default port only
- *
- * Residual risk: DNS rebinding to a private address needs attacker-controlled
- * DNS. Worth an egress allow-list if this ever becomes a concern.
+ * Regional portals (au / uk / nz / …) all live under voipcloud.online, so this
+ * costs nothing for a genuine VoIPcloud account. A white-label reseller on its
+ * own branded domain would be rejected — deliberately: supporting those means
+ * reopening a tenant-controlled fetch, which is a decision to make on purpose,
+ * not by accident.
  */
+export const VOIP_ALLOWED_DOMAIN = "voipcloud.online";
+
 export function assertSafeBaseUrl(raw: string): string {
   let u: URL;
   try {
@@ -236,11 +239,13 @@ export function assertSafeBaseUrl(raw: string): string {
   if (u.port && u.port !== "443") throw new Error("Use the default https port");
 
   const host = u.hostname.toLowerCase();
-  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host.includes(":")) {
-    throw new Error("Enter the portal's hostname, not an IP address");
-  }
-  if (host === "localhost" || host.endsWith(".local") || host.endsWith(".internal") || !host.includes(".")) {
-    throw new Error("That host isn't reachable from the internet");
+  // Exact domain or a subdomain of it — never a lookalike like
+  // "voipcloud.online.evil.com" or "notvoipcloud.online".
+  const ok = host === VOIP_ALLOWED_DOMAIN || host.endsWith(`.${VOIP_ALLOWED_DOMAIN}`);
+  if (!ok) {
+    throw new Error(
+      `This plugin connects to VoIPcloud only, so the address must be on ${VOIP_ALLOWED_DOMAIN} — for example https://au.${VOIP_ALLOWED_DOMAIN}`,
+    );
   }
 
   return u.origin;

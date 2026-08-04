@@ -303,8 +303,8 @@ export function CallsClient({
                     catch (err) { toast.error(err instanceof Error ? err.message : "Invalid endpoint"); }
                   }} />
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Only change this if your provider gave you a different portal — resellers run their own branded
-                  addresses. The default suits most Australian accounts.
+                  Your VoIPcloud regional portal. Only change this if yours differs (uk, nz, …) — addresses outside
+                  voipcloud.online are rejected, since this plugin connects to VoIPcloud only.
                 </p>
               </div>
 
