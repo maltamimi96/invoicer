@@ -2134,6 +2134,10 @@ export interface TelephonySettings {
   last_error_at: string | null;
   last_error: string | null;
   events_received: number;
+  last_sync_at: string | null;
+  sync_enabled: boolean;
+  default_user_number: string | null;
+  default_caller_id: string | null;
   created_at: string;
   updated_at: string;
 }

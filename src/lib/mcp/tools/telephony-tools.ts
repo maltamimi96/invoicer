@@ -124,6 +124,55 @@ export function registerTelephonyTools(tool: ToolFn): void {
       return text({ updated: true });
     });
 
+  tool("sync_calls",
+    "Pull call history from the VoIPcloud REST API — use to backfill calls from before the webhook was connected, or to recover anything it missed. Deduped on the PBX call id, and follow-up automations stay off during a backfill.",
+    { days: z.number().int().min(1).max(365).optional(), include_groups: z.boolean().optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "telephony:write");
+      const { syncCallsForBusiness, ymd } = await import("@/lib/telephony/sync");
+      const res = await syncCallsForBusiness(ctx.sb, ctx.businessId, {
+        fromDate: ymd(new Date(Date.now() - (args.days ?? 30) * 86400000)),
+        includeGroups: args.include_groups ?? true,
+      });
+      if (res.errors.length && !res.ingested) return errorText(res.errors[0]);
+      return text(res);
+    });
+
+  tool("place_call",
+    "Click-to-call: rings the configured extension, then dials this number once it is picked up. Give a phone number, or a customer_id to use their number on file.",
+    { phone: z.string().optional(), customer_id: UUID.optional(), from_extension: z.string().optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "telephony:write");
+
+      let phone = args.phone ?? null;
+      if (!phone && args.customer_id) {
+        const { data } = await t(ctx, "customers").select("phone")
+          .eq("id", args.customer_id).eq("business_id", ctx.businessId).maybeSingle();
+        phone = data?.phone ?? null;
+      }
+      if (!phone) return errorText("Give a phone number, or a customer_id that has one on file");
+
+      const { data: s } = await t(ctx, "telephony_settings")
+        .select("api_key_enc, api_base_url, default_user_number, default_caller_id, enabled")
+        .eq("business_id", ctx.businessId).maybeSingle();
+      if (!s?.enabled) return errorText("Phone system isn't connected");
+      if (!s.api_key_enc) return errorText("No API key saved — add one in Calls → Setup");
+
+      const from = args.from_extension || s.default_user_number;
+      if (!from) return errorText("No extension configured to call from");
+
+      const { toE164 } = await import("@/lib/telephony/phone");
+      const dest = toE164(phone);
+      if (!dest) return errorText("That doesn't look like a callable number");
+
+      const { callToNumber, VOIP_DEFAULT_BASE } = await import("@/lib/telephony/api");
+      const { decryptSecret } = await import("@/lib/crypto");
+      await callToNumber(s.api_base_url || VOIP_DEFAULT_BASE, decryptSecret(s.api_key_enc), {
+        user_number: from, number_to_call: dest, caller_id: s.default_caller_id || undefined,
+      });
+      return text({ calling: dest, from_extension: from });
+    });
+
   tool("rematch_calls",
     "Re-run caller-ID matching over unmatched calls — use after adding customers, so earlier calls from that number link up.",
     { limit: z.number().int().min(1).max(500).optional() },
