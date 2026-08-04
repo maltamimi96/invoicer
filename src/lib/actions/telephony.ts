@@ -43,6 +43,18 @@ export async function getWebhookUrl(): Promise<string> {
   return `${appUrl()}/api/webhooks/voipcloud/${s.webhook_token}`;
 }
 
+/** Point a business at its own VoIPcloud portal (white-label resellers differ). */
+export async function setTelephonyEndpoint(url: string): Promise<void> {
+  const { supabase, businessId } = await ctx();
+  await getTelephonySettings();
+  const { assertSafeBaseUrl, VOIP_DEFAULT_BASE } = await import("@/lib/telephony/api");
+  const clean = url.trim() ? assertSafeBaseUrl(url) : VOIP_DEFAULT_BASE;
+  const { error } = await tbl(supabase, "telephony_settings")
+    .update({ api_base_url: clean }).eq("business_id", businessId);
+  if (error) throw error;
+  revalidatePath("/calls");
+}
+
 export async function updateTelephonySettings(patch: Partial<Omit<TelephonySettings,
   "business_id" | "created_at" | "updated_at" | "webhook_token" | "api_key_enc">>): Promise<void> {
   const { supabase, businessId } = await ctx();
@@ -149,4 +161,66 @@ export async function rematchCalls(limit = 200): Promise<number> {
   }
   revalidatePath("/calls");
   return matched;
+}
+
+// ── REST API: sync + click-to-call ──────────────────────────────────────────
+
+/** Verify the saved API key actually works, and say precisely why if not. */
+export async function testTelephonyConnection(): Promise<{ ok: boolean; message: string }> {
+  const { supabase, businessId } = await ctx();
+  const { data } = await tbl(supabase, "telephony_settings").select("api_key_enc, api_base_url")
+    .eq("business_id", businessId).maybeSingle();
+  if (!data?.api_key_enc) return { ok: false, message: "No API key saved yet." };
+
+  try {
+    const { testConnection, VOIP_DEFAULT_BASE } = await import("@/lib/telephony/api");
+    const { decryptSecret } = await import("@/lib/crypto");
+    await testConnection(data.api_base_url || VOIP_DEFAULT_BASE, decryptSecret(data.api_key_enc));
+    return { ok: true, message: "Connected — the API key works." };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : "Connection failed" };
+  }
+}
+
+/** Pull call history from the API. Automations stay off during a backfill. */
+export async function syncCallsNow(days = 30, includeGroups = true): Promise<{
+  fetched: number; ingested: number; skipped: number; errors: string[];
+}> {
+  const { supabase, businessId } = await ctx();
+  const { syncCallsForBusiness, ymd } = await import("@/lib/telephony/sync");
+  const res = await syncCallsForBusiness(supabase, businessId, {
+    fromDate: ymd(new Date(Date.now() - Math.max(1, days) * 86400_000)),
+    includeGroups,
+  });
+  revalidatePath("/calls");
+  return res;
+}
+
+/**
+ * Click-to-call: rings the configured extension, then dials the customer once
+ * it's picked up. The number is passed in E.164 as their API requires.
+ */
+export async function placeCall(numberToCall: string, userNumber?: string): Promise<void> {
+  const { supabase, businessId } = await ctx();
+  const { data } = await tbl(supabase, "telephony_settings")
+    .select("api_key_enc, api_base_url, default_user_number, default_caller_id, enabled")
+    .eq("business_id", businessId).maybeSingle();
+
+  if (!data?.enabled) throw new Error("Phone system isn't connected");
+  if (!data.api_key_enc) throw new Error("No API key saved — add one in Calls → Setup");
+
+  const from = userNumber || data.default_user_number;
+  if (!from) throw new Error("Set the extension to call from in Calls → Setup");
+
+  const { toE164 } = await import("@/lib/telephony/phone");
+  const dest = toE164(numberToCall);
+  if (!dest) throw new Error("That doesn't look like a callable number");
+
+  const { callToNumber, VOIP_DEFAULT_BASE } = await import("@/lib/telephony/api");
+  const { decryptSecret } = await import("@/lib/crypto");
+  await callToNumber(data.api_base_url || VOIP_DEFAULT_BASE, decryptSecret(data.api_key_enc), {
+    user_number: from,
+    number_to_call: dest,
+    caller_id: data.default_caller_id || undefined,
+  });
 }

@@ -26,6 +26,8 @@ export interface VoipEvent {
   user_number?: string;
   dest_number?: string;
   call_start_at?: string;
+  /** REST API only: when the call was actually picked up. */
+  connected_at?: string;
   duration?: number | string;
   recording_url?: string;
   [k: string]: unknown;
@@ -37,10 +39,20 @@ export type CallStatus = "ringing" | "answered" | "completed" | "missed" | "voic
 /**
  * Classify an event from its `type`.
  *
- * VoIPcloud's docs name the 11 triggers in prose ("User inbound call
- * answered") but don't pin the exact wire strings, so this matches on
- * substrings rather than an equality table. An unrecognised type still logs
- * the call — it just doesn't advance the status.
+ * Two vocabularies reach this function and both must work:
+ *
+ *   · the REST API's snake_case types — `user_inbound_missed`,
+ *     `user_outbound_answered` (confirmed from a live response)
+ *   · the webhook's prose trigger names — "User inbound call answered",
+ *     "Queue call summary", "Inbound call recording"
+ *
+ * It matches on substrings rather than an equality table because VoIPcloud
+ * documents the webhook triggers in prose without pinning their wire strings.
+ *
+ * `missed` is checked FIRST and explicitly: the API sends `user_inbound_missed`
+ * as its own type, and an earlier version that only looked for the word "call"
+ * classified it as nothing at all — silently losing the exact signal this
+ * plugin exists to catch.
  */
 export function classify(type: string | undefined): { direction: CallDirection; stage: CallStatus | "recording" | null } {
   const t = String(type ?? "").toLowerCase();
@@ -48,11 +60,16 @@ export function classify(type: string | undefined): { direction: CallDirection; 
 
   if (t.includes("voicemail")) return { direction, stage: "voicemail" };
   if (t.includes("recording")) return { direction, stage: "recording" };
+  // "missed" / "abandoned" (queues) / "unanswered" are all terminal-not-answered.
+  if (t.includes("missed") || t.includes("abandoned") || t.includes("unanswered") || t.includes("noanswer")) {
+    return { direction, stage: "missed" };
+  }
+  if (t.includes("fail") || t.includes("rejected") || t.includes("busy")) return { direction, stage: "failed" };
   if (t.includes("answer")) return { direction, stage: "answered" };
-  if (t.includes("completion") || t.includes("summary") || t.includes("complete")) {
+  if (t.includes("completion") || t.includes("summary") || t.includes("complete") || t.includes("ended")) {
     return { direction, stage: "completed" };
   }
-  if (t.includes("call")) return { direction, stage: "ringing" };
+  if (t.includes("call") || t.includes("start") || t.includes("ringing")) return { direction, stage: "ringing" };
   return { direction, stage: null };
 }
 
@@ -144,7 +161,9 @@ export async function ingestCallEvent(
   const durationRaw = event.duration;
   const duration = durationRaw === undefined || durationRaw === null || durationRaw === ""
     ? null : Number(durationRaw);
-  const everAnswered = Boolean(existing?.answered_at) || stage === "answered";
+  // `connected_at` (REST API) is the most reliable answered signal there is —
+  // a call with a connect time was picked up, whatever its type string says.
+  const everAnswered = Boolean(existing?.answered_at) || stage === "answered" || Boolean(event.connected_at);
   if (status === "completed" && direction === "inbound" && !everAnswered) status = "missed";
 
   const match = existing?.customer_id || existing?.lead_id || existing?.contact_id || existing?.prospect_id
@@ -172,7 +191,10 @@ export async function ingestCallEvent(
     raw: { ...(existing?.raw ?? {}), [String(event.type ?? "event")]: event },
     ...match,
   };
-  if (stage === "answered") row.answered_at = existing?.answered_at ?? now;
+  if (stage === "answered" || event.connected_at) {
+    row.answered_at = existing?.answered_at
+      ?? (event.connected_at ? new Date(event.connected_at).toISOString() : now);
+  }
   if (status === "completed" || status === "missed") row.ended_at = existing?.ended_at ?? now;
   if (duration !== null && Number.isFinite(duration)) row.duration_seconds = Math.round(duration);
   if (stage === "recording" && event.recording_url) row.recording_url = String(event.recording_url);

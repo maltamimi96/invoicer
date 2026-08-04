@@ -2128,6 +2128,16 @@ export interface TelephonySettings {
   create_lead_on_missed: boolean;
   create_task_on_missed: boolean;
   create_task_on_voicemail: boolean;
+  /** Connection health — lets the UI tell "quiet" from "never configured". */
+  last_event_at: string | null;
+  last_event_type: string | null;
+  last_error_at: string | null;
+  last_error: string | null;
+  events_received: number;
+  last_sync_at: string | null;
+  sync_enabled: boolean;
+  default_user_number: string | null;
+  default_caller_id: string | null;
   created_at: string;
   updated_at: string;
 }

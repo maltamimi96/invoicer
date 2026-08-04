@@ -37,7 +37,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: settings } = await (sb as any)
     .from("telephony_settings")
-    .select("business_id, enabled, webhook_secret")
+    .select("business_id, enabled, webhook_secret, events_received")
     .eq("webhook_token", token)
     .maybeSingle();
 
@@ -50,6 +50,13 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
   if (settings.webhook_secret) {
     const given = req.headers.get("x-pbx-token") ?? "";
     if (!given || !secretMatches(settings.webhook_secret, given)) {
+      // Record it: a mismatched secret used to look identical to "no calls
+      // yet", which is the hardest kind of misconfiguration to find.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (sb as any).from("telephony_settings").update({
+        last_error_at: new Date().toISOString(),
+        last_error: given ? "Rejected: X-Pbx-Token did not match the secret" : "Rejected: no X-Pbx-Token header sent",
+      }).eq("business_id", settings.business_id);
       return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
   }
@@ -65,6 +72,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
   const events: VoipEvent[] = Array.isArray(payload) ? payload : [payload as VoipEvent];
 
   const results = [];
+  let lastError: string | null = null;
   for (const event of events) {
     try {
       results.push(await ingestCallEvent(sb, settings.business_id, event));
@@ -72,9 +80,22 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
       // Log and keep going: one malformed event shouldn't cost us the batch,
       // and a 500 would make the PBX retry the whole thing.
       console.error("voipcloud ingest failed", e);
+      lastError = e instanceof Error ? e.message : "Ingest failed";
       results.push({ error: true });
     }
   }
+
+  // Connection health — the Setup tab reads this to distinguish "connected but
+  // quiet" from "never configured", and to surface ingest failures that would
+  // otherwise only exist in a server log nobody reads.
+  const now = new Date().toISOString();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (sb as any).from("telephony_settings").update({
+    last_event_at: now,
+    last_event_type: String(events[0]?.type ?? "unknown"),
+    events_received: (settings.events_received ?? 0) + events.length,
+    ...(lastError ? { last_error_at: now, last_error: lastError } : {}),
+  }).eq("business_id", settings.business_id);
 
   return NextResponse.json({ ok: true, processed: results.length, results });
 }

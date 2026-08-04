@@ -52,3 +52,18 @@ export function samePhone(a: string | null | undefined, b: string | null | undef
   const ka = matchKey(a);
   return ka !== "" && ka === matchKey(b);
 }
+
+/**
+ * E.164 for the API's `number_to_call` / `caller_id` (it requires that format).
+ * Assumes AU when the number has no country code, which is what the trunk 0
+ * and a 9-digit NSN imply. Returns null when it isn't a dialable number.
+ */
+export function toE164(raw: string | null | undefined, countryCode = "61"): string | null {
+  const d = digitsOf(raw);
+  if (d.length < 6) return null;
+  if (String(raw ?? "").trim().startsWith("+")) return `+${d}`;
+  if (d.startsWith(countryCode) && d.length > 9) return `+${d}`;
+  const nsn = d.replace(/^0+/, "");
+  if (nsn.length < 6) return null;
+  return `+${countryCode}${nsn.slice(-9)}`;
+}

@@ -15,6 +15,7 @@ import { EmptyState } from "@/components/ui/kirei/empty-state";
 import { Phone, PhoneOff, Loader2, Copy, RefreshCw, AlertCircle } from "@/components/ui/icons";
 import {
   updateTelephonySettings, rotateWebhookToken, rematchCalls,
+  setTelephonyApiKey, testTelephonyConnection, syncCallsNow, setTelephonyEndpoint,
 } from "@/lib/actions/telephony";
 import { formatAuPhone } from "@/lib/telephony/phone";
 import type { CallStats } from "@/lib/actions/telephony";
@@ -58,6 +59,8 @@ export function CallsClient({
   const [settings, setSettings] = useState(initial);
   const [url, setUrl] = useState(webhookUrl);
   const [busy, startTransition] = useTransition();
+  const [syncing, setSyncing] = useState(false);
+  const [apiKey, setApiKey] = useState("");
 
   const save = (p: Partial<TelephonySettings>) => {
     setSettings((s) => ({ ...s, ...p }));
@@ -80,13 +83,29 @@ export function CallsClient({
         title="Calls"
         subtitle="Every call logged against the customer, with missed calls turned into follow-ups."
         actions={
-          <Button variant="outline" disabled={busy} onClick={async () => {
-            const n = await rematchCalls();
-            toast.success(n ? `Matched ${n} more call${n === 1 ? "" : "s"}` : "No new matches");
-            router.refresh();
-          }}>
-            <RefreshCw className="mr-1.5 h-4 w-4" /> Re-match callers
-          </Button>
+          <>
+            <Button variant="outline" disabled={busy} onClick={async () => {
+              const n = await rematchCalls();
+              toast.success(n ? `Matched ${n} more call${n === 1 ? "" : "s"}` : "No new matches");
+              router.refresh();
+            }}>
+              <RefreshCw className="mr-1.5 h-4 w-4" /> Re-match callers
+            </Button>
+            <Button disabled={syncing || !settings.enabled} onClick={async () => {
+              setSyncing(true);
+              try {
+                const r = await syncCallsNow(30, true);
+                if (r.errors.length) toast.error(r.errors[0]);
+                else toast.success(`Synced ${r.ingested} of ${r.fetched} calls from the last 30 days`);
+                router.refresh();
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : "Sync failed");
+              } finally { setSyncing(false); }
+            }}>
+              {syncing ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-1.5 h-4 w-4" />}
+              Sync call history
+            </Button>
+          </>
         }
       />
 
@@ -178,6 +197,42 @@ export function CallsClient({
               <Switch checked={settings.enabled} onCheckedChange={(v) => save({ enabled: v })} />
             </div>
 
+            {/* Connection status — an empty call list used to mean either
+                "quiet" or "never connected", with no way to tell which. */}
+            <div className={`mb-4 rounded-lg border p-3 text-sm ${
+              settings.last_error_at && (!settings.last_event_at || settings.last_error_at > settings.last_event_at)
+                ? "border-destructive/40 bg-destructive/10"
+                : settings.last_event_at
+                  ? "border-emerald-500/40 bg-emerald-500/10"
+                  : "border-border bg-muted/40"}`}>
+              {settings.last_error_at && (!settings.last_event_at || settings.last_error_at > settings.last_event_at) ? (
+                <>
+                  <p className="font-semibold">VoIPcloud is reaching us, but the request was rejected</p>
+                  <p className="text-muted-foreground">
+                    {settings.last_error} — {new Date(settings.last_error_at).toLocaleString("en-AU")}.
+                    Check the Secret Token matches on both sides.
+                  </p>
+                </>
+              ) : settings.last_event_at ? (
+                <>
+                  <p className="font-semibold">Connected</p>
+                  <p className="text-muted-foreground">
+                    Last event {new Date(settings.last_event_at).toLocaleString("en-AU")}
+                    {settings.last_event_type ? ` (${settings.last_event_type})` : ""} ·{" "}
+                    {settings.events_received} received in total.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="font-semibold">Waiting for the first event</p>
+                  <p className="text-muted-foreground">
+                    Nothing has arrived yet. Paste the URL below into VoIPcloud, then make a test call — this box
+                    updates as soon as anything reaches us, including a rejected request.
+                  </p>
+                </>
+              )}
+            </div>
+
             <Label htmlFor="hook">Webhook URL</Label>
             <div className="flex gap-2">
               <Input id="hook" readOnly value={url} className="font-mono text-xs" />
@@ -204,6 +259,74 @@ export function CallsClient({
                 the URL alone is otherwise the only thing protecting the endpoint.
               </p>
             </div>
+          </div>
+
+          {/* REST API — history sync and click-to-call. Separate from the
+              webhook: the webhook pushes new calls, the API pulls old ones. */}
+          <div className="rounded-xl border border-border bg-card p-5">
+            <p className="text-sm font-semibold">API access</p>
+            <p className="mb-4 text-xs text-muted-foreground">
+              The webhook only reports calls from the moment it&rsquo;s connected. An API key additionally lets Kirei
+              pull past call history and place calls from a customer record.
+            </p>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <Label htmlFor="apikey">API key</Label>
+                <div className="flex gap-2">
+                  <Input id="apikey" type="password" value={apiKey}
+                    placeholder={settings.api_key_enc ? "•••••• saved" : "Paste from VoIPcloud → API"}
+                    onChange={(e) => setApiKey(e.target.value)} />
+                  <Button variant="outline" disabled={!apiKey} onClick={async () => {
+                    try {
+                      await setTelephonyApiKey(apiKey); setApiKey("");
+                      toast.success("Saved (encrypted)"); router.refresh();
+                    } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't save"); }
+                  }}>Save</Button>
+                  <Button variant="outline" onClick={async () => {
+                    const r = await testTelephonyConnection();
+                    r.ok ? toast.success(r.message) : toast.error(r.message);
+                  }}>Test</Button>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Encrypted at rest and never shown again. If you&rsquo;ve set an IP whitelist in VoIPcloud, this
+                  server&rsquo;s address has to be on it — Test will tell you if it isn&rsquo;t.
+                </p>
+              </div>
+
+              <div className="sm:col-span-2">
+                <Label htmlFor="endpoint">Portal address</Label>
+                <Input id="endpoint" defaultValue={settings.api_base_url ?? "https://au.voipcloud.online"}
+                  placeholder="https://au.voipcloud.online"
+                  onBlur={async (e) => {
+                    try { await setTelephonyEndpoint(e.target.value); toast.success("Endpoint saved"); router.refresh(); }
+                    catch (err) { toast.error(err instanceof Error ? err.message : "Invalid endpoint"); }
+                  }} />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Only change this if your provider gave you a different portal — resellers run their own branded
+                  addresses. The default suits most Australian accounts.
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="ext">Call from extension</Label>
+                <Input id="ext" defaultValue={settings.default_user_number ?? ""} placeholder="1010"
+                  onBlur={(e) => save({ default_user_number: e.target.value || null })} />
+                <p className="mt-1 text-xs text-muted-foreground">Rings first, then dials the customer.</p>
+              </div>
+              <div>
+                <Label htmlFor="cid">Outgoing caller ID</Label>
+                <Input id="cid" defaultValue={settings.default_caller_id ?? ""} placeholder="+61300000000"
+                  onBlur={(e) => save({ default_caller_id: e.target.value || null })} />
+                <p className="mt-1 text-xs text-muted-foreground">E.164. Optional.</p>
+              </div>
+            </div>
+
+            {settings.last_sync_at && (
+              <p className="mt-3 text-xs text-muted-foreground">
+                Last history sync {new Date(settings.last_sync_at).toLocaleString("en-AU")}.
+              </p>
+            )}
           </div>
 
           <div className="rounded-xl border border-border bg-card p-5">
