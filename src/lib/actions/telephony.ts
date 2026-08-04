@@ -43,6 +43,18 @@ export async function getWebhookUrl(): Promise<string> {
   return `${appUrl()}/api/webhooks/voipcloud/${s.webhook_token}`;
 }
 
+/** Point a business at its own VoIPcloud portal (white-label resellers differ). */
+export async function setTelephonyEndpoint(url: string): Promise<void> {
+  const { supabase, businessId } = await ctx();
+  await getTelephonySettings();
+  const { assertSafeBaseUrl, VOIP_DEFAULT_BASE } = await import("@/lib/telephony/api");
+  const clean = url.trim() ? assertSafeBaseUrl(url) : VOIP_DEFAULT_BASE;
+  const { error } = await tbl(supabase, "telephony_settings")
+    .update({ api_base_url: clean }).eq("business_id", businessId);
+  if (error) throw error;
+  revalidatePath("/calls");
+}
+
 export async function updateTelephonySettings(patch: Partial<Omit<TelephonySettings,
   "business_id" | "created_at" | "updated_at" | "webhook_token" | "api_key_enc">>): Promise<void> {
   const { supabase, businessId } = await ctx();

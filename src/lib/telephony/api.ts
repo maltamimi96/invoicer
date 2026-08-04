@@ -206,3 +206,42 @@ export function groupCallToEvent(row: GroupCallRow, kind: "queue" | "ringgroup")
     source: "api",
   };
 }
+
+/**
+ * Validate a business-supplied API endpoint.
+ *
+ * VoIPcloud is white-label: resellers run their own branded portals, so the
+ * host can't be hardcoded. But a URL one tenant controls, fetched by OUR
+ * server, is a server-side request forgery vector — point it at an internal
+ * address and Kirei becomes a proxy into its own infrastructure. So:
+ *
+ *   · https only (their portals are, and it stops h2c/file/gopher tricks)
+ *   · no IP literals — a real portal is a hostname, and this is what kills
+ *     the cloud-metadata endpoint (169.254.169.254) and private ranges
+ *   · no loopback or internal-only names
+ *   · default port only
+ *
+ * Residual risk: DNS rebinding to a private address needs attacker-controlled
+ * DNS. Worth an egress allow-list if this ever becomes a concern.
+ */
+export function assertSafeBaseUrl(raw: string): string {
+  let u: URL;
+  try {
+    u = new URL(raw.trim());
+  } catch {
+    throw new Error("That isn't a valid URL — it should look like https://au.voipcloud.online");
+  }
+
+  if (u.protocol !== "https:") throw new Error("The endpoint must start with https://");
+  if (u.port && u.port !== "443") throw new Error("Use the default https port");
+
+  const host = u.hostname.toLowerCase();
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host.includes(":")) {
+    throw new Error("Enter the portal's hostname, not an IP address");
+  }
+  if (host === "localhost" || host.endsWith(".local") || host.endsWith(".internal") || !host.includes(".")) {
+    throw new Error("That host isn't reachable from the internet");
+  }
+
+  return u.origin;
+}

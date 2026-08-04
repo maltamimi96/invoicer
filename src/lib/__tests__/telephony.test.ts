@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { digitsOf, matchKey, samePhone, formatAuPhone, toE164 } from "@/lib/telephony/phone";
-import { userCallToEvent, groupCallToEvent } from "@/lib/telephony/api";
+import { userCallToEvent, groupCallToEvent, assertSafeBaseUrl } from "@/lib/telephony/api";
 import { classify } from "@/lib/telephony/ingest";
 
 describe("phone matching", () => {
@@ -170,5 +170,34 @@ describe("E.164 for click-to-call", () => {
     expect(toE164("101")).toBeNull();
     expect(toE164("")).toBeNull();
     expect(toE164(null)).toBeNull();
+  });
+});
+
+describe("per-business endpoint (multi-tenant SaaS)", () => {
+  it("accepts a reseller's own branded portal", () => {
+    // VoIPcloud is white-label — the host can't be hardcoded.
+    expect(assertSafeBaseUrl("https://au.voipcloud.online")).toBe("https://au.voipcloud.online");
+    expect(assertSafeBaseUrl("https://pbx.somereseller.com.au/")).toBe("https://pbx.somereseller.com.au");
+    expect(assertSafeBaseUrl("  https://uk.voipcloud.online/api  ")).toBe("https://uk.voipcloud.online");
+  });
+
+  it("blocks SSRF into our own infrastructure", () => {
+    // A tenant-supplied URL that OUR server fetches is an SSRF vector: the
+    // cloud metadata endpoint is the classic target.
+    expect(() => assertSafeBaseUrl("https://169.254.169.254")).toThrow(/hostname, not an IP/);
+    expect(() => assertSafeBaseUrl("https://127.0.0.1")).toThrow(/hostname, not an IP/);
+    expect(() => assertSafeBaseUrl("https://10.0.0.5")).toThrow(/hostname, not an IP/);
+    expect(() => assertSafeBaseUrl("https://localhost")).toThrow(/reachable/);
+    expect(() => assertSafeBaseUrl("https://vault.internal")).toThrow(/reachable/);
+  });
+
+  it("requires https on the default port", () => {
+    expect(() => assertSafeBaseUrl("http://au.voipcloud.online")).toThrow(/https/);
+    expect(() => assertSafeBaseUrl("file:///etc/passwd")).toThrow(/https/);
+    expect(() => assertSafeBaseUrl("https://au.voipcloud.online:8080")).toThrow(/default https port/);
+  });
+
+  it("rejects nonsense rather than silently defaulting", () => {
+    expect(() => assertSafeBaseUrl("not a url")).toThrow(/valid URL/);
   });
 });

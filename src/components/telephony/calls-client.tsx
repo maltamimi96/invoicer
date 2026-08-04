@@ -15,7 +15,7 @@ import { EmptyState } from "@/components/ui/kirei/empty-state";
 import { Phone, PhoneOff, Loader2, Copy, RefreshCw, AlertCircle } from "@/components/ui/icons";
 import {
   updateTelephonySettings, rotateWebhookToken, rematchCalls,
-  setTelephonyApiKey, testTelephonyConnection, syncCallsNow,
+  setTelephonyApiKey, testTelephonyConnection, syncCallsNow, setTelephonyEndpoint,
 } from "@/lib/actions/telephony";
 import { formatAuPhone } from "@/lib/telephony/phone";
 import type { CallStats } from "@/lib/actions/telephony";
@@ -291,6 +291,20 @@ export function CallsClient({
                 <p className="mt-1 text-xs text-muted-foreground">
                   Encrypted at rest and never shown again. If you&rsquo;ve set an IP whitelist in VoIPcloud, this
                   server&rsquo;s address has to be on it — Test will tell you if it isn&rsquo;t.
+                </p>
+              </div>
+
+              <div className="sm:col-span-2">
+                <Label htmlFor="endpoint">Portal address</Label>
+                <Input id="endpoint" defaultValue={settings.api_base_url ?? "https://au.voipcloud.online"}
+                  placeholder="https://au.voipcloud.online"
+                  onBlur={async (e) => {
+                    try { await setTelephonyEndpoint(e.target.value); toast.success("Endpoint saved"); router.refresh(); }
+                    catch (err) { toast.error(err instanceof Error ? err.message : "Invalid endpoint"); }
+                  }} />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Only change this if your provider gave you a different portal — resellers run their own branded
+                  addresses. The default suits most Australian accounts.
                 </p>
               </div>
 
