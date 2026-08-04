@@ -5,7 +5,7 @@ import { useConfirm } from "@/components/ui/confirm";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Receipt, Plus, Trash2, FileText } from "@/components/ui/icons";
+import { Receipt, Plus, Trash2, FileText, Edit, ChevronLeft, ChevronRight, Download } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,12 +14,24 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { DatePicker } from "@/components/ui/date-picker";
-import { createExpense, deleteExpense, createReceiptUpload, getReceiptUrl } from "@/lib/actions/expenses";
+import { createExpense, updateExpense, deleteExpense, createReceiptUpload, getReceiptUrl } from "@/lib/actions/expenses";
+import { exportExpensesCsv } from "@/lib/actions/books";
+import { BooksPanel } from "./books-panel";
+import { KireiTabs } from "@/components/ui/kirei/tabs";
+import { PERIOD_LABELS, type PeriodKind } from "@/lib/expenses/period";
+import type { BooksSummary } from "@/lib/actions/books";
 import { putSignedUpload } from "@/lib/uploads-client";
 import type { Expense } from "@/types/database";
 
 interface WO { id: string; number: string | null; title: string | null }
-interface Props { expenses: Expense[]; workOrders: WO[] }
+interface Props {
+  expenses: Expense[];
+  allCount: number;
+  books: BooksSummary;
+  periodKind: PeriodKind;
+  offset: number;
+  workOrders: WO[];
+}
 
 // Grouped so the dropdown reads as: job costs, overheads/bills, payroll.
 const CATEGORY_GROUPS: { label: string; options: string[] }[] = [
@@ -34,7 +46,9 @@ const selectCls = "h-9 w-full rounded-md border border-input bg-background px-3 
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
 const woLabel = (w?: WO) => w ? (w.title || w.number || "Job") : null;
 
-export function ExpensesView({ expenses, workOrders }: Props) {
+const PERIODS: PeriodKind[] = ["day", "week", "month", "quarter", "fy", "all"];
+
+export function ExpensesView({ expenses, allCount, books, periodKind, offset, workOrders }: Props) {
   const router = useRouter();
   const confirm = useConfirm();
   const [isPending, startTransition] = useTransition();
@@ -52,20 +66,20 @@ export function ExpensesView({ expenses, workOrders }: Props) {
   const [billable, setBillable] = useState(false);
   const [receiptPath, setReceiptPath] = useState<string | null>(null);
   const [filterCategory, setFilterCategory] = useState("all");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [tab, setTab] = useState<"expenses" | "books">("expenses");
 
   const woById = new Map(workOrders.map((w) => [w.id, w]));
   const gross = (e: Expense) => Number(e.amount) + Number(e.tax_amount);
 
-  // KPI: this month
-  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0];
-  const monthExpenses = expenses.filter((e) => e.spent_on >= monthStart);
-  const monthTotal = monthExpenses.reduce((s, e) => s + gross(e), 0);
-  const billableTotal = expenses.filter((e) => e.billable).reduce((s, e) => s + gross(e), 0);
+  // Everything below is scoped to the selected period, which the server has
+  // already aggregated — the client must not re-derive "this month" from a
+  // list that may only contain one week.
+  const monthTotal = books.expenses;
+  const billableTotal = books.billable;
 
-  // Spend by category, this month (biggest first) — where the money goes.
-  const byCategory = Object.entries(
-    monthExpenses.reduce((acc, e) => { acc[e.category] = (acc[e.category] ?? 0) + gross(e); return acc; }, {} as Record<string, number>),
-  ).sort((a, b) => b[1] - a[1]);
+  // Spend by category for the period, biggest first — where the money goes.
+  const byCategory: [string, number][] = books.byCategory.map((c) => [c.category, c.total]);
 
   const visible = filterCategory === "all" ? expenses : expenses.filter((e) => e.category === filterCategory);
 
@@ -73,6 +87,9 @@ export function ExpensesView({ expenses, workOrders }: Props) {
     setAmount(""); setTax(""); setCategory("materials"); setVendor(""); setDescription("");
     setSpentOn(new Date().toISOString().split("T")[0]); setPaymentMethod("card");
     setWorkOrderId(""); setBillable(false); setReceiptPath(null);
+    // Critical: without this, "Add expense" after an edit would overwrite the
+    // record that was just edited instead of creating a new one.
+    setEditingId(null);
   }
 
   async function onReceipt(e: React.ChangeEvent<HTMLInputElement>) {
@@ -89,15 +106,37 @@ export function ExpensesView({ expenses, workOrders }: Props) {
     } finally { setUploading(false); }
   }
 
-  function handleAdd() {
+  /** Load an existing expense into the dialog. */
+  function startEdit(e: Expense) {
+    setEditingId(e.id);
+    setAmount(String(e.amount ?? ""));
+    setTax(String(e.tax_amount ?? ""));
+    setCategory(e.category ?? "materials");
+    setVendor(e.vendor ?? "");
+    setDescription(e.description ?? "");
+    setSpentOn(e.spent_on);
+    setPaymentMethod(e.payment_method ?? "card");
+    setWorkOrderId(e.work_order_id ?? "");
+    setBillable(Boolean(e.billable));
+    setReceiptPath(e.receipt_path ?? null);
+    setOpen(true);
+  }
+
+  function handleSave() {
     if (!amount || Number(amount) <= 0) { toast.error("Enter an amount"); return; }
     startTransition(async () => {
       try {
-        await createExpense({
+        const payload = {
           amount, tax_amount: tax, category, vendor, description, spent_on: spentOn,
           payment_method: paymentMethod, work_order_id: workOrderId || null, billable, receipt_path: receiptPath,
-        });
-        toast.success("Expense recorded");
+        };
+        if (editingId) {
+          await updateExpense(editingId, payload);
+          toast.success("Expense updated");
+        } else {
+          await createExpense(payload);
+          toast.success("Expense recorded");
+        }
         setOpen(false); reset(); router.refresh();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Couldn't save");
@@ -119,6 +158,23 @@ export function ExpensesView({ expenses, workOrders }: Props) {
     });
   }
 
+  /** Move to another period. The URL is the source of truth, so the server
+   *  re-aggregates rather than the client re-filtering a partial list. */
+  function go(kind: PeriodKind, next: number) {
+    router.push(`/expenses?period=${kind}&offset=${next}`);
+  }
+
+  async function handleExport() {
+    const csv = await exportExpensesCsv(periodKind, offset);
+    const slug = books.period.label.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `expenses-${slug}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function viewReceipt(path: string) {
     const url = await getReceiptUrl(path);
     if (url) window.open(url, "_blank");
@@ -130,20 +186,66 @@ export function ExpensesView({ expenses, workOrders }: Props) {
       <PageHeader
         title="Expenses"
         subtitle="Track job and business costs — receipts, categories and true profit per job"
-        actions={<Button onClick={() => setOpen(true)} disabled={isPending}><Plus className="w-4 h-4 mr-1.5" /> Add expense</Button>}
+        actions={
+          <>
+            <Button variant="outline" disabled={isPending} onClick={handleExport}>
+              <Download className="w-4 h-4 mr-1.5" /> Export CSV
+            </Button>
+            <Button onClick={() => { reset(); setOpen(true); }} disabled={isPending}>
+              <Plus className="w-4 h-4 mr-1.5" /> Add expense
+            </Button>
+          </>
+        }
       />
+
+      {/* Period navigation — the whole page is scoped to this window, and it
+          lives in the URL so a view is shareable and survives a refresh. */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1">
+          {PERIODS.map((k) => (
+            <button key={k} onClick={() => go(k, 0)}
+              className={cn("rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                periodKind === k ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>
+              {PERIOD_LABELS[k]}
+            </button>
+          ))}
+        </div>
+
+        {periodKind !== "all" && (
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="sm" onClick={() => go(periodKind, offset - 1)} aria-label="Previous period">
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="min-w-[150px] text-center text-sm font-semibold">{books.period.label}</span>
+            {/* Can't navigate into the future — there's nothing there. */}
+            <Button variant="outline" size="sm" onClick={() => go(periodKind, offset + 1)}
+              disabled={offset >= 0} aria-label="Next period">
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            {offset !== 0 && <Button variant="ghost" size="sm" onClick={() => go(periodKind, 0)}>Today</Button>}
+          </div>
+        )}
+      </div>
+
+      <KireiTabs className="mb-5" value={tab} onChange={setTab}
+        tabs={[
+          { value: "expenses", label: "Expenses", count: expenses.length },
+          { value: "books", label: "Books" },
+        ]} />
+
+      {tab === "books" ? <BooksPanel books={books} /> : <>
 
       {/* KPI strip */}
       <div className="grid grid-cols-3 gap-3 mb-6">
-        <Stat label="This month" value={money(monthTotal)} sub={`${monthExpenses.length} expenses`} />
+        <Stat label={books.period.label} value={money(monthTotal)} sub={String(books.expenseCount) + " expenses"} />
         <Stat label="Billable (rebillable)" value={money(billableTotal)} />
-        <Stat label="Total records" value={String(expenses.length)} />
+        <Stat label="All records" value={String(allCount)} />
       </div>
 
       {/* Where the money went, this month */}
       {byCategory.length > 0 && (
         <div className="mb-6 rounded-xl border border-border bg-card p-4">
-          <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Spend by category · this month</p>
+          <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Spend by category · {books.period.label}</p>
           <div className="flex flex-wrap gap-2">
             {byCategory.map(([cat, amt]) => {
               const pct = monthTotal > 0 ? Math.round((amt / monthTotal) * 100) : 0;
@@ -203,6 +305,7 @@ export function ExpensesView({ expenses, workOrders }: Props) {
                   <td>{e.work_order_id ? (woLabel(woById.get(e.work_order_id)) ?? "Job") : "—"}</td>
                   <td className="num">{money(Number(e.amount) + Number(e.tax_amount))}</td>
                   <td>{e.receipt_path && <button onClick={() => viewReceipt(e.receipt_path!)} className="text-muted-foreground hover:text-foreground" title="View receipt"><FileText className="w-4 h-4" /></button>}</td>
+                  <td><button onClick={() => startEdit(e)} disabled={isPending} className="text-muted-foreground hover:text-foreground" aria-label="Edit"><Edit className="w-4 h-4" /></button></td>
                   <td><button onClick={() => handleDelete(e.id)} disabled={isPending} className="text-muted-foreground hover:text-destructive" aria-label="Delete"><Trash2 className="w-4 h-4" /></button></td>
                 </tr>
               ))}
@@ -212,11 +315,12 @@ export function ExpensesView({ expenses, workOrders }: Props) {
         )}
         </>
       )}
+      </>}
 
       {/* Add dialog */}
       <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
         <DialogContent className="max-h-[88vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Add expense</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editingId ? "Edit expense" : "Add expense"}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5"><Label htmlFor="e-amount">Amount (ex-tax)</Label><Input id="e-amount" type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
@@ -261,7 +365,7 @@ export function ExpensesView({ expenses, workOrders }: Props) {
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setOpen(false)} disabled={isPending}>Cancel</Button>
-            <Button onClick={handleAdd} disabled={isPending || uploading}>Save expense</Button>
+            <Button onClick={handleSave} disabled={isPending || uploading}>{editingId ? "Save changes" : "Save expense"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

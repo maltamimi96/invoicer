@@ -88,4 +88,43 @@ export function registerExpenseTools(tool: ToolFn): void {
       const billable = rows.filter((e) => e.billable).reduce((s, e) => s + Number(e.amount) + Number(e.tax_amount), 0);
       return text({ work_order_id: args.work_order_id, expense_total: total, billable_total: billable, count: rows.length });
     });
+  tool("get_books_summary",
+    "The books for a period: money in (payments received), money out (expenses), profit or loss, the GST position, and breakdowns by category and supplier. Cash basis. Periods are day/week/month/quarter/fy — quarters and financial years follow the Australian July-June calendar, so they line up with BAS and tax.",
+    {
+      period: z.enum(["day", "week", "month", "quarter", "fy", "all"]).optional(),
+      offset: z.number().int().min(-60).max(0).optional(),
+    },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "expenses:read");
+      const { buildPeriod, monthsBetween, todayStr } = await import("@/lib/expenses/period");
+      const period = buildPeriod(args.period ?? "month", todayStr(), args.offset ?? 0);
+
+      const [exp, pay] = await Promise.all([
+        t(ctx, "expenses").select("amount, tax_amount, category, vendor, billable, spent_on")
+          .eq("business_id", ctx.businessId).gte("spent_on", period.start).lte("spent_on", period.end).limit(5000),
+        t(ctx, "payments").select("amount, date")
+          .eq("business_id", ctx.businessId).gte("date", period.start).lte("date", period.end).limit(5000),
+      ]);
+      const n = (v: unknown) => { const x = Number(v); return Number.isFinite(x) ? x : 0; };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rows = (exp.data ?? []) as any[];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const pays = (pay.data ?? []) as any[];
+      const gross = (e: { amount: unknown; tax_amount: unknown }) => n(e.amount) + n(e.tax_amount);
+      const outTotal = rows.reduce((s2, e) => s2 + gross(e), 0);
+      const income = pays.reduce((s2, p2) => s2 + n(p2.amount), 0);
+      const byCat = new Map<string, number>();
+      for (const e of rows) byCat.set(e.category, (byCat.get(e.category) ?? 0) + gross(e));
+
+      return text({
+        period: { label: period.label, start: period.start, end: period.end },
+        income, expenses: outTotal, net: income - outTotal,
+        gst_collected_estimate: income / 11,
+        gst_paid: rows.reduce((s2, e) => s2 + n(e.tax_amount), 0),
+        expense_count: rows.length,
+        by_category: [...byCat.entries()].map(([category, total]) => ({ category, total }))
+          .sort((a, b) => b.total - a.total),
+        note: "Cash basis. GST collected is estimated as 1/11th of payments received.",
+      });
+    });
 }
