@@ -224,3 +224,116 @@ export async function placeCall(numberToCall: string, userNumber?: string): Prom
     caller_id: data.default_caller_id || undefined,
   });
 }
+
+// ── Call context: who is this, and what's open for them ─────────────────────
+
+export interface CallContext {
+  call: Call;
+  party: { kind: "customer" | "contact" | "lead" | "prospect"; id: string; name: string;
+           email: string | null; phone: string | null; company: string | null } | null;
+  /** Open work for the matched customer — the "active tickets" equivalent. */
+  workOrders: { id: string; number: string | null; title: string | null; status: string }[];
+  quotes: { id: string; number: string | null; total: number; status: string }[];
+  invoices: { id: string; number: string | null; total: number; amount_paid: number; status: string }[];
+  recentCalls: { id: string; direction: string; status: string; started_at: string }[];
+}
+
+/**
+ * Everything worth knowing when the phone rings: who's calling and what's
+ * already open for them, so you answer informed rather than asking.
+ */
+export async function getCallContext(callId: string): Promise<CallContext> {
+  const { supabase, businessId } = await ctx();
+
+  const { data: call, error } = await tbl(supabase, "calls")
+    .select("*, customers(name,email,phone), leads(name,email,phone), contacts(name,email,phone), prospects(company,email,phone,name)")
+    .eq("id", callId).eq("business_id", businessId).single();
+  if (error) throw error;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const c = call as any;
+  let party: CallContext["party"] = null;
+  if (c.customer_id && c.customers) {
+    party = { kind: "customer", id: c.customer_id, name: c.customers.name,
+              email: c.customers.email, phone: c.customers.phone, company: null };
+  } else if (c.contact_id && c.contacts) {
+    party = { kind: "contact", id: c.contact_id, name: c.contacts.name,
+              email: c.contacts.email, phone: c.contacts.phone, company: null };
+  } else if (c.lead_id && c.leads) {
+    party = { kind: "lead", id: c.lead_id, name: c.leads.name,
+              email: c.leads.email, phone: c.leads.phone, company: null };
+  } else if (c.prospect_id && c.prospects) {
+    party = { kind: "prospect", id: c.prospect_id, name: c.prospects.name ?? c.prospects.company ?? "Prospect",
+              email: c.prospects.email, phone: c.prospects.phone, company: c.prospects.company };
+  }
+
+  const empty = { workOrders: [], quotes: [], invoices: [] };
+  // Open work only exists for a customer — a lead has nothing booked yet.
+  const related = party?.kind === "customer"
+    ? await (async () => {
+        const [wo, q, inv] = await Promise.all([
+          tbl(supabase, "work_orders").select("id, number, title, status")
+            .eq("business_id", businessId).eq("customer_id", party.id)
+            .not("status", "in", '("completed","cancelled")')
+            .order("created_at", { ascending: false }).limit(5),
+          tbl(supabase, "quotes").select("id, number, total, status")
+            .eq("business_id", businessId).eq("customer_id", party.id)
+            .order("created_at", { ascending: false }).limit(5),
+          tbl(supabase, "invoices").select("id, number, total, amount_paid, status")
+            .eq("business_id", businessId).eq("customer_id", party.id)
+            .neq("status", "paid").order("created_at", { ascending: false }).limit(5),
+        ]);
+        return { workOrders: wo.data ?? [], quotes: q.data ?? [], invoices: inv.data ?? [] };
+      })()
+    : empty;
+
+  // Their call history, so you can see "third time this week" at a glance.
+  const { data: recent } = c.counterparty_digits
+    ? await tbl(supabase, "calls").select("id, direction, status, started_at")
+        .eq("business_id", businessId).eq("counterparty_digits", c.counterparty_digits)
+        .neq("id", callId).order("started_at", { ascending: false }).limit(5)
+    : { data: [] };
+
+  return {
+    call: call as Call,
+    party,
+    ...related,
+    recentCalls: recent ?? [],
+  } as CallContext;
+}
+
+/**
+ * Turn an unknown caller into a customer, and back-link every call from that
+ * number so the history isn't stranded on the old unmatched rows.
+ */
+export async function createCustomerFromCall(
+  callId: string, name: string, email?: string,
+): Promise<{ customer_id: string; linkedCalls: number }> {
+  const { supabase, businessId, user } = await ctx();
+
+  const { data: call } = await tbl(supabase, "calls")
+    .select("id, from_number, to_number, direction, counterparty_digits")
+    .eq("id", callId).eq("business_id", businessId).maybeSingle();
+  if (!call) throw new Error("Call not found");
+  if (!name.trim()) throw new Error("A name is required");
+
+  const phone = call.direction === "inbound" ? call.from_number : call.to_number;
+  const { data: customer, error } = await tbl(supabase, "customers").insert({
+    business_id: businessId, user_id: user.id,
+    name: name.trim(), phone, email: email?.trim() || null,
+  }).select("id").single();
+  if (error) throw error;
+
+  // Link every past call from this number, not just the one in front of you.
+  let linkedCalls = 0;
+  if (call.counterparty_digits) {
+    const { data: linked } = await tbl(supabase, "calls")
+      .update({ customer_id: customer.id })
+      .eq("business_id", businessId).eq("counterparty_digits", call.counterparty_digits)
+      .is("customer_id", null).select("id");
+    linkedCalls = linked?.length ?? 0;
+  }
+
+  revalidatePath("/calls");
+  return { customer_id: customer.id, linkedCalls };
+}
