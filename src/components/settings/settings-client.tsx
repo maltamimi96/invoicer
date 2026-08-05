@@ -269,6 +269,21 @@ export function SettingsClient({ business: initial, apiKeys, emailConfig, webhoo
         {/* ── Business tab ── */}
         <TabsContent value="business" className="space-y-4 mt-6">
           <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Client fields</CardTitle>
+            </CardHeader>
+            <CardContent className="flex items-center justify-between gap-4">
+              <p className="text-sm text-muted-foreground">
+                What you record about a client beyond their contact details. Starts from your industry&rsquo;s
+                defaults — a trades business gets site access and property type, an agency gets retainer and socials.
+              </p>
+              <Button asChild variant="outline" className="shrink-0">
+                <a href="/settings/client-fields">Edit fields</a>
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
             <CardHeader className="flex flex-row items-center gap-2.5 space-y-0">
               <GradientTile gradient="violet" size={28} radius={8}><Palette className="w-3.5 h-3.5" /></GradientTile>
               <CardTitle className="text-base">Logo</CardTitle>
