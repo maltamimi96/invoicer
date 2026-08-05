@@ -10,6 +10,21 @@ import { z } from "zod";
 import { assertScope, t, text, errorText } from "../context";
 import { sendEmail, buildBusinessFrom } from "@/lib/email";
 import { ctxFrom, appBase, UUID, getOrMintPortalToken, type ToolFn } from "./shared";
+import { secureFieldsAvailable } from "@/lib/onboarding/crypto";
+
+/**
+ * A secure field is unusable without ONBOARDING_SECRET_KEY: the customer fills
+ * the form, hits save, and gets an error they can do nothing about. The UI
+ * builder already blocks adding one — these tools are the other way in, so
+ * they have to block it too. Returns an error string, or null when fine.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function secureFieldsBlocked(fields: any[] | undefined): string | null {
+  if (!fields?.some((f) => f?.type === "secure")) return null;
+  if (secureFieldsAvailable()) return null;
+  return "Secure credential fields need ONBOARDING_SECRET_KEY (64 hex chars) set on the server. "
+    + "Without it the customer could not submit the form. Set the key, or use a normal text field.";
+}
 
 export function registerPluginFormTools(tool: ToolFn): void {
   // ===== PLUGINS (module system — docs/SEO_AGENCY_PLAN.md P0) =====
@@ -281,6 +296,8 @@ export function registerPluginFormTools(tool: ToolFn): void {
     { name: z.string().min(1), description: z.string().optional(), fields: z.array(ONBOARDING_FIELD), activate: z.boolean().optional() },
     async (args, extra) => {
       const ctx = ctxFrom(extra); assertScope(ctx, "onboarding:write");
+      const blocked = secureFieldsBlocked(args.fields);
+      if (blocked) return errorText(blocked);
       const { data, error } = await t(ctx, "onboarding_forms").insert({
         business_id: ctx.businessId, name: args.name, description: args.description ?? null,
         schema: args.fields, status: args.activate ? "active" : "draft",

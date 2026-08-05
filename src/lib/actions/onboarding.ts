@@ -181,6 +181,20 @@ export async function sendOnboardingRequest(formId: string, customerId: string, 
   if (!customer) throw new Error("Customer not found");
   if ((form.schema ?? []).length === 0) throw new Error("Add at least one field before sending");
 
+  // A form with a secure field can't be submitted while the encryption key is
+  // missing — the customer would fill it in, hit save, and get an error they
+  // can do nothing about. Fail here, for the business, rather than in front of
+  // their client. The builder blocks adding these fields, but the MCP tools
+  // can create them, so this is the last line before a customer sees it.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const hasSecure = ((form.schema ?? []) as any[]).some((f) => f?.type === "secure");
+  if (hasSecure && !secureFieldsAvailable()) {
+    throw new Error(
+      "This form has a secure credential field, but ONBOARDING_SECRET_KEY isn't set on the server — "
+      + "your customer wouldn't be able to submit it. Set the key, or remove the secure field.",
+    );
+  }
+
   // Reuse an open request for the same form+customer instead of duplicating.
   const { data: openReq } = await tbl(supabase, "onboarding_requests")
     .select("id").eq("business_id", businessId).eq("form_id", formId)
