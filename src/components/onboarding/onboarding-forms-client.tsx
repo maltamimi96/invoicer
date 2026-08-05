@@ -100,7 +100,9 @@ export function OnboardingFormsClient({ enabled, forms, requests, customers }: P
     if (!sendForm || !sendCustomer) return toast.error("Pick a customer");
     setBusy(true);
     try {
-      const { url } = await sendOnboardingRequest(sendForm.id, sendCustomer);
+      const res = await sendOnboardingRequest(sendForm.id, sendCustomer);
+      if (!res.ok) { toast.error(res.error); return; }
+      const { url } = res;
       await navigator.clipboard.writeText(url).catch(() => {});
       toast.success("Sent — link also copied to your clipboard");
       setSendForm(null); setSendCustomer("");
@@ -111,7 +113,9 @@ export function OnboardingFormsClient({ enabled, forms, requests, customers }: P
 
   const copyLink = async (formId: string, customerId: string) => {
     try {
-      const { url } = await sendOnboardingRequest(formId, customerId, { email: false });
+      const res = await sendOnboardingRequest(formId, customerId, { email: false });
+      if (!res.ok) { toast.error(res.error); return; }
+      const { url } = res;
       await navigator.clipboard.writeText(url);
       toast.success("Link copied");
       router.refresh();
@@ -299,7 +303,9 @@ export function OnboardingFormsClient({ enabled, forms, requests, customers }: P
                 if (!sendForm || !sendCustomer) return;
                 setBusy(true);
                 try {
-                  const { url } = await sendOnboardingRequest(sendForm.id, sendCustomer, { email: false });
+                  const res = await sendOnboardingRequest(sendForm.id, sendCustomer, { email: false });
+                  if (!res.ok) { toast.error(res.error); return; }
+                  const { url } = res;
                   await navigator.clipboard.writeText(url);
                   toast.success("Share link copied — send it however you like");
                   setSendForm(null); setSendCustomer("");
