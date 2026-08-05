@@ -7,9 +7,10 @@ import {
   Plus, Edit, Mail, Phone, Building2, MapPin, FileText,
   FileCheck, Wrench, ClipboardList, StickyNote, User, Users, Home,
   Trash2, Star, Save, X, ChevronDown, ChevronUp, ImageIcon, MessageSquare,
-  CreditCard, DollarSign, Paperclip,
+  CreditCard, DollarSign, Paperclip, ListChecks,
 } from "@/components/ui/icons";
 import { AttachmentsPanel } from "@/components/attachments/attachments-panel";
+import { ClientFieldsSummary } from "@/components/customers/client-fields";
 import { Button } from "@/components/ui/button";
 import {
   DetailHero, StatTile, AnimatedPress, FadeIn, KireiAvatar, GradientTile,
@@ -49,14 +50,16 @@ import type {
   Customer, InvoiceWithCustomer, QuoteWithCustomer,
   WorkOrderWithCustomer, ReportWithCustomer,
   CustomerProperty, CustomerContact, CustomerNote, BillingProfile,
-  OnboardingForm, OnboardingResponse,
+  OnboardingForm, OnboardingResponse, OnboardingField,
 } from "@/types/database";
 
 /** Onboarding tab payload — null hides the tab (plugin disabled). */
 export interface CustomerOnboardingData {
   requests: OnboardingRequestRow[];
   responses: OnboardingResponse[];
-  activeForms: Pick<OnboardingForm, "id" | "name">[];
+  /** `blocked` explains why a form can't be sent — computed server-side so the
+   *  picker can say so before you try. `schema` powers filling it in yourself. */
+  activeForms: (Pick<OnboardingForm, "id" | "name" | "schema"> & { blocked?: string | null })[];
 }
 
 interface Props {
@@ -74,6 +77,8 @@ interface Props {
   businessCountry?: string | null;
   /** Client-onboarding tab data; null/undefined when the plugin is disabled. */
   onboarding?: CustomerOnboardingData | null;
+  /** This business's client-profile fields (industry preset or its override). */
+  clientFields?: OnboardingField[];
 }
 
 // ── Property Modal ─────────────────────────────────────────────────────────────
@@ -458,6 +463,34 @@ function BillingProfileModal({ customerId, profile, onSave, onClose }: BillingPr
   );
 }
 
+// ── Client fields card ─────────────────────────────────────────────────────────
+
+/** The business's own profile fields. Renders nothing when none are filled in
+ *  — an empty card is noise on every customer who hasn't been through them. */
+function ClientFieldsSummaryCard({
+  fields, values,
+}: { fields: OnboardingField[]; values: Record<string, unknown> }) {
+  const anyFilled = fields.some((f) => {
+    const v = values[f.id];
+    return v !== undefined && v !== null && v !== "";
+  });
+  if (!anyFilled) return null;
+
+  return (
+    <div className="rounded-xl border border-border bg-card overflow-hidden">
+      <div className="flex items-center gap-2.5 px-4 py-3 border-b border-border">
+        <GradientTile gradient="violet" size={28} radius={8}>
+          <ListChecks className="w-3.5 h-3.5" />
+        </GradientTile>
+        <h3 className="text-sm font-semibold">Details</h3>
+      </div>
+      <div className="p-4">
+        <ClientFieldsSummary fields={fields} values={values} />
+      </div>
+    </div>
+  );
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────────
 
 export function CustomerDetailClient({
@@ -473,6 +506,7 @@ export function CustomerDetailClient({
   currency = "AUD",
   businessCountry = null,
   onboarding = null,
+  clientFields = [],
 }: Props) {
   const [customer, setCustomer] = useState(initial);
   const [editing, setEditing] = useState(false);
@@ -567,7 +601,7 @@ export function CustomerDetailClient({
 
       {editing ? (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-          <CustomerForm customer={customer} businessCountry={businessCountry} onSuccess={(updated) => { setCustomer(updated); setEditing(false); }} />
+          <CustomerForm customer={customer} businessCountry={businessCountry} clientFields={clientFields} onSuccess={(updated) => { setCustomer(updated); setEditing(false); }} />
         </motion.div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -634,6 +668,15 @@ export function CustomerDetailClient({
                 )}
               </div>
             </div>
+
+            {/* Client fields — this business's own profile fields. Hidden when
+                nothing's filled in, rather than showing a column of dashes. */}
+            {clientFields.length > 0 && (
+              <ClientFieldsSummaryCard
+                fields={clientFields}
+                values={(customer.custom_fields as Record<string, unknown>) ?? {}}
+              />
+            )}
 
             {/* Quick actions */}
             <div className="space-y-2">

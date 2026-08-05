@@ -59,6 +59,9 @@ export interface Business {
   sidebar_theme: string;
   /** Industry preset id (src/lib/plugins/presets.ts); null = no preset applied. */
   industry_preset?: string | null;
+  /** Overrides the preset's client fields. NULL = still using the preset;
+   *  [] = deliberately none. */
+  customer_field_schema?: OnboardingField[] | null;
   invoice_prefix: string;
   invoice_next_number: number;
   quote_prefix: string;
@@ -111,6 +114,9 @@ export interface Customer {
   stripe_pm_last4: string | null;
   stripe_pm_exp: string | null;
   autopay_enabled: boolean;
+  /** Answers to the business's own client fields, keyed by field id.
+   *  See lib/customers/field-schema.ts. */
+  custom_fields?: Record<string, unknown> | null;
   archived: boolean;
   created_at: string;
   updated_at: string;
