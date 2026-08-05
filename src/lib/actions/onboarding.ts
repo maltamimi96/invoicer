@@ -167,7 +167,13 @@ async function mintPortalToken(
 
 /** Send an onboarding form to a customer: creates the request, mints/reuses a
  *  portal token, and emails the fill link. Returns the link either way. */
-export async function sendOnboardingRequest(formId: string, customerId: string, opts: { email?: boolean } = {}): Promise<{ request_id: string; url: string }> {
+export type SendOnboardingResult =
+  | { ok: true; request_id: string; url: string }
+  | { ok: false; error: string };
+
+export async function sendOnboardingRequest(
+  formId: string, customerId: string, opts: { email?: boolean } = {},
+): Promise<SendOnboardingResult> {
   const supabase = await createClient();
   const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
@@ -177,9 +183,18 @@ export async function sendOnboardingRequest(formId: string, customerId: string, 
     tbl(supabase, "customers").select("id, name, email").eq("id", customerId).eq("business_id", businessId).maybeSingle(),
     tbl(supabase, "businesses").select("name, email").eq("id", businessId).single(),
   ]);
-  if (!form) throw new Error("Form not found");
-  if (!customer) throw new Error("Customer not found");
-  if ((form.schema ?? []).length === 0) throw new Error("Add at least one field before sending");
+  // Expected failures are RETURNED, not thrown.
+  //
+  // Next.js masks thrown server-action messages in production — the client only
+  // ever sees "An error occurred in the Server Components render". So a helpful
+  // explanation that gets thrown is a helpful explanation the user never reads;
+  // it reached the server log and nowhere else. Anything the user can act on
+  // has to come back as data.
+  if (!form) return { ok: false as const, error: "Form not found" };
+  if (!customer) return { ok: false as const, error: "Customer not found" };
+  if ((form.schema ?? []).length === 0) {
+    return { ok: false as const, error: "Add at least one field before sending" };
+  }
 
   // A form with a secure field can't be submitted while the encryption key is
   // missing — the customer would fill it in, hit save, and get an error they
@@ -189,10 +204,11 @@ export async function sendOnboardingRequest(formId: string, customerId: string, 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const hasSecure = ((form.schema ?? []) as any[]).some((f) => f?.type === "secure");
   if (hasSecure && !secureFieldsAvailable()) {
-    throw new Error(
-      "This form has a secure credential field, but ONBOARDING_SECRET_KEY isn't set on the server — "
-      + "your customer wouldn't be able to submit it. Set the key, or remove the secure field.",
-    );
+    return {
+      ok: false as const,
+      error: "This form has a secure credential field, but the encryption key isn't set on the server — "
+        + "your customer wouldn't be able to submit it. Remove the secure field, or set ONBOARDING_SECRET_KEY.",
+    };
   }
 
   // Reuse an open request for the same form+customer instead of duplicating.
@@ -215,7 +231,9 @@ export async function sendOnboardingRequest(formId: string, customerId: string, 
 
   const shouldEmail = opts.email !== false;
   if (shouldEmail) {
-    if (!customer.email) throw new Error("This customer has no email address — use Copy link instead");
+    if (!customer.email) {
+      return { ok: false as const, error: "This customer has no email address — use Copy link instead" };
+    }
     const html = `<!doctype html><html><body style="font-family:Arial,Helvetica,sans-serif;background:#f6f6f4;padding:24px;color:#111">
       <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;border:1px solid #e5e3d9;padding:28px">
         <p style="font-size:13px;color:#666;margin:0 0 4px">${biz?.name ?? "Your provider"}</p>
@@ -236,7 +254,7 @@ export async function sendOnboardingRequest(formId: string, customerId: string, 
 
   revalidatePath("/onboarding-forms");
   revalidatePath(`/customers/${customerId}`);
-  return { request_id: requestId, url };
+  return { ok: true as const, request_id: requestId, url };
 }
 
 export interface OnboardingRequestRow extends OnboardingRequest {

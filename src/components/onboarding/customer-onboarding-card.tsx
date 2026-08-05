@@ -11,7 +11,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ClipboardList, Send, Copy, Loader2, Lock, Check, ChevronDown } from "@/components/ui/icons";
+import { ClipboardList, Send, Copy, Loader2, Lock, Check, ChevronDown, Eye } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -33,10 +33,13 @@ interface Props {
   customerId: string;
   requests: OnboardingRequestRow[];
   responses: OnboardingResponse[];
-  activeForms: Pick<OnboardingForm, "id" | "name">[];
+  /** `blocked` explains why a form can't be sent, so the picker can say so
+   *  before you try rather than after. */
+  activeForms: (Pick<OnboardingForm, "id" | "name"> & { blocked?: string | null })[];
 }
 
 export function CustomerOnboardingCard({ customerId, requests, responses, activeForms }: Props) {
+  const blockedForms = activeForms.filter((f) => f.blocked);
   const router = useRouter();
   const [pickedForm, setPickedForm] = useState("");
   const [busy, setBusy] = useState(false);
@@ -45,8 +48,11 @@ export function CustomerOnboardingCard({ customerId, requests, responses, active
   const act = async (formId: string, email: boolean) => {
     setBusy(true);
     try {
-      const { url } = await sendOnboardingRequest(formId, customerId, { email });
-      await navigator.clipboard.writeText(url).catch(() => {});
+      const res = await sendOnboardingRequest(formId, customerId, { email });
+      // Expected failures come back as data — a thrown message would be masked
+      // by Next in production and the user would see nothing useful.
+      if (!res.ok) { toast.error(res.error); return; }
+      await navigator.clipboard.writeText(res.url).catch(() => {});
       toast.success(email ? "Sent — link also copied" : "Share link copied");
       setPickedForm("");
       router.refresh();
@@ -62,7 +68,11 @@ export function CustomerOnboardingCard({ customerId, requests, responses, active
           <Select value={pickedForm} onValueChange={setPickedForm}>
             <SelectTrigger className="h-9 w-[240px]"><SelectValue placeholder="Choose a form to send…" /></SelectTrigger>
             <SelectContent>
-              {activeForms.map((f) => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
+              {activeForms.map((f) => (
+                <SelectItem key={f.id} value={f.id} disabled={Boolean(f.blocked)}>
+                  {f.name}{f.blocked ? " — can’t be sent" : ""}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Button size="sm" disabled={!pickedForm || busy} onClick={() => act(pickedForm, true)}>
@@ -100,11 +110,16 @@ export function CustomerOnboardingCard({ customerId, requests, responses, active
                         <Copy className="w-3 h-3 mr-1" /> Copy link
                       </Button>
                     )}
-                    {resp && (
-                      <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
-                        <Link href={`/onboarding-forms/${req.form_id}?response=${req.id}`}>Full view</Link>
-                      </Button>
-                    )}
+                    {/* Always openable — before it's completed this shows the
+                        form you sent, after it shows their answers. Previously
+                        there was no way to look at a form you'd already sent. */}
+                    <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
+                      <Link href={resp
+                        ? `/onboarding-forms/${req.form_id}?response=${req.id}`
+                        : `/onboarding-forms/${req.form_id}?view=1`}>
+                        <Eye className="w-3 h-3 mr-1" />{resp ? "View answers" : "View form"}
+                      </Link>
+                    </Button>
                   </div>
                 </div>
 
