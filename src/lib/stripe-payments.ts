@@ -71,6 +71,23 @@ async function lookupFees(
  * the invoice + any parent rollup, fire the merchant webhook, and email the
  * customer a receipt. Returns true if a new payment row was written.
  */
+/**
+ * Drop cached renders of anything that shows this invoice's balance.
+ *
+ * Without this the dashboard keeps serving a paid invoice as unpaid until
+ * something else happens to revalidate — which is what "I had to refresh"
+ * looks like. Best-effort: a webhook must never fail because a cache tag
+ * didn't clear, or the provider retries a payment we already recorded.
+ */
+async function revalidateInvoiceViews(invoiceId: string): Promise<void> {
+  try {
+    const { revalidatePath } = await import("next/cache");
+    revalidatePath(`/invoices/${invoiceId}`);
+    revalidatePath("/invoices");
+    revalidatePath("/dashboard");
+  } catch { /* not in a revalidatable context — nothing to do */ }
+}
+
 export async function recordStripePayment(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   sb: any,
@@ -118,6 +135,7 @@ export async function recordStripePayment(
 
   await recomputeInvoice(sb, businessId, invoiceId, invoice.total);
   if (invoice.parent_invoice_id) await recomputeParent(sb, businessId, invoice.parent_invoice_id);
+  await revalidateInvoiceViews(invoiceId);
 
   try {
     dispatchWebhook(businessId, "payment.received", {

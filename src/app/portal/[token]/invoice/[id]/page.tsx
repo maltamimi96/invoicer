@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { ArrowLeft, FileText, Download, CreditCard } from "@/components/ui/icons";
 import { resolveOfferedMethods } from "@/lib/payment-methods";
+import { PaymentConfirming } from "@/components/customer-portal/payment-confirming";
 import { computeSurcharge, surchargeNote } from "@/lib/stripe";
 import type { LineItem } from "@/types/database";
 
@@ -14,8 +15,14 @@ export const dynamic = "force-dynamic";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: any, name: string) => sb.from(name);
 
-export default async function PortalInvoicePage({ params }: { params: Promise<{ token: string; id: string }> }) {
+export default async function PortalInvoicePage({ params, searchParams }: {
+  params: Promise<{ token: string; id: string }>;
+  searchParams: Promise<{ paid?: string }>;
+}) {
   const { token, id } = await params;
+  // Set by the provider's redirect after a successful payment. The webhook
+  // that records it is a separate call and usually lands a moment later.
+  const justPaid = (await searchParams)?.paid === "1";
   const sb = createAdminClient();
 
   const { data: link } = await tbl(sb, "customer_portal_tokens")
@@ -47,6 +54,10 @@ export default async function PortalInvoicePage({ params }: { params: Promise<{ 
   const lineItems: LineItem[] = invoice.line_items || [];
   const balance = Math.max(0, Number(invoice.total) - Number(invoice.amount_paid ?? 0));
   const isPaid = invoice.status === "paid" || balance < 0.01;
+  // They've paid but we haven't recorded it yet. Treat it like paid for the
+  // purpose of hiding the Pay buttons — showing one now is how a customer
+  // ends up paying twice.
+  const awaitingConfirmation = justPaid && !isPaid;
 
   // Which payment methods this customer may use (per-customer allow-list).
   const hasBankDetails = !!(business?.bank_account_name || business?.bank_account_number || business?.bank_iban);
@@ -181,7 +192,7 @@ export default async function PortalInvoicePage({ params }: { params: Promise<{ 
         )}
 
         {/* How to pay — bank transfer details */}
-        {!isPaid && balance > 0 && offered.bank_transfer && (
+        {!isPaid && !awaitingConfirmation && balance > 0 && offered.bank_transfer && (
           <Card className="p-5 space-y-3 border-primary/20 bg-primary/5">
             <div className="flex items-baseline justify-between gap-3">
               <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">How to pay</p>
@@ -236,16 +247,19 @@ export default async function PortalInvoicePage({ params }: { params: Promise<{ 
               </p>
             </>
           )}
-          {!isPaid && balance > 0 && offered.cash && (
+          {!isPaid && !awaitingConfirmation && balance > 0 && offered.cash && (
             <p className="text-sm text-muted-foreground">
               This invoice is payable by cash / in person. Please contact us to arrange payment.
             </p>
           )}
-          {!isPaid && balance > 0 && offered.card && cardNote && (
+          {awaitingConfirmation && (
+            <PaymentConfirming businessPhone={business?.phone} businessEmail={business?.email} />
+          )}
+          {!isPaid && !awaitingConfirmation && balance > 0 && offered.card && cardNote && (
             <p className="text-xs text-muted-foreground">{cardNote}</p>
           )}
           <div className="flex items-center justify-center gap-2 flex-wrap">
-            {!isPaid && balance > 0 && offered.card && (
+            {!isPaid && !awaitingConfirmation && balance > 0 && offered.card && (
               <a
                 href={`/api/stripe/checkout?invoice=${invoice.id}&token=${token}`}
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity shadow-sm"
@@ -256,7 +270,7 @@ export default async function PortalInvoicePage({ params }: { params: Promise<{ 
                   : `Pay ${formatCurrency(balance, currency)} with card`}
               </a>
             )}
-            {!isPaid && balance > 0 && offered.revolut && (
+            {!isPaid && !awaitingConfirmation && balance > 0 && offered.revolut && (
               <a
                 href={`/api/revolut/checkout?invoice=${invoice.id}&token=${token}`}
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-[#0666EB] text-white text-sm font-semibold hover:opacity-90 transition-opacity shadow-sm"
