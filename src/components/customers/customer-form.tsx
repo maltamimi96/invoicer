@@ -19,7 +19,7 @@ import {
   resolveAccountTypes, withCurrentValue, defaultAccountType, type AccountTypeOption,
 } from "@/lib/customers/account-types";
 import type { OnboardingField } from "@/types/database";
-import { PAYMENT_METHODS, PAYMENT_METHOD_LABELS, type PaymentMethod } from "@/lib/payment-methods";
+import { PAYMENT_METHODS, PAYMENT_METHOD_LABELS, cardProvidersLabel, type PaymentMethod } from "@/lib/payment-methods";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -64,6 +64,9 @@ interface CustomerFormProps {
   onSuccess?: (customer: Customer) => void;
   /** Country of the active business — drives address-field labels + states. */
   businessCountry?: string | null;
+  /** Which card providers are connected, so the card toggle names the one that
+   *  will actually serve the payment instead of assuming Stripe. */
+  cardProviders?: { stripeEnabled: boolean; revolutEnabled: boolean };
   /** Extra profile fields for this business (industry preset, or its override).
    *  Empty array is a real answer: this business wants none. */
   clientFields?: OnboardingField[];
@@ -78,7 +81,7 @@ interface CustomerFormProps {
 
 export function CustomerForm({
   customer, onSuccess, businessCountry, clientFields = [], onboardingForms = [],
-  accountTypes = [], allowSecureFill = false,
+  accountTypes = [], allowSecureFill = false, cardProviders,
 }: CustomerFormProps) {
   // An existing customer's type is always offered, even if the business has
   // since changed its list — otherwise editing them would silently reclassify.
@@ -324,13 +327,20 @@ export function CustomerForm({
                         onChange={(e) => toggle(m, e.target.checked)}
                         className="w-4 h-4 rounded accent-primary"
                       />
-                      <span className="text-sm font-medium">{PAYMENT_METHOD_LABELS[m]}</span>
+                      <span className="min-w-0">
+                        <span className="block text-sm font-medium">{PAYMENT_METHOD_LABELS[m]}</span>
+                        {m === "card" && cardProviders && (
+                          <span className="block text-xs text-muted-foreground">
+                            {cardProvidersLabel(cardProviders)}
+                          </span>
+                        )}
+                      </span>
                     </label>
                   );
                 })}
                 <p className="text-xs text-muted-foreground">
                   {selected.length === 0
-                    ? "All supported methods offered (card if Stripe is connected, bank transfer if bank details are set)."
+                    ? "All supported methods offered — card if a card provider is connected, bank transfer if your bank details are set."
                     : `Only the ticked method${selected.length > 1 ? "s" : ""} will be offered to this customer.`}
                 </p>
               </div>

@@ -93,6 +93,10 @@ async function CustomerDetailContent({ id }: { id: string }) {
         onboarding={onboarding}
         clientFields={fieldConfig?.fields ?? []}
         accountTypes={fieldConfig?.accountTypes ?? []}
+        cardProviders={{
+          stripeEnabled: !!business?.stripe_charges_enabled,
+          revolutEnabled: !!business?.revolut_enabled,
+        }}
       />
     );
   } catch {

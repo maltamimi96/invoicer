@@ -84,6 +84,8 @@ interface Props {
   clientFields?: OnboardingField[];
   /** Client type options for this business. */
   accountTypes?: AccountTypeOption[];
+  /** Connected card providers, so the payment toggle names the real one. */
+  cardProviders?: { stripeEnabled: boolean; revolutEnabled: boolean };
 }
 
 // ── Property Modal ─────────────────────────────────────────────────────────────
@@ -513,6 +515,7 @@ export function CustomerDetailClient({
   onboarding = null,
   clientFields = [],
   accountTypes = [],
+  cardProviders,
 }: Props) {
   const [customer, setCustomer] = useState(initial);
   const [editing, setEditing] = useState(false);
@@ -607,7 +610,7 @@ export function CustomerDetailClient({
 
       {editing ? (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-          <CustomerForm customer={customer} businessCountry={businessCountry} clientFields={clientFields} accountTypes={accountTypes} onSuccess={(updated) => { setCustomer(updated); setEditing(false); }} />
+          <CustomerForm customer={customer} businessCountry={businessCountry} clientFields={clientFields} accountTypes={accountTypes} cardProviders={cardProviders} onSuccess={(updated) => { setCustomer(updated); setEditing(false); }} />
         </motion.div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">

@@ -59,6 +59,10 @@ export interface Business {
   sidebar_theme: string;
   /** Industry preset id (src/lib/plugins/presets.ts); null = no preset applied. */
   industry_preset?: string | null;
+  /** Card-provider state. In the DB since the Stripe/Revolut work; the type
+   *  never caught up, so pages reading them failed to compile. */
+  stripe_charges_enabled?: boolean | null;
+  revolut_enabled?: boolean | null;
   /** Overrides the preset's client fields. NULL = still using the preset;
    *  [] = deliberately none. */
   customer_field_schema?: OnboardingField[] | null;
