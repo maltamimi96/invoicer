@@ -603,13 +603,14 @@ export function registerPluginFormTools(tool: ToolFn): void {
     });
 
   tool("fill_onboarding_form",
-    "Fill in an onboarding form on a customer's behalf, for details you already have — records it as completed without sending them anything. Upload and credential fields are ignored: only the customer can provide those, through their own link.",
+    "Fill in an onboarding form on a customer's behalf, for details you already have — records it as completed without sending them anything. Uploads can only come from the customer through their own link; credential fields work only when the server has an encryption key. Answering something that can't be stored is an error, not a silent drop.",
     { form_id: UUID, customer_id: UUID, answers: z.record(z.string(), z.unknown()) },
     async (args, extra) => {
       const ctx = ctxFrom(extra); assertScope(ctx, "onboarding:write");
-      const { stripUnfillableAnswers, missingForStaff, staffFillableFields, staffOnlyCustomerFields } =
+      const { stripUnfillableAnswers, staffFillProblems, staffFillErrorMessage, staffOnlyCustomerFields } =
         await import("@/lib/onboarding/staff-fill");
-      const { invalidAnswerFields } = await import("@/lib/onboarding/answers");
+      const { processAnswersForStorage } = await import("@/lib/onboarding/answers");
+      const { secureFieldsAvailable } = await import("@/lib/onboarding/crypto");
 
       const [{ data: form }, { data: customer }] = await Promise.all([
         t(ctx, "onboarding_forms").select("id, schema").eq("id", args.form_id).eq("business_id", ctx.businessId).maybeSingle(),
@@ -620,13 +621,12 @@ export function registerPluginFormTools(tool: ToolFn): void {
       const schema = form.schema ?? [];
       if (schema.length === 0) return errorText("That form has no fields yet");
 
-      const clean = stripUnfillableAnswers(schema, args.answers);
-      const bad = invalidAnswerFields(staffFillableFields(schema), clean);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const label = (id: string) => (schema as any[]).find((f) => f.id === id)?.label ?? id;
-      if (bad.length) return errorText(`${label(bad[0].field_id)}: ${bad[0].message}`);
-      const missing = missingForStaff(schema, clean);
-      if (missing.length) return errorText(`Still needs: ${missing.map(label).join(", ")}`);
+      // Credentials only when there's a key to encrypt them with.
+      const opts = { allowSecure: secureFieldsAvailable() };
+      const { clean } = stripUnfillableAnswers(schema, args.answers, opts);
+      const problems = staffFillProblems(schema, args.answers, opts);
+      if (problems.length) return errorText(staffFillErrorMessage(problems));
+      const stored = processAnswersForStorage(schema, clean);
 
       const { data: openReq } = await t(ctx, "onboarding_requests")
         .select("id").eq("business_id", ctx.businessId).eq("form_id", args.form_id)
@@ -649,7 +649,7 @@ export function registerPluginFormTools(tool: ToolFn): void {
       }
       const { error: respErr } = await t(ctx, "onboarding_responses").upsert({
         business_id: ctx.businessId, request_id: requestId, form_id: args.form_id,
-        customer_id: args.customer_id, answers: clean, schema_snapshot: schema,
+        customer_id: args.customer_id, answers: stored, schema_snapshot: schema,
         draft: false, submitted_at: now,
       }, { onConflict: "request_id" });
       if (respErr) throw respErr;
@@ -657,7 +657,7 @@ export function registerPluginFormTools(tool: ToolFn): void {
       return text({
         saved: true, request_id: requestId,
         answered: Object.keys(clean).length,
-        still_needs_customer: staffOnlyCustomerFields(schema).map((f) => f.label),
+        still_needs_customer: staffOnlyCustomerFields(schema, opts).map((f) => f.label),
       });
     });
 }

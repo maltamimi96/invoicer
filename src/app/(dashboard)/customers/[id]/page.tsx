@@ -30,6 +30,7 @@ async function loadOnboarding(customerId: string): Promise<CustomerOnboardingDat
     return {
       requests,
       responses,
+      allowSecureFill: secureOk,
       activeForms: forms
         .filter((f) => f.status !== "archived" && f.schema.length > 0)
         .map((f) => ({

@@ -61,6 +61,8 @@ export interface CustomerOnboardingData {
   /** `blocked` explains why a form can't be sent — computed server-side so the
    *  picker can say so before you try. `schema` powers filling it in yourself. */
   activeForms: (Pick<OnboardingForm, "id" | "name" | "schema"> & { blocked?: string | null })[];
+  /** Credential fields fillable from the dashboard (server has a key). */
+  allowSecureFill?: boolean;
 }
 
 interface Props {
@@ -759,6 +761,7 @@ export function CustomerDetailClient({
                     requests={onboarding.requests}
                     responses={onboarding.responses}
                     activeForms={onboarding.activeForms}
+                    allowSecureFill={onboarding.allowSecureFill ?? false}
                   />
                 </TabsContent>
               )}

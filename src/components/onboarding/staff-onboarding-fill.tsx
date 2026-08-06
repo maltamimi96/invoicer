@@ -32,7 +32,7 @@ export interface StaffFillValue {
 }
 
 export function StaffOnboardingFill({
-  forms, value, onChange, disabled, showPicker = true, problems = [],
+  forms, value, onChange, disabled, showPicker = true, problems = [], allowSecure = false,
 }: {
   forms: StaffFillForm[];
   value: StaffFillValue;
@@ -43,10 +43,13 @@ export function StaffOnboardingFill({
   /** Blocking problems from the last submit attempt, shown against the fields
    *  rather than only in a toast that disappears. */
   problems?: StaffFillProblem[];
+  /** Whether credential fields can be filled here — true when the server has
+   *  an encryption key. Decided server-side; the browser is only told. */
+  allowSecure?: boolean;
 }) {
   const picked = forms.find((f) => f.id === value.formId) ?? null;
-  const fillable = useMemo(() => (picked ? staffFillableFields(picked.schema) : []), [picked]);
-  const customerOnly = useMemo(() => (picked ? staffOnlyCustomerFields(picked.schema) : []), [picked]);
+  const fillable = useMemo(() => (picked ? staffFillableFields(picked.schema, { allowSecure }) : []), [picked, allowSecure]);
+  const customerOnly = useMemo(() => (picked ? staffOnlyCustomerFields(picked.schema, { allowSecure }) : []), [picked, allowSecure]);
 
   if (forms.length === 0) {
     return (
@@ -117,8 +120,7 @@ export function StaffOnboardingFill({
               <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
               <p className="text-xs text-muted-foreground">
                 {customerOnly.length === 1 ? "One field needs" : `${customerOnly.length} fields need`} the
-                customer — {customerOnly.map((f) => f.label).join(", ")}. Uploads and credentials can only be
-                submitted through their own link. Send them the form for those.
+                customer — {customerOnly.map((f) => f.label).join(", ")}. Those can only be submitted through their own link. Send them the form for those.
               </p>
             </div>
           )}

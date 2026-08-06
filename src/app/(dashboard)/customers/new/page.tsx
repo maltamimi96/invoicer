@@ -1,7 +1,7 @@
 import { CustomerForm } from "@/components/customers/customer-form";
 import { getBusiness } from "@/lib/actions/business";
 import { getClientFieldConfig } from "@/lib/actions/client-fields";
-import { getOnboardingSettings, getOnboardingForms } from "@/lib/actions/onboarding";
+import { getOnboardingSettings, getOnboardingForms, getSecureFieldsAvailable } from "@/lib/actions/onboarding";
 import { staffFillableFields } from "@/lib/onboarding/staff-fill";
 import { PageHeader } from "@/components/layout/page-header";
 import type { StaffFillForm } from "@/components/onboarding/staff-onboarding-fill";
@@ -25,13 +25,14 @@ export default async function NewCustomerPage() {
   // A failed config load is REPORTED, not swallowed. Returning empty fields on
   // error is indistinguishable from "this business has no extra fields", which
   // makes a broken page look like a configured one.
-  const [business, fieldConfig, onboardingForms] = await Promise.all([
+  const [business, fieldConfig, onboardingForms, allowSecureFill] = await Promise.all([
     getBusiness().catch(() => null),
     getClientFieldConfig().then(
       (c) => ({ config: c, error: null as string | null }),
       (e: unknown) => ({ config: null, error: e instanceof Error ? e.message : "Couldn't load your client settings" }),
     ),
     loadFillableForms(),
+    getSecureFieldsAvailable().catch(() => false),
   ]);
 
   return (
@@ -51,6 +52,7 @@ export default async function NewCustomerPage() {
         clientFields={fieldConfig.config?.fields ?? []}
         accountTypes={fieldConfig.config?.accountTypes ?? []}
         onboardingForms={onboardingForms}
+        allowSecureFill={allowSecureFill}
       />
     </div>
   );

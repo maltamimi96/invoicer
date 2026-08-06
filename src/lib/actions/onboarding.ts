@@ -8,7 +8,7 @@ import { getUser } from "@/lib/auth";
 import { appUrl } from "@/lib/app-url";
 import { pluginFlagsTag } from "@/lib/layout-data";
 import { sendEmail, buildBusinessFrom } from "@/lib/email";
-import { redactSecureAnswers } from "@/lib/onboarding/answers";
+import { redactSecureAnswers, processAnswersForStorage } from "@/lib/onboarding/answers";
 import {
   staffOnlyCustomerFields, stripUnfillableAnswers, staffFillProblems, staffFillErrorMessage,
 } from "@/lib/onboarding/staff-fill";
@@ -292,11 +292,15 @@ export async function saveStaffOnboardingResponse(
   const schema = (form.schema ?? []) as OnboardingField[];
   if (schema.length === 0) return { ok: false, error: "That form has no fields yet" };
 
-  const clean = stripUnfillableAnswers(schema, answers ?? {});
+  // Credentials are fillable here only when there's a key to encrypt them
+  // with — never stored in the clear.
+  const opts = { allowSecure: secureFieldsAvailable() };
+  const { clean } = stripUnfillableAnswers(schema, answers ?? {}, opts);
   // Same check the browser ran before creating the client — repeated here
   // because a check only the client performs isn't one.
-  const problems = staffFillProblems(schema, answers ?? {});
+  const problems = staffFillProblems(schema, answers ?? {}, opts);
   if (problems.length) return { ok: false, error: staffFillErrorMessage(problems) };
+  const stored = processAnswersForStorage(schema, clean);
 
   // Reuse an open request for this form+customer rather than stacking a second
   // one — otherwise "send it, then fill it in yourself" leaves two rows.
@@ -335,7 +339,60 @@ export async function saveStaffOnboardingResponse(
     ok: true,
     request_id: requestId,
     saved: Object.keys(clean).length,
-    needs_customer: staffOnlyCustomerFields(schema).length,
+    needs_customer: staffOnlyCustomerFields(schema, opts).length,
+  };
+}
+
+/**
+ * Correct a submitted response.
+ *
+ * Customers mistype things, and staff fill these in from a phone call. Before
+ * this, a wrong answer could only be fixed by deleting the whole thing and
+ * sending the form again.
+ *
+ * A blank secure field KEEPS the stored value rather than wiping it: the
+ * editor can't show what's there (that's the point of a credential), so an
+ * empty box means "leave it", not "delete it".
+ */
+export async function updateOnboardingResponse(
+  requestId: string, answers: Record<string, unknown>,
+): Promise<StaffFillResult> {
+  const supabase = await createClient();
+  const user = await getUser();
+  const businessId = await getActiveBizId(supabase, user.id);
+
+  const { data: existing } = await tbl(supabase, "onboarding_responses")
+    .select("id, form_id, customer_id, answers, schema_snapshot")
+    .eq("request_id", requestId).eq("business_id", businessId).maybeSingle();
+  if (!existing) return { ok: false, error: "No response to edit yet" };
+
+  const schema = (existing.schema_snapshot ?? []) as OnboardingField[];
+  const opts = { allowSecure: secureFieldsAvailable() };
+  const { clean } = stripUnfillableAnswers(schema, answers ?? {}, opts);
+
+  // Uploads and (keyless) credentials aren't editable here, so carry the
+  // existing values through instead of validating against a blank.
+  const merged: Record<string, unknown> = { ...(existing.answers ?? {}) };
+  for (const [id, v] of Object.entries(clean)) {
+    const isSecure = schema.find((f) => f.id === id)?.type === "secure";
+    if (isSecure && (v === "" || v == null)) continue; // blank = keep what's stored
+    merged[id] = v;
+  }
+
+  const problems = staffFillProblems(schema, merged, opts);
+  if (problems.length) return { ok: false, error: staffFillErrorMessage(problems) };
+
+  const { error } = await tbl(supabase, "onboarding_responses")
+    .update({ answers: processAnswersForStorage(schema, merged), draft: false })
+    .eq("id", existing.id).eq("business_id", businessId);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/onboarding-forms");
+  revalidatePath(`/customers/${existing.customer_id}`);
+  return {
+    ok: true, request_id: requestId,
+    saved: Object.keys(merged).length,
+    needs_customer: staffOnlyCustomerFields(schema, opts).length,
   };
 }
 
