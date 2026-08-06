@@ -2,8 +2,37 @@
 const LOGO_URL =
   (process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "https://kireihq.com") + "/kirei-logo.png";
 
+/** The sending business, for the header. Without this an email goes out
+ *  carrying Kirei's brand to someone who has never heard of Kirei. */
+export interface EmailBrand {
+  name: string;
+  logoUrl?: string | null;
+}
+
+/** Escape a value going into an HTML attribute or text node. */
+function esc(v: string): string {
+  return v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+/**
+ * Header identifying the sender.
+ *
+ * Falls back to the business NAME when there's no logo — never to Kirei's
+ * logo. The customer is dealing with the business, not the platform.
+ */
+function brandHeader(brand: EmailBrand | undefined, accentColor: string): string {
+  if (!brand) return "";
+  const inner = brand.logoUrl
+    ? `<img src="${esc(brand.logoUrl)}" alt="${esc(brand.name)}" height="36"
+         style="display:block;max-height:36px;max-width:180px;border:0;outline:none;text-decoration:none;" />`
+    : `<span style="font-size:17px;font-weight:700;color:${accentColor};letter-spacing:-0.01em;">${esc(brand.name)}</span>`;
+  return `<tr><td style="padding:24px 32px 0;">${inner}</td></tr>`;
+}
+
 /** Shared wrapper so all emails look consistent. */
-export function emailBase(title: string, body: string, accentColor = "#3b82f6"): string {
+export function emailBase(
+  title: string, body: string, accentColor = "#3b82f6", brand?: EmailBrand,
+): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -16,9 +45,15 @@ export function emailBase(title: string, body: string, accentColor = "#3b82f6"):
     <tr><td align="center">
       <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
         <!-- Header -->
-        <tr><td style="background:${accentColor};padding:24px 32px;">
-          <p style="margin:0;font-size:20px;font-weight:700;color:#ffffff;">${title}</p>
-        </td></tr>
+        ${brandHeader(brand, accentColor)}
+        ${brand
+          ? `<tr><td style="padding:12px 32px 0;">
+               <p style="margin:0;font-size:20px;font-weight:700;color:#18181b;letter-spacing:-0.01em;">${title}</p>
+               <div style="height:3px;width:44px;background:${accentColor};border-radius:2px;margin-top:10px;"></div>
+             </td></tr>`
+          : `<tr><td style="background:${accentColor};padding:24px 32px;">
+               <p style="margin:0;font-size:20px;font-weight:700;color:#ffffff;">${title}</p>
+             </td></tr>`}
         <!-- Body -->
         <tr><td style="padding:32px;">
           ${body}
@@ -28,8 +63,9 @@ export function emailBase(title: string, body: string, accentColor = "#3b82f6"):
           <table cellpadding="0" cellspacing="0" style="width:100%;">
             <tr>
               <td style="vertical-align:middle;">
-                <img src="${LOGO_URL}" alt="Kirei" width="20" height="20" style="display:inline-block;vertical-align:middle;border-radius:4px;" />
-                <span style="font-size:12px;color:#71717a;margin-left:6px;vertical-align:middle;">Sent via Kirei · Please do not reply to this email.</span>
+                ${brand ? `<p style="margin:0 0 4px;font-size:13px;font-weight:600;color:#3f3f46;">${brand.name}</p>` : ""}
+                <img src="${LOGO_URL}" alt="Kirei" width="16" height="16" style="display:inline-block;vertical-align:middle;border-radius:4px;opacity:0.6;" />
+                <span style="font-size:11px;color:#a1a1aa;margin-left:6px;vertical-align:middle;">Sent via Kirei · Please do not reply to this email.</span>
               </td>
             </tr>
           </table>

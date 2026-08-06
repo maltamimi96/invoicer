@@ -7,6 +7,11 @@ import {
 import type { Business, Customer, LineItem, Quote } from "@/types/database";
 
 /** Variables available to the quote template + subject line. */
+/** The message is typed by a user and dropped into HTML — escape it. */
+function escapeHtml(v: string): string {
+  return v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 export function quoteEmailVars({
   quote,
   customer,
@@ -53,6 +58,7 @@ export function quoteEmailHtml({
   acceptUrl,
   pdfUrl,
   template,
+  message,
 }: {
   quote: Quote;
   customer: Customer | null;
@@ -62,6 +68,9 @@ export function quoteEmailHtml({
   /** Direct PDF download link (tokenised). */
   pdfUrl?: string | null;
   /** Per-business template override; defaults when omitted. */
+  /** Free text typed in the send dialog for THIS send — appears above the
+   *  document details, where a covering note belongs. */
+  message?: string | null;
   template?: ResolvedEmailTemplate;
 }): string {
   const fmt = (n: number) =>
@@ -77,12 +86,15 @@ export function quoteEmailHtml({
 
   // Full custom body override — wrapper + subject still apply.
   if (t.custom_html) {
-    return emailBase(subjectLine, renderTemplateVars(t.custom_html, vars), accent);
+    return emailBase(subjectLine, renderTemplateVars(t.custom_html, vars), accent, { name: business.name, logoUrl: business.logo_url });
   }
 
   const body = `
     ${t.greeting ? `<p style="margin:0 0 4px;font-size:14px;color:#71717a;">${renderTemplateVars(t.greeting, vars)}</p>` : ""}
     ${t.intro ? `<p style="margin:0 0 24px;font-size:14px;color:#71717a;">${renderTemplateVars(t.intro, vars)}</p>` : ""}
+    ${message && message.trim() ? `<div style="margin:0 0 24px;padding:14px 16px;background:#fafaf9;border-left:3px solid ${accent};border-radius:0 8px 8px 0;">
+      <p style="margin:0;font-size:14px;line-height:1.6;color:#3f3f46;white-space:pre-wrap;">${escapeHtml(message.trim())}</p>
+    </div>` : ""}
 
     <!-- Quote summary card -->
     <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:8px;padding:20px;margin-bottom:24px;">
@@ -134,5 +146,5 @@ export function quoteEmailHtml({
     <p style="margin:24px 0 0;font-size:13px;color:#71717a;">Questions? Contact us at ${business.email ?? business.phone ?? "—"}</p>
   `;
 
-  return emailBase(subjectLine, body, accent);
+  return emailBase(subjectLine, body, accent, { name: business.name, logoUrl: business.logo_url });
 }

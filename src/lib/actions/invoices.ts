@@ -502,7 +502,7 @@ export async function getDashboardStats() {
   };
 }
 
-export async function sendInvoiceEmail(id: string, opts?: { recipients?: string[]; subject?: string }): Promise<void> {
+export async function sendInvoiceEmail(id: string, opts?: { recipients?: string[]; subject?: string; message?: string }): Promise<void> {
   const supabase = await createClient();
   const user = await getUser();
 
@@ -611,7 +611,8 @@ export async function sendInvoiceEmail(id: string, opts?: { recipients?: string[
   await sendEmail({
     to: recipients,
     subject: opts?.subject ?? invoiceEmailSubject({ invoice: invoiceData, customer, business: businessData }, emailTemplate),
-    html: invoiceEmailHtml({ invoice: invoiceData, customer, business: businessData, lineItems, portalUrl, pdfUrl, payUrl, revolutPayUrl, template: emailTemplate }),
+    html: invoiceEmailHtml({
+    message: opts?.message ?? null, invoice: invoiceData, customer, business: businessData, lineItems, portalUrl, pdfUrl, payUrl, revolutPayUrl, template: emailTemplate }),
     attachments: [{ filename: `${invoiceData.number}.pdf`, content: pdfBuffer }],
     from: buildBusinessFrom({ name: businessData.name, localPart: "invoices" }),
     replyTo: businessData.email || undefined,

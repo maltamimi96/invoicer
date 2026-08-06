@@ -277,7 +277,7 @@ export function QuoteDetailClient({ quote: initial, customers, products, materia
         defaultSmsBody={`Hi${customer?.name ? " " + customer.name.split(" ")[0] : ""}, your quote ${quote.number} from ${business.name} is ready.`}
         onSend={async (r) => {
           if (r.channel === "email") {
-            await sendQuoteEmail(quote.id, { recipients: r.recipients, subject: r.subject });
+            await sendQuoteEmail(quote.id, { recipients: r.recipients, subject: r.subject, message: r.message });
             toast.success(`Quote sent to ${(r.recipients ?? []).join(", ")}`);
           } else {
             await sendQuoteSms(quote.id, { to: r.to!, body: r.body });
