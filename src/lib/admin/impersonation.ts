@@ -18,6 +18,9 @@ import type { Operator } from "./auth";
 
 const IMP_COOKIE = "admin_impersonation_id";
 const BIZ_COOKIE = "active_business_id";
+// Mirrored so the per-tab guard sees the impersonated business as the current
+// one and doesn't try to assert the operator's own business over the top.
+const BIZ_HINT_COOKIE = "active_business_hint";
 
 export type ImpersonationSession = {
   id: string;
@@ -77,13 +80,15 @@ export async function startImpersonation(
     path: "/",
     maxAge: 30 * 60, // 30 min, matches DB default
   });
-  jar.set(BIZ_COOKIE, targetBusinessId, {
-    httpOnly: false,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 30 * 60,
-  });
+  for (const name of [BIZ_COOKIE, BIZ_HINT_COOKIE]) {
+    jar.set(name, targetBusinessId, {
+      httpOnly: false,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 30 * 60,
+    });
+  }
 
   await logAdminAction({
     operator,
@@ -111,6 +116,7 @@ export async function stopImpersonation(operator: Operator): Promise<void> {
 
   jar.delete(IMP_COOKIE);
   jar.delete(BIZ_COOKIE);
+  jar.delete(BIZ_HINT_COOKIE);
 
   await logAdminAction({
     operator,

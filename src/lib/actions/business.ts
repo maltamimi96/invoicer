@@ -2,6 +2,7 @@
 
 import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
 import { cookies } from "next/headers";
+import { setActiveBusinessCookies } from "@/lib/business-cookie";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { bizListTag, businessTag } from "@/lib/layout-data";
@@ -64,12 +65,7 @@ export async function setActiveBusiness(businessId: string): Promise<void> {
   }
 
   const cookieStore = await cookies();
-  cookieStore.set("active_business_id", businessId, {
-    path: "/",
-    httpOnly: true,
-    sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 365, // 1 year
-  });
+  setActiveBusinessCookies(cookieStore, businessId);
 
   revalidatePath("/", "layout");
 }
@@ -106,12 +102,7 @@ export async function createBusiness(payload: {
 
   // Auto-switch to the new business
   const cookieStore = await cookies();
-  cookieStore.set("active_business_id", data.id, {
-    path: "/",
-    httpOnly: true,
-    sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 365,
-  });
+  setActiveBusinessCookies(cookieStore, data.id);
 
   revalidateTag(bizListTag(user.id), "max");
   revalidatePath("/", "layout");
