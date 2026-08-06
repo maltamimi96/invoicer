@@ -84,7 +84,7 @@ export function SiteDetailClient({
               <Edit className="w-4 h-4" /> {editing ? "Cancel" : "Edit"}
             </AnimatedPress>
             <Link href={`/work-orders/new?site=${site.id}`}>
-              <AnimatedPress className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-sm cursor-pointer">
+              <AnimatedPress className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold shadow-sm cursor-pointer">
                 <Plus className="w-4 h-4" /> New job
               </AnimatedPress>
             </Link>

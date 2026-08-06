@@ -203,7 +203,7 @@ function Bubble({
             </div>
           )}
           {message.text && (
-            <div className="rounded-2xl rounded-tr-sm bg-primary text-primary-foreground px-3.5 py-2.5 text-sm leading-relaxed break-words">
+            <div className="rounded-xl rounded-tr-sm bg-primary text-primary-foreground px-3.5 py-2.5 text-sm leading-relaxed break-words">
               {message.text}
             </div>
           )}
@@ -649,7 +649,7 @@ export function AssistantChat({
         <div className="flex-1 overflow-y-auto px-3 py-4 space-y-4">
           {messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center gap-4 px-4">
-              <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
                 <Sparkles className="w-6 h-6 text-primary" />
               </div>
               <div>

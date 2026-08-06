@@ -31,7 +31,7 @@ export function EmptyState({ icon, gradient = "primary", title, hint, cta }: Emp
       {hint && <p className="text-sm text-muted-foreground mt-1 max-w-sm">{hint}</p>}
       {cta && (
         <Link href={cta.href} className="mt-5">
-          <AnimatedPress className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-sm">
+          <AnimatedPress className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold shadow-sm">
             {cta.icon}
             {cta.label}
           </AnimatedPress>

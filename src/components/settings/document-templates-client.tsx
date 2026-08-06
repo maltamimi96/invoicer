@@ -130,7 +130,7 @@ export function DocumentTemplatesClient({ initialTemplates }: { initialTemplates
 function PresetGallery({ onPick, onClose }: { onPick: (key: string | null) => void; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-card rounded-2xl border border-border shadow-xl w-full max-w-3xl max-h-[85vh] overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-card rounded-xl border border-border shadow-xl w-full max-w-3xl max-h-[85vh] overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-lg font-semibold mb-1">Start from a template</h2>
         <p className="text-sm text-muted-foreground mb-4">Pick a ready-made style — you can change everything after.</p>
         <div className="grid gap-3 sm:grid-cols-2">

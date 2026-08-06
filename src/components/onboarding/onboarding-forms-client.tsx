@@ -54,7 +54,7 @@ export function OnboardingFormsClient({ enabled, forms, requests, customers }: P
       <div className="max-w-xl mx-auto py-12">
         <Card>
           <CardContent className="p-8 text-center space-y-4">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-teal-500 via-cyan-500 to-sky-500 flex items-center justify-center text-white mx-auto">
+            <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-teal-500 via-cyan-500 to-sky-500 flex items-center justify-center text-white mx-auto">
               <ClipboardList className="w-8 h-8" />
             </div>
             <div>

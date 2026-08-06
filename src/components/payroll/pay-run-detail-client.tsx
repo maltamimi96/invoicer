@@ -78,7 +78,7 @@ export function PayRunDetailClient({ run: initialRun, lines: initialLines }: { r
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-3">
-        <Link href="/payroll" className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground hover:bg-muted"><ArrowLeft className="w-4 h-4" /></Link>
+        <Link href="/payroll" className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-card text-muted-foreground hover:bg-muted"><ArrowLeft className="w-4 h-4" /></Link>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight">Pay run</h1>

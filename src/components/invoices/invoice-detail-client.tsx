@@ -204,7 +204,7 @@ export function InvoiceDetailClient({
                 {isParent && (
                   <AnimatedPress
                     onClick={handleSendRemainder}
-                    className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-sm cursor-pointer ${saving ? "opacity-60" : ""}`}
+                    className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold shadow-sm cursor-pointer ${saving ? "opacity-60" : ""}`}
                   >
                     <ArrowRight className="w-4 h-4" /> Send remainder
                   </AnimatedPress>
@@ -320,7 +320,7 @@ export function InvoiceDetailClient({
                 <div className="space-y-1.5">
                   {progressInvoices.map((c) => (
                     <Link key={c.id} href={`/invoices/${c.id}`} className="block">
-                      <AnimatedPress className="flex items-center justify-between gap-3 p-3 rounded-lg bg-card border border-border/70 hover:border-primary/30 transition-colors">
+                      <AnimatedPress className="flex items-center justify-between gap-3 p-3 rounded-md bg-card border border-border/70 hover:border-primary/30 transition-colors">
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="font-mono text-xs text-muted-foreground">{c.number}</span>
                           <KireiPill tone={c.status} />

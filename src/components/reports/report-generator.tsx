@@ -235,7 +235,7 @@ export function ReportGenerator({ customers: initialCustomers, business, default
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6">
         <div className="relative">
-          <div className="w-20 h-20 rounded-2xl bg-purple-50 flex items-center justify-center">
+          <div className="w-20 h-20 rounded-xl bg-purple-50 flex items-center justify-center">
             {genMessage === "Report ready!" ? (
               <CheckCircle className="w-10 h-10 text-purple-500" />
             ) : (

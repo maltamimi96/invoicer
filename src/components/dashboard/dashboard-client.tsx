@@ -91,7 +91,7 @@ export function DashboardClient({ stats, currency = "GBP", todayJobs }: Dashboar
             <p className="text-sm text-muted-foreground mt-1">Here&apos;s what&apos;s happening today.</p>
           </div>
           <Link href="/invoices/new">
-            <AnimatedPress className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-sm">
+            <AnimatedPress className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold shadow-sm">
               <Plus className="w-4 h-4" /> New invoice
             </AnimatedPress>
           </Link>
@@ -102,7 +102,7 @@ export function DashboardClient({ stats, currency = "GBP", todayJobs }: Dashboar
       {stats.overdue > 0 && (
         <FadeIn delay={60}>
           <Link href="/invoices?status=overdue" className="block">
-            <AnimatedPress className="flex items-center gap-3 px-4 py-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200/60 dark:border-rose-900/40">
+            <AnimatedPress className="flex items-center gap-3 px-4 py-3 rounded-md bg-rose-50 dark:bg-rose-950/30 border border-rose-200/60 dark:border-rose-900/40">
               <GradientTile gradient="rose" size={40} radius={10}>
                 <AlertTriangle className="w-4 h-4" />
               </GradientTile>
@@ -301,7 +301,7 @@ function ScheduleCard({ wo }: { wo: WorkOrderWithCustomer }) {
 
   return (
     <Link href={`/work-orders/${wo.id}`} className="block">
-      <AnimatedPress className="flex items-center gap-3 p-3 rounded-lg bg-card border border-border/70 hover:border-primary/30 transition-colors">
+      <AnimatedPress className="flex items-center gap-3 p-3 rounded-md bg-card border border-border/70 hover:border-primary/30 transition-colors">
         <GradientTile gradient={gradient} size={40} radius={10}>
           <Briefcase className="w-4 h-4" />
         </GradientTile>

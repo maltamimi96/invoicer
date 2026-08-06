@@ -835,3 +835,16 @@
 /* Mono utility for tabular figures */
 .ch-mono { font-family: var(--font-mono, ui-monospace, monospace); font-feature-settings: "tnum"; }
 .ch-tnum { font-variant-numeric: tabular-nums; }
+
+/* MYOB field treatment: the teal underline a control shows on focus.
+   Written as real CSS because the Tailwind arbitrary-value form of this
+   silently fails to compile - the class lands on the element and no rule is
+   ever generated, so the field looks unchanged. */
+.myob-underline {
+  transition: box-shadow 150ms ease, border-color 150ms ease;
+}
+.myob-underline:focus-visible,
+.myob-underline:focus-within {
+  box-shadow: inset 0 -2px 0 0 hsl(var(--primary));
+  border-color: hsl(var(--primary) / 0.6);
+}

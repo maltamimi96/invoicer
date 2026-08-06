@@ -95,7 +95,7 @@ export function QuotingAgentChatClient() {
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
         {messages.length === 0 ? (
           <div className="max-w-md mx-auto text-center space-y-4 py-12">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 via-fuchsia-500 to-rose-500 flex items-center justify-center text-white mx-auto">
+            <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-purple-500 via-fuchsia-500 to-rose-500 flex items-center justify-center text-white mx-auto">
               <Sparkles className="w-8 h-8" />
             </div>
             <div>
@@ -118,7 +118,7 @@ export function QuotingAgentChatClient() {
           </div>
         ) : messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div className={`max-w-[85%] px-4 py-3 rounded-2xl whitespace-pre-wrap text-sm leading-relaxed ${m.role === "user"
+            <div className={`max-w-[85%] px-4 py-3 rounded-xl whitespace-pre-wrap text-sm leading-relaxed ${m.role === "user"
               ? "bg-primary text-primary-foreground rounded-br-md"
               : "bg-muted/50 rounded-bl-md"}`}>
               {m.text}
@@ -127,7 +127,7 @@ export function QuotingAgentChatClient() {
         ))}
         {busy && (
           <div className="flex justify-start">
-            <div className="px-4 py-3 rounded-2xl bg-muted/50 rounded-bl-md flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="px-4 py-3 rounded-xl bg-muted/50 rounded-bl-md flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="w-4 h-4 animate-spin" />
               Thinking…
             </div>

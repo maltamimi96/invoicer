@@ -92,7 +92,7 @@ export default async function AdminHomePage() {
           <Link
             key={s.label}
             href={s.href}
-            className="block p-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors"
+            className="block p-4 rounded-md border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors"
           >
             <div className="text-xs text-neutral-500 uppercase tracking-wide">{s.label}</div>
             <div className="text-2xl font-semibold mt-1 tabular-nums">{s.value}</div>

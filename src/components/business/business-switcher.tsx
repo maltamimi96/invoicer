@@ -67,7 +67,7 @@ export function BusinessSwitcher({ business, businesses, onClose }: BusinessSwit
         <DropdownMenuTrigger asChild>
           <button
             className={cn(
-              "w-full flex items-center gap-2 px-1 py-1 rounded-lg text-left transition-colors",
+              "w-full flex items-center gap-2 px-1 py-1 rounded-md text-left transition-colors",
               "hover:bg-sidebar-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-sidebar-primary",
               isPending && "opacity-60 pointer-events-none"
             )}

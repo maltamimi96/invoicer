@@ -22,7 +22,7 @@ interface FactCardProps {
 
 export function FactCard({ icon, gradient = "primary", label, value, href, onClick }: FactCardProps) {
   const inner = (
-    <AnimatedPress className={`flex items-start gap-3 p-3.5 rounded-xl border bg-card transition-colors h-full ${
+    <AnimatedPress className={`flex items-start gap-3 p-3.5 rounded-md border bg-card transition-colors h-full ${
       (href || onClick) ? "hover:border-primary/40 cursor-pointer" : "border-border"
     }`}>
       {icon && (

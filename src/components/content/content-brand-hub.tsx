@@ -310,7 +310,7 @@ export function ContentBrandHub({
                 <Link
                   key={p.id}
                   href={`/content/${brand.id}/piece/${p.id}`}
-                  className="rounded-xl border bg-card p-3 flex items-center justify-between gap-3 hover:border-primary/40 transition-colors"
+                  className="rounded-md border bg-card p-3 flex items-center justify-between gap-3 hover:border-primary/40 transition-colors"
                 >
                   <div className="min-w-0">
                     <p className="text-sm font-medium break-words">{p.topic}</p>

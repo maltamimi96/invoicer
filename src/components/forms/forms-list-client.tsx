@@ -44,7 +44,7 @@ export function FormsListClient({ enabled, forms, baseUrl }: Props) {
       <div className="max-w-xl mx-auto py-12">
         <Card>
           <CardContent className="p-8 text-center space-y-4">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 flex items-center justify-center text-white mx-auto">
+            <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 flex items-center justify-center text-white mx-auto">
               <ListChecks className="w-8 h-8" />
             </div>
             <div>

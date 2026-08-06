@@ -34,7 +34,7 @@ export default function ForgotPasswordPage() {
       {sent ? (
         <div className="text-center space-y-4">
           <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto shadow-sm text-white"
+            className="w-16 h-16 rounded-xl flex items-center justify-center mx-auto shadow-sm text-white"
             style={{ backgroundImage: "linear-gradient(135deg, #34d399, #047857)" }}
           >
             <span className="text-2xl">✉️</span>

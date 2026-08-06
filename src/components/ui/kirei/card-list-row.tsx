@@ -23,7 +23,7 @@ interface CardListRowProps {
 export function CardListRow({ href, gradient = "primary", icon, title, meta, trailing }: CardListRowProps) {
   const inner = (
     <AnimatedPress
-      className="flex items-center gap-3 p-3 rounded-lg bg-card border border-border/70 hover:border-primary/30 transition-colors"
+      className="flex items-center gap-3 p-3 rounded-md bg-card border border-border/70 hover:border-primary/30 transition-colors"
     >
       {icon && (
         <GradientTile gradient={gradient} size={40} radius={10}>

@@ -25,7 +25,7 @@ export function HubTile({ href, gradient, icon, label, hint, trailing }: HubTile
   return (
     <Link href={href} className="block">
       <AnimatedPress
-        className="flex items-center gap-3 p-4 rounded-xl bg-card border border-border hover:border-primary/40 transition-colors"
+        className="flex items-center gap-3 p-4 rounded-md bg-card border border-border hover:border-primary/40 transition-colors"
       >
         <GradientTile gradient={gradient} size={48}>
           {icon}

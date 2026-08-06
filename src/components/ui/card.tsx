@@ -9,7 +9,9 @@ const Card = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "rounded-xl border border-border bg-card text-card-foreground shadow-sm",
+      // Sheet, not floating panel: the border carries the edge and the shadow
+      // stays almost invisible, as on the MYOB document canvas.
+      "rounded-xl border border-border bg-card text-card-foreground shadow-[0_1px_2px_0_rgb(0_0_0_/_0.03)]",
       className
     )}
     {...props}

@@ -117,7 +117,7 @@ export function QuoteDetailClient({ quote: initial, customers, products, materia
             {!quote.invoice_id && quote.status !== "rejected" && (
               <AnimatedPress
                 onClick={handleConvert}
-                className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-sm cursor-pointer ${converting ? "opacity-60" : ""}`}
+                className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold shadow-sm cursor-pointer ${converting ? "opacity-60" : ""}`}
               >
                 <ArrowRight className="w-4 h-4" />{converting ? "Converting…" : "Convert to invoice"}
               </AnimatedPress>
@@ -254,7 +254,7 @@ export function QuoteDetailClient({ quote: initial, customers, products, materia
           <DeliveryStatusCard docType="quote" docId={quote.id} />
           {quote.invoice_id && (
             <Link href={`/invoices/${quote.invoice_id}`} className="block">
-              <AnimatedPress className="flex items-center gap-3 p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-900/40 hover:bg-emerald-100/60 dark:hover:bg-emerald-950/50 transition-colors">
+              <AnimatedPress className="flex items-center gap-3 p-4 rounded-md bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-900/40 hover:bg-emerald-100/60 dark:hover:bg-emerald-950/50 transition-colors">
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-200">View invoice</p>
                   <p className="text-xs text-emerald-700/80 dark:text-emerald-300/70">Converted from this quote</p>

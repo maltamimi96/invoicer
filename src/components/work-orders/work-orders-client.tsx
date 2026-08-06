@@ -146,7 +146,7 @@ export function WorkOrdersClient({ workOrders, userRole }: WorkOrdersClientProps
           <>
             <CleanupButton entity="work_orders" entityLabel="work orders" />
             <Link href="/work-orders/new">
-              <AnimatedPress className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-sm">
+              <AnimatedPress className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold shadow-sm">
                 <Plus className="w-4 h-4" /> New work order
               </AnimatedPress>
             </Link>

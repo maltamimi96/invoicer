@@ -124,7 +124,7 @@ export function InvoicesClient({ invoices: initial, currency = "GBP" }: Invoices
           <>
             <CleanupButton entity="invoices" entityLabel="invoices" />
             <Link href="/invoices/new">
-              <AnimatedPress className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-sm">
+              <AnimatedPress className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold shadow-sm">
                 <Plus className="w-4 h-4" /> New invoice
               </AnimatedPress>
             </Link>
