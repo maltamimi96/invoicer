@@ -15,7 +15,9 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { ClientFields } from "@/components/customers/client-fields";
-import { staffFillableFields, staffOnlyCustomerFields } from "@/lib/onboarding/staff-fill";
+import {
+  staffFillableFields, staffOnlyCustomerFields, type StaffFillProblem,
+} from "@/lib/onboarding/staff-fill";
 import type { OnboardingField } from "@/types/database";
 
 export interface StaffFillForm {
@@ -30,7 +32,7 @@ export interface StaffFillValue {
 }
 
 export function StaffOnboardingFill({
-  forms, value, onChange, disabled, showPicker = true,
+  forms, value, onChange, disabled, showPicker = true, problems = [],
 }: {
   forms: StaffFillForm[];
   value: StaffFillValue;
@@ -38,6 +40,9 @@ export function StaffOnboardingFill({
   disabled?: boolean;
   /** Off where the caller already has a form picker of its own. */
   showPicker?: boolean;
+  /** Blocking problems from the last submit attempt, shown against the fields
+   *  rather than only in a toast that disappears. */
+  problems?: StaffFillProblem[];
 }) {
   const picked = forms.find((f) => f.id === value.formId) ?? null;
   const fillable = useMemo(() => (picked ? staffFillableFields(picked.schema) : []), [picked]);
@@ -80,12 +85,29 @@ export function StaffOnboardingFill({
               Every field on this form needs the customer (uploads or credentials). Send it to them instead.
             </p>
           ) : (
-            <ClientFields
-              fields={fillable}
-              values={value.answers}
-              disabled={disabled}
-              onChange={(id, v) => onChange({ ...value, answers: { ...value.answers, [id]: v } })}
-            />
+            <>
+              {problems.length > 0 && (
+                <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-3">
+                  <p className="text-sm font-medium text-destructive">
+                    {problems.length === 1 ? "One field needs fixing" : `${problems.length} fields need fixing`}
+                  </p>
+                  <ul className="mt-1 space-y-0.5">
+                    {problems.map((p) => (
+                      <li key={p.field_id} className="text-xs text-destructive">
+                        {p.label} {p.message}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <ClientFields
+                fields={fillable}
+                values={value.answers}
+                disabled={disabled}
+                invalidIds={problems.map((p) => p.field_id)}
+                onChange={(id, v) => onChange({ ...value, answers: { ...value.answers, [id]: v } })}
+              />
+            </>
           )}
 
           {/* Never let a half-filled form read as complete: name exactly what

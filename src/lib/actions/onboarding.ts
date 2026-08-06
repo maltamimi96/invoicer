@@ -8,9 +8,9 @@ import { getUser } from "@/lib/auth";
 import { appUrl } from "@/lib/app-url";
 import { pluginFlagsTag } from "@/lib/layout-data";
 import { sendEmail, buildBusinessFrom } from "@/lib/email";
-import { redactSecureAnswers, invalidAnswerFields } from "@/lib/onboarding/answers";
+import { redactSecureAnswers } from "@/lib/onboarding/answers";
 import {
-  staffFillableFields, staffOnlyCustomerFields, stripUnfillableAnswers, missingForStaff,
+  staffOnlyCustomerFields, stripUnfillableAnswers, staffFillProblems, staffFillErrorMessage,
 } from "@/lib/onboarding/staff-fill";
 import { decryptSecret, isEncryptedAnswer, secureFieldsAvailable } from "@/lib/onboarding/crypto";
 import type {
@@ -293,16 +293,10 @@ export async function saveStaffOnboardingResponse(
   if (schema.length === 0) return { ok: false, error: "That form has no fields yet" };
 
   const clean = stripUnfillableAnswers(schema, answers ?? {});
-  const badFormats = invalidAnswerFields(staffFillableFields(schema), clean);
-  if (badFormats.length) {
-    const first = schema.find((f) => f.id === badFormats[0].field_id);
-    return { ok: false, error: `${first?.label ?? "A field"}: ${badFormats[0].message}` };
-  }
-  const missing = missingForStaff(schema, clean);
-  if (missing.length) {
-    const labels = missing.map((id) => schema.find((f) => f.id === id)?.label ?? id);
-    return { ok: false, error: `Still needs: ${labels.join(", ")}` };
-  }
+  // Same check the browser ran before creating the client — repeated here
+  // because a check only the client performs isn't one.
+  const problems = staffFillProblems(schema, answers ?? {});
+  if (problems.length) return { ok: false, error: staffFillErrorMessage(problems) };
 
   // Reuse an open request for this form+customer rather than stacking a second
   // one — otherwise "send it, then fill it in yourself" leaves two rows.

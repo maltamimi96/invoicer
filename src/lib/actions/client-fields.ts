@@ -16,6 +16,9 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { getUser } from "@/lib/auth";
 import { resolveCustomerFields, pruneAnswers, isUsingPresetDefaults } from "@/lib/customers/field-schema";
+import {
+  resolveAccountTypes, isUsingPresetAccountTypes, validateAccountTypes, type AccountTypeOption,
+} from "@/lib/customers/account-types";
 import type { OnboardingField } from "@/types/database";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -33,6 +36,9 @@ export interface ClientFieldConfig {
   /** True when nothing has been customised — the preset's defaults are in use. */
   usingPresetDefaults: boolean;
   industryPreset: string | null;
+  /** Client TYPE options (Residential / Retainer client / …). */
+  accountTypes: AccountTypeOption[];
+  usingPresetAccountTypes: boolean;
 }
 
 export async function getClientFieldConfig(): Promise<ClientFieldConfig> {
@@ -40,14 +46,38 @@ export async function getClientFieldConfig(): Promise<ClientFieldConfig> {
   const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
-  const { data } = await tbl(supabase, "businesses")
-    .select("customer_field_schema, industry_preset").eq("id", businessId).maybeSingle();
+  // Check the error: a failed read here previously fell through to the generic
+  // defaults, which looks exactly like a business that has no preset.
+  const { data, error } = await tbl(supabase, "businesses")
+    .select("customer_field_schema, customer_type_options, industry_preset")
+    .eq("id", businessId).maybeSingle();
+  if (error) throw new Error(`Couldn't load your client settings: ${error.message}`);
 
   return {
     fields: resolveCustomerFields(data?.customer_field_schema, data?.industry_preset),
     usingPresetDefaults: isUsingPresetDefaults(data?.customer_field_schema),
     industryPreset: data?.industry_preset ?? null,
+    accountTypes: resolveAccountTypes(data?.customer_type_options, data?.industry_preset),
+    usingPresetAccountTypes: isUsingPresetAccountTypes(data?.customer_type_options),
   };
+}
+
+/** Replace the business's client TYPE options. */
+export async function saveClientAccountTypes(options: AccountTypeOption[]): Promise<SaveFieldsResult> {
+  const supabase = await createClient();
+  const user = await getUser();
+  const businessId = await getActiveBizId(supabase, user.id);
+
+  const problem = validateAccountTypes(options);
+  if (problem) return { ok: false, error: problem };
+
+  const { error } = await tbl(supabase, "businesses")
+    .update({ customer_type_options: options }).eq("id", businessId);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/settings/client-fields");
+  revalidatePath("/customers");
+  return { ok: true, count: options.length };
 }
 
 export type SaveFieldsResult = { ok: true; count: number } | { ok: false; error: string };
@@ -90,8 +120,10 @@ export async function resetClientFieldsToPreset(): Promise<SaveFieldsResult> {
   const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
+  // Both halves go back together — a half-reset business is a state nobody
+  // asked for and can't see they're in.
   const { error } = await tbl(supabase, "businesses")
-    .update({ customer_field_schema: null }).eq("id", businessId);
+    .update({ customer_field_schema: null, customer_type_options: null }).eq("id", businessId);
   if (error) return { ok: false, error: error.message };
 
   const cfg = await getClientFieldConfig();

@@ -18,12 +18,15 @@ import type { OnboardingField } from "@/types/database";
  * for it yet.
  */
 export function ClientFields({
-  fields, values, onChange, disabled,
+  fields, values, onChange, disabled, invalidIds = [],
 }: {
   fields: OnboardingField[];
   values: Record<string, unknown>;
   onChange: (id: string, value: unknown) => void;
   disabled?: boolean;
+  /** Field ids that failed validation — outlined so the fix is findable
+   *  without hunting through the form. */
+  invalidIds?: string[];
 }) {
   if (fields.length === 0) return null;
 
@@ -115,9 +118,15 @@ export function ClientFields({
           }
         })();
 
+        const invalid = invalidIds.includes(f.id);
         return (
-          <div key={f.id} className={wide ? "sm:col-span-2" : undefined}>
-            <Label htmlFor={f.id}>{f.label}{f.required ? " *" : ""}</Label>
+          <div
+            key={f.id}
+            className={`${wide ? "sm:col-span-2 " : ""}${invalid ? "rounded-lg ring-1 ring-destructive/50 p-2 -m-2" : ""}`}
+          >
+            <Label htmlFor={f.id} className={invalid ? "text-destructive" : undefined}>
+              {f.label}{f.required ? " *" : ""}
+            </Label>
             {control}
             {f.help_text && <p className="mt-1 text-xs text-muted-foreground">{f.help_text}</p>}
           </div>

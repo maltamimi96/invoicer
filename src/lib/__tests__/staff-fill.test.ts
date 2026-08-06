@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   isStaffFillable, staffFillableFields, staffOnlyCustomerFields,
   stripUnfillableAnswers, missingForStaff, STAFF_UNFILLABLE_TYPES,
+  staffFillProblems, staffFillErrorMessage,
 } from "@/lib/onboarding/staff-fill";
 import type { OnboardingField } from "@/types/database";
 
@@ -57,6 +58,47 @@ describe("stripUnfillableAnswers", () => {
   it("keeps falsy answers that are real values", () => {
     const schema = [f("count", "number"), f("ok", "yes_no")];
     expect(stripUnfillableAnswers(schema, { count: 0, ok: false })).toEqual({ count: 0, ok: false });
+  });
+});
+
+describe("staffFillProblems", () => {
+  // This is what the add-client screen runs BEFORE creating the client. It
+  // used to run only on the server, afterwards — so a missing field left the
+  // client created and the form lost.
+  it("names the field, not just 'invalid'", () => {
+    const schema = [f("company", "short_text", { required: true, label: "Company name" })];
+    const problems = staffFillProblems(schema, {});
+    expect(problems).toEqual([{ field_id: "company", label: "Company name", message: "is required" }]);
+    expect(staffFillErrorMessage(problems)).toBe("Company name is required");
+  });
+
+  it("catches bad formats too", () => {
+    const schema = [f("email", "email", { label: "Work email" })];
+    const problems = staffFillProblems(schema, { email: "not-an-email" });
+    expect(problems).toHaveLength(1);
+    expect(problems[0].label).toBe("Work email");
+  });
+
+  it("doesn't complain twice about one empty field", () => {
+    // Empty + required must not also report "invalid format".
+    const schema = [f("email", "email", { required: true, label: "Work email" })];
+    expect(staffFillProblems(schema, { email: "" })).toHaveLength(1);
+  });
+
+  it("ignores upload and credential fields entirely", () => {
+    expect(staffFillProblems(SCHEMA, { company: "Acme" })).toEqual([]);
+  });
+
+  it("lists every problem, so one fix at a time isn't needed", () => {
+    const schema = [
+      f("a", "short_text", { required: true, label: "A" }),
+      f("b", "short_text", { required: true, label: "B" }),
+    ];
+    expect(staffFillErrorMessage(staffFillProblems(schema, {}))).toBe("Fix these first: A is required, B is required");
+  });
+
+  it("says nothing when the form is complete", () => {
+    expect(staffFillErrorMessage(staffFillProblems(SCHEMA, { company: "Acme" }))).toBe("");
   });
 });
 

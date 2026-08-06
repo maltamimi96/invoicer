@@ -8,7 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus, Trash2, ChevronUp, ChevronDown, Loader2, RefreshCw } from "@/components/ui/icons";
-import { saveClientFields, resetClientFieldsToPreset, type ClientFieldConfig } from "@/lib/actions/client-fields";
+import {
+  saveClientFields, resetClientFieldsToPreset, saveClientAccountTypes, type ClientFieldConfig,
+} from "@/lib/actions/client-fields";
+import type { AccountTypeOption } from "@/lib/customers/account-types";
 import { ClientFields } from "@/components/customers/client-fields";
 import type { OnboardingField, OnboardingFieldType } from "@/types/database";
 
@@ -36,8 +39,20 @@ const slug = (s: string) =>
 export function ClientFieldsSettings({ config }: { config: ClientFieldConfig }) {
   const router = useRouter();
   const [fields, setFields] = useState<OnboardingField[]>(config.fields);
+  const [types, setTypes] = useState<AccountTypeOption[]>(config.accountTypes);
   const [preview, setPreview] = useState<Record<string, unknown>>({});
   const [saving, setSaving] = useState(false);
+  const [savingTypes, setSavingTypes] = useState(false);
+
+  const saveTypes = async () => {
+    setSavingTypes(true);
+    try {
+      const res = await saveClientAccountTypes(types);
+      if (!res.ok) { toast.error(res.error); return; }
+      toast.success(`Saved — ${res.count} client type${res.count === 1 ? "" : "s"}`);
+      router.refresh();
+    } finally { setSavingTypes(false); }
+  };
 
   const update = (i: number, patch: Partial<OnboardingField>) =>
     setFields((prev) => prev.map((f, idx) => (idx === i ? { ...f, ...patch } : f)));
@@ -75,7 +90,7 @@ export function ClientFieldsSettings({ config }: { config: ClientFieldConfig }) 
         actions={
           <>
             <Button variant="outline" disabled={saving} onClick={async () => {
-              if (!confirm("Reset to your industry's defaults? Any fields you've added here are removed — answers already saved on clients stay in the database but stop being shown.")) return;
+              if (!confirm("Reset client types AND fields to your industry's defaults? Anything you've added here is removed — answers already saved on clients stay in the database but stop being shown.")) return;
               const res = await resetClientFieldsToPreset();
               if (!res.ok) { toast.error(res.error); return; }
               toast.success("Back to the preset defaults");
@@ -100,6 +115,65 @@ export function ClientFieldsSettings({ config }: { config: ClientFieldConfig }) 
           Name, email, phone, company and address are always present and aren&rsquo;t listed here. Credentials belong
           in an onboarding form, not a client profile — anyone who can see the client can see these.
         </p>
+      </div>
+
+      {/* Client types — the dropdown at the top of every client form. Was a
+          fixed trades list (Strata, Builder, Property manager), which an
+          agency had no use for. */}
+      <div className="mb-5 rounded-xl border border-border bg-card p-4">
+        <div className="mb-1 flex items-center justify-between gap-2 flex-wrap">
+          <div>
+            <h2 className="text-sm font-semibold">Client types</h2>
+            <p className="text-xs text-muted-foreground">
+              The dropdown at the top of the client form. Every client is saved with one, so keep at least one.
+            </p>
+          </div>
+          <Button size="sm" variant="outline" disabled={savingTypes} onClick={saveTypes}>
+            {savingTypes && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />} Save types
+          </Button>
+        </div>
+
+        <div className="mt-3 space-y-2">
+          {types.map((t, i) => (
+            <div key={t.value} className="flex items-center gap-2">
+              <Input
+                value={t.label}
+                className="flex-1"
+                onChange={(e) => {
+                  const label = e.target.value;
+                  // Same rule as the fields: once clients are saved against a
+                  // value, renaming must not change the stored value.
+                  const isFresh = /^type_\d+_/.test(t.value);
+                  setTypes((p) => p.map((x, idx) => idx === i
+                    ? { ...x, label, ...(isFresh ? { value: slug(label) || x.value } : {}) } : x));
+                }}
+              />
+              <Input
+                value={t.hint ?? ""}
+                placeholder="Hint (optional)"
+                className="flex-1"
+                onChange={(e) => setTypes((p) => p.map((x, idx) => idx === i ? { ...x, hint: e.target.value } : x))}
+              />
+              <button
+                onClick={() => setTypes((p) => p.filter((_, idx) => idx !== i))}
+                aria-label={`Remove ${t.label}`}
+                className="text-muted-foreground hover:text-destructive"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => setTypes((p) => [
+              ...p, { value: `type_${p.length + 1}_${Date.now().toString(36)}`, label: "New type" },
+            ])}>
+              <Plus className="mr-1.5 h-4 w-4" /> Add type
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Clients already saved under a removed type keep it — it stays selectable on those clients only.
+            </p>
+          </div>
+        </div>
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">

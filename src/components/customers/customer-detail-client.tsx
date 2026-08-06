@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/icons";
 import { AttachmentsPanel } from "@/components/attachments/attachments-panel";
 import { ClientFieldsSummary } from "@/components/customers/client-fields";
+import type { AccountTypeOption } from "@/lib/customers/account-types";
 import { Button } from "@/components/ui/button";
 import {
   DetailHero, StatTile, AnimatedPress, FadeIn, KireiAvatar, GradientTile,
@@ -79,6 +80,8 @@ interface Props {
   onboarding?: CustomerOnboardingData | null;
   /** This business's client-profile fields (industry preset or its override). */
   clientFields?: OnboardingField[];
+  /** Client type options for this business. */
+  accountTypes?: AccountTypeOption[];
 }
 
 // ── Property Modal ─────────────────────────────────────────────────────────────
@@ -507,6 +510,7 @@ export function CustomerDetailClient({
   businessCountry = null,
   onboarding = null,
   clientFields = [],
+  accountTypes = [],
 }: Props) {
   const [customer, setCustomer] = useState(initial);
   const [editing, setEditing] = useState(false);
@@ -601,7 +605,7 @@ export function CustomerDetailClient({
 
       {editing ? (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-          <CustomerForm customer={customer} businessCountry={businessCountry} clientFields={clientFields} onSuccess={(updated) => { setCustomer(updated); setEditing(false); }} />
+          <CustomerForm customer={customer} businessCountry={businessCountry} clientFields={clientFields} accountTypes={accountTypes} onSuccess={(updated) => { setCustomer(updated); setEditing(false); }} />
         </motion.div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
