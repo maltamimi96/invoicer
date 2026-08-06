@@ -9,12 +9,18 @@
 import { useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ArrowLeft, Eye, EyeOff, Download, Loader2, Lock, Check } from "@/components/ui/icons";
+import { ArrowLeft, Eye, EyeOff, Download, Loader2, Lock, Check, PenLine, Trash2, Send } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/layout/page-header";
-import { revealSecureAnswer, getOnboardingUploadUrl } from "@/lib/actions/onboarding";
+import { useRouter } from "next/navigation";
+import {
+  revealSecureAnswer, getOnboardingUploadUrl, updateOnboardingResponse,
+  deleteOnboardingRequest, sendOnboardingRequest,
+} from "@/lib/actions/onboarding";
+import { ClientFields } from "@/components/customers/client-fields";
+import { staffFillableFields, staffOnlyCustomerFields, isStaffFillable } from "@/lib/onboarding/staff-fill";
 import { socialProfileUrl } from "@/lib/onboarding/presets";
 import { AnswerImageThumb } from "@/components/onboarding/answer-image-thumb";
 import { formatDate } from "@/lib/utils";
@@ -29,12 +35,71 @@ interface Props {
   response: OnboardingResponse;
   customerName: string;
   customerId: string;
+  /** Credential fields editable here (server has an encryption key). */
+  allowSecureFill?: boolean;
 }
 
-export function ResponseViewerClient({ formId, formName, response, customerName, customerId }: Props) {
-  const fields = (response.schema_snapshot ?? []).filter(
-    (f) => !["instructions", "heading", "divider"].includes(f.type)
-  );
+export function ResponseViewerClient({
+  formId, formName, response, customerName, customerId, allowSecureFill = false,
+}: Props) {
+  const router = useRouter();
+  const schema = (response.schema_snapshot ?? []) as OnboardingField[];
+  const fields = schema.filter((f) => !["instructions", "heading", "divider"].includes(f.type));
+  const opts = { allowSecure: allowSecureFill };
+  const editable = staffFillableFields(schema, opts).filter(
+    (f) => !["heading", "divider", "instructions"].includes(f.type));
+  const needsCustomer = staffOnlyCustomerFields(schema, opts);
+
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<Record<string, unknown>>({});
+  const [busy, setBusy] = useState(false);
+
+  const startEdit = () => {
+    // Secure answers arrive redacted, so they start blank. Blank means "keep
+    // what is stored", never "wipe it".
+    const seed: Record<string, unknown> = {};
+    for (const f of editable) {
+      if (f.type === "secure") continue;
+      const v = response.answers?.[f.id];
+      if (v !== undefined) seed[f.id] = v;
+    }
+    setDraft(seed);
+    setEditing(true);
+  };
+
+  const save = async () => {
+    setBusy(true);
+    try {
+      const res = await updateOnboardingResponse(response.request_id, draft);
+      if (!res.ok) { toast.error(res.error); return; }
+      toast.success("Answers updated");
+      setEditing(false);
+      router.refresh();
+    } finally { setBusy(false); }
+  };
+
+  const remove = async () => {
+    if (!confirm("Delete this response and the request behind it? The answers are gone for good \u2014 you can send the form again afterwards.")) return;
+    setBusy(true);
+    try {
+      await deleteOnboardingRequest(response.request_id);
+      toast.success("Response deleted");
+      router.push(`/customers/${customerId}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't delete");
+    } finally { setBusy(false); }
+  };
+
+  const sendFresh = async () => {
+    setBusy(true);
+    try {
+      const res = await sendOnboardingRequest(formId, customerId, { email: false });
+      if (!res.ok) { toast.error(res.error); return; }
+      await navigator.clipboard.writeText(res.url).catch(() => {});
+      toast.success("New blank form created \u2014 link copied");
+      router.push(`/customers/${customerId}`);
+    } finally { setBusy(false); }
+  };
 
   return (
     <div>
@@ -52,29 +117,85 @@ export function ResponseViewerClient({ formId, formName, response, customerName,
         }
         accent="linear-gradient(180deg, #2dd4bf 0%, #0e7490 100%)"
         actions={
-          <Button variant="outline" asChild>
-            <Link href={`/onboarding-forms/${formId}`}>Edit form</Link>
-          </Button>
+          editing ? (
+            <>
+              <Button variant="outline" disabled={busy} onClick={() => setEditing(false)}>Cancel</Button>
+              <Button disabled={busy} onClick={save}>
+                {busy && <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />} Save answers
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="outline" disabled={busy} onClick={startEdit}>
+                <PenLine className="w-4 h-4 mr-1.5" /> Edit answers
+              </Button>
+              <Button variant="outline" disabled={busy} onClick={sendFresh}>
+                <Send className="w-4 h-4 mr-1.5" /> Send a fresh one
+              </Button>
+              <Button variant="outline" disabled={busy} onClick={remove}
+                className="text-destructive hover:text-destructive">
+                <Trash2 className="w-4 h-4 mr-1.5" /> Delete
+              </Button>
+              <Button variant="outline" asChild>
+                <Link href={`/onboarding-forms/${formId}`}>Edit form</Link>
+              </Button>
+            </>
+          )
         }
       />
 
-      <Card className="max-w-2xl">
-        <CardContent className="p-6 divide-y divide-border/60">
-          {fields.map((f) => (
-            <div key={f.id} className="py-3 first:pt-0 last:pb-0">
-              <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-1">{f.label}</p>
-              <AnswerValue field={f} value={response.answers?.[f.id]} responseId={response.id} />
+      <Card className="max-w-3xl mx-auto">
+        <CardContent className="p-6">
+          {editing ? (
+            <div className="space-y-5">
+              <ClientFields
+                fields={editable}
+                values={draft}
+                disabled={busy}
+                onChange={(id, v) => setDraft((prev) => ({ ...prev, [id]: v }))}
+              />
+              {editable.some((f) => f.type === "secure") && (
+                <p className="text-xs text-muted-foreground">
+                  Leave a credential blank to keep what&rsquo;s already stored &mdash; the editor can&rsquo;t show it back to you.
+                </p>
+              )}
+              {needsCustomer.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {needsCustomer.map((f) => f.label).join(", ")} can only be provided by the customer through
+                  their own link, so {needsCustomer.length === 1 ? "it isn't" : "they aren't"} editable here.
+                </p>
+              )}
             </div>
-          ))}
+          ) : (
+            <div className="divide-y divide-border/60">
+              {fields.map((f) => (
+                <div key={f.id} className="py-3 first:pt-0 last:pb-0">
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-1">{f.label}</p>
+                  <AnswerValue
+                    field={f}
+                    value={response.answers?.[f.id]}
+                    responseId={response.id}
+                    staffFillable={isStaffFillable(f, opts)}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
   );
 }
 
-function AnswerValue({ field: f, value, responseId }: { field: OnboardingField; value: unknown; responseId: string }) {
+function AnswerValue({
+  field: f, value, responseId, staffFillable = true,
+}: { field: OnboardingField; value: unknown; responseId: string; staffFillable?: boolean }) {
   if (value == null || value === "" || (Array.isArray(value) && value.length === 0)) {
-    return <p className="text-sm text-muted-foreground italic">Not answered</p>;
+    // "Not answered" is only honest if it COULD have been answered here. For an
+    // upload, or a credential with no key, say whose it is to provide.
+    return staffFillable
+      ? <p className="text-sm text-muted-foreground italic">Not answered</p>
+      : <p className="text-sm text-muted-foreground italic">Needs the customer &mdash; only they can submit this, through their own link</p>;
   }
 
   switch (f.type) {

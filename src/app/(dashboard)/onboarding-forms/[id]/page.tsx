@@ -23,9 +23,10 @@ export default async function OnboardingFormBuilderPage({ params, searchParams }
 
   // ?response=<requestId> → show the submitted answers instead of the builder.
   if (responseRequestId) {
-    const [response, requests] = await Promise.all([
+    const [response, requests, allowSecureFill] = await Promise.all([
       getOnboardingResponse(responseRequestId),
       getOnboardingRequests({ form_id: id }),
+      getSecureFieldsAvailable(),
     ]);
     const request = requests.find((r) => r.id === responseRequestId);
     if (response && request) {
@@ -36,6 +37,7 @@ export default async function OnboardingFormBuilderPage({ params, searchParams }
           response={response}
           customerName={request.customers?.name ?? "Customer"}
           customerId={request.customer_id}
+          allowSecureFill={allowSecureFill}
         />
       );
     }

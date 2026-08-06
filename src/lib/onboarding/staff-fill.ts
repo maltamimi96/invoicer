@@ -4,7 +4,7 @@
  *
  * Plain module (no "use server") so the server action, the MCP tool and the
  * client form all share one definition of what's fillable. If they disagreed,
- * the UI would offer a field the server then silently dropped.
+ * the UI would offer a field the server then dropped.
  */
 import type { OnboardingField, OnboardingAnswers } from "@/types/database";
 // From ./validate, not ./answers — this module is imported by client
@@ -12,61 +12,89 @@ import type { OnboardingField, OnboardingAnswers } from "@/types/database";
 import { DISPLAY_ONLY_TYPES, missingRequiredFields, invalidAnswerFields } from "./validate";
 
 /**
- * Types staff can't fill in from the dashboard:
- *
- * - `file` / `image` — uploads go through the token-gated portal route; there
- *   is no dashboard equivalent, so offering the field would be a dead end.
- * - `secure` — a credential is the customer's to enter. Typed in by staff it
- *   loses that meaning, and the encryption key may not even be configured.
- *   Stripped server-side too, so a plaintext credential can't reach the
- *   database via a hand-rolled request.
+ * Uploads can never be staff-filled: the only upload path is the token-gated
+ * portal route, so offering the field from the dashboard is a dead end.
  */
-export const STAFF_UNFILLABLE_TYPES = new Set(["file", "image", "secure"]);
+export const STAFF_UPLOAD_TYPES = new Set(["file", "image"]);
 
-export function isStaffFillable(f: OnboardingField): boolean {
-  return !STAFF_UNFILLABLE_TYPES.has(f.type);
+export interface StaffFillOptions {
+  /**
+   * Whether credential (`secure`) fields can be filled here — true only when
+   * the server has an encryption key.
+   *
+   * Staff legitimately hold details a client has handed over: a BSB and
+   * account number for a direct debit, say. Refusing those outright just loses
+   * the data. Without a key there is nothing to encrypt with, and a credential
+   * is never stored in the clear, so the answer depends on the environment
+   * rather than being fixed.
+   */
+  allowSecure?: boolean;
+}
+
+export function isStaffFillable(f: OnboardingField, opts: StaffFillOptions = {}): boolean {
+  if (STAFF_UPLOAD_TYPES.has(f.type)) return false;
+  if (f.type === "secure") return Boolean(opts.allowSecure);
+  return true;
 }
 
 /** The fields to render in a staff-fill form (display-only types included —
  *  headings and instructions still give the form its shape). */
-export function staffFillableFields(schema: OnboardingField[]): OnboardingField[] {
-  return (schema ?? []).filter(isStaffFillable);
+export function staffFillableFields(
+  schema: OnboardingField[], opts: StaffFillOptions = {},
+): OnboardingField[] {
+  return (schema ?? []).filter((f) => isStaffFillable(f, opts));
 }
 
 /** Fields that still need the customer — surfaced so staff know what's left
  *  rather than believing a half-filled form is complete. */
-export function staffOnlyCustomerFields(schema: OnboardingField[]): OnboardingField[] {
-  return (schema ?? []).filter((f) => !isStaffFillable(f));
+export function staffOnlyCustomerFields(
+  schema: OnboardingField[], opts: StaffFillOptions = {},
+): OnboardingField[] {
+  return (schema ?? []).filter((f) => !isStaffFillable(f, opts));
 }
 
-/** Drop answers to fields staff aren't allowed to fill, and to fields that
- *  aren't on the form at all. */
+export interface StripResult {
+  clean: OnboardingAnswers;
+  /**
+   * Labels of answers that were thrown away.
+   *
+   * Never drop these silently. A value typed in and discarded without a word
+   * is how an account number vanished and the response page said "Not
+   * answered" — the one failure mode worse than refusing outright.
+   */
+  dropped: string[];
+}
+
 export function stripUnfillableAnswers(
-  schema: OnboardingField[],
-  answers: OnboardingAnswers,
-): OnboardingAnswers {
-  const allowed = new Set(
-    (schema ?? []).filter((f) => isStaffFillable(f) && !DISPLAY_ONLY_TYPES.has(f.type)).map((f) => f.id),
-  );
-  const out: OnboardingAnswers = {};
+  schema: OnboardingField[], answers: OnboardingAnswers, opts: StaffFillOptions = {},
+): StripResult {
+  const byId = new Map((schema ?? []).map((f) => [f.id, f]));
+  const clean: OnboardingAnswers = {};
+  const dropped: string[] = [];
+
   for (const [id, value] of Object.entries(answers ?? {})) {
-    if (allowed.has(id)) out[id] = value;
+    const field = byId.get(id);
+    // Not on this form, or a type that holds no answer — nothing the user
+    // could act on, so drop it quietly.
+    if (!field || DISPLAY_ONLY_TYPES.has(field.type)) continue;
+
+    if (isStaffFillable(field, opts)) { clean[id] = value; continue; }
+    if (value !== undefined && value !== null && value !== "") dropped.push(field.label || id);
   }
-  return out;
+  return { clean, dropped };
 }
 
 /**
  * Required fields staff still have to answer.
  *
- * Deliberately ignores required upload/credential fields: staff physically
- * can't provide those, so counting them would make the form unsubmittable.
- * They show up as "still needs the customer" instead.
+ * Ignores required fields staff physically can't provide (uploads, and
+ * credentials with no key) — counting them would make the form unsubmittable.
+ * Those surface as "still needs the customer" instead.
  */
 export function missingForStaff(
-  schema: OnboardingField[],
-  answers: OnboardingAnswers,
+  schema: OnboardingField[], answers: OnboardingAnswers, opts: StaffFillOptions = {},
 ): string[] {
-  return missingRequiredFields(staffFillableFields(schema), answers);
+  return missingRequiredFields(staffFillableFields(schema, opts), answers);
 }
 
 export interface StaffFillProblem { field_id: string; label: string; message: string }
@@ -81,20 +109,27 @@ export interface StaffFillProblem { field_id: string; label: string; message: st
  * check.
  */
 export function staffFillProblems(
-  schema: OnboardingField[],
-  answers: OnboardingAnswers,
+  schema: OnboardingField[], answers: OnboardingAnswers, opts: StaffFillOptions = {},
 ): StaffFillProblem[] {
   const label = (id: string) => schema.find((f) => f.id === id)?.label ?? id;
-  const clean = stripUnfillableAnswers(schema, answers);
+  const { clean, dropped } = stripUnfillableAnswers(schema, answers, opts);
 
-  const problems: StaffFillProblem[] = missingForStaff(schema, clean).map((id) => ({
+  const problems: StaffFillProblem[] = missingForStaff(schema, clean, opts).map((id) => ({
     field_id: id, label: label(id), message: "is required",
   }));
 
-  for (const e of invalidAnswerFields(staffFillableFields(schema), clean)) {
+  for (const e of invalidAnswerFields(staffFillableFields(schema, opts), clean)) {
     // Don't pile a format complaint on top of "you haven't filled it in".
     if (problems.some((p) => p.field_id === e.field_id)) continue;
     problems.push({ field_id: e.field_id, label: label(e.field_id), message: e.message });
+  }
+
+  // Answered something that can't be kept: say so instead of saving without it.
+  for (const label of dropped) {
+    problems.push({
+      field_id: `__dropped_${label}`, label,
+      message: "can only be provided by the customer, through their own link — it wasn't saved",
+    });
   }
   return problems;
 }

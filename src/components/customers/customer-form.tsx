@@ -72,11 +72,13 @@ interface CustomerFormProps {
   /** Client types for this business. Empty = fall back to the generic list, so
    *  a caller that hasn't been updated still renders a usable dropdown. */
   accountTypes?: AccountTypeOption[];
+  /** Whether credential fields can be staff-filled (server has a key). */
+  allowSecureFill?: boolean;
 }
 
 export function CustomerForm({
   customer, onSuccess, businessCountry, clientFields = [], onboardingForms = [],
-  accountTypes = [],
+  accountTypes = [], allowSecureFill = false,
 }: CustomerFormProps) {
   // An existing customer's type is always offered, even if the business has
   // since changed its list — otherwise editing them would silently reclassify.
@@ -125,7 +127,7 @@ export function CustomerForm({
     // typed into this screen gone, to be re-entered from their profile.
     if (!customer && fill.formId) {
       const picked = onboardingForms.find((f) => f.id === fill.formId);
-      const problems = picked ? staffFillProblems(picked.schema, fill.answers) : [];
+      const problems = picked ? staffFillProblems(picked.schema, fill.answers, { allowSecure: allowSecureFill }) : [];
       setFillProblems(problems);
       if (problems.length) {
         toast.error(staffFillErrorMessage(problems));
@@ -366,6 +368,7 @@ export function CustomerForm({
               forms={onboardingForms}
               value={fill}
               problems={fillProblems}
+              allowSecure={allowSecureFill}
               onChange={(next) => { setFill(next); setFillProblems([]); }}
             />
           </FormSection>

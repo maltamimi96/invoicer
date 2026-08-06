@@ -40,9 +40,11 @@ interface Props {
   /** `blocked` explains why a form can't be sent, so the picker can say so
    *  before you try rather than after. `schema` powers filling it in yourself. */
   activeForms: (Pick<OnboardingForm, "id" | "name" | "schema"> & { blocked?: string | null })[];
+  /** Credential fields fillable here (server has an encryption key). */
+  allowSecureFill?: boolean;
 }
 
-export function CustomerOnboardingCard({ customerId, requests, responses, activeForms }: Props) {
+export function CustomerOnboardingCard({ customerId, requests, responses, activeForms, allowSecureFill = false }: Props) {
   const blockedForms = activeForms.filter((f) => f.blocked);
   const router = useRouter();
   const [pickedForm, setPickedForm] = useState("");
@@ -52,7 +54,7 @@ export function CustomerOnboardingCard({ customerId, requests, responses, active
   const responseByRequest = new Map(responses.map((r) => [r.request_id, r]));
   const picked = activeForms.find((f) => f.id === pickedForm) ?? null;
   // A form of nothing but uploads/credentials can't be staff-filled at all.
-  const canFill = Boolean(picked && !picked.blocked && staffFillableFields(picked.schema).length > 0);
+  const canFill = Boolean(picked && !picked.blocked && staffFillableFields(picked.schema, { allowSecure: allowSecureFill }).length > 0);
 
   const saveFill = async () => {
     if (!picked) return;
@@ -133,6 +135,7 @@ export function CustomerOnboardingCard({ customerId, requests, responses, active
             value={{ formId: picked.id, answers: fillAnswers }}
             onChange={(next) => setFillAnswers(next.answers)}
             showPicker={false}
+            allowSecure={allowSecureFill}
             disabled={busy}
           />
           <div className="flex justify-end">

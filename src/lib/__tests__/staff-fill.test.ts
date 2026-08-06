@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   isStaffFillable, staffFillableFields, staffOnlyCustomerFields,
-  stripUnfillableAnswers, missingForStaff, STAFF_UNFILLABLE_TYPES,
+  stripUnfillableAnswers, missingForStaff, STAFF_UPLOAD_TYPES,
   staffFillProblems, staffFillErrorMessage,
 } from "@/lib/onboarding/staff-fill";
 import type { OnboardingField } from "@/types/database";
@@ -18,46 +18,69 @@ const SCHEMA: OnboardingField[] = [
   f("wifi", "secure", { required: true }),
 ];
 
+const WITH_KEY = { allowSecure: true };
+
 describe("what staff can fill", () => {
-  it("blocks uploads and credentials, allows the rest", () => {
+  it("never allows uploads — there is no dashboard upload path", () => {
     expect(isStaffFillable(f("a", "short_text"))).toBe(true);
-    expect(isStaffFillable(f("a", "file"))).toBe(false);
-    expect(isStaffFillable(f("a", "image"))).toBe(false);
-    expect(isStaffFillable(f("a", "secure"))).toBe(false);
+    expect(STAFF_UPLOAD_TYPES.has("file")).toBe(true);
+    expect(STAFF_UPLOAD_TYPES.has("image")).toBe(true);
+    // True even with a key: allowSecure is about credentials, not uploads.
+    expect(isStaffFillable(f("a", "file"), WITH_KEY)).toBe(false);
+    expect(isStaffFillable(f("a", "image"), WITH_KEY)).toBe(false);
   });
 
-  it("keeps a credential field off the staff form no matter what", () => {
-    // The whole point of `secure` is that the value comes from its owner. If
-    // this ever passes, staff are typing customers' passwords into a dashboard.
-    expect(STAFF_UNFILLABLE_TYPES.has("secure")).toBe(true);
-    expect(staffFillableFields(SCHEMA).some((x) => x.type === "secure")).toBe(false);
+  it("allows a credential only when there's a key to encrypt it with", () => {
+    // Staff legitimately hold details a client handed over (a BSB, an account
+    // number). Without a key there is nothing to encrypt with, and a
+    // credential is never stored in the clear.
+    expect(isStaffFillable(f("a", "secure"))).toBe(false);
+    expect(isStaffFillable(f("a", "secure"), WITH_KEY)).toBe(true);
   });
 
   it("splits the schema into fillable and still-needs-the-customer", () => {
     expect(staffFillableFields(SCHEMA).map((x) => x.id)).toEqual(["heading", "company", "abn"]);
     expect(staffOnlyCustomerFields(SCHEMA).map((x) => x.id)).toEqual(["logo", "contract", "wifi"]);
+
+    expect(staffFillableFields(SCHEMA, WITH_KEY).map((x) => x.id)).toEqual(["heading", "company", "abn", "wifi"]);
+    expect(staffOnlyCustomerFields(SCHEMA, WITH_KEY).map((x) => x.id)).toEqual(["logo", "contract"]);
   });
 });
 
 describe("stripUnfillableAnswers", () => {
-  it("drops answers to upload and credential fields", () => {
+  it("drops what it can't keep AND reports it", () => {
+    // The silent version of this lost an account number and the response page
+    // said "Not answered". Dropping is fine; dropping quietly is not.
     const out = stripUnfillableAnswers(SCHEMA, {
       company: "Acme", logo: { path: "x" }, wifi: "hunter2",
     });
-    expect(out).toEqual({ company: "Acme" });
+    expect(out.clean).toEqual({ company: "Acme" });
+    expect(out.dropped.sort()).toEqual(["logo", "wifi"]);
   });
 
-  it("drops answers to fields that aren't on the form", () => {
-    expect(stripUnfillableAnswers(SCHEMA, { company: "Acme", ghost: "?" })).toEqual({ company: "Acme" });
+  it("keeps a credential when there's a key", () => {
+    const out = stripUnfillableAnswers(SCHEMA, { wifi: "hunter2" }, WITH_KEY);
+    expect(out.clean).toEqual({ wifi: "hunter2" });
+    expect(out.dropped).toEqual([]);
+  });
+
+  it("doesn't report a field that was left empty anyway", () => {
+    expect(stripUnfillableAnswers(SCHEMA, { logo: "" }).dropped).toEqual([]);
+  });
+
+  it("drops answers to fields that aren't on the form, silently", () => {
+    const out = stripUnfillableAnswers(SCHEMA, { company: "Acme", ghost: "?" });
+    expect(out.clean).toEqual({ company: "Acme" });
+    expect(out.dropped).toEqual([]);
   });
 
   it("drops display-only fields — a heading holds no answer", () => {
-    expect(stripUnfillableAnswers(SCHEMA, { heading: "oops" })).toEqual({});
+    expect(stripUnfillableAnswers(SCHEMA, { heading: "oops" }).clean).toEqual({});
   });
 
   it("keeps falsy answers that are real values", () => {
     const schema = [f("count", "number"), f("ok", "yes_no")];
-    expect(stripUnfillableAnswers(schema, { count: 0, ok: false })).toEqual({ count: 0, ok: false });
+    expect(stripUnfillableAnswers(schema, { count: 0, ok: false }).clean).toEqual({ count: 0, ok: false });
   });
 });
 
@@ -85,8 +108,15 @@ describe("staffFillProblems", () => {
     expect(staffFillProblems(schema, { email: "" })).toHaveLength(1);
   });
 
-  it("ignores upload and credential fields entirely", () => {
+  it("ignores upload and credential fields left empty", () => {
     expect(staffFillProblems(SCHEMA, { company: "Acme" })).toEqual([]);
+  });
+
+  it("refuses to save silently when an answer can't be kept", () => {
+    const problems = staffFillProblems(SCHEMA, { company: "Acme", wifi: "hunter2" });
+    expect(problems).toHaveLength(1);
+    expect(problems[0].label).toBe("wifi");
+    expect(problems[0].message).toMatch(/wasn't saved/);
   });
 
   it("lists every problem, so one fix at a time isn't needed", () => {
