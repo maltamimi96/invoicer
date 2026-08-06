@@ -53,6 +53,10 @@ export default async function NewCustomerPage() {
         accountTypes={fieldConfig.config?.accountTypes ?? []}
         onboardingForms={onboardingForms}
         allowSecureFill={allowSecureFill}
+        cardProviders={{
+          stripeEnabled: !!business?.stripe_charges_enabled,
+          revolutEnabled: !!business?.revolut_enabled,
+        }}
       />
     </div>
   );

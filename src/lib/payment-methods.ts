@@ -14,10 +14,29 @@ export const PAYMENT_METHODS = ["card", "bank_transfer", "cash"] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
-  card: "Card (Stripe)",
+  // NOT "Card (Stripe)". This one permission governs every card provider the
+  // business has connected — Stripe, Revolut, or both. Naming one of them made
+  // it look as though Revolut couldn't be offered to a customer at all.
+  card: "Card / online payment",
   bank_transfer: "Bank transfer",
   cash: "Cash / in person",
 };
+
+/** Which provider will actually serve a card payment — so the toggle says what
+ *  it does instead of leaving the business to guess. */
+export function cardProvidersLabel(opts: {
+  stripeEnabled: boolean;
+  revolutEnabled?: boolean;
+}): string {
+  const names = [
+    opts.stripeEnabled ? "Stripe" : null,
+    opts.revolutEnabled ? "Revolut" : null,
+  ].filter(Boolean) as string[];
+  if (names.length === 0) {
+    return "No card provider is connected yet — connect Stripe or Revolut under Settings → Payments.";
+  }
+  return `Card payments go through ${names.join(" and ")}.`;
+}
 
 export interface OfferedPaymentMethods {
   /** Stripe card checkout. */
