@@ -12,6 +12,12 @@ import { saveStaffOnboardingResponse } from "@/lib/actions/onboarding";
 import { ClientFields } from "@/components/customers/client-fields";
 import { StaffOnboardingFill, type StaffFillForm, type StaffFillValue } from "@/components/onboarding/staff-onboarding-fill";
 import { pruneAnswers } from "@/lib/customers/field-schema";
+import {
+  staffFillProblems, staffFillErrorMessage, type StaffFillProblem,
+} from "@/lib/onboarding/staff-fill";
+import {
+  resolveAccountTypes, withCurrentValue, defaultAccountType, type AccountTypeOption,
+} from "@/lib/customers/account-types";
 import type { OnboardingField } from "@/types/database";
 import { PAYMENT_METHODS, PAYMENT_METHOD_LABELS, type PaymentMethod } from "@/lib/payment-methods";
 import { Button } from "@/components/ui/button";
@@ -22,19 +28,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AddressFields } from "@/components/addresses/address-fields";
 import { FormSection, AnimatedPress } from "@/components/ui/kirei";
 import type { Customer } from "@/types/database";
-
-const ACCOUNT_TYPES: { value: Customer["account_type"]; label: string; hint?: string }[] = [
-  { value: "residential",   label: "Residential",          hint: "Homeowner / private individual" },
-  { value: "commercial",    label: "Commercial",           hint: "Business client" },
-  { value: "developer",     label: "Developer",            hint: "Property developer / builder-developer" },
-  { value: "agent",         label: "Real estate agent",    hint: "Sales / leasing agent" },
-  { value: "builder",       label: "Builder",              hint: "Construction company" },
-  { value: "strata",        label: "Strata company",       hint: "Body corporate / owners corp" },
-  { value: "property_mgmt", label: "Property manager",     hint: "Manages rental properties" },
-  { value: "government",    label: "Government",           hint: "Council / public sector" },
-  { value: "non_profit",    label: "Non-profit / charity" },
-  { value: "other",         label: "Other" },
-];
 
 const PREFERRED_CONTACT: { value: NonNullable<Customer["preferred_contact"]>; label: string }[] = [
   { value: "any",   label: "Any" },
@@ -76,16 +69,27 @@ interface CustomerFormProps {
   clientFields?: OnboardingField[];
   /** Onboarding forms staff can fill in here. Omitted when the plugin is off. */
   onboardingForms?: StaffFillForm[];
+  /** Client types for this business. Empty = fall back to the generic list, so
+   *  a caller that hasn't been updated still renders a usable dropdown. */
+  accountTypes?: AccountTypeOption[];
 }
 
 export function CustomerForm({
   customer, onSuccess, businessCountry, clientFields = [], onboardingForms = [],
+  accountTypes = [],
 }: CustomerFormProps) {
+  // An existing customer's type is always offered, even if the business has
+  // since changed its list — otherwise editing them would silently reclassify.
+  const typeOptions = withCurrentValue(
+    accountTypes.length ? accountTypes : resolveAccountTypes(null, null),
+    customer?.account_type,
+  );
   const router = useRouter();
   const [custom, setCustom] = useState<Record<string, unknown>>(
     (customer?.custom_fields as Record<string, unknown>) ?? {},
   );
   const [fill, setFill] = useState<StaffFillValue>({ formId: "", answers: {} });
+  const [fillProblems, setFillProblems] = useState<StaffFillProblem[]>([]);
   const { register, handleSubmit, control, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -97,7 +101,7 @@ export function CustomerForm({
       contact_role: customer?.contact_role ?? "",
       website: customer?.website ?? "",
       tax_number: customer?.tax_number ?? "",
-      account_type: customer?.account_type ?? "residential",
+      account_type: customer?.account_type ?? defaultAccountType(typeOptions),
       preferred_contact: customer?.preferred_contact ?? "any",
       address: customer?.address ?? "",
       city: customer?.city ?? "",
@@ -109,10 +113,27 @@ export function CustomerForm({
     },
   });
 
+  // "Company / organisation" vs "Company": only a private individual is a
+  // person rather than an organisation, and which value means that differs
+  // per industry, so key off the handful of personal types.
   const accountType = watch("account_type");
-  const showCompanyHint = accountType !== "residential" && accountType !== "individual";
+  const showCompanyHint = !["residential", "individual"].includes(accountType);
 
   const onSubmit = async (data: FormData) => {
+    // Check the attached onboarding form BEFORE creating anything. Finding out
+    // afterwards leaves the client saved and the form not — and the answers
+    // typed into this screen gone, to be re-entered from their profile.
+    if (!customer && fill.formId) {
+      const picked = onboardingForms.find((f) => f.id === fill.formId);
+      const problems = picked ? staffFillProblems(picked.schema, fill.answers) : [];
+      setFillProblems(problems);
+      if (problems.length) {
+        toast.error(staffFillErrorMessage(problems));
+        document.getElementById("onboarding-section")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+    }
+
     try {
       const payload = {
         name: data.name,
@@ -123,7 +144,7 @@ export function CustomerForm({
         contact_role: data.contact_role || null,
         website: data.website || null,
         tax_number: data.tax_number || null,
-        account_type: data.account_type as Customer["account_type"],
+        account_type: data.account_type,
         preferred_contact: (data.preferred_contact || null) as Customer["preferred_contact"],
         address: data.address || null,
         city: data.city || null,
@@ -144,9 +165,7 @@ export function CustomerForm({
       toast.success(customer ? "Customer updated" : "Customer created");
 
       // The customer exists now, so the onboarding answers have something to
-      // attach to. Failing here must not read as the customer having failed —
-      // it's already saved. Say what went wrong and carry on to their page,
-      // where the Onboarding tab can retry it.
+      // attach to. Anything wrong with them was caught before we got here.
       if (!customer && fill.formId) {
         const res = await saveStaffOnboardingResponse(fill.formId, result.id, fill.answers);
         if (res.ok) toast.success("Onboarding form saved against this customer");
@@ -175,7 +194,7 @@ export function CustomerForm({
             <Select value={field.value} onValueChange={field.onChange}>
               <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Select type" /></SelectTrigger>
               <SelectContent>
-                {ACCOUNT_TYPES.map((t) => (
+                {typeOptions.map((t) => (
                   <SelectItem key={t.value} value={t.value}>
                     <div className="flex flex-col items-start">
                       <span>{t.label}</span>
@@ -203,7 +222,7 @@ export function CustomerForm({
             </div>
             <div className="space-y-1.5">
               <Label>{showCompanyHint ? "Company / organisation" : "Company"}</Label>
-              <Input className="h-11 rounded-xl" placeholder={showCompanyHint ? "Acme Strata Pty Ltd" : "Acme Ltd (optional)"} {...register("company")} />
+              <Input className="h-11 rounded-xl" placeholder={showCompanyHint ? "Acme Pty Ltd" : "Acme Ltd (optional)"} {...register("company")} />
             </div>
             <div className="space-y-1.5">
               <Label>Role / title</Label>
@@ -336,14 +355,21 @@ export function CustomerForm({
       {/* Create only — an existing customer has the richer Onboarding tab,
           which also handles sending and viewing. */}
       {!customer && onboardingForms.length > 0 && (
-        <FormSection
-          icon={<ClipboardList className="w-4 h-4" />}
-          gradient="blue"
-          title="Onboarding"
-          hint="Already have their details? Fill the form in here instead of sending it."
-        >
-          <StaffOnboardingFill forms={onboardingForms} value={fill} onChange={setFill} />
-        </FormSection>
+        <div id="onboarding-section">
+          <FormSection
+            icon={<ClipboardList className="w-4 h-4" />}
+            gradient="blue"
+            title="Onboarding"
+            hint="Already have their details? Fill the form in here instead of sending it."
+          >
+            <StaffOnboardingFill
+              forms={onboardingForms}
+              value={fill}
+              problems={fillProblems}
+              onChange={(next) => { setFill(next); setFillProblems([]); }}
+            />
+          </FormSection>
+        </div>
       )}
 
       <FormSection

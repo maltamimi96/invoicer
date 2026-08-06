@@ -7,7 +7,9 @@
  * the UI would offer a field the server then silently dropped.
  */
 import type { OnboardingField, OnboardingAnswers } from "@/types/database";
-import { DISPLAY_ONLY_TYPES, missingRequiredFields } from "./answers";
+// From ./validate, not ./answers — this module is imported by client
+// components, and answers.ts pulls in node:crypto.
+import { DISPLAY_ONLY_TYPES, missingRequiredFields, invalidAnswerFields } from "./validate";
 
 /**
  * Types staff can't fill in from the dashboard:
@@ -65,4 +67,41 @@ export function missingForStaff(
   answers: OnboardingAnswers,
 ): string[] {
   return missingRequiredFields(staffFillableFields(schema), answers);
+}
+
+export interface StaffFillProblem { field_id: string; label: string; message: string }
+
+/**
+ * Everything wrong with a staff-filled form, ready to show.
+ *
+ * One implementation for the browser and the server. The add-client screen
+ * runs it BEFORE creating the client — finding out afterwards means the client
+ * exists but the form doesn't, and you have to re-enter it from their profile.
+ * The server runs it again, because a check only the browser performs is not a
+ * check.
+ */
+export function staffFillProblems(
+  schema: OnboardingField[],
+  answers: OnboardingAnswers,
+): StaffFillProblem[] {
+  const label = (id: string) => schema.find((f) => f.id === id)?.label ?? id;
+  const clean = stripUnfillableAnswers(schema, answers);
+
+  const problems: StaffFillProblem[] = missingForStaff(schema, clean).map((id) => ({
+    field_id: id, label: label(id), message: "is required",
+  }));
+
+  for (const e of invalidAnswerFields(staffFillableFields(schema), clean)) {
+    // Don't pile a format complaint on top of "you haven't filled it in".
+    if (problems.some((p) => p.field_id === e.field_id)) continue;
+    problems.push({ field_id: e.field_id, label: label(e.field_id), message: e.message });
+  }
+  return problems;
+}
+
+/** One sentence naming what to fix — the fields, not "validation failed". */
+export function staffFillErrorMessage(problems: StaffFillProblem[]): string {
+  if (problems.length === 0) return "";
+  if (problems.length === 1) return `${problems[0].label} ${problems[0].message}`;
+  return `Fix these first: ${problems.map((p) => `${p.label} ${p.message}`).join(", ")}`;
 }

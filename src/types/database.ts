@@ -62,6 +62,8 @@ export interface Business {
   /** Overrides the preset's client fields. NULL = still using the preset;
    *  [] = deliberately none. */
   customer_field_schema?: OnboardingField[] | null;
+  /** Overrides the preset's client TYPE options. NULL = using the preset. */
+  customer_type_options?: { value: string; label: string; hint?: string }[] | null;
   invoice_prefix: string;
   invoice_next_number: number;
   quote_prefix: string;
@@ -97,10 +99,10 @@ export interface Customer {
   company: string | null;
   tax_number: string | null;
   notes: string | null;
-  account_type:
-    | 'residential' | 'commercial' | 'developer' | 'agent' | 'builder'
-    | 'strata' | 'property_mgmt' | 'government' | 'non_profit' | 'other'
-    | 'individual';
+  /** Client type. Free text: the valid set is per-business (industry preset or
+   *  its override) so no fixed union can describe it. The DB CHECK was dropped
+   *  in 20260806120000 for the same reason. See lib/customers/account-types.ts. */
+  account_type: string;
   website: string | null;
   secondary_phone: string | null;
   contact_role: string | null;

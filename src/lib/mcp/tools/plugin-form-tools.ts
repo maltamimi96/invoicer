@@ -526,12 +526,16 @@ export function registerPluginFormTools(tool: ToolFn): void {
     async (_args, extra) => {
       const ctx = ctxFrom(extra); assertScope(ctx, "settings:read");
       const { resolveCustomerFields, isUsingPresetDefaults } = await import("@/lib/customers/field-schema");
+      const { resolveAccountTypes, isUsingPresetAccountTypes } = await import("@/lib/customers/account-types");
       const { data } = await t(ctx, "businesses")
-        .select("customer_field_schema, industry_preset").eq("id", ctx.businessId).maybeSingle();
+        .select("customer_field_schema, customer_type_options, industry_preset")
+        .eq("id", ctx.businessId).maybeSingle();
       return text({
         fields: resolveCustomerFields(data?.customer_field_schema, data?.industry_preset),
         using_preset_defaults: isUsingPresetDefaults(data?.customer_field_schema),
         industry_preset: data?.industry_preset ?? null,
+        client_types: resolveAccountTypes(data?.customer_type_options, data?.industry_preset),
+        using_preset_client_types: isUsingPresetAccountTypes(data?.customer_type_options),
       });
     });
 
@@ -554,13 +558,27 @@ export function registerPluginFormTools(tool: ToolFn): void {
       return text({ updated: true, count: args.fields.length });
     });
 
+  tool("set_client_types",
+    "Replace the client TYPE options — the dropdown at the top of every client form (Residential/Strata for trades, Retainer client/Project client for an agency). Keep at least one: every client is saved with one.",
+    { types: z.array(z.object({ value: z.string().min(1), label: z.string().min(1), hint: z.string().optional() })) },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "settings:write");
+      const { validateAccountTypes } = await import("@/lib/customers/account-types");
+      const problem = validateAccountTypes(args.types);
+      if (problem) return errorText(problem);
+      const { error } = await t(ctx, "businesses")
+        .update({ customer_type_options: args.types }).eq("id", ctx.businessId);
+      if (error) throw error;
+      return text({ updated: true, count: args.types.length });
+    });
+
   tool("reset_client_fields",
-    "Drop this business's custom client fields and go back to its industry preset's defaults. Answers already saved on clients stay in the database but stop being shown.",
+    "Drop this business's custom client fields AND client types, going back to its industry preset's defaults. Answers already saved on clients stay in the database but stop being shown.",
     {},
     async (_args, extra) => {
       const ctx = ctxFrom(extra); assertScope(ctx, "settings:write");
       const { error } = await t(ctx, "businesses")
-        .update({ customer_field_schema: null }).eq("id", ctx.businessId);
+        .update({ customer_field_schema: null, customer_type_options: null }).eq("id", ctx.businessId);
       if (error) throw error;
       return text({ reset: true });
     });

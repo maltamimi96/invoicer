@@ -91,6 +91,7 @@ async function CustomerDetailContent({ id }: { id: string }) {
         businessCountry={business.country ?? null}
         onboarding={onboarding}
         clientFields={fieldConfig?.fields ?? []}
+        accountTypes={fieldConfig?.accountTypes ?? []}
       />
     );
   } catch {

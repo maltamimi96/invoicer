@@ -22,11 +22,18 @@ async function loadFillableForms(): Promise<StaffFillForm[]> {
 }
 
 export default async function NewCustomerPage() {
+  // A failed config load is REPORTED, not swallowed. Returning empty fields on
+  // error is indistinguishable from "this business has no extra fields", which
+  // makes a broken page look like a configured one.
   const [business, fieldConfig, onboardingForms] = await Promise.all([
     getBusiness().catch(() => null),
-    getClientFieldConfig().catch(() => null),
+    getClientFieldConfig().then(
+      (c) => ({ config: c, error: null as string | null }),
+      (e: unknown) => ({ config: null, error: e instanceof Error ? e.message : "Couldn't load your client settings" }),
+    ),
     loadFillableForms(),
   ]);
+
   return (
     <div className="max-w-3xl mx-auto">
       <PageHeader
@@ -34,9 +41,15 @@ export default async function NewCustomerPage() {
         subtitle="Add a customer to your account"
         accent="linear-gradient(180deg, #3a847e 0%, #1f4f4a 100%)"
       />
+      {fieldConfig.error && (
+        <p className="mb-4 rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+          {fieldConfig.error} — the standard fields below still work.
+        </p>
+      )}
       <CustomerForm
         businessCountry={business?.country ?? null}
-        clientFields={fieldConfig?.fields ?? []}
+        clientFields={fieldConfig.config?.fields ?? []}
+        accountTypes={fieldConfig.config?.accountTypes ?? []}
         onboardingForms={onboardingForms}
       />
     </div>
