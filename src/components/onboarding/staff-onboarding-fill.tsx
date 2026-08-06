@@ -68,7 +68,7 @@ export function StaffOnboardingFill({
           onValueChange={(v) => onChange({ formId: v === "none" ? "" : v, answers: {} })}
           disabled={disabled}
         >
-          <SelectTrigger className="h-11 rounded-xl w-full sm:w-[300px]">
+          <SelectTrigger className="w-full sm:w-[300px]">
             <SelectValue placeholder="Choose a form…" />
           </SelectTrigger>
           <SelectContent>

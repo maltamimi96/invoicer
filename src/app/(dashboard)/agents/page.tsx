@@ -41,7 +41,7 @@ export default async function AgentsPage() {
   ]);
 
   return (
-    <div className="">
+    <div >
       <AgentsStore
         installs={installs}
         pluginEnabled={pluginEnabled}

@@ -42,7 +42,7 @@ export default function ForgotPasswordPage() {
           <h1 className="text-3xl font-bold tracking-tight">Check your email</h1>
           <p className="text-sm text-muted-foreground">We sent a password reset link to your email address.</p>
           <Link href="/auth/login">
-            <Button variant="outline" className="w-full h-11 rounded-xl">Back to sign in</Button>
+            <Button variant="outline" className="w-full">Back to sign in</Button>
           </Link>
         </div>
       ) : (
@@ -54,10 +54,10 @@ export default function ForgotPasswordPage() {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" placeholder="you@example.com" className="h-11 rounded-xl" {...register("email")} />
+              <Input id="email" type="email" placeholder="you@example.com" {...register("email")} />
               {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
             </div>
-            <Button type="submit" className="w-full h-11 rounded-xl" disabled={isSubmitting}>
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Send reset link
             </Button>

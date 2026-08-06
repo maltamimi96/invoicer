@@ -197,7 +197,7 @@ export function CustomerForm({
           control={control}
           render={({ field }) => (
             <Select value={field.value} onValueChange={field.onChange}>
-              <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Select type" /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
               <SelectContent>
                 {typeOptions.map((t) => (
                   <SelectItem key={t.value} value={t.value}>
@@ -222,33 +222,33 @@ export function CustomerForm({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label>Full name *</Label>
-              <Input className="h-11 rounded-xl" placeholder="John Smith" {...register("name")} />
+              <Input placeholder="John Smith" {...register("name")} />
               {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
             </div>
             <div className="space-y-1.5">
               <Label>{showCompanyHint ? "Company / organisation" : "Company"}</Label>
-              <Input className="h-11 rounded-xl" placeholder={showCompanyHint ? "Acme Pty Ltd" : "Acme Ltd (optional)"} {...register("company")} />
+              <Input placeholder={showCompanyHint ? "Acme Pty Ltd" : "Acme Ltd (optional)"} {...register("company")} />
             </div>
             <div className="space-y-1.5">
               <Label>Role / title</Label>
-              <Input className="h-11 rounded-xl" placeholder="Director, Strata manager, etc." {...register("contact_role")} />
+              <Input placeholder="Director, Strata manager, etc." {...register("contact_role")} />
             </div>
             <div className="space-y-1.5">
               <Label>Website</Label>
-              <Input className="h-11 rounded-xl" placeholder="https://acme.com" {...register("website")} />
+              <Input placeholder="https://acme.com" {...register("website")} />
             </div>
             <div className="space-y-1.5">
               <Label>Email</Label>
-              <Input type="email" className="h-11 rounded-xl" placeholder="john@acme.com" {...register("email")} />
+              <Input type="email" placeholder="john@acme.com" {...register("email")} />
               {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
             </div>
             <div className="space-y-1.5">
               <Label>Phone</Label>
-              <Input className="h-11 rounded-xl" placeholder="+44 7700 000000" {...register("phone")} />
+              <Input placeholder="+44 7700 000000" {...register("phone")} />
             </div>
             <div className="space-y-1.5">
               <Label>Secondary phone</Label>
-              <Input className="h-11 rounded-xl" placeholder="Office / after-hours" {...register("secondary_phone")} />
+              <Input placeholder="Office / after-hours" {...register("secondary_phone")} />
             </div>
             <div className="space-y-1.5">
               <Label>Preferred contact</Label>
@@ -257,7 +257,7 @@ export function CustomerForm({
                 control={control}
                 render={({ field }) => (
                   <Select value={field.value || "any"} onValueChange={field.onChange}>
-                    <SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {PREFERRED_CONTACT.map((p) => (
                         <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
@@ -270,7 +270,7 @@ export function CustomerForm({
           </div>
           <div className="space-y-1.5">
             <Label>VAT / Tax number</Label>
-            <Input className="h-11 rounded-xl" placeholder="GB123456789" {...register("tax_number")} />
+            <Input placeholder="GB123456789" {...register("tax_number")} />
           </div>
       </FormSection>
 
@@ -395,10 +395,10 @@ export function CustomerForm({
       </FormSection>
 
       <div className="flex gap-3">
-        <Button type="button" variant="outline" className="flex-1 h-11 rounded-xl" onClick={() => router.back()}>Cancel</Button>
+        <Button type="button" variant="outline" className="flex-1" onClick={() => router.back()}>Cancel</Button>
         <AnimatedPress
           onClick={handleSubmit(onSubmit) as unknown as () => void}
-          className={`flex-1 inline-flex items-center justify-center gap-2 h-11 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-sm cursor-pointer ${isSubmitting ? "opacity-70" : ""}`}
+          className={`flex-1 inline-flex items-center justify-center gap-2  bg-primary text-primary-foreground text-sm font-semibold shadow-sm cursor-pointer ${isSubmitting ? "opacity-70" : ""}`}
         >
           {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
           {customer ? "Save changes" : "Create customer"}
