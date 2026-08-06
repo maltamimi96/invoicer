@@ -8,6 +8,7 @@ import { AppearanceProvider } from "./appearance-provider";
 import { AppLoadingProvider } from "./app-loading";
 import { ConfirmProvider } from "@/components/ui/confirm";
 import { RouteProgress } from "./route-progress";
+import { TabBusinessGuard } from "./tab-business-guard";
 import { FocusModeProvider, useFocusMode } from "./focus-mode";
 import { AssistantProvider } from "./assistant-context";
 // The floating AI assistant starts closed and drags in framer-motion + voice
@@ -102,7 +103,9 @@ function ShellBody({ business, businesses, user, userRole, features, vocab, chil
                 the page tree — list components hold their data in local
                 useState(initial) and otherwise show the previous biz's
                 rows until a hard refresh. */}
-            <div key={business.id} className="w-full p-6">
+            {/* Each tab keeps its own business; see tab-business-guard.tsx. */}
+          <TabBusinessGuard businessId={business.id} />
+          <div key={business.id} className="w-full p-6">
               {children}
             </div>
           </main>

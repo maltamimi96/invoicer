@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { setActiveBusiness } from "@/lib/actions/business";
 import { AddBusinessModal } from "./add-business-modal";
 import { useAppLoading } from "@/components/layout/app-loading";
+import { rememberTabBusiness } from "@/components/layout/tab-business-guard";
 import type { Business } from "@/types/database";
 
 interface BusinessSwitcherProps {
@@ -33,6 +34,9 @@ export function BusinessSwitcher({ business, businesses, onClose }: BusinessSwit
   const handleSwitch = (biz: Business) => {
     if (biz.id === business.id) return;
     setBusy(`Switching to ${biz.name}…`);
+    // Claim the tab BEFORE the cookie flips, or the guard sees a hint that
+    // doesn't match this tab's remembered business and switches straight back.
+    rememberTabBusiness(biz.id);
     pendingSwitch.current = true;
     onClose?.();
     // setActiveBusiness flips the cookie, then router.refresh() refetches the

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { setActiveBusinessCookies } from "@/lib/business-cookie";
 import { revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
@@ -56,12 +57,7 @@ export async function GET(request: NextRequest) {
 
     if (hasAccess) {
       const cookieStore = await cookies();
-      cookieStore.set("active_business_id", biz, {
-        path: "/",
-        httpOnly: true,
-        sameSite: "lax",
-        maxAge: 60 * 60 * 24 * 365,
-      });
+      setActiveBusinessCookies(cookieStore, biz);
     }
   }
 
