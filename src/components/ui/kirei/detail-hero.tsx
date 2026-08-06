@@ -38,7 +38,7 @@ export function DetailHero({
       <div className="flex items-center gap-4 flex-wrap">
         {backHref && (
           <Link href={backHref}>
-            <AnimatedPress className="inline-flex items-center justify-center w-9 h-9 rounded-xl border border-border bg-card hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+            <AnimatedPress className="inline-flex items-center justify-center w-9 h-9 rounded-md border border-border bg-card hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
               <ArrowLeft className="w-4 h-4" />
             </AnimatedPress>
           </Link>

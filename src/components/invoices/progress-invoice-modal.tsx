@@ -162,7 +162,7 @@ export function ProgressInvoiceModal({
           </div>
 
           {/* Summary */}
-          <div className="rounded-2xl border border-border p-4 space-y-1.5 text-sm">
+          <div className="rounded-xl border border-border p-4 space-y-1.5 text-sm">
             <Row label="Job total"        value={formatCurrency(parentTotal,   currency)} />
             {alreadyBilled > 0 && (
               <Row label="Already billed" value={formatCurrency(alreadyBilled, currency)} muted />

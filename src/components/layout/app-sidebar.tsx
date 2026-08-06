@@ -65,7 +65,7 @@ export function AppSidebar({ business, businesses, userRole, features, vocab, op
                     href={item.href}
                     onClick={onClose}
                     className={cn(
-                      "relative flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm transition-colors duration-150",
+                      "relative flex items-center gap-3 px-3.5 py-2.5 rounded-md text-sm transition-colors duration-150",
                       active
                         ? "text-primary-foreground font-semibold"
                         : "text-sidebar-foreground hover:bg-sidebar-accent/60 font-medium"
@@ -98,7 +98,7 @@ export function AppSidebar({ business, businesses, userRole, features, vocab, op
             href="/settings"
             onClick={onClose}
             className={cn(
-              "relative flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm transition-colors duration-150",
+              "relative flex items-center gap-3 px-3.5 py-2.5 rounded-md text-sm transition-colors duration-150",
               pathname.startsWith("/settings")
                 ? "text-primary-foreground font-semibold"
                 : "text-sidebar-foreground hover:bg-sidebar-accent/60 font-medium"

@@ -328,7 +328,7 @@ export function MessagesClient({ conversations: initialConvs, customers, autoOpe
                           )}
                         >
                           <div className={cn(
-                            "max-w-[75%] rounded-2xl px-3.5 py-2 text-sm",
+                            "max-w-[75%] rounded-xl px-3.5 py-2 text-sm",
                             msg.direction === "outbound"
                               ? "bg-primary text-primary-foreground rounded-br-sm"
                               : "bg-muted text-foreground rounded-bl-sm"

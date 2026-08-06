@@ -15,7 +15,7 @@ export default async function QuotingAgentPage() {
       <div className="max-w-xl mx-auto py-12">
         <Card>
           <CardContent className="p-8 text-center space-y-4">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 via-fuchsia-500 to-rose-500 flex items-center justify-center text-white mx-auto">
+            <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-purple-500 via-fuchsia-500 to-rose-500 flex items-center justify-center text-white mx-auto">
               <Sparkles className="w-8 h-8" />
             </div>
             <div>

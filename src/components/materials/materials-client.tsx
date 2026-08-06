@@ -124,7 +124,7 @@ export function MaterialsClient({ materials: initial, currency = "GBP" }: { mate
         actions={
           <>
             <button
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border bg-card text-sm font-medium hover:bg-muted transition-colors"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md border border-border bg-card text-sm font-medium hover:bg-muted transition-colors"
               onClick={() => setShowImport(true)}
             >
               <Upload className="w-4 h-4" /> Import CSV

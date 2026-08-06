@@ -600,7 +600,7 @@ export function CustomerDetailClient({
             </AnimatedPress>
             <PortalLinkButton customerId={customer.id} customerName={customer.name} customerPhone={customer.phone ?? null} />
             <Link href={`/invoices/new?customer=${customer.id}`}>
-              <AnimatedPress className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-sm cursor-pointer">
+              <AnimatedPress className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold shadow-sm cursor-pointer">
                 <Plus className="w-4 h-4" /> New invoice
               </AnimatedPress>
             </Link>
@@ -690,26 +690,26 @@ export function CustomerDetailClient({
             {/* Quick actions */}
             <div className="space-y-2">
               <Link href={`/work-orders/new?customer=${customer.id}`} className="block">
-                <AnimatedPress className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-border bg-card hover:bg-muted text-sm font-medium cursor-pointer">
+                <AnimatedPress className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-md border border-border bg-card hover:bg-muted text-sm font-medium cursor-pointer">
                   <GradientTile gradient="amber" size={24} radius={6}><Wrench className="w-3 h-3" /></GradientTile>
                   New work order
                 </AnimatedPress>
               </Link>
               <Link href={`/quotes/new?customer=${customer.id}`} className="block">
-                <AnimatedPress className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-border bg-card hover:bg-muted text-sm font-medium cursor-pointer">
+                <AnimatedPress className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-md border border-border bg-card hover:bg-muted text-sm font-medium cursor-pointer">
                   <GradientTile gradient="violet" size={24} radius={6}><FileCheck className="w-3 h-3" /></GradientTile>
                   New quote
                 </AnimatedPress>
               </Link>
               <Link href={`/invoices/new?customer=${customer.id}`} className="block">
-                <AnimatedPress className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-border bg-card hover:bg-muted text-sm font-medium cursor-pointer">
+                <AnimatedPress className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-md border border-border bg-card hover:bg-muted text-sm font-medium cursor-pointer">
                   <GradientTile gradient="emerald" size={24} radius={6}><FileText className="w-3 h-3" /></GradientTile>
                   New invoice
                 </AnimatedPress>
               </Link>
               {customer.phone && (
                 <Link href={`/messages?phone=${encodeURIComponent(customer.phone)}&name=${encodeURIComponent(customer.name)}&customer=${customer.id}`} className="block">
-                  <AnimatedPress className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-border bg-card hover:bg-muted text-sm font-medium cursor-pointer">
+                  <AnimatedPress className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-md border border-border bg-card hover:bg-muted text-sm font-medium cursor-pointer">
                     <GradientTile gradient="blue" size={24} radius={6}><MessageSquare className="w-3 h-3" /></GradientTile>
                     Send message
                   </AnimatedPress>

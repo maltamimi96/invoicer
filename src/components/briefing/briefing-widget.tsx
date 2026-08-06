@@ -153,7 +153,7 @@ function Row({ item, onSnooze }: { item: BriefingItem; onSnooze: (item: Briefing
           <Check className="w-3.5 h-3.5" /><span className="hidden sm:inline">Done</span>
         </button>
         <Link href={item.action_url}>
-          <AnimatedPress className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-primary text-primary-foreground text-xs font-semibold cursor-pointer">
+          <AnimatedPress className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-semibold cursor-pointer">
             {item.action_label} <ArrowRight className="w-3 h-3" />
           </AnimatedPress>
         </Link>
@@ -176,7 +176,7 @@ export function BriefingAlert() {
 
   return (
     <Link href="/assistant" className="block mb-5">
-      <AnimatedPress className="flex items-center gap-3 px-4 py-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200/60 dark:border-rose-900/40">
+      <AnimatedPress className="flex items-center gap-3 px-4 py-3 rounded-md bg-rose-50 dark:bg-rose-950/30 border border-rose-200/60 dark:border-rose-900/40">
         <GradientTile gradient="rose" size={40} radius={10}>
           <AlertTriangle className="w-4 h-4" />
         </GradientTile>

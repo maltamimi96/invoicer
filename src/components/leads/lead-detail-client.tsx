@@ -136,21 +136,21 @@ export function LeadDetailClient({ lead: initial }: { lead: Lead }) {
           <>
             {phoneClean && (
               <a href={`tel:${phoneClean}`}>
-                <AnimatedPress className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-sm">
+                <AnimatedPress className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold shadow-sm">
                   <Phone className="w-4 h-4" /> Call
                 </AnimatedPress>
               </a>
             )}
             {phoneClean && (
               <a href={`sms:${phoneClean}`}>
-                <AnimatedPress className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border bg-card text-sm font-medium">
+                <AnimatedPress className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md border border-border bg-card text-sm font-medium">
                   <MessageSquare className="w-4 h-4" /> SMS
                 </AnimatedPress>
               </a>
             )}
             {lead.email && (
               <a href={`mailto:${lead.email}`}>
-                <AnimatedPress className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border bg-card text-sm font-medium">
+                <AnimatedPress className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md border border-border bg-card text-sm font-medium">
                   <Mail className="w-4 h-4" /> Email
                 </AnimatedPress>
               </a>
@@ -225,15 +225,15 @@ export function LeadDetailClient({ lead: initial }: { lead: Lead }) {
         <div>
           <p className="text-[11px] uppercase tracking-wide font-bold text-muted-foreground mb-2.5">Convert</p>
           <div className="flex flex-wrap gap-2">
-            <button onClick={convertCustomer} disabled={pending || !!lead.customer_id} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-card hover:bg-muted text-sm font-medium disabled:opacity-50">
+            <button onClick={convertCustomer} disabled={pending || !!lead.customer_id} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-md border border-border bg-card hover:bg-muted text-sm font-medium disabled:opacity-50">
               <GradientTile gradient="blue" size={28} radius={8}><UserPlus className="w-3.5 h-3.5" /></GradientTile>
               {lead.customer_id ? "Customer linked" : "To customer"}
             </button>
-            <button onClick={convertQuote} disabled={pending || !!lead.quote_id} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-card hover:bg-muted text-sm font-medium disabled:opacity-50">
+            <button onClick={convertQuote} disabled={pending || !!lead.quote_id} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-md border border-border bg-card hover:bg-muted text-sm font-medium disabled:opacity-50">
               <GradientTile gradient="violet" size={28} radius={8}><FileCheck className="w-3.5 h-3.5" /></GradientTile>
               {lead.quote_id ? "Quote drafted" : "To quote"}
             </button>
-            <button onClick={convertWorkOrder} disabled={pending} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-card hover:bg-muted text-sm font-medium disabled:opacity-50">
+            <button onClick={convertWorkOrder} disabled={pending} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-md border border-border bg-card hover:bg-muted text-sm font-medium disabled:opacity-50">
               <GradientTile gradient="amber" size={28} radius={8}><Wrench className="w-3.5 h-3.5" /></GradientTile>
               To work order
             </button>

@@ -109,7 +109,7 @@ export function QuotesClient({ quotes: initial, currency = "GBP" }: { quotes: Qu
           <>
             <CleanupButton entity="quotes" entityLabel="quotes" />
             <Link href="/quotes/new">
-              <AnimatedPress className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-sm">
+              <AnimatedPress className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold shadow-sm">
                 <Plus className="w-4 h-4" /> New quote
               </AnimatedPress>
             </Link>

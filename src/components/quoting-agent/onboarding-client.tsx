@@ -370,7 +370,7 @@ function ModeCard({ selected, onSelect, icon, title, description }: {
 }) {
   return (
     <button type="button" onClick={onSelect}
-      className={`w-full text-left p-4 rounded-xl border-2 transition-colors ${selected
+      className={`w-full text-left p-4 rounded-md border-2 transition-colors ${selected
         ? "border-primary bg-primary/5"
         : "border-input hover:bg-muted/40"}`}
     >

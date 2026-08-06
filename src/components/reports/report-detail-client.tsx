@@ -126,19 +126,19 @@ export function ReportDetailClient({ report: initialReport, business }: ReportDe
           <>
             <AnimatedPress
               onClick={toggleStatus}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border bg-card text-sm font-medium cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md border border-border bg-card text-sm font-medium cursor-pointer"
             >
               {report.status === "complete"
                 ? <><RotateCcw className="w-4 h-4" />Back to Draft</>
                 : <><CheckCircle className="w-4 h-4" />Mark Complete</>}
             </AnimatedPress>
             <a href={`/api/pdf/report/${report.id}`} target="_blank" rel="noopener noreferrer">
-              <AnimatedPress className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border bg-card text-sm font-medium cursor-pointer">
+              <AnimatedPress className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md border border-border bg-card text-sm font-medium cursor-pointer">
                 <Download className="w-4 h-4" /> PDF
               </AnimatedPress>
             </a>
             <a href={`/api/docx/report/${report.id}`} target="_blank" rel="noopener noreferrer">
-              <AnimatedPress className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border bg-card text-sm font-medium cursor-pointer">
+              <AnimatedPress className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md border border-border bg-card text-sm font-medium cursor-pointer">
                 <FileText className="w-4 h-4" /> DOCX
               </AnimatedPress>
             </a>
@@ -152,7 +152,7 @@ export function ReportDetailClient({ report: initialReport, business }: ReportDe
             )}
             <AnimatedPress
               onClick={handleDuplicate}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border bg-card text-sm font-medium cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md border border-border bg-card text-sm font-medium cursor-pointer"
             >
               <Copy className="w-4 h-4" /> Duplicate
             </AnimatedPress>

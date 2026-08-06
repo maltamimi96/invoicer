@@ -93,7 +93,7 @@ export function NewLeadsWidget() {
         <div className="p-2 space-y-1.5">
           {leads.map((lead) => (
             <Link key={lead.id} href={`/leads/${lead.id}`} className="block">
-              <AnimatedPress className="flex items-center gap-3 p-3 rounded-lg bg-card border border-border/70 hover:border-primary/30 transition-colors">
+              <AnimatedPress className="flex items-center gap-3 p-3 rounded-md bg-card border border-border/70 hover:border-primary/30 transition-colors">
                 <KireiAvatar name={lead.name ?? "?"} size={40} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">

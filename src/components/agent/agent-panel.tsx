@@ -90,7 +90,7 @@ function MessageBubble({
   if (isUser) {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-2xl rounded-tr-sm bg-primary text-primary-foreground px-3.5 py-2.5 text-sm leading-relaxed">
+        <div className="max-w-[85%] rounded-xl rounded-tr-sm bg-primary text-primary-foreground px-3.5 py-2.5 text-sm leading-relaxed">
           {message.content}
         </div>
       </div>
@@ -154,7 +154,7 @@ const SUGGESTIONS = [
 function EmptyState({ onSuggestion }: { onSuggestion: (text: string) => void }) {
   return (
     <div className="flex flex-col items-center justify-center h-full text-center px-4 gap-4">
-      <div className="w-12 h-12 rounded-2xl bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center">
+      <div className="w-12 h-12 rounded-xl bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center">
         <Sparkles className="w-6 h-6 text-purple-600 dark:text-purple-400" />
       </div>
       <div>
@@ -406,7 +406,7 @@ export function AgentPanel() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 24, scale: 0.96 }}
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            className="fixed bottom-4 left-4 sm:bottom-5 sm:left-5 z-50 w-[400px] max-w-[calc(100vw-2rem)] flex flex-col rounded-2xl shadow-2xl border bg-background overflow-hidden"
+            className="fixed bottom-4 left-4 sm:bottom-5 sm:left-5 z-50 w-[400px] max-w-[calc(100vw-2rem)] flex flex-col rounded-xl shadow-2xl border bg-background overflow-hidden"
             style={{ height: "min(560px, calc(100vh - 5rem))" }}
           >
             {/* Header */}

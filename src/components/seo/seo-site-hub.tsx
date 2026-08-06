@@ -174,7 +174,7 @@ export function SeoSiteHub({
         ) : (
           <div className="flex flex-col gap-2">
             {pieces.map((p) => (
-              <Link key={p.id} href={`/seo/content/${p.id}`} className="rounded-xl border border-border bg-card p-4 flex items-center gap-3 hover:border-emerald-400/60 hover:shadow-sm transition-all">
+              <Link key={p.id} href={`/seo/content/${p.id}`} className="rounded-md border border-border bg-card p-4 flex items-center gap-3 hover:border-emerald-400/60 hover:shadow-sm transition-all">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold break-words">{p.title}</p>
                   <p className="text-xs text-muted-foreground mt-0.5 capitalize">{p.content_type}{p.current_stage && <span className="normal-case"> · at {p.current_stage}</span>}</p>

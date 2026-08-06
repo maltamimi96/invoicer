@@ -21,11 +21,11 @@ export function BulkBar({ count, onDelete, onClear, busy, noun = "item", extra }
         <button
           onClick={onDelete}
           disabled={busy}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-destructive text-destructive-foreground text-sm font-medium hover:bg-destructive/90 disabled:opacity-60"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-destructive text-destructive-foreground text-sm font-medium hover:bg-destructive/90 disabled:opacity-60"
         >
           <Trash2 className="w-3.5 h-3.5" /> {busy ? "Deleting…" : "Delete selected"}
         </button>
-        <button onClick={onClear} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-border bg-card text-sm text-muted-foreground hover:text-foreground">
+        <button onClick={onClear} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-border bg-card text-sm text-muted-foreground hover:text-foreground">
           <X className="w-3.5 h-3.5" /> Clear
         </button>
       </div>
