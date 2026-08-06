@@ -595,7 +595,7 @@ export function InvoiceDetailClient({
         defaultSmsBody={`Hi${customer?.name ? " " + customer.name.split(" ")[0] : ""}, invoice ${invoice.number} from ${business.name} is ready. Amount due: ${(invoice.total - invoice.amount_paid).toFixed(2)}.`}
         onSend={async (r) => {
           if (r.channel === "email") {
-            await sendInvoiceEmail(invoice.id, { recipients: r.recipients, subject: r.subject });
+            await sendInvoiceEmail(invoice.id, { recipients: r.recipients, subject: r.subject, message: r.message });
             toast.success(`Invoice sent to ${(r.recipients ?? []).join(", ")}`);
           } else {
             await sendInvoiceSms(invoice.id, { to: r.to!, body: r.body });

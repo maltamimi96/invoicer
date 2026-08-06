@@ -16,6 +16,8 @@ export interface SendDocumentResult {
   channel: Channel;
   recipients?: string[];
   subject?: string;
+  /** Covering note for THIS send, above the document details. */
+  message?: string;
   to?: string;
   body?: string;
 }
@@ -62,6 +64,7 @@ export function SendDocumentModal({
   const [emails, setEmails] = useState<string[]>(defaultEmails);
   const [emailInput, setEmailInput] = useState("");
   const [subject, setSubject] = useState(defaultSubject);
+  const [message, setMessage] = useState("");
   const [phone, setPhone] = useState(defaultPhone ?? "");
   const [smsBody, setSmsBody] = useState(defaultSmsBody ?? "");
   const [sending, setSending] = useState(false);
@@ -108,7 +111,7 @@ export function SendDocumentModal({
     }
 
     const result: SendDocumentResult = channel === "email"
-      ? { channel: "email", recipients: emails, subject: subject.trim() }
+      ? { channel: "email", recipients: emails, subject: subject.trim(), message: message.trim() || undefined }
       : { channel: "sms", to: phone.trim(), body: smsBody.trim() };
 
     let sendAtIso: string | null = null;
@@ -207,6 +210,18 @@ export function SendDocumentModal({
             <div className="space-y-1.5">
               <Label>Subject</Label>
               <Input value={subject} onChange={(e) => setSubject(e.target.value)} />
+              <div className="mt-3 space-y-1.5">
+                <Label>Message <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                <Textarea
+                  rows={4}
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder={"Hi Sarah, as discussed — here's the invoice for the work last week. Any questions, just reply."}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Added to the top of this email only. Your saved template wording stays as it is.
+                </p>
+              </div>
             </div>
 
             <p className="text-xs text-muted-foreground">

@@ -191,7 +191,7 @@ export async function convertQuoteToInvoice(quoteId: string): Promise<Invoice> {
   return invoice as Invoice;
 }
 
-export async function sendQuoteEmail(id: string, opts?: { recipients?: string[]; subject?: string }): Promise<void> {
+export async function sendQuoteEmail(id: string, opts?: { recipients?: string[]; subject?: string; message?: string }): Promise<void> {
   const supabase = await createClient();
   const user = await getUser();
 
@@ -265,7 +265,8 @@ export async function sendQuoteEmail(id: string, opts?: { recipients?: string[];
   await sendEmail({
     to: recipients,
     subject: opts?.subject ?? quoteEmailSubject({ quote: quoteData, customer, business: businessData }, emailTemplate),
-    html: quoteEmailHtml({ quote: quoteData, customer, business: businessData, lineItems, acceptUrl, pdfUrl, template: emailTemplate }),
+    html: quoteEmailHtml({
+    message: opts?.message ?? null, quote: quoteData, customer, business: businessData, lineItems, acceptUrl, pdfUrl, template: emailTemplate }),
     attachments: [{ filename: `${quoteData.number}.pdf`, content: pdfBuffer }],
     from: buildBusinessFrom({ name: businessData.name, localPart: "quotes" }),
     replyTo: businessData.email || undefined,
