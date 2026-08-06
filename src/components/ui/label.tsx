@@ -7,7 +7,9 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const labelVariants = cva(
-  "text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+  // MYOB caption label: small and muted above the control, so the value is
+  // what the eye lands on rather than the field name.
+  "text-xs font-medium leading-none tracking-[0.01em] text-muted-foreground peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
 )
 
 const Label = React.forwardRef<

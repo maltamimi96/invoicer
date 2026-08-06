@@ -20,10 +20,12 @@ const buttonVariants = cva(
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
-        default: "h-9 px-3 py-1.5",
-        sm:      "h-8 px-2.5 text-xs",
-        lg:      "h-10 px-4",
-        icon:    "h-9 w-9",
+        // Sized to sit level with the 44px MYOB controls: a button beside an
+        // input should share its baseline, not float 8px short of it.
+        default: "h-11 px-4 py-2",
+        sm:      "h-9 px-3 text-xs",
+        lg:      "h-12 px-5",
+        icon:    "h-11 w-11",
       },
     },
     defaultVariants: {

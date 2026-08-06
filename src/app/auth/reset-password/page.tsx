@@ -61,7 +61,7 @@ export default function ResetPasswordPage() {
       {ready === "expired" && (
         <div className="space-y-4 rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm">
           <p className="text-destructive font-medium">This reset link has expired or was already used.</p>
-          <Button onClick={() => router.push("/auth/forgot-password")} className="w-full h-11 rounded-xl">
+          <Button onClick={() => router.push("/auth/forgot-password")} className="w-full">
             Send a new reset link
           </Button>
         </div>
@@ -72,7 +72,7 @@ export default function ResetPasswordPage() {
           <div className="space-y-1.5">
             <Label htmlFor="password">New password</Label>
             <div className="relative">
-              <Input id="password" type={showPassword ? "text" : "password"} className="h-11 rounded-xl pr-10" {...register("password")} />
+              <Input id="password" type={showPassword ? "text" : "password"} className="pr-10" {...register("password")} />
               <button type="button" onClick={() => setShowPassword((v) => !v)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" aria-label="Toggle password visibility">
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -83,11 +83,11 @@ export default function ResetPasswordPage() {
 
           <div className="space-y-1.5">
             <Label htmlFor="confirmPassword">Confirm new password</Label>
-            <Input id="confirmPassword" type={showPassword ? "text" : "password"} className="h-11 rounded-xl" {...register("confirmPassword")} />
+            <Input id="confirmPassword" type={showPassword ? "text" : "password"} {...register("confirmPassword")} />
             {errors.confirmPassword && <p className="text-xs text-destructive">{errors.confirmPassword.message}</p>}
           </div>
 
-          <Button type="submit" disabled={isSubmitting} className="w-full h-11 rounded-xl">
+          <Button type="submit" disabled={isSubmitting} className="w-full">
             {isSubmitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving…</> : "Save new password"}
           </Button>
         </form>

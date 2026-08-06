@@ -98,7 +98,7 @@ export default function LoginPage() {
             type="email"
             placeholder="you@example.com"
             readOnly={!!inviteEmail}
-            className={`h-11 rounded-xl ${inviteEmail ? "bg-muted text-muted-foreground cursor-not-allowed" : ""}`}
+            className={`${inviteEmail ? "bg-muted text-muted-foreground cursor-not-allowed" : ""}`}
             {...register("email")}
           />
           {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
@@ -115,7 +115,7 @@ export default function LoginPage() {
               id="password"
               type={showPassword ? "text" : "password"}
               placeholder="••••••••"
-              className="h-11 rounded-xl pr-10"
+              className="pr-10"
               {...register("password")}
             />
             <button
@@ -130,7 +130,7 @@ export default function LoginPage() {
         </div>
         <AnimatedPress
           onClick={handleSubmit(onSubmit) as unknown as () => void}
-          className={`w-full inline-flex items-center justify-center gap-2 h-11 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-sm cursor-pointer ${isSubmitting ? "opacity-70" : ""}`}
+          className={`w-full inline-flex items-center justify-center gap-2  bg-primary text-primary-foreground text-sm font-semibold shadow-sm cursor-pointer ${isSubmitting ? "opacity-70" : ""}`}
         >
           {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
           Sign in

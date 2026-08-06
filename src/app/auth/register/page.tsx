@@ -149,7 +149,7 @@ export default function RegisterPage() {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="space-y-1.5">
           <Label htmlFor="name">Full name</Label>
-          <Input id="name" placeholder="John Smith" className="h-11 rounded-xl" {...register("name")} />
+          <Input id="name" placeholder="John Smith" {...register("name")} />
           {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
         </div>
         <div className="space-y-1.5">
@@ -159,7 +159,7 @@ export default function RegisterPage() {
             type="email"
             placeholder="you@example.com"
             readOnly={!!inviteEmail}
-            className={`h-11 rounded-xl ${inviteEmail ? "bg-muted text-muted-foreground cursor-not-allowed" : ""}`}
+            className={`${inviteEmail ? "bg-muted text-muted-foreground cursor-not-allowed" : ""}`}
             {...register("email")}
           />
           {inviteEmail && <p className="text-xs text-muted-foreground">Use this email — it&apos;s the one your team owner added</p>}
@@ -172,7 +172,7 @@ export default function RegisterPage() {
               id="password"
               type={showPassword ? "text" : "password"}
               placeholder="Min. 8 characters"
-              className="h-11 rounded-xl pr-10"
+              className="pr-10"
               {...register("password")}
             />
             <button
@@ -187,7 +187,7 @@ export default function RegisterPage() {
         </div>
         <AnimatedPress
           onClick={handleSubmit(onSubmit) as unknown as () => void}
-          className={`w-full inline-flex items-center justify-center gap-2 h-11 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-sm cursor-pointer ${isSubmitting ? "opacity-70" : ""}`}
+          className={`w-full inline-flex items-center justify-center gap-2  bg-primary text-primary-foreground text-sm font-semibold shadow-sm cursor-pointer ${isSubmitting ? "opacity-70" : ""}`}
         >
           {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
           {inviteEmail ? "Join team" : "Create account"}
