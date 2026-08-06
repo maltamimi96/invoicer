@@ -1,12 +1,18 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Loader2, User, MapPin, StickyNote, Building2, CreditCard } from "@/components/ui/icons";
+import { Loader2, User, MapPin, StickyNote, Building2, CreditCard, ListChecks, ClipboardList } from "@/components/ui/icons";
 import { createCustomer, updateCustomer } from "@/lib/actions/customers";
+import { saveStaffOnboardingResponse } from "@/lib/actions/onboarding";
+import { ClientFields } from "@/components/customers/client-fields";
+import { StaffOnboardingFill, type StaffFillForm, type StaffFillValue } from "@/components/onboarding/staff-onboarding-fill";
+import { pruneAnswers } from "@/lib/customers/field-schema";
+import type { OnboardingField } from "@/types/database";
 import { PAYMENT_METHODS, PAYMENT_METHOD_LABELS, type PaymentMethod } from "@/lib/payment-methods";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,10 +71,21 @@ interface CustomerFormProps {
   onSuccess?: (customer: Customer) => void;
   /** Country of the active business — drives address-field labels + states. */
   businessCountry?: string | null;
+  /** Extra profile fields for this business (industry preset, or its override).
+   *  Empty array is a real answer: this business wants none. */
+  clientFields?: OnboardingField[];
+  /** Onboarding forms staff can fill in here. Omitted when the plugin is off. */
+  onboardingForms?: StaffFillForm[];
 }
 
-export function CustomerForm({ customer, onSuccess, businessCountry }: CustomerFormProps) {
+export function CustomerForm({
+  customer, onSuccess, businessCountry, clientFields = [], onboardingForms = [],
+}: CustomerFormProps) {
   const router = useRouter();
+  const [custom, setCustom] = useState<Record<string, unknown>>(
+    (customer?.custom_fields as Record<string, unknown>) ?? {},
+  );
+  const [fill, setFill] = useState<StaffFillValue>({ formId: "", answers: {} });
   const { register, handleSubmit, control, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -117,11 +134,25 @@ export function CustomerForm({ customer, onSuccess, businessCountry }: CustomerF
           data.allowed_payment_methods && data.allowed_payment_methods.length
             ? data.allowed_payment_methods
             : null,
+        // Answers to fields that no longer exist are dropped rather than kept:
+        // an orphan is invisible but would resurface if its id were reused.
+        custom_fields: pruneAnswers(custom, clientFields),
       };
       const result = customer
         ? await updateCustomer(customer.id, payload)
         : await createCustomer({ ...payload, archived: false });
       toast.success(customer ? "Customer updated" : "Customer created");
+
+      // The customer exists now, so the onboarding answers have something to
+      // attach to. Failing here must not read as the customer having failed —
+      // it's already saved. Say what went wrong and carry on to their page,
+      // where the Onboarding tab can retry it.
+      if (!customer && fill.formId) {
+        const res = await saveStaffOnboardingResponse(fill.formId, result.id, fill.answers);
+        if (res.ok) toast.success("Onboarding form saved against this customer");
+        else toast.error(`Customer saved, but the onboarding form wasn't: ${res.error}`);
+      }
+
       if (onSuccess) { onSuccess(result); return; }
       router.push(`/customers/${result.id}`);
     } catch (err: unknown) {
@@ -286,6 +317,34 @@ export function CustomerForm({ customer, onSuccess, businessCountry }: CustomerF
           }}
         />
       </FormSection>
+
+      {clientFields.length > 0 && (
+        <FormSection
+          icon={<ListChecks className="w-4 h-4" />}
+          gradient="violet"
+          title="Details"
+          hint="Set by your industry — change them under Settings → Client fields"
+        >
+          <ClientFields
+            fields={clientFields}
+            values={custom}
+            onChange={(id, v) => setCustom((prev) => ({ ...prev, [id]: v }))}
+          />
+        </FormSection>
+      )}
+
+      {/* Create only — an existing customer has the richer Onboarding tab,
+          which also handles sending and viewing. */}
+      {!customer && onboardingForms.length > 0 && (
+        <FormSection
+          icon={<ClipboardList className="w-4 h-4" />}
+          gradient="blue"
+          title="Onboarding"
+          hint="Already have their details? Fill the form in here instead of sending it."
+        >
+          <StaffOnboardingFill forms={onboardingForms} value={fill} onChange={setFill} />
+        </FormSection>
+      )}
 
       <FormSection
         icon={<StickyNote className="w-4 h-4" />}

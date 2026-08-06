@@ -8,7 +8,10 @@ import { getUser } from "@/lib/auth";
 import { appUrl } from "@/lib/app-url";
 import { pluginFlagsTag } from "@/lib/layout-data";
 import { sendEmail, buildBusinessFrom } from "@/lib/email";
-import { redactSecureAnswers } from "@/lib/onboarding/answers";
+import { redactSecureAnswers, invalidAnswerFields } from "@/lib/onboarding/answers";
+import {
+  staffFillableFields, staffOnlyCustomerFields, stripUnfillableAnswers, missingForStaff,
+} from "@/lib/onboarding/staff-fill";
 import { decryptSecret, isEncryptedAnswer, secureFieldsAvailable } from "@/lib/onboarding/crypto";
 import type {
   OnboardingForm, OnboardingField, OnboardingRequest, OnboardingResponse,
@@ -255,6 +258,91 @@ export async function sendOnboardingRequest(
   revalidatePath("/onboarding-forms");
   revalidatePath(`/customers/${customerId}`);
   return { ok: true as const, request_id: requestId, url };
+}
+
+export type StaffFillResult =
+  | { ok: true; request_id: string; saved: number; needs_customer: number }
+  | { ok: false; error: string };
+
+/**
+ * Record an onboarding form filled in by staff on the customer's behalf —
+ * the "I already have these details, I'll type them in" path.
+ *
+ * It lands as a normal completed request + response, so it appears in the
+ * customer's Onboarding tab and the form's responses exactly like a
+ * customer-submitted one. Upload and credential fields are stripped (see
+ * lib/onboarding/staff-fill.ts) — staff can't provide those, and a
+ * credential typed by someone other than its owner isn't one.
+ */
+export async function saveStaffOnboardingResponse(
+  formId: string, customerId: string, answers: Record<string, unknown>,
+): Promise<StaffFillResult> {
+  const supabase = await createClient();
+  const user = await getUser();
+  const businessId = await getActiveBizId(supabase, user.id);
+
+  const [{ data: form }, { data: customer }] = await Promise.all([
+    tbl(supabase, "onboarding_forms").select("id, schema").eq("id", formId).eq("business_id", businessId).maybeSingle(),
+    tbl(supabase, "customers").select("id").eq("id", customerId).eq("business_id", businessId).maybeSingle(),
+  ]);
+  // Returned, not thrown — Next masks thrown server-action messages in prod.
+  if (!form) return { ok: false, error: "Form not found" };
+  if (!customer) return { ok: false, error: "Customer not found" };
+
+  const schema = (form.schema ?? []) as OnboardingField[];
+  if (schema.length === 0) return { ok: false, error: "That form has no fields yet" };
+
+  const clean = stripUnfillableAnswers(schema, answers ?? {});
+  const badFormats = invalidAnswerFields(staffFillableFields(schema), clean);
+  if (badFormats.length) {
+    const first = schema.find((f) => f.id === badFormats[0].field_id);
+    return { ok: false, error: `${first?.label ?? "A field"}: ${badFormats[0].message}` };
+  }
+  const missing = missingForStaff(schema, clean);
+  if (missing.length) {
+    const labels = missing.map((id) => schema.find((f) => f.id === id)?.label ?? id);
+    return { ok: false, error: `Still needs: ${labels.join(", ")}` };
+  }
+
+  // Reuse an open request for this form+customer rather than stacking a second
+  // one — otherwise "send it, then fill it in yourself" leaves two rows.
+  const { data: openReq } = await tbl(supabase, "onboarding_requests")
+    .select("id").eq("business_id", businessId).eq("form_id", formId)
+    .eq("customer_id", customerId).neq("status", "completed")
+    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+
+  const now = new Date().toISOString();
+  let requestId: string = openReq?.id ?? "";
+  if (requestId) {
+    const { error } = await tbl(supabase, "onboarding_requests")
+      .update({ status: "completed", completed_at: now }).eq("id", requestId).eq("business_id", businessId);
+    if (error) return { ok: false, error: error.message };
+  } else {
+    const { data: created, error } = await tbl(supabase, "onboarding_requests").insert({
+      business_id: businessId, form_id: formId, customer_id: customerId,
+      status: "completed", completed_at: now,
+    }).select("id").single();
+    if (error) return { ok: false, error: error.message };
+    requestId = created.id;
+  }
+
+  // schema_snapshot is the FULL form, not just what staff could fill — the
+  // viewer should show the upload fields as unanswered rather than pretend
+  // they were never asked for.
+  const { error: respErr } = await tbl(supabase, "onboarding_responses").upsert({
+    business_id: businessId, request_id: requestId, form_id: formId, customer_id: customerId,
+    answers: clean, schema_snapshot: schema, draft: false, submitted_at: now,
+  }, { onConflict: "request_id" });
+  if (respErr) return { ok: false, error: respErr.message };
+
+  revalidatePath("/onboarding-forms");
+  revalidatePath(`/customers/${customerId}`);
+  return {
+    ok: true,
+    request_id: requestId,
+    saved: Object.keys(clean).length,
+    needs_customer: staffOnlyCustomerFields(schema).length,
+  };
 }
 
 export interface OnboardingRequestRow extends OnboardingRequest {

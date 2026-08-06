@@ -11,7 +11,9 @@ import { getCustomerProperties, getCustomerContacts, getCustomerNotes } from "@/
 import { getBillingProfilesForAccount } from "@/lib/actions/billing-profiles";
 import {
   getOnboardingSettings, getOnboardingRequests, getOnboardingResponsesForCustomer, getOnboardingForms,
+  getSecureFieldsAvailable,
 } from "@/lib/actions/onboarding";
+import { getClientFieldConfig } from "@/lib/actions/client-fields";
 import { CustomerDetailClient, type CustomerOnboardingData } from "@/components/customers/customer-detail-client";
 
 /** Onboarding tab data — only when the plugin is enabled; never break the page. */
@@ -19,17 +21,27 @@ async function loadOnboarding(customerId: string): Promise<CustomerOnboardingDat
   try {
     const settings = await getOnboardingSettings();
     if (!settings.enabled) return null;
-    const [requests, responses, forms] = await Promise.all([
+    const [requests, responses, forms, secureOk] = await Promise.all([
       getOnboardingRequests({ customer_id: customerId }),
       getOnboardingResponsesForCustomer(customerId),
       getOnboardingForms(),
+      getSecureFieldsAvailable(),
     ]);
     return {
       requests,
       responses,
       activeForms: forms
         .filter((f) => f.status !== "archived" && f.schema.length > 0)
-        .map((f) => ({ id: f.id, name: f.name })),
+        .map((f) => ({
+          id: f.id,
+          name: f.name,
+          schema: f.schema,
+          // Say why up front rather than after they hit Send. A secure field
+          // with no encryption key can't be submitted by the customer at all.
+          blocked: !secureOk && f.schema.some((x) => x.type === "secure")
+            ? "has a secure credential field, but the server has no encryption key set"
+            : null,
+        })),
     };
   } catch {
     return null;
@@ -50,7 +62,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
 
 async function CustomerDetailContent({ id }: { id: string }) {
   try {
-    const [customer, invoices, quotes, business, workOrders, reports, properties, contacts, notes, billingProfiles, onboarding] = await Promise.all([
+    const [customer, invoices, quotes, business, workOrders, reports, properties, contacts, notes, billingProfiles, onboarding, fieldConfig] = await Promise.all([
       getCustomer(id),
       getInvoices({ customer_id: id }),
       getQuotes({ customer_id: id }),
@@ -62,6 +74,7 @@ async function CustomerDetailContent({ id }: { id: string }) {
       getCustomerNotes(id).catch(() => []),
       getBillingProfilesForAccount(id).catch(() => []),
       loadOnboarding(id),
+      getClientFieldConfig().catch(() => null),
     ]);
     return (
       <CustomerDetailClient
@@ -77,6 +90,7 @@ async function CustomerDetailContent({ id }: { id: string }) {
         currency={business.currency}
         businessCountry={business.country ?? null}
         onboarding={onboarding}
+        clientFields={fieldConfig?.fields ?? []}
       />
     );
   } catch {

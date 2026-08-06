@@ -517,4 +517,129 @@ export function registerPluginFormTools(tool: ToolFn): void {
       if (error) throw error;
       return text({ created: true, template: data });
     });
+
+  // ===== CLIENT FIELDS (industry-preset profile fields + their answers) =====
+
+  tool("get_client_fields",
+    "Get the extra fields this business records about a client, beyond name and contact details. Unset means the industry preset's defaults are in use.",
+    {},
+    async (_args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "settings:read");
+      const { resolveCustomerFields, isUsingPresetDefaults } = await import("@/lib/customers/field-schema");
+      const { data } = await t(ctx, "businesses")
+        .select("customer_field_schema, industry_preset").eq("id", ctx.businessId).maybeSingle();
+      return text({
+        fields: resolveCustomerFields(data?.customer_field_schema, data?.industry_preset),
+        using_preset_defaults: isUsingPresetDefaults(data?.customer_field_schema),
+        industry_preset: data?.industry_preset ?? null,
+      });
+    });
+
+  tool("set_client_fields",
+    "Replace the extra fields recorded about a client. An empty list is valid and means none. Credential ('secure') fields are refused — a client profile is visible to anyone who can see the client, so put those on an onboarding form instead.",
+    { fields: z.array(ONBOARDING_FIELD) },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "settings:write");
+      const seen = new Set<string>();
+      for (const f of args.fields) {
+        if (f.type === "secure") return errorText(`"${f.label}" is a credential field — those belong on an onboarding form, not a client profile.`);
+        if (f.type === "file" || f.type === "image") return errorText(`"${f.label}" is an upload field — client profiles don't take uploads. Use an onboarding form, or the client's Files tab.`);
+        if (seen.has(f.id)) return errorText(`Two fields share the id "${f.id}" — one answer would overwrite the other.`);
+        seen.add(f.id);
+      }
+      if (args.fields.length > 60) return errorText("More than 60 fields — split them across an onboarding form instead.");
+      const { error } = await t(ctx, "businesses")
+        .update({ customer_field_schema: args.fields }).eq("id", ctx.businessId);
+      if (error) throw error;
+      return text({ updated: true, count: args.fields.length });
+    });
+
+  tool("reset_client_fields",
+    "Drop this business's custom client fields and go back to its industry preset's defaults. Answers already saved on clients stay in the database but stop being shown.",
+    {},
+    async (_args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "settings:write");
+      const { error } = await t(ctx, "businesses")
+        .update({ customer_field_schema: null }).eq("id", ctx.businessId);
+      if (error) throw error;
+      return text({ reset: true });
+    });
+
+  tool("set_client_field_values",
+    "Set a client's answers to the business's client fields. Merges with what's already there; answers to fields that no longer exist are dropped.",
+    { customer_id: UUID, values: z.record(z.string(), z.unknown()) },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "customers:write");
+      const { resolveCustomerFields, pruneAnswers } = await import("@/lib/customers/field-schema");
+      const [{ data: biz }, { data: customer }] = await Promise.all([
+        t(ctx, "businesses").select("customer_field_schema, industry_preset").eq("id", ctx.businessId).maybeSingle(),
+        t(ctx, "customers").select("id, custom_fields").eq("id", args.customer_id).eq("business_id", ctx.businessId).maybeSingle(),
+      ]);
+      if (!customer) return errorText("Customer not found");
+      const fields = resolveCustomerFields(biz?.customer_field_schema, biz?.industry_preset);
+      const merged = pruneAnswers({ ...(customer.custom_fields ?? {}), ...args.values }, fields);
+      const { error } = await t(ctx, "customers")
+        .update({ custom_fields: merged }).eq("id", args.customer_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ updated: true, values: merged });
+    });
+
+  tool("fill_onboarding_form",
+    "Fill in an onboarding form on a customer's behalf, for details you already have — records it as completed without sending them anything. Upload and credential fields are ignored: only the customer can provide those, through their own link.",
+    { form_id: UUID, customer_id: UUID, answers: z.record(z.string(), z.unknown()) },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "onboarding:write");
+      const { stripUnfillableAnswers, missingForStaff, staffFillableFields, staffOnlyCustomerFields } =
+        await import("@/lib/onboarding/staff-fill");
+      const { invalidAnswerFields } = await import("@/lib/onboarding/answers");
+
+      const [{ data: form }, { data: customer }] = await Promise.all([
+        t(ctx, "onboarding_forms").select("id, schema").eq("id", args.form_id).eq("business_id", ctx.businessId).maybeSingle(),
+        t(ctx, "customers").select("id").eq("id", args.customer_id).eq("business_id", ctx.businessId).maybeSingle(),
+      ]);
+      if (!form) return errorText("Form not found");
+      if (!customer) return errorText("Customer not found");
+      const schema = form.schema ?? [];
+      if (schema.length === 0) return errorText("That form has no fields yet");
+
+      const clean = stripUnfillableAnswers(schema, args.answers);
+      const bad = invalidAnswerFields(staffFillableFields(schema), clean);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const label = (id: string) => (schema as any[]).find((f) => f.id === id)?.label ?? id;
+      if (bad.length) return errorText(`${label(bad[0].field_id)}: ${bad[0].message}`);
+      const missing = missingForStaff(schema, clean);
+      if (missing.length) return errorText(`Still needs: ${missing.map(label).join(", ")}`);
+
+      const { data: openReq } = await t(ctx, "onboarding_requests")
+        .select("id").eq("business_id", ctx.businessId).eq("form_id", args.form_id)
+        .eq("customer_id", args.customer_id).neq("status", "completed")
+        .order("created_at", { ascending: false }).limit(1).maybeSingle();
+
+      const now = new Date().toISOString();
+      let requestId: string = openReq?.id ?? "";
+      if (requestId) {
+        const { error } = await t(ctx, "onboarding_requests")
+          .update({ status: "completed", completed_at: now }).eq("id", requestId).eq("business_id", ctx.businessId);
+        if (error) throw error;
+      } else {
+        const { data: created, error } = await t(ctx, "onboarding_requests").insert({
+          business_id: ctx.businessId, form_id: args.form_id, customer_id: args.customer_id,
+          status: "completed", completed_at: now,
+        }).select("id").single();
+        if (error) throw error;
+        requestId = created.id;
+      }
+      const { error: respErr } = await t(ctx, "onboarding_responses").upsert({
+        business_id: ctx.businessId, request_id: requestId, form_id: args.form_id,
+        customer_id: args.customer_id, answers: clean, schema_snapshot: schema,
+        draft: false, submitted_at: now,
+      }, { onConflict: "request_id" });
+      if (respErr) throw respErr;
+
+      return text({
+        saved: true, request_id: requestId,
+        answered: Object.keys(clean).length,
+        still_needs_customer: staffOnlyCustomerFields(schema).map((f) => f.label),
+      });
+    });
 }

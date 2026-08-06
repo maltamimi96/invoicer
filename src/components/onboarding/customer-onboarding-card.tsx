@@ -11,14 +11,18 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ClipboardList, Send, Copy, Loader2, Lock, Check, ChevronDown, Eye } from "@/components/ui/icons";
+import { ClipboardList, Send, Copy, Loader2, Lock, Check, ChevronDown, Eye, PenLine } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { sendOnboardingRequest, type OnboardingRequestRow } from "@/lib/actions/onboarding";
+import {
+  sendOnboardingRequest, saveStaffOnboardingResponse, type OnboardingRequestRow,
+} from "@/lib/actions/onboarding";
+import { StaffOnboardingFill } from "@/components/onboarding/staff-onboarding-fill";
+import { staffFillableFields } from "@/lib/onboarding/staff-fill";
 import { AnswerImageThumb } from "@/components/onboarding/answer-image-thumb";
 import { formatDate } from "@/lib/utils";
 import type { OnboardingForm, OnboardingResponse, OnboardingField } from "@/types/database";
@@ -34,8 +38,8 @@ interface Props {
   requests: OnboardingRequestRow[];
   responses: OnboardingResponse[];
   /** `blocked` explains why a form can't be sent, so the picker can say so
-   *  before you try rather than after. */
-  activeForms: (Pick<OnboardingForm, "id" | "name"> & { blocked?: string | null })[];
+   *  before you try rather than after. `schema` powers filling it in yourself. */
+  activeForms: (Pick<OnboardingForm, "id" | "name" | "schema"> & { blocked?: string | null })[];
 }
 
 export function CustomerOnboardingCard({ customerId, requests, responses, activeForms }: Props) {
@@ -43,7 +47,29 @@ export function CustomerOnboardingCard({ customerId, requests, responses, active
   const router = useRouter();
   const [pickedForm, setPickedForm] = useState("");
   const [busy, setBusy] = useState(false);
+  const [fillAnswers, setFillAnswers] = useState<Record<string, unknown>>({});
+  const [filling, setFilling] = useState(false);
   const responseByRequest = new Map(responses.map((r) => [r.request_id, r]));
+  const picked = activeForms.find((f) => f.id === pickedForm) ?? null;
+  // A form of nothing but uploads/credentials can't be staff-filled at all.
+  const canFill = Boolean(picked && !picked.blocked && staffFillableFields(picked.schema).length > 0);
+
+  const saveFill = async () => {
+    if (!picked) return;
+    setBusy(true);
+    try {
+      const res = await saveStaffOnboardingResponse(picked.id, customerId, fillAnswers);
+      if (!res.ok) { toast.error(res.error); return; }
+      toast.success(
+        res.needs_customer > 0
+          ? `Saved — ${res.needs_customer} field${res.needs_customer === 1 ? "" : "s"} still need the customer`
+          : "Saved against this customer",
+      );
+      setFilling(false); setFillAnswers({}); setPickedForm("");
+      router.refresh();
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
+    finally { setBusy(false); }
+  };
 
   const act = async (formId: string, email: boolean) => {
     setBusy(true);
@@ -65,7 +91,10 @@ export function CustomerOnboardingCard({ customerId, requests, responses, active
       {/* Send picker */}
       {activeForms.length > 0 && (
         <div className="flex items-center gap-2 flex-wrap">
-          <Select value={pickedForm} onValueChange={setPickedForm}>
+          <Select
+            value={pickedForm}
+            onValueChange={(v) => { setPickedForm(v); setFilling(false); setFillAnswers({}); }}
+          >
             <SelectTrigger className="h-9 w-[240px]"><SelectValue placeholder="Choose a form to send…" /></SelectTrigger>
             <SelectContent>
               {activeForms.map((f) => (
@@ -81,7 +110,37 @@ export function CustomerOnboardingCard({ customerId, requests, responses, active
           <Button size="sm" variant="outline" disabled={!pickedForm || busy} onClick={() => act(pickedForm, false)}>
             <Copy className="w-3.5 h-3.5 mr-1.5" /> Copy link
           </Button>
+          <Button size="sm" variant="ghost" disabled={!canFill || busy} onClick={() => setFilling((v) => !v)}>
+            <PenLine className="w-3.5 h-3.5 mr-1.5" /> {filling ? "Cancel" : "Fill in myself"}
+          </Button>
         </div>
+      )}
+
+      {/* Why a form in the list can't be sent — stated before you try it, not
+          after. Nothing computed this until now, so the disabled entries in the
+          picker had no explanation anywhere. */}
+      {blockedForms.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          {blockedForms.map((f) => `“${f.name}” ${f.blocked}`).join(" · ")}.
+        </p>
+      )}
+
+      {filling && picked && (
+        <Card><CardContent className="p-4 space-y-4">
+          <p className="text-sm font-medium">{picked.name}</p>
+          <StaffOnboardingFill
+            forms={[{ id: picked.id, name: picked.name, schema: picked.schema }]}
+            value={{ formId: picked.id, answers: fillAnswers }}
+            onChange={(next) => setFillAnswers(next.answers)}
+            showPicker={false}
+            disabled={busy}
+          />
+          <div className="flex justify-end">
+            <Button size="sm" disabled={busy} onClick={saveFill}>
+              {busy && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />} Save answers
+            </Button>
+          </div>
+        </CardContent></Card>
       )}
 
       {requests.length === 0 ? (
