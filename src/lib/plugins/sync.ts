@@ -8,6 +8,7 @@
  *   form-builder       ↔ form_builder_settings.enabled
  *   quoting-agent      ↔ quoting_agent_settings.enabled
  *   telephony          ↔ telephony_settings.enabled
+ *   automations        ↔ automations_settings.enabled
  */
 import { revalidateTag } from "next/cache";
 import { pluginFlagsTag } from "@/lib/layout-data";
@@ -34,6 +35,10 @@ export async function syncPluginSideEffects(sb: any, businessId: string, pluginI
   }
   if (pluginId === "quoting-agent") {
     await tbl(sb, "quoting_agent_settings")
+      .upsert({ business_id: businessId, enabled }, { onConflict: "business_id" });
+  }
+  if (pluginId === "automations") {
+    await tbl(sb, "automations_settings")
       .upsert({ business_id: businessId, enabled }, { onConflict: "business_id" });
   }
 }
