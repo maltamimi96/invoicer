@@ -1,7 +1,7 @@
 /**
  * GET /api/cron/workorder-complete
  *
- * Runs every 4 hours via Vercel Cron.
+ * Runs every 4 hours via Vercel Cron — see the schedule in vercel.json.
  * For every business with the "workorder-complete-notifier" agent enabled:
  *  - Finds work orders recently set to "completed"
  *  - Skips work orders already notified
@@ -30,7 +30,13 @@ export async function GET(req: NextRequest) {
   if (denied) return denied;
 
   const sb = createAdminClient();
-  // Look back 5 hours (slightly more than the 4-hour cron interval)
+  // One hour more than the 4-hour cron interval, so a late or skipped run
+  // still catches its window. Double-sends are impossible regardless: every
+  // send is recorded and `alreadyNotified` skips them.
+  //
+  // This was 5 hours while the cron ran ONCE A DAY — around 19 of every 24
+  // hours of completions were never emailed at all. The schedule now matches
+  // what this code was written for.
   const lookback = new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
