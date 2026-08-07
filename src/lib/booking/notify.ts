@@ -4,6 +4,7 @@
  * relies on session-scoped helpers. Fire-and-forget: never throws to callers.
  */
 import { sendEmail, buildBusinessFrom } from "@/lib/email";
+import { clickSendSend, deriveSenderId } from "@/lib/sms";
 import { dispatchWebhook } from "@/lib/webhooks";
 import { bookingEmailHtml, type BookingEmailKind } from "@/lib/emails/booking";
 import type { BookingSettings, Appointment, WebhookEvent } from "@/types/database";
@@ -39,20 +40,10 @@ function fmtLocal(iso: string, tz: string): string {
   }).format(new Date(iso));
 }
 
-function deriveSenderId(name: string): string {
-  return (name.replace(/[^A-Za-z0-9]+/g, "").slice(0, 11)) || "Kirei";
-}
-
 async function sendSmsRaw(from: string, to: string, body: string): Promise<void> {
-  const username = process.env.CLICKSEND_USERNAME;
-  const apiKey = process.env.CLICKSEND_API_KEY;
-  if (!username || !apiKey) return;
-  const auth = Buffer.from(`${username}:${apiKey}`).toString("base64");
-  await fetch("https://rest.clicksend.com/v3/sms/send", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Basic ${auth}` },
-    body: JSON.stringify({ messages: [{ from, to, body, source: "kirei" }] }),
-  }).catch(() => undefined);
+  // Shared with actions/sms.ts — this used to be a second, subtly different
+  // copy of the same HTTP call.
+  await clickSendSend({ from, to, body });
 }
 
 /** Fire booking.* to both the business_webhooks system and the booking-specific
