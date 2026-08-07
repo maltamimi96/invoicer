@@ -270,6 +270,22 @@ export function SettingsClient({ business: initial, apiKeys, emailConfig, webhoo
         <TabsContent value="business" className="space-y-4 mt-6">
           <Card>
             <CardHeader>
+              <CardTitle className="text-base">Navigation</CardTitle>
+            </CardHeader>
+            <CardContent className="flex items-center justify-between gap-4">
+              <p className="text-sm text-muted-foreground">
+                Rename, reorder and hide the items in your sidebar. Names you don&rsquo;t set follow
+                your industry&rsquo;s preset — an agency sees Projects and Proposals where a trades
+                business sees Work Orders and Quotes.
+              </p>
+              <Button asChild variant="outline" className="shrink-0">
+                <a href="/settings/navigation">Edit navigation</a>
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle className="text-base">Client fields</CardTitle>
             </CardHeader>
             <CardContent className="flex items-center justify-between gap-4">

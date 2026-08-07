@@ -59,6 +59,8 @@ export interface Business {
   sidebar_theme: string;
   /** Industry preset id (src/lib/plugins/presets.ts); null = no preset applied. */
   industry_preset?: string | null;
+  /** Navigation overrides (Settings → Navigation). NULL = the industry preset. */
+  nav_config?: import("@/lib/nav/config").NavConfig | null;
   /** Card-provider state. In the DB since the Stripe/Revolut work; the type
    *  never caught up, so pages reading them failed to compile. */
   stripe_charges_enabled?: boolean | null;

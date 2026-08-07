@@ -19,6 +19,7 @@ import type { GradientName as KireiGradient } from "@/components/ui/kirei";
 import type { WorkOrderWithCustomer, WorkOrderStatus, BusinessMember } from "@/types/database";
 import type { Role } from "@/lib/permissions";
 import { canManageTeam } from "@/lib/permissions";
+import { useVocab, lower } from "@/components/layout/vocab-provider";
 
 const TABS: { value: WorkOrderStatus | "all"; label: string }[] = [
   { value: "all",         label: "All"         },
@@ -57,6 +58,7 @@ interface WorkOrdersClientProps {
 }
 
 export function WorkOrdersClient({ workOrders, userRole }: WorkOrdersClientProps) {
+  const v = useVocab("/work-orders", "Work Orders");
   const canDelete = canManageTeam(userRole);
   const router = useRouter();
   const [tab, setTab] = useState<typeof TABS[number]["value"]>("all");
@@ -90,7 +92,7 @@ export function WorkOrdersClient({ workOrders, userRole }: WorkOrdersClientProps
     setBusy(true);
     try {
       await deleteWorkOrder(deleteId);
-      toast.success("Work order deleted");
+      toast.success(`${v.singular} deleted`);
       router.refresh();
     } catch { toast.error("Failed to delete"); }
     setBusy(false);
@@ -104,12 +106,12 @@ export function WorkOrdersClient({ workOrders, userRole }: WorkOrdersClientProps
   const handleBulkDelete = async () => {
     const ids = [...selected];
     if (!ids.length) return;
-    if (!(await confirm({ title: `Delete ${ids.length} work order${ids.length === 1 ? "" : "s"}?`, body: "This permanently deletes the orders and their photos." }))) return;
+    if (!(await confirm({ title: `Delete ${ids.length} ${lower(ids.length === 1 ? v.singular : v.plural)}?`, body: "This permanently deletes them and their photos." }))) return;
     setBulkBusy(true);
     try {
       await bulkDeleteWorkOrders(ids);
       setSelected(new Set());
-      toast.success(`${ids.length} work order${ids.length === 1 ? "" : "s"} deleted`);
+      toast.success(`${ids.length} ${lower(ids.length === 1 ? v.singular : v.plural)} deleted`);
       router.refresh();
     } catch (e) { toast.error(e instanceof Error ? e.message : "Failed to delete"); }
     setBulkBusy(false);
@@ -122,7 +124,7 @@ export function WorkOrdersClient({ workOrders, userRole }: WorkOrdersClientProps
     try {
       await bulkUpdateWorkOrderStatus(ids, status);
       setSelected(new Set());
-      toast.success(`${ids.length} work order${ids.length === 1 ? "" : "s"} updated`);
+      toast.success(`${ids.length} ${lower(ids.length === 1 ? v.singular : v.plural)} updated`);
       router.refresh();
     } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't update status"); }
     setBulkBusy(false);
@@ -139,15 +141,15 @@ export function WorkOrdersClient({ workOrders, userRole }: WorkOrdersClientProps
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Work Orders"
+        title={v.plural}
         subtitle={`${workOrders.length} total · ${stats.onSite} on site now`}
         accent="linear-gradient(180deg, #fbbf24 0%, #b45309 100%)"
         actions={
           <>
-            <CleanupButton entity="work_orders" entityLabel="work orders" />
+            <CleanupButton entity="work_orders" entityLabel={lower(v.plural)} />
             <Link href="/work-orders/new">
               <AnimatedPress className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold shadow-sm">
-                <Plus className="w-4 h-4" /> New work order
+                <Plus className="w-4 h-4" /> New {lower(v.singular)}
               </AnimatedPress>
             </Link>
           </>
@@ -170,7 +172,7 @@ export function WorkOrdersClient({ workOrders, userRole }: WorkOrdersClientProps
       {canDelete && (
         <BulkBar
           count={selected.size}
-          noun="work order"
+          noun={lower(v.singular)}
           busy={bulkBusy}
           onDelete={handleBulkDelete}
           onClear={() => setSelected(new Set())}
@@ -180,7 +182,7 @@ export function WorkOrdersClient({ workOrders, userRole }: WorkOrdersClientProps
               disabled={bulkBusy}
               onChange={(e) => { const v = e.target.value; if (v) handleBulkStatus(v as WorkOrderStatus); }}
               className="h-8 rounded-md border border-border bg-card px-2 text-sm cursor-pointer"
-              aria-label="Set status for selected work orders"
+              aria-label={`Set status for selected ${lower(v.plural)}`}
             >
               <option value="" disabled>Set status…</option>
               {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -193,9 +195,9 @@ export function WorkOrdersClient({ workOrders, userRole }: WorkOrdersClientProps
         <EmptyState
           icon={<Wrench className="w-7 h-7" />}
           gradient="amber"
-          title="No work orders"
+          title={`No ${lower(v.plural)}`}
           hint="Send workers on-site to capture photos. AI generates a scope of work from what they find."
-          cta={{ label: "New work order", href: "/work-orders/new", icon: <Plus className="w-4 h-4" /> }}
+          cta={{ label: `New ${lower(v.singular)}`, href: "/work-orders/new", icon: <Plus className="w-4 h-4" /> }}
         />
       ) : (
         <div className="rounded-xl border border-border bg-card overflow-hidden">
@@ -217,7 +219,7 @@ export function WorkOrdersClient({ workOrders, userRole }: WorkOrdersClientProps
                 onMouseEnter={() => router.prefetch(`/work-orders/${wo.id}`)}
                 className="group flex flex-wrap items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-muted/40"
               >
-                {canDelete && <input type="checkbox" checked={selected.has(wo.id)} onChange={() => toggle(wo.id)} onClick={(e) => e.stopPropagation()} className="w-4 h-4 cursor-pointer shrink-0" aria-label="Select work order" />}
+                {canDelete && <input type="checkbox" checked={selected.has(wo.id)} onChange={() => toggle(wo.id)} onClick={(e) => e.stopPropagation()} className="w-4 h-4 cursor-pointer shrink-0" aria-label={`Select ${lower(v.singular)}`} />}
                 <GradientTile gradient={STATUS_GRADIENT[wo.status] ?? "primary"} size={40} radius={10}>
                   <Briefcase className="w-4 h-4" />
                 </GradientTile>
@@ -285,7 +287,7 @@ export function WorkOrdersClient({ workOrders, userRole }: WorkOrdersClientProps
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete work order?</AlertDialogTitle>
+            <AlertDialogTitle>Delete {lower(v.singular)}?</AlertDialogTitle>
             <AlertDialogDescription>This will permanently delete the order and all associated photos.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

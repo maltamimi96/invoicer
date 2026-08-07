@@ -14,7 +14,11 @@ export interface IndustryPreset {
   description: string;
   /** Optional-module ids enabled by this preset (everything else optional is disabled). */
   plugins: string[];
-  /** Sidebar label overrides keyed by nav href (minimal vocab layer v1). */
+  /** What this industry calls each page, keyed by nav href.
+   *  Read by the sidebar AND by the pages themselves (via the vocab context in
+   *  src/components/layout/vocab-provider.tsx), so an agency's "Projects" tab
+   *  opens a screen that also says Projects. A business can override any of it
+   *  in Settings → Navigation. */
   vocab?: Record<string, string>;
 }
 

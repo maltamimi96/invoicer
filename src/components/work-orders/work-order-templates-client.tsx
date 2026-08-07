@@ -13,8 +13,10 @@ import {
   createWorkOrderTemplate, updateWorkOrderTemplate, deleteWorkOrderTemplate,
 } from "@/lib/actions/work-order-templates";
 import type { WorkOrderTemplate } from "@/types/database";
+import { useVocab, lower } from "@/components/layout/vocab-provider";
 
 export function WorkOrderTemplatesClient({ initial }: { initial: WorkOrderTemplate[] }) {
+  const v = useVocab("/work-orders", "Work Orders");
   const [templates, setTemplates] = useState(initial);
   const [selectedId, setSelectedId] = useState<string | null>(initial[0]?.id ?? null);
   const [newName, setNewName] = useState("");
@@ -23,7 +25,7 @@ export function WorkOrderTemplatesClient({ initial }: { initial: WorkOrderTempla
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Work-order templates" subtitle="Predefined starting points for new work orders. Pick one from the New Work Order form to prefill the common fields." />
+      <PageHeader title={`${v.singular} templates`} subtitle={`Predefined starting points for new ${lower(v.plural)}. Pick one from the New ${v.singular} form to prefill the common fields.`} />
 
       <Card className="p-5 space-y-4">
         <div className="font-semibold flex items-center gap-1.5"><FileStack className="size-4" /> Templates</div>
