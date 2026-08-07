@@ -111,12 +111,30 @@ export function actionsForTrigger(event: string): ActionDef[] {
  * matters more here than elsewhere: a rule that saves but can never fire looks
  * identical to one that works until the day you notice nobody was emailed.
  */
+/** Wait options, in minutes. Anything longer than 90 days isn't a follow-up. */
+export const DELAY_CHOICES: Array<{ minutes: number; label: string }> = [
+  { minutes: 0, label: "Straight away" },
+  { minutes: 60, label: "After 1 hour" },
+  { minutes: 60 * 24, label: "After 1 day" },
+  { minutes: 60 * 24 * 3, label: "After 3 days" },
+  { minutes: 60 * 24 * 7, label: "After 1 week" },
+  { minutes: 60 * 24 * 30, label: "After 30 days" },
+];
+
+export function delayLabel(minutes: number): string {
+  return DELAY_CHOICES.find((d) => d.minutes === minutes)?.label ?? `After ${minutes} minutes`;
+}
+
 export function validateAutomation(input: {
   name?: string;
   trigger_event?: string;
   conditions?: AutomationCondition[];
   actions?: AutomationAction[];
+  delay_minutes?: number;
 }): string | null {
+  const delay = input.delay_minutes ?? 0;
+  if (!Number.isInteger(delay) || delay < 0) return "The wait has to be zero or more minutes.";
+  if (delay > 129_600) return "That's more than 90 days — too long to be a follow-up.";
   if (!input.name?.trim()) return "Give it a name so you can recognise it later.";
   const trigger = triggerFor(input.trigger_event ?? "");
   if (!trigger) return "Choose what starts this automation.";
