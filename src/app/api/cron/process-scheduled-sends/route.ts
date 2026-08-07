@@ -1,7 +1,11 @@
 /**
  * GET /api/cron/process-scheduled-sends
  *
- * Runs every minute via Vercel Cron. Pulls pending scheduled_sends rows whose
+ * Runs every 5 minutes via Vercel Cron — see the schedule in vercel.json.
+ * It was scheduled DAILY while this docstring claimed "every minute", so a
+ * send set for 3pm could go out the following morning.
+ *
+ * Pulls pending scheduled_sends rows whose
  * send_at has passed, locks each by flipping status to 'sending', then
  * dispatches the email/SMS using the admin Supabase client (cron has no user
  * session). Re-renders the PDF and rolls a portal token the same way the

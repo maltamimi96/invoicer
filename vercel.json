@@ -21,7 +21,7 @@
     },
     {
       "path": "/api/cron/workorder-complete",
-      "schedule": "0 18 * * *"
+      "schedule": "0 */4 * * *"
     },
     {
       "path": "/api/cron/recurring-jobs",
@@ -33,7 +33,7 @@
     },
     {
       "path": "/api/cron/process-scheduled-sends",
-      "schedule": "0 8 * * *"
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/cron/email-leads",
