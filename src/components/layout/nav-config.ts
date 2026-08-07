@@ -1,4 +1,5 @@
 import {
+  Zap,
   LayoutDashboard, FileText, FileCheck, Users,
   Package, FileStack, ClipboardList, Wrench, Users2, UserPlus, CalendarDays, MessageSquare, Bot, Repeat, HelpCircle, Columns3, TrendingUp, Sparkles, ListChecks, Search, Receipt, Boxes, Clock, Hammer, Target, Megaphone, DollarSign, Send, Phone,
 } from "@/components/ui/icons";
@@ -20,6 +21,7 @@ export const navSections: NavSection[] = [
     { label: "Messages",   href: "/messages",   icon: MessageSquare,   plugin: "messages" },
     { label: "Calls",      href: "/calls",      icon: Phone,           plugin: "telephony" },
     { label: "Tasks",      href: "/tasks",      icon: Columns3                      },
+    { label: "Automations",href: "/automations",icon: Zap,             plugin: "automations" },
   ]},
   { section: "Sales", items: [
     { label: "Leads",         href: "/leads",         icon: UserPlus,     plugin: "leads"             },
