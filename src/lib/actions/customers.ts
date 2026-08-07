@@ -4,6 +4,7 @@ import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { dispatchWebhook } from "@/lib/webhooks";
+import { emitAutomationEvent } from "@/lib/automations/emit";
 import type { Customer } from "@/types/database";
 
 import { getUser } from "@/lib/auth";
@@ -66,6 +67,10 @@ export async function createCustomer(payload: CreateCustomerInput): Promise<Cust
   revalidateTag(`customers-${businessId}`, {});
   revalidatePath("/customers");
   dispatchWebhook(businessId, "customer.created", data);
+  // Awaited, unlike dispatchWebhook above: an automation that never queues is
+  // an email the client never gets, with nothing to show it went missing.
+  // emitAutomationEvent swallows its own errors, so this can't fail the create.
+  await emitAutomationEvent(supabase, businessId, "customer.created", "customer", data.id);
   return data as Customer;
 }
 

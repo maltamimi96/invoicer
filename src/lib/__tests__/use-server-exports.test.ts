@@ -57,4 +57,28 @@ describe("\"use server\" files", () => {
     expect(offenders, `Move these to a plain module — a non-async export breaks every export in the file at runtime:\n${offenders.join("\n")}`)
       .toEqual([]);
   });
+
+  it("never RE-exports a type with `export type { X }`", () => {
+    // Inline `export type X = …` and `export interface X` are fine: TypeScript
+    // erases them. A re-export STATEMENT is not — Next's server-actions
+    // transform enumerates every export and emits a runtime binding for it,
+    // then fails the build with "Export X doesn't exist in target module".
+    //
+    // This broke the build once already. Importers should take the type from
+    // the module that defines it.
+    const offenders: string[] = [];
+    for (const file of files) {
+      const lines = readFileSync(file, "utf8").split(/\r?\n/);
+      lines.forEach((line, i) => {
+        const t = line.trim();
+        if (/^export\s+type\s*\{/.test(t) || /^export\s*\{\s*type\s/.test(t)) {
+          offenders.push(`${file}:${i + 1}  ${t.slice(0, 90)}`);
+        }
+      });
+    }
+    expect(
+      offenders,
+      `Import the type from where it's defined — a type re-export in a "use server" file fails the build:\n${offenders.join("\n")}`,
+    ).toEqual([]);
+  });
 });
