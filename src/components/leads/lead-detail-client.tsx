@@ -18,6 +18,7 @@ import {
   DetailHero, FactCard, AnimatedPress, FadeIn, KireiAvatar, GradientTile,
 } from "@/components/ui/kirei";
 import type { GradientName } from "@/components/ui/kirei";
+import { LeadOnboardingCard, type LeadOnboardingData } from "@/components/leads/lead-onboarding-card";
 import type { Lead, LeadStatus } from "@/types/database";
 
 const STATUSES: LeadStatus[] = ["new", "contacted", "quoted", "won", "lost"];
@@ -48,7 +49,11 @@ const SOURCE_LABELS: Record<string, string> = {
 const fmtSource = (s: string | null) =>
   !s ? "—" : (SOURCE_LABELS[s] ?? s.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()));
 
-export function LeadDetailClient({ lead: initial }: { lead: Lead }) {
+export function LeadDetailClient({ lead: initial, onboarding }: {
+  lead: Lead;
+  /** Onboarding forms for this lead; absent when the plugin is off. */
+  onboarding?: LeadOnboardingData | null;
+}) {
   const router = useRouter();
   const [lead, setLead] = useState<Lead>(initial);
   const [pending, startTransition] = useTransition();
@@ -219,6 +224,8 @@ export function LeadDetailClient({ lead: initial }: { lead: Lead }) {
           </div>
         </FadeIn>
       )}
+
+      {onboarding && <LeadOnboardingCard leadId={lead.id} data={onboarding} />}
 
       {/* Convert actions */}
       <FadeIn delay={260}>

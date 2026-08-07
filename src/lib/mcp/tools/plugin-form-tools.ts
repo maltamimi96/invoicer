@@ -604,7 +604,12 @@ export function registerPluginFormTools(tool: ToolFn): void {
 
   tool("fill_onboarding_form",
     "Fill in an onboarding form on a customer's behalf, for details you already have — records it as completed without sending them anything. Uploads can only come from the customer through their own link; credential fields work only when the server has an encryption key. Answering something that can't be stored is an error, not a silent drop.",
-    { form_id: UUID, customer_id: UUID, answers: z.record(z.string(), z.unknown()) },
+    {
+      form_id: UUID,
+      customer_id: UUID.optional().describe("The customer this form is about. Give exactly one of customer_id or lead_id."),
+      lead_id: UUID.optional().describe("The lead this form is about, for qualifying before they convert."),
+      answers: z.record(z.string(), z.unknown()),
+    },
     async (args, extra) => {
       const ctx = ctxFrom(extra); assertScope(ctx, "onboarding:write");
       const { stripUnfillableAnswers, staffFillProblems, staffFillErrorMessage, staffOnlyCustomerFields } =
@@ -612,12 +617,21 @@ export function registerPluginFormTools(tool: ToolFn): void {
       const { processAnswersForStorage } = await import("@/lib/onboarding/answers");
       const { secureFieldsAvailable } = await import("@/lib/onboarding/crypto");
 
-      const [{ data: form }, { data: customer }] = await Promise.all([
+      // Exactly one subject, matching the DB CHECK.
+      if (!args.customer_id === !args.lead_id) {
+        return errorText("Give exactly one of customer_id or lead_id — a form is about one or the other.");
+      }
+      const isLead = Boolean(args.lead_id);
+      const subjectId = (args.lead_id ?? args.customer_id) as string;
+      const [{ data: form }, { data: subjectRow }] = await Promise.all([
         t(ctx, "onboarding_forms").select("id, schema").eq("id", args.form_id).eq("business_id", ctx.businessId).maybeSingle(),
-        t(ctx, "customers").select("id").eq("id", args.customer_id).eq("business_id", ctx.businessId).maybeSingle(),
+        t(ctx, isLead ? "leads" : "customers").select("id").eq("id", subjectId).eq("business_id", ctx.businessId).maybeSingle(),
       ]);
       if (!form) return errorText("Form not found");
-      if (!customer) return errorText("Customer not found");
+      if (!subjectRow) return errorText(isLead ? "Lead not found" : "Customer not found");
+      const subjectCols = isLead
+        ? { customer_id: null, lead_id: subjectId }
+        : { customer_id: subjectId, lead_id: null };
       const schema = form.schema ?? [];
       if (schema.length === 0) return errorText("That form has no fields yet");
 
@@ -630,7 +644,7 @@ export function registerPluginFormTools(tool: ToolFn): void {
 
       const { data: openReq } = await t(ctx, "onboarding_requests")
         .select("id").eq("business_id", ctx.businessId).eq("form_id", args.form_id)
-        .eq("customer_id", args.customer_id).neq("status", "completed")
+        .eq(isLead ? "lead_id" : "customer_id", subjectId).neq("status", "completed")
         .order("created_at", { ascending: false }).limit(1).maybeSingle();
 
       const now = new Date().toISOString();
@@ -641,7 +655,7 @@ export function registerPluginFormTools(tool: ToolFn): void {
         if (error) throw error;
       } else {
         const { data: created, error } = await t(ctx, "onboarding_requests").insert({
-          business_id: ctx.businessId, form_id: args.form_id, customer_id: args.customer_id,
+          business_id: ctx.businessId, form_id: args.form_id, ...subjectCols,
           status: "completed", completed_at: now,
         }).select("id").single();
         if (error) throw error;
@@ -649,7 +663,7 @@ export function registerPluginFormTools(tool: ToolFn): void {
       }
       const { error: respErr } = await t(ctx, "onboarding_responses").upsert({
         business_id: ctx.businessId, request_id: requestId, form_id: args.form_id,
-        customer_id: args.customer_id, answers: stored, schema_snapshot: schema,
+        ...subjectCols, answers: stored, schema_snapshot: schema,
         draft: false, submitted_at: now,
       }, { onConflict: "request_id" });
       if (respErr) throw respErr;
