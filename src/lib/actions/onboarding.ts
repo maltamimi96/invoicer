@@ -13,6 +13,7 @@ import {
   staffOnlyCustomerFields, stripUnfillableAnswers, staffFillProblems, staffFillErrorMessage,
 } from "@/lib/onboarding/staff-fill";
 import { decryptSecret, isEncryptedAnswer, secureFieldsAvailable } from "@/lib/onboarding/crypto";
+import { sendOnboardingFormFor, type SendOnboardingResult } from "@/lib/onboarding/send";
 import type {
   OnboardingForm, OnboardingField, OnboardingRequest, OnboardingResponse,
 } from "@/types/database";
@@ -170,10 +171,6 @@ async function mintPortalToken(
 
 /** Send an onboarding form to a customer: creates the request, mints/reuses a
  *  portal token, and emails the fill link. Returns the link either way. */
-export type SendOnboardingResult =
-  | { ok: true; request_id: string; url: string }
-  | { ok: false; error: string };
-
 export async function sendOnboardingRequest(
   formId: string, customerId: string, opts: { email?: boolean } = {},
 ): Promise<SendOnboardingResult> {
@@ -181,83 +178,17 @@ export async function sendOnboardingRequest(
   const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
-  const [{ data: form }, { data: customer }, { data: biz }] = await Promise.all([
-    tbl(supabase, "onboarding_forms").select("id, name, status, schema").eq("id", formId).eq("business_id", businessId).maybeSingle(),
-    tbl(supabase, "customers").select("id, name, email").eq("id", customerId).eq("business_id", businessId).maybeSingle(),
-    tbl(supabase, "businesses").select("name, email").eq("id", businessId).single(),
-  ]);
-  // Expected failures are RETURNED, not thrown.
-  //
-  // Next.js masks thrown server-action messages in production — the client only
-  // ever sees "An error occurred in the Server Components render". So a helpful
-  // explanation that gets thrown is a helpful explanation the user never reads;
-  // it reached the server log and nowhere else. Anything the user can act on
-  // has to come back as data.
-  if (!form) return { ok: false as const, error: "Form not found" };
-  if (!customer) return { ok: false as const, error: "Customer not found" };
-  if ((form.schema ?? []).length === 0) {
-    return { ok: false as const, error: "Add at least one field before sending" };
+  // The work lives in lib/onboarding/send.ts, which takes the business id
+  // explicitly so a cron or an automation can send too. This resolves WHO.
+  const res = await sendOnboardingFormFor(supabase, businessId, formId, customerId, {
+    email: opts.email, createdBy: user.id,
+  });
+
+  if (res.ok) {
+    revalidatePath("/onboarding-forms");
+    revalidatePath(`/customers/${customerId}`);
   }
-
-  // A form with a secure field can't be submitted while the encryption key is
-  // missing — the customer would fill it in, hit save, and get an error they
-  // can do nothing about. Fail here, for the business, rather than in front of
-  // their client. The builder blocks adding these fields, but the MCP tools
-  // can create them, so this is the last line before a customer sees it.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const hasSecure = ((form.schema ?? []) as any[]).some((f) => f?.type === "secure");
-  if (hasSecure && !secureFieldsAvailable()) {
-    return {
-      ok: false as const,
-      error: "This form has a secure credential field, but the encryption key isn't set on the server — "
-        + "your customer wouldn't be able to submit it. Remove the secure field, or set ONBOARDING_SECRET_KEY.",
-    };
-  }
-
-  // Reuse an open request for the same form+customer instead of duplicating.
-  const { data: openReq } = await tbl(supabase, "onboarding_requests")
-    .select("id").eq("business_id", businessId).eq("form_id", formId)
-    .eq("customer_id", customerId).neq("status", "completed")
-    .order("created_at", { ascending: false }).limit(1).maybeSingle();
-
-  let requestId: string = openReq?.id ?? "";
-  if (!requestId) {
-    const { data: created, error } = await tbl(supabase, "onboarding_requests").insert({
-      business_id: businessId, form_id: formId, customer_id: customerId,
-    }).select("id").single();
-    if (error) throw error;
-    requestId = created.id;
-  }
-
-  const token = await mintPortalToken(supabase, businessId, customerId, user.id);
-  const url = `${appUrl()}/portal/${token}/onboarding/${requestId}`;
-
-  const shouldEmail = opts.email !== false;
-  if (shouldEmail) {
-    if (!customer.email) {
-      return { ok: false as const, error: "This customer has no email address — use Copy link instead" };
-    }
-    const html = `<!doctype html><html><body style="font-family:Arial,Helvetica,sans-serif;background:#f6f6f4;padding:24px;color:#111">
-      <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;border:1px solid #e5e3d9;padding:28px">
-        <p style="font-size:13px;color:#666;margin:0 0 4px">${biz?.name ?? "Your provider"}</p>
-        <h1 style="font-size:20px;margin:0 0 12px">${form.name}</h1>
-        <p style="font-size:14px;line-height:1.6;color:#333">Hi ${customer.name ?? "there"}, please fill in a few details so we can get you set up. Your progress saves automatically.</p>
-        <p style="margin:24px 0"><a href="${url}" style="background:#2f6f73;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-size:14px;font-weight:600">Open the form</a></p>
-        <p style="font-size:12px;color:#888">Or paste this link into your browser:<br>${url}</p>
-      </div></body></html>`;
-    await sendEmail({
-      to: customer.email,
-      subject: `${biz?.name ?? "Onboarding"}: ${form.name}`,
-      html,
-      from: buildBusinessFrom({ name: biz?.name ?? "Kirei", slug: biz?.slug, localPart: "onboarding" }),
-      replyTo: biz?.email ?? undefined,
-      tags: { business_id: businessId, doc_type: "custom", doc_id: requestId },
-    });
-  }
-
-  revalidatePath("/onboarding-forms");
-  revalidatePath(`/customers/${customerId}`);
-  return { ok: true as const, request_id: requestId, url };
+  return res;
 }
 
 export type StaffFillResult =
