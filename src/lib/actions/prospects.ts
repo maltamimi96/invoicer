@@ -6,6 +6,7 @@
  * land in later PRs. Scopes: prospects:read / prospects:write.
  */
 import { revalidatePath } from "next/cache";
+import { emitAutomationEvent } from "@/lib/automations/emit";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { getUser } from "@/lib/auth";
@@ -197,6 +198,14 @@ export async function convertProspectToLead(id: string): Promise<{ lead_id: stri
   }).single();
   if (error) throw error;
   await tbl(supabase, "prospects").update({ status: "converted", lead_id: lead?.id ?? null }).eq("id", id).eq("business_id", businessId);
+
+  // This path calls upsert_lead directly rather than createLead(), so without
+  // this it fired nothing — the same gap the public form submit route had.
+  // A converted prospect IS a new lead as far as an automation is concerned.
+  if (lead?.id) {
+    await emitAutomationEvent(supabase, businessId, "lead.created", "lead", lead.id);
+  }
+
   revalidatePath("/prospects");
   revalidatePath(`/prospects/${id}`);
   return { lead_id: lead?.id ?? null };

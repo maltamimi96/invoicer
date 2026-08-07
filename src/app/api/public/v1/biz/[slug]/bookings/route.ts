@@ -10,6 +10,7 @@
  * manage_token for self-serve reschedule/cancel.
  */
 import { NextRequest } from "next/server";
+import { emitAutomationEvent } from "@/lib/automations/emit";
 import {
   resolveTenant, json, publicError, preflight, rateLimit, clientIp,
   honeypotTripped, verifyCaptcha,
@@ -149,6 +150,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
         p_source: "website", p_source_ref: "online-booking",
       }).single();
       leadId = (lead as { id?: string } | null)?.id ?? null;
+      // Same bypass — a booking that creates a lead should trigger the same
+      // automations as a lead from any other source.
+      if (leadId) await emitAutomationEvent(sb, businessId, "lead.created", "lead", leadId);
     }
     if (settings.create_work_order && ownerId) {
       const next = biz?.work_order_next_number ?? 1;
