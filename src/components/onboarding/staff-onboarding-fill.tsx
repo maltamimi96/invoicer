@@ -24,6 +24,10 @@ export interface StaffFillForm {
   id: string;
   name: string;
   schema: OnboardingField[];
+  /** Which form system it came from. Both share the field engine, but their
+   *  answers live in different tables, so the caller has to know. Absent means
+   *  onboarding, so existing callers are unaffected. */
+  kind?: "onboarding" | "public";
 }
 
 export interface StaffFillValue {
@@ -54,7 +58,7 @@ export function StaffOnboardingFill({
   if (forms.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        No onboarding forms with fields yet — build one under Onboarding first.
+        No forms with fields yet — build one under Onboarding or Forms first.
       </p>
     );
   }
@@ -74,7 +78,15 @@ export function StaffOnboardingFill({
           <SelectContent>
             <SelectItem value="none">Don&rsquo;t attach one</SelectItem>
             {forms.map((f) => (
-              <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+              <SelectItem key={f.id} value={f.id}>
+                {f.name}
+                {/* Two form systems feed this picker and their answers land in
+                    different places — say which is which rather than leaving
+                    two identically-named forms indistinguishable. */}
+                <span className="ml-1.5 text-xs text-muted-foreground">
+                  {f.kind === "public" ? "· Form" : "· Onboarding"}
+                </span>
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
