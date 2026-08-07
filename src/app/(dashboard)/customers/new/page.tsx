@@ -3,6 +3,7 @@ import { getBusiness } from "@/lib/actions/business";
 import { getClientFieldConfig } from "@/lib/actions/client-fields";
 import { getOnboardingSettings, getOnboardingForms, getSecureFieldsAvailable } from "@/lib/actions/onboarding";
 import { staffFillableFields } from "@/lib/onboarding/staff-fill";
+import { getFillablePublicForms } from "@/lib/actions/public-form-fill";
 import { PageHeader } from "@/components/layout/page-header";
 import type { StaffFillForm } from "@/components/onboarding/staff-onboarding-fill";
 
@@ -13,9 +14,12 @@ async function loadFillableForms(): Promise<StaffFillForm[]> {
     const settings = await getOnboardingSettings();
     if (!settings.enabled) return [];
     const forms = await getOnboardingForms();
+    const publicForms = await getFillablePublicForms().catch(() => []);
     return forms
       .filter((f) => f.status !== "archived" && staffFillableFields(f.schema).length > 0)
-      .map((f) => ({ id: f.id, name: f.name, schema: f.schema }));
+      .map((f): StaffFillForm => ({ id: f.id, name: f.name, schema: f.schema, kind: "onboarding" }))
+      // Form Builder forms too — same engine, different destination table.
+      .concat(publicForms.map((f): StaffFillForm => ({ id: f.id, name: f.name, schema: f.schema, kind: "public" })));
   } catch {
     return [];
   }

@@ -18,14 +18,15 @@ import { toast } from "sonner";
 import { ClipboardList, Loader2, PenLine, Eye, ChevronDown } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { GradientTile, FadeIn } from "@/components/ui/kirei";
-import { StaffOnboardingFill } from "@/components/onboarding/staff-onboarding-fill";
+import { StaffOnboardingFill, type StaffFillForm } from "@/components/onboarding/staff-onboarding-fill";
 import { saveLeadOnboardingResponse } from "@/lib/actions/onboarding";
+import { savePublicFormFill } from "@/lib/actions/public-form-fill";
 import { staffFillableFields } from "@/lib/onboarding/staff-fill";
 import { formatDate } from "@/lib/utils";
 import type { OnboardingForm, OnboardingResponse, OnboardingField } from "@/types/database";
 
 export interface LeadOnboardingData {
-  forms: Pick<OnboardingForm, "id" | "name" | "schema">[];
+  forms: StaffFillForm[];
   responses: OnboardingResponse[];
   allowSecureFill: boolean;
 }
@@ -45,7 +46,10 @@ export function LeadOnboardingCard({
     if (!picked) return;
     setBusy(true);
     try {
-      const res = await saveLeadOnboardingResponse(picked, leadId, answers);
+      const form = data.forms.find((f) => f.id === picked);
+      const res = form?.kind === "public"
+        ? await savePublicFormFill(picked, { kind: "lead", id: leadId }, answers)
+        : await saveLeadOnboardingResponse(picked, leadId, answers);
       if (!res.ok) { toast.error(res.error); return; }
       toast.success("Saved against this lead");
       setPicked(""); setAnswers({});

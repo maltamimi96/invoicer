@@ -5,6 +5,8 @@ import {
   getOnboardingSettings, getOnboardingForms, getOnboardingResponsesForLead, getSecureFieldsAvailable,
 } from "@/lib/actions/onboarding";
 import { staffFillableFields } from "@/lib/onboarding/staff-fill";
+import { getFillablePublicForms } from "@/lib/actions/public-form-fill";
+import type { StaffFillForm } from "@/components/onboarding/staff-onboarding-fill";
 import type { LeadOnboardingData } from "@/components/leads/lead-onboarding-card";
 
 /** Onboarding data for a lead — only when the plugin is on. Never break the
@@ -13,15 +15,19 @@ async function loadLeadOnboarding(leadId: string): Promise<LeadOnboardingData | 
   try {
     const settings = await getOnboardingSettings();
     if (!settings.enabled) return null;
-    const [forms, responses, allowSecureFill] = await Promise.all([
+    const [forms, responses, allowSecureFill, publicForms] = await Promise.all([
       getOnboardingForms(),
       getOnboardingResponsesForLead(leadId),
       getSecureFieldsAvailable(),
+      // Form Builder forms are fillable here too — same field engine, answers
+      // just land in their own table.
+      getFillablePublicForms().catch(() => []),
     ]);
     return {
       forms: forms
         .filter((f) => f.status !== "archived" && staffFillableFields(f.schema).length > 0)
-        .map((f) => ({ id: f.id, name: f.name, schema: f.schema })),
+        .map((f): StaffFillForm => ({ id: f.id, name: f.name, schema: f.schema, kind: "onboarding" }))
+        .concat(publicForms.map((f): StaffFillForm => ({ id: f.id, name: f.name, schema: f.schema, kind: "public" }))),
       responses,
       allowSecureFill,
     };

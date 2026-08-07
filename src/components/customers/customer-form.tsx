@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Loader2, User, MapPin, StickyNote, Building2, CreditCard, ListChecks, ClipboardList, Landmark } from "@/components/ui/icons";
 import { createCustomer, updateCustomer } from "@/lib/actions/customers";
 import { saveStaffOnboardingResponse } from "@/lib/actions/onboarding";
+import { savePublicFormFill } from "@/lib/actions/public-form-fill";
 import { ClientFields } from "@/components/customers/client-fields";
 import { StaffOnboardingFill, type StaffFillForm, type StaffFillValue } from "@/components/onboarding/staff-onboarding-fill";
 import { pruneAnswers } from "@/lib/customers/field-schema";
@@ -189,7 +190,10 @@ export function CustomerForm({
       }
 
       if (!customer && fill.formId) {
-        const res = await saveStaffOnboardingResponse(fill.formId, result.id, fill.answers);
+        const picked = onboardingForms.find((f) => f.id === fill.formId);
+        const res = picked?.kind === "public"
+          ? await savePublicFormFill(fill.formId, { kind: "customer", id: result.id }, fill.answers)
+          : await saveStaffOnboardingResponse(fill.formId, result.id, fill.answers);
         if (res.ok) toast.success("Onboarding form saved against this customer");
         else toast.error(`Customer saved, but the onboarding form wasn't: ${res.error}`);
       }
