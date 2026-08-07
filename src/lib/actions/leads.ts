@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { dispatchWebhook } from "@/lib/webhooks";
+import { emitAutomationEvent } from "@/lib/automations/emit";
 import { createCustomer } from "@/lib/actions/customers";
 import { createQuote } from "@/lib/actions/quotes";
 import { createWorkOrder } from "@/lib/actions/work-orders";
@@ -101,6 +102,9 @@ export async function createLead(payload: {
 
   revalidatePath("/leads");
   dispatchWebhook(businessId, "lead.created", data);
+  // Awaited, unlike the webhook above: a lost automation is a follow-up that
+  // never happens, with nothing to show it went missing.
+  await emitAutomationEvent(supabase, businessId, "lead.created", "lead", data.id);
   return data as Lead;
 }
 
