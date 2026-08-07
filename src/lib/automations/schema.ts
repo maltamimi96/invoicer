@@ -40,7 +40,7 @@ export interface ActionDef {
    *  portal links are minted against one, so a lead has no address to send to. */
   entities: Array<"customer" | "lead">;
   /** Config the action needs before it can be saved. */
-  needs?: "onboarding_form";
+  needs?: "onboarding_form" | "message";
   hint: string;
 }
 
@@ -51,6 +51,13 @@ export const ACTIONS: ActionDef[] = [
     entities: ["customer"],
     needs: "onboarding_form",
     hint: "Sends the form's portal link. Leads can't receive one — convert them first.",
+  },
+  {
+    type: "send_sms",
+    label: "Text them",
+    entities: ["customer", "lead"],
+    needs: "message",
+    hint: "Sent from your business name. {{name}} is replaced with theirs.",
   },
 ];
 
@@ -128,6 +135,13 @@ export function validateAutomation(input: {
     }
     if (def.needs === "onboarding_form" && !a.form_id) {
       return `Choose which form "${def.label}" should send.`;
+    }
+    if (def.needs === "message") {
+      const body = String(a.message ?? "").trim();
+      if (!body) return `Write the message for "${def.label}".`;
+      // One segment is 160 chars; longer is billed per segment. Warn at the
+      // point of writing rather than on the invoice.
+      if (body.length > 480) return "That text is over 3 message segments — shorten it or it gets expensive.";
     }
   }
 

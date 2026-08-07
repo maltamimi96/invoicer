@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireCron } from "@/lib/cron-auth";
 import { sendOnboardingFormFor } from "@/lib/onboarding/send";
+import { sendSmsFor, smsConfigured } from "@/lib/sms";
 
 export const maxDuration = 300;
 
@@ -54,9 +55,24 @@ function matches(entity: Record<string, unknown>, conditions: unknown): boolean 
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function runAction(sb: any, businessId: string, entityId: string, action: any): Promise<ActionResult> {
+async function runAction(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  sb: any, businessId: string, entityId: string, action: any, entity: Record<string, any>,
+): Promise<ActionResult> {
   const type = String(action?.type ?? "unknown");
   try {
+    if (type === "send_sms") {
+      if (!smsConfigured()) return { type, ok: false, detail: "SMS isn't configured on the server" };
+      const to = String(entity.phone ?? "").trim();
+      // Not a failure worth retrying: they simply have no number.
+      if (!to) return { type, ok: true, detail: "Skipped — no phone number on record" };
+      const body = String(action.message ?? "").replace(/\{\{name\}\}/g, String(entity.name ?? "there"));
+      const res = await sendSmsFor(sb, businessId, {
+        to, body, customerName: String(entity.name ?? "Customer"),
+        customerId: entity.id && action.__entity === "customer" ? entity.id : null,
+      });
+      return { type, ok: true, detail: `Texted ${to} (${res.providerId})` };
+    }
     if (type === "send_onboarding_form") {
       if (!action.form_id) return { type, ok: false, detail: "No form chosen on this action" };
       const res = await sendOnboardingFormFor(sb, businessId, action.form_id, entityId, { email: true });
@@ -117,7 +133,8 @@ export async function GET(req: NextRequest) {
 
       const results: ActionResult[] = [];
       for (const action of (rule.actions ?? [])) {
-        results.push(await runAction(sb, run.business_id, run.entity_id, action));
+        results.push(await runAction(sb, run.business_id, run.entity_id,
+          { ...action, __entity: run.entity_type }, entity));
       }
 
       const anyFailed = results.some((r) => !r.ok);

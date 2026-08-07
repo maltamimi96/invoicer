@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { emitAutomationEvent } from "@/lib/automations/emit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { processAnswersForStorage, missingRequiredFields, invalidAnswerFields } from "@/lib/onboarding/answers";
 import { sendEmail, buildBusinessFrom } from "@/lib/email";
@@ -97,6 +98,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
         } else {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           leadId = (created as any)?.id ?? null;
+        }
+        // This route calls upsert_lead directly rather than createLead(), so
+        // until now a public form submission fired NOTHING — the one use case
+        // automations were wanted for had no trigger signal at all.
+        if (leadId) {
+          await emitAutomationEvent(sb, form.business_id, "lead.created", "lead", leadId);
         }
       } catch (e) {
         console.error("[form-submit] lead creation threw:", e instanceof Error ? e.message : e);

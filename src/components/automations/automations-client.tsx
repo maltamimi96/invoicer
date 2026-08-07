@@ -17,6 +17,7 @@ import {
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
@@ -257,6 +258,22 @@ function Builder({ draft, setDraft, forms, busy, onSave }: {
                   )}
                 </div>
               )}
+              {def?.needs === "message" && (
+                <div className="space-y-1.5">
+                  <Label>Message</Label>
+                  <Textarea
+                    rows={3}
+                    value={a.message ?? ""}
+                    placeholder="Hi {{name}}, thanks for getting in touch — we'll be in contact shortly."
+                    onChange={(e) => {
+                      const next = [...draft.actions]; next[i] = { ...a, message: e.target.value }; set({ actions: next });
+                    }}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {String(a.message ?? "").length} characters · one segment is 160
+                  </p>
+                </div>
+              )}
               {def && <p className="text-xs text-muted-foreground">{def.hint}</p>}
             </div>
           );
@@ -321,6 +338,7 @@ function AutomationCard({ automation, runs, forms, onEdit }: {
             {(automation.actions ?? []).map((a) => {
               const label = a.type === "send_onboarding_form"
                 ? `email ${forms.find((f) => f.id === a.form_id)?.name ?? "a form"}`
+                : a.type === "send_sms" ? "send a text"
                 : a.type;
               return label;
             }).join(", ") || "nothing yet"}
