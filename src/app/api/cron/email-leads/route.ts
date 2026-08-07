@@ -10,6 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { emitAutomationEvent } from "@/lib/automations/emit";
 import Anthropic from "@anthropic-ai/sdk";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchEmailsSince, type RawEmail, type ImapConfig } from "@/lib/email-reader";
@@ -327,6 +328,11 @@ async function processBusinessEmails(
       // Distinguish "new lead row" vs "merged into existing" so the digest is honest.
       // upsert_lead returns the row in both cases; we infer "merged" when sources
       // already contained 'email' from a prior run with the same Message-ID.
+      const upsertedId = (upserted as { id?: string } | null)?.id;
+      // The inbox scanner is a real lead source; it fired nothing before.
+      if (upsertedId) {
+        await emitAutomationEvent(sb, config.business_id, "lead.created", "lead", upsertedId);
+      }
       const refs = (upserted as { source_refs?: Array<{ ref?: string | null }> } | null)?.source_refs ?? [];
       const isMergeOfSameEmail = email.messageId
         ? refs.filter((r) => r.ref === email.messageId).length > 1

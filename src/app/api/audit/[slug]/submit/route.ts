@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { emitAutomationEvent } from "@/lib/automations/emit";
 import { randomBytes } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { rateLimit, clientIp } from "@/lib/booking/public";
@@ -59,6 +60,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     p_source_ref: slug,
   }).single();
   if (lead?.id) await tbl(sb, "seo_audits").update({ lead_id: lead.id }).eq("id", audit.id);
+  // Another upsert_lead caller that bypasses createLead(): without this an
+  // audit request never triggers a lead automation.
+  if (lead?.id) await emitAutomationEvent(sb, business.id, "lead.created", "lead", lead.id);
 
   return NextResponse.json({ ok: true });
 }

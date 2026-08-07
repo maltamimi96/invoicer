@@ -7,6 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { emitAutomationEvent } from "@/lib/automations/emit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { authenticateApiKey, requireScope } from "@/lib/api-auth";
 import { dispatchWebhook } from "@/lib/webhooks";
@@ -72,6 +73,11 @@ export async function POST(req: NextRequest) {
   }
 
   dispatchWebhook(ctx.businessId, "lead.created", data);
+  // Awaited, unlike the webhook above: leads posted by an external integration
+  // deserve the same automations as ones typed in by hand.
+  if (data) {
+    await emitAutomationEvent(sb, ctx.businessId, "lead.created", "lead", (data as { id: string }).id);
+  }
   return NextResponse.json({ ok: true, lead: data }, { status: 201 });
 }
 

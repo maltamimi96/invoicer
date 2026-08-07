@@ -12,6 +12,7 @@
  * every write is explicitly scoped by business_id.
  */
 import { matchKey } from "./phone";
+import { emitAutomationEvent } from "@/lib/automations/emit";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SB = any;
@@ -251,6 +252,9 @@ export async function ingestCallEvent(
       }).single();
       const leadId = typeof lead === "string" ? lead : lead?.id;
       if (leadId) { patch.created_lead_id = leadId; out.created_lead = true; }
+      // A missed call that became a lead should trigger the same automations
+      // as any other lead — that's often the one you most want to chase.
+      if (leadId) await emitAutomationEvent(sb, businessId, "lead.created", "lead", leadId);
     } catch {
       // A lead we couldn't create must not cost us the call log itself.
     }
