@@ -59,17 +59,20 @@ export async function emitAutomationEvent(
     if (!settings?.enabled) return { queued: 0 };
 
     const { data: rules } = await tbl(sb, "automations")
-      .select("id").eq("business_id", businessId).eq("trigger_event", event).eq("enabled", true);
+      .select("id, delay_minutes").eq("business_id", businessId).eq("trigger_event", event).eq("enabled", true);
     if (!rules?.length) return { queued: 0 };
 
     // One row per rule. The unique index on (automation_id, entity_id, event)
     // makes a duplicate emit a no-op rather than a second email.
-    const rows = rules.map((r: { id: string }) => ({
+    // run_at carries the wait. The runner already filters on `run_at <= now()`,
+    // so a delayed rule needs nothing else.
+    const rows = rules.map((r: { id: string; delay_minutes?: number }) => ({
       business_id: businessId,
       automation_id: r.id,
       trigger_event: event,
       entity_type: entityType,
       entity_id: entityId,
+      run_at: new Date(Date.now() + (r.delay_minutes ?? 0) * 60_000).toISOString(),
     }));
     const { error } = await tbl(sb, "automation_runs")
       .upsert(rows, { onConflict: "automation_id,entity_id,trigger_event", ignoreDuplicates: true });

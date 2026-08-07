@@ -27,6 +27,7 @@ export interface AutomationRow {
   trigger_event: string;
   conditions: AutomationCondition[];
   actions: AutomationAction[];
+  delay_minutes: number;
   last_run_at: string | null;
   run_count: number;
   created_at: string;
@@ -113,6 +114,7 @@ export async function saveAutomation(input: {
   trigger_event: string;
   conditions: AutomationCondition[];
   actions: AutomationAction[];
+  delay_minutes?: number;
   enabled?: boolean;
 }): Promise<SaveResult> {
   const supabase = await createClient();
@@ -129,6 +131,7 @@ export async function saveAutomation(input: {
     trigger_event: input.trigger_event,
     conditions: input.conditions ?? [],
     actions: input.actions ?? [],
+    delay_minutes: input.delay_minutes ?? 0,
     enabled: input.enabled ?? true,
   };
 

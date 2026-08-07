@@ -26,8 +26,8 @@ import {
 } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
-  TRIGGERS, CONDITION_OPS, CONDITION_FIELDS, actionsForTrigger, triggerFor,
-  validateAutomation, type AutomationCondition, type AutomationAction,
+  TRIGGERS, CONDITION_OPS, CONDITION_FIELDS, DELAY_CHOICES, actionsForTrigger, triggerFor,
+  delayLabel, validateAutomation, type AutomationCondition, type AutomationAction,
 } from "@/lib/automations/schema";
 import {
   saveAutomation, setAutomationEnabled, deleteAutomation,
@@ -47,6 +47,7 @@ const BLANK = {
   trigger_event: TRIGGERS[0].event,
   conditions: [] as AutomationCondition[],
   actions: [] as AutomationAction[],
+  delay_minutes: 0,
 };
 
 export function AutomationsClient({ automations, runs, forms }: Props) {
@@ -102,7 +103,7 @@ export function AutomationsClient({ automations, runs, forms }: Props) {
               forms={forms}
               onEdit={() => setDraft({
                 id: a.id, name: a.name, trigger_event: a.trigger_event,
-                conditions: a.conditions ?? [], actions: a.actions ?? [],
+                conditions: a.conditions ?? [], actions: a.actions ?? [], delay_minutes: a.delay_minutes ?? 0,
               })}
             />
           ))}
@@ -165,6 +166,22 @@ function Builder({ draft, setDraft, forms, busy, onSave }: {
           </SelectContent>
         </Select>
         {trigger && <p className="text-xs text-muted-foreground">{trigger.hint}</p>}
+      </section>
+
+      <section className="space-y-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Wait</p>
+        <Select value={String(draft.delay_minutes)} onValueChange={(v) => set({ delay_minutes: Number(v) })}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {DELAY_CHOICES.map((d) => (
+              <SelectItem key={d.minutes} value={String(d.minutes)}>{d.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Conditions are checked when it RUNS, not when it was triggered — so a lead that
+          converts during the wait can be filtered out by then.
+        </p>
       </section>
 
       <section className="space-y-2">
@@ -333,6 +350,7 @@ function AutomationCard({ automation, runs, forms, onEdit }: {
           </div>
           <p className="text-sm text-muted-foreground mt-0.5">
             When {(trigger?.label ?? automation.trigger_event).toLowerCase()}
+            {automation.delay_minutes > 0 ? `, ${delayLabel(automation.delay_minutes).toLowerCase()}` : ""}
             {automation.conditions?.length ? `, if ${automation.conditions.length} condition${automation.conditions.length > 1 ? "s" : ""} match` : ""}
             {" → "}
             {(automation.actions ?? []).map((a) => {
