@@ -40,7 +40,7 @@ export interface PluginDefinition {
   /** Icon name for the Plugins store (mapped in the store's ICON_MAP). */
   icon?: string;
   /** Legacy per-feature settings table that stays authoritative for enabled. */
-  settingsTable?: "quoting_agent_settings" | "onboarding_settings" | "form_builder_settings";
+  settingsTable?: "quoting_agent_settings" | "onboarding_settings" | "form_builder_settings" | "automations_settings";
 }
 
 export const PLUGIN_REGISTRY: PluginDefinition[] = [
@@ -85,6 +85,8 @@ export const PLUGIN_REGISTRY: PluginDefinition[] = [
   { id: "quoting-agent", icon: "sparkles",     name: "Quoting Agent",     description: "AI that learns your pricing and writes quotes.", kind: "module", category: "automation", defaultEnabled: false, settingsTable: "quoting_agent_settings", routePrefixes: ["/quoting-agent"] },
   { id: "client-onboarding", icon: "clipboard-list", name: "Client Onboarding", description: "Custom intake forms customers fill in via the portal.", kind: "module", category: "contacts", defaultEnabled: false, settingsTable: "onboarding_settings", routePrefixes: ["/onboarding-forms"] },
   { id: "form-builder", icon: "list-checks",      name: "Form Builder",      description: "Public lead-capture forms to share or embed.", kind: "module", category: "sales", defaultEnabled: false, settingsTable: "form_builder_settings", routePrefixes: ["/forms"] },
+
+  { id: "automations", icon: "zap", name: "Automations", description: "When something happens, do something: email a new client their onboarding form, text a customer when a job is done.", kind: "module", category: "automation", defaultEnabled: false, settingsTable: "automations_settings", routePrefixes: ["/automations"] },
 
   // ── SEO vertical (docs/SEO_AGENCY_PLAN.md, Phase 2) ─────────────────────────
   { id: "seo-production", icon: "trending-up", name: "SEO Production", description: "Manage client sites: connectors, opportunity queue, content pipeline and reporting.", kind: "module", category: "seo", defaultEnabled: false, routePrefixes: ["/seo"] },
