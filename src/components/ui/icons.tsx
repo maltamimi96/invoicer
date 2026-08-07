@@ -70,6 +70,7 @@ export {
   Bot,
   Boxes,
   Building2,
+  Landmark,
   CalendarDays,
   ChevronDown,
   ChevronDownIcon,

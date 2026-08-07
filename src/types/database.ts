@@ -123,6 +123,10 @@ export interface Customer {
   /** Answers to the business's own client fields, keyed by field id.
    *  See lib/customers/field-schema.ts. */
   custom_fields?: Record<string, unknown> | null;
+  /** Direct-debit details. BSB and account number are stored encrypted and are
+   *  never sent to the browser — only these two are readable. */
+  bank_account_name?: string | null;
+  bank_account_last3?: string | null;
   archived: boolean;
   created_at: string;
   updated_at: string;
