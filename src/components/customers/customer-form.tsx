@@ -6,12 +6,14 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Loader2, User, MapPin, StickyNote, Building2, CreditCard, ListChecks, ClipboardList } from "@/components/ui/icons";
+import { Loader2, User, MapPin, StickyNote, Building2, CreditCard, ListChecks, ClipboardList, Landmark } from "@/components/ui/icons";
 import { createCustomer, updateCustomer } from "@/lib/actions/customers";
 import { saveStaffOnboardingResponse } from "@/lib/actions/onboarding";
 import { ClientFields } from "@/components/customers/client-fields";
 import { StaffOnboardingFill, type StaffFillForm, type StaffFillValue } from "@/components/onboarding/staff-onboarding-fill";
 import { pruneAnswers } from "@/lib/customers/field-schema";
+import { saveCustomerBankDetails } from "@/lib/actions/customer-bank";
+import { validateBankDetails, formatBsb, maskedAccount } from "@/lib/customers/bank";
 import {
   staffFillProblems, staffFillErrorMessage, type StaffFillProblem,
 } from "@/lib/onboarding/staff-fill";
@@ -95,6 +97,9 @@ export function CustomerForm({
   );
   const [fill, setFill] = useState<StaffFillValue>({ formId: "", answers: {} });
   const [fillProblems, setFillProblems] = useState<StaffFillProblem[]>([]);
+  // Bank details are write-only from here: what's stored is encrypted and
+  // never sent back to the browser, so these start blank even when editing.
+  const [bank, setBank] = useState({ accountName: "", bsb: "", accountNumber: "" });
   const { register, handleSubmit, control, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -125,6 +130,11 @@ export function CustomerForm({
   const showCompanyHint = !["residential", "individual"].includes(accountType);
 
   const onSubmit = async (data: FormData) => {
+    // Bank details checked before anything is written, same reasoning as the
+    // onboarding form below: a half-entered BSB shouldn't cost you the client.
+    const bankProblem = validateBankDetails(bank);
+    if (bankProblem) { toast.error(bankProblem); return; }
+
     // Check the attached onboarding form BEFORE creating anything. Finding out
     // afterwards leaves the client saved and the form not — and the answers
     // typed into this screen gone, to be re-entered from their profile.
@@ -171,6 +181,13 @@ export function CustomerForm({
 
       // The customer exists now, so the onboarding answers have something to
       // attach to. Anything wrong with them was caught before we got here.
+      const enteredBank = Boolean(bank.bsb.trim() || bank.accountNumber.trim() || bank.accountName.trim());
+      if (enteredBank) {
+        const res = await saveCustomerBankDetails(result.id, bank);
+        if (res.ok) setBank({ accountName: "", bsb: "", accountNumber: "" });
+        else toast.error(`Customer saved, but the bank details weren't: ${res.error}`);
+      }
+
       if (!customer && fill.formId) {
         const res = await saveStaffOnboardingResponse(fill.formId, result.id, fill.answers);
         if (res.ok) toast.success("Onboarding form saved against this customer");
@@ -384,6 +401,56 @@ export function CustomerForm({
           </FormSection>
         </div>
       )}
+
+      <FormSection
+        icon={<Landmark className="w-4 h-4" />}
+        gradient="emerald"
+        title="Bank details"
+        hint="For direct debit. Stored encrypted — only an owner or admin can read them back."
+      >
+        <div className="space-y-4">
+          {customer?.bank_account_last3 && (
+            <p className="text-sm text-muted-foreground">
+              On file: <span className="font-medium text-foreground">{maskedAccount(customer.bank_account_last3)}</span>
+              {customer.bank_account_name ? <> &middot; {customer.bank_account_name}</> : null}.
+              Entering new details replaces them; leaving these blank keeps what&rsquo;s stored.
+            </p>
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>Account name</Label>
+              <Input
+                placeholder="As it appears on the account"
+                value={bank.accountName}
+                onChange={(e) => setBank((b) => ({ ...b, accountName: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>BSB</Label>
+              <Input
+                inputMode="numeric"
+                placeholder="062-000"
+                value={bank.bsb}
+                onChange={(e) => setBank((b) => ({ ...b, bsb: e.target.value }))}
+                onBlur={(e) => setBank((b) => ({ ...b, bsb: formatBsb(e.target.value) }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Account number</Label>
+              <Input
+                inputMode="numeric"
+                placeholder="12345678"
+                value={bank.accountNumber}
+                onChange={(e) => setBank((b) => ({ ...b, accountNumber: e.target.value }))}
+              />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Never put card numbers here. A card is stored by your payment provider and charged through them &mdash;
+            see Settings &rarr; Payments.
+          </p>
+        </div>
+      </FormSection>
 
       <FormSection
         icon={<StickyNote className="w-4 h-4" />}
