@@ -274,20 +274,43 @@ export type StaffFillResult =
  * lib/onboarding/staff-fill.ts) — staff can't provide those, and a
  * credential typed by someone other than its owner isn't one.
  */
+/** Who a form is about. Exactly one of these, enforced by a CHECK in the DB. */
+export type OnboardingSubject =
+  | { kind: "customer"; id: string }
+  | { kind: "lead"; id: string };
+
 export async function saveStaffOnboardingResponse(
   formId: string, customerId: string, answers: Record<string, unknown>,
+): Promise<StaffFillResult> {
+  return saveStaffOnboardingFor(formId, { kind: "customer", id: customerId }, answers);
+}
+
+/** Same thing for a lead — qualifying one means asking the same questions. */
+export async function saveLeadOnboardingResponse(
+  formId: string, leadId: string, answers: Record<string, unknown>,
+): Promise<StaffFillResult> {
+  return saveStaffOnboardingFor(formId, { kind: "lead", id: leadId }, answers);
+}
+
+async function saveStaffOnboardingFor(
+  formId: string, subject: OnboardingSubject, answers: Record<string, unknown>,
 ): Promise<StaffFillResult> {
   const supabase = await createClient();
   const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
 
-  const [{ data: form }, { data: customer }] = await Promise.all([
+  const subjectTable = subject.kind === "customer" ? "customers" : "leads";
+  const [{ data: form }, { data: subjectRow }] = await Promise.all([
     tbl(supabase, "onboarding_forms").select("id, schema").eq("id", formId).eq("business_id", businessId).maybeSingle(),
-    tbl(supabase, "customers").select("id").eq("id", customerId).eq("business_id", businessId).maybeSingle(),
+    tbl(supabase, subjectTable).select("id").eq("id", subject.id).eq("business_id", businessId).maybeSingle(),
   ]);
   // Returned, not thrown — Next masks thrown server-action messages in prod.
   if (!form) return { ok: false, error: "Form not found" };
-  if (!customer) return { ok: false, error: "Customer not found" };
+  if (!subjectRow) return { ok: false, error: subject.kind === "customer" ? "Customer not found" : "Lead not found" };
+  // Exactly one of these is set, matching the DB CHECK.
+  const subjectCols = subject.kind === "customer"
+    ? { customer_id: subject.id, lead_id: null }
+    : { customer_id: null, lead_id: subject.id };
 
   const schema = (form.schema ?? []) as OnboardingField[];
   if (schema.length === 0) return { ok: false, error: "That form has no fields yet" };
@@ -302,11 +325,12 @@ export async function saveStaffOnboardingResponse(
   if (problems.length) return { ok: false, error: staffFillErrorMessage(problems) };
   const stored = processAnswersForStorage(schema, clean);
 
-  // Reuse an open request for this form+customer rather than stacking a second
+  // Reuse an open request for this form+subject rather than stacking a second
   // one — otherwise "send it, then fill it in yourself" leaves two rows.
+  const subjectCol = subject.kind === "customer" ? "customer_id" : "lead_id";
   const { data: openReq } = await tbl(supabase, "onboarding_requests")
     .select("id").eq("business_id", businessId).eq("form_id", formId)
-    .eq("customer_id", customerId).neq("status", "completed")
+    .eq(subjectCol, subject.id).neq("status", "completed")
     .order("created_at", { ascending: false }).limit(1).maybeSingle();
 
   const now = new Date().toISOString();
@@ -317,7 +341,7 @@ export async function saveStaffOnboardingResponse(
     if (error) return { ok: false, error: error.message };
   } else {
     const { data: created, error } = await tbl(supabase, "onboarding_requests").insert({
-      business_id: businessId, form_id: formId, customer_id: customerId,
+      business_id: businessId, form_id: formId, ...subjectCols,
       status: "completed", completed_at: now,
     }).select("id").single();
     if (error) return { ok: false, error: error.message };
@@ -328,13 +352,16 @@ export async function saveStaffOnboardingResponse(
   // viewer should show the upload fields as unanswered rather than pretend
   // they were never asked for.
   const { error: respErr } = await tbl(supabase, "onboarding_responses").upsert({
-    business_id: businessId, request_id: requestId, form_id: formId, customer_id: customerId,
-    answers: clean, schema_snapshot: schema, draft: false, submitted_at: now,
+    business_id: businessId, request_id: requestId, form_id: formId, ...subjectCols,
+    // `stored`, not `clean`: secure answers must be encrypted before they land.
+    // This said `clean` from #449 onward — the encrypted value was computed and
+    // thrown away, so a staff-filled credential went into the row in plaintext.
+    answers: stored, schema_snapshot: schema, draft: false, submitted_at: now,
   }, { onConflict: "request_id" });
   if (respErr) return { ok: false, error: respErr.message };
 
   revalidatePath("/onboarding-forms");
-  revalidatePath(`/customers/${customerId}`);
+  revalidatePath(subject.kind === "customer" ? `/customers/${subject.id}` : `/leads/${subject.id}`);
   return {
     ok: true,
     request_id: requestId,
@@ -401,7 +428,7 @@ export interface OnboardingRequestRow extends OnboardingRequest {
   onboarding_forms?: { name: string } | null;
 }
 
-export async function getOnboardingRequests(filter: { form_id?: string; customer_id?: string } = {}): Promise<OnboardingRequestRow[]> {
+export async function getOnboardingRequests(filter: { form_id?: string; customer_id?: string; lead_id?: string } = {}): Promise<OnboardingRequestRow[]> {
   const supabase = await createClient();
   const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
@@ -410,6 +437,7 @@ export async function getOnboardingRequests(filter: { form_id?: string; customer
     .eq("business_id", businessId).order("created_at", { ascending: false }).limit(200);
   if (filter.form_id) q = q.eq("form_id", filter.form_id);
   if (filter.customer_id) q = q.eq("customer_id", filter.customer_id);
+  if (filter.lead_id) q = q.eq("lead_id", filter.lead_id);
   const { data, error } = await q;
   if (error) throw error;
   return (data ?? []) as OnboardingRequestRow[];
@@ -437,6 +465,21 @@ export async function getOnboardingResponse(requestId: string): Promise<(Onboard
   if (!data) return null;
   const schema = (data.schema_snapshot ?? []) as OnboardingField[];
   return { ...data, answers: redactSecureAnswers(schema, data.answers ?? {}), redacted: true };
+}
+
+/** All of a LEAD's responses (secure answers redacted). */
+export async function getOnboardingResponsesForLead(leadId: string): Promise<OnboardingResponse[]> {
+  const supabase = await createClient();
+  const user = await getUser();
+  const businessId = await getActiveBizId(supabase, user.id);
+  const { data } = await tbl(supabase, "onboarding_responses")
+    .select("*").eq("lead_id", leadId).eq("business_id", businessId)
+    .order("created_at", { ascending: false });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return ((data ?? []) as any[]).map((r) => ({
+    ...r,
+    answers: redactSecureAnswers((r.schema_snapshot ?? []) as OnboardingField[], r.answers ?? {}),
+  })) as OnboardingResponse[];
 }
 
 /** All of a customer's responses (secure answers redacted) — for the profile tab. */
