@@ -53,7 +53,7 @@ export function ThemeSwatches({ className }: { className?: string }) {
             aria-label={t.label}
             onClick={() => pick(t.key)}
             className={cn(
-              "h-[26px] w-[26px] rounded-full transition-transform duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
+              "h-6 w-6 rounded-full transition-transform duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
               "outline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring",
               active ? "scale-100 outline outline-2 outline-foreground" : "scale-[0.88] outline outline-2 outline-transparent",
             )}

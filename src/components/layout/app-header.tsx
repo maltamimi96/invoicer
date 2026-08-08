@@ -62,7 +62,7 @@ export function AppHeader({ user, onMenuClick, workerView, features, vocab }: Ap
       {/* Brand segment — over the sidebar column (desktop). The lockup carries
           the name, so there's no wordmark text beside it. */}
       <div className="hidden md:flex h-11 shrink-0 items-center border-r border-border pl-6 pr-4">
-        <KireiWordmark className="h-[26px] w-auto" />
+        <KireiWordmark className="h-6 w-auto" />
       </div>
 
       {/* Mobile: menu + mark (the full lockup won't fit beside the search) */}
