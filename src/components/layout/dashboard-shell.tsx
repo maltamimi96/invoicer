@@ -42,7 +42,7 @@ interface DashboardShellProps {
 
 export function DashboardShell(props: DashboardShellProps) {
   return (
-    <AppearanceProvider accentColor={props.business.accent_color} bgPattern={props.business.bg_pattern} sidebarTheme={props.business.sidebar_theme}>
+    <AppearanceProvider accentColor={props.business.accent_color} bgPattern={props.business.bg_pattern} sidebarTheme={props.business.sidebar_theme} uiTheme={props.business.ui_theme}>
       <AppLoadingProvider>
       <ConfirmProvider>
       <FocusModeProvider>

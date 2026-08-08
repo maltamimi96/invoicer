@@ -2,6 +2,31 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 
+/**
+ * The Kirei Dashboard v2 palettes.
+ *
+ * Light vs dark is a property of the theme, not a separate switch — Daylight
+ * is the light one. `swatch`/`ring` mirror the design's own theme picker so
+ * the dot in the header reads as the theme it selects.
+ */
+export const UI_THEMES = [
+  { key: "Midnight", label: "Midnight", swatch: "#3B82F6", ring: "#111A29", dark: true  },
+  { key: "Daylight", label: "Daylight", swatch: "#2563EB", ring: "#FFFFFF", dark: false },
+  { key: "Azure",    label: "Azure",    swatch: "#7DD3FC", ring: "#0C2A56", dark: true  },
+  { key: "Orchid",   label: "Orchid",   swatch: "#8B5CF6", ring: "#1B1030", dark: true  },
+] as const;
+
+export type UiThemeKey = (typeof UI_THEMES)[number]["key"];
+
+export const DEFAULT_UI_THEME: UiThemeKey = "Midnight";
+
+/** Where the no-flash boot script in the root layout stashes the choice. */
+export const UI_THEME_STORAGE_KEY = "kirei.ui-theme";
+
+export function isUiTheme(v: unknown): v is UiThemeKey {
+  return typeof v === "string" && UI_THEMES.some((t) => t.key === v);
+}
+
 export const ACCENT_PRESETS = [
   { key: "teal",    label: "Teal",    hex: "#3a847e" },
   { key: "blue",    label: "Blue",    hex: "#2563eb" },
@@ -111,18 +136,22 @@ interface AppearanceContextValue {
   accentColor: string;
   bgPattern: string;
   sidebarTheme: string;
+  uiTheme: UiThemeKey;
   setAccentColor: (c: string) => void;
   setBgPattern: (p: string) => void;
   setSidebarTheme: (t: string) => void;
+  setUiTheme: (t: UiThemeKey) => void;
 }
 
 const AppearanceContext = createContext<AppearanceContextValue>({
   accentColor: "teal",
   bgPattern: "none",
   sidebarTheme: "light",
+  uiTheme: DEFAULT_UI_THEME,
   setAccentColor: () => {},
   setBgPattern: () => {},
   setSidebarTheme: () => {},
+  setUiTheme: () => {},
 });
 
 export function useAppearance() {
@@ -134,15 +163,20 @@ export function AppearanceProvider({
   accentColor: initialAccent = "blue",
   bgPattern: initialPattern = "none",
   sidebarTheme: initialTheme = "light",
+  uiTheme: initialUiTheme = DEFAULT_UI_THEME,
 }: {
   children: React.ReactNode;
   accentColor?: string;
   bgPattern?: string;
   sidebarTheme?: string;
+  uiTheme?: string;
 }) {
   const [accentColor, setAccentColor]     = useState(initialAccent);
   const [bgPattern,   setBgPattern]       = useState(initialPattern);
   const [sidebarTheme, setSidebarTheme]   = useState(initialTheme);
+  const [uiTheme, setUiTheme] = useState<UiThemeKey>(
+    isUiTheme(initialUiTheme) ? initialUiTheme : DEFAULT_UI_THEME,
+  );
 
   // Sync state when the active business changes (router.refresh re-renders
   // this provider with the new business's saved appearance, but useState
@@ -151,13 +185,23 @@ export function AppearanceProvider({
   useEffect(() => { setAccentColor(initialAccent);  }, [initialAccent]);
   useEffect(() => { setBgPattern(initialPattern);   }, [initialPattern]);
   useEffect(() => { setSidebarTheme(initialTheme);  }, [initialTheme]);
+  useEffect(() => {
+    if (isUiTheme(initialUiTheme)) setUiTheme(initialUiTheme);
+  }, [initialUiTheme]);
 
   useEffect(() => { document.documentElement.dataset.accent = accentColor; }, [accentColor]);
   useEffect(() => { document.documentElement.dataset.pattern = bgPattern; }, [bgPattern]);
   useEffect(() => { document.documentElement.dataset.sidebarTheme = sidebarTheme; }, [sidebarTheme]);
+  useEffect(() => {
+    document.documentElement.dataset.theme = uiTheme;
+    // Mirrored so the boot script can paint the right theme before first
+    // render. Without it, a dark-theme business gets a white flash on every
+    // cold load, which is exactly what the theme is meant to avoid.
+    try { localStorage.setItem(UI_THEME_STORAGE_KEY, uiTheme); } catch { /* private mode */ }
+  }, [uiTheme]);
 
   return (
-    <AppearanceContext.Provider value={{ accentColor, bgPattern, sidebarTheme, setAccentColor, setBgPattern, setSidebarTheme }}>
+    <AppearanceContext.Provider value={{ accentColor, bgPattern, sidebarTheme, uiTheme, setAccentColor, setBgPattern, setSidebarTheme, setUiTheme }}>
       {children}
     </AppearanceContext.Provider>
   );
