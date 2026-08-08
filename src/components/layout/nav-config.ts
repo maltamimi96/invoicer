@@ -1,5 +1,5 @@
 import {
-  Zap,
+  Zap, Lock,
   LayoutDashboard, FileText, FileCheck, Users,
   Package, FileStack, ClipboardList, Wrench, Users2, UserPlus, CalendarDays, MessageSquare, Bot, Repeat, HelpCircle, Columns3, TrendingUp, Sparkles, ListChecks, Search, Receipt, Boxes, Clock, Hammer, Target, Megaphone, DollarSign, Send, Phone,
 } from "@/components/ui/icons";
@@ -48,6 +48,7 @@ export const navSections: NavSection[] = [
     { label: "Outreach",   href: "/outreach",   icon: Send,          plugin: "outreach" },
     { label: "Customers",  href: "/customers",  icon: Users                         },
     { label: "Contacts",   href: "/contacts",   icon: Users2                        },
+    { label: "Passwords",  href: "/vault",      icon: Lock,          plugin: "vault" },
     { label: "Onboarding", href: "/onboarding-forms", icon: ClipboardList, plugin: "client-onboarding" },
   ]},
   { section: "Catalog", items: [

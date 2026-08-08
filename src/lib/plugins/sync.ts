@@ -33,6 +33,10 @@ export async function syncPluginSideEffects(sb: any, businessId: string, pluginI
     await tbl(sb, "form_builder_settings")
       .upsert({ business_id: businessId, enabled }, { onConflict: "business_id" });
   }
+  if (pluginId === "vault") {
+    await tbl(sb, "vault_settings")
+      .upsert({ business_id: businessId, enabled }, { onConflict: "business_id" });
+  }
   if (pluginId === "quoting-agent") {
     await tbl(sb, "quoting_agent_settings")
       .upsert({ business_id: businessId, enabled }, { onConflict: "business_id" });
