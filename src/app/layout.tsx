@@ -56,7 +56,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" data-theme="console" suppressHydrationWarning>
+    <html lang="en" data-theme="Midnight" suppressHydrationWarning>
+      <head>
+        {/* Paint the business's theme before first render.
+            Three of the four palettes are dark, so without this every cold
+            load flashes the Midnight default (or white) before the provider
+            catches up - the one thing a dark theme must not do. The provider
+            mirrors the choice into localStorage; this only reads it. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('kirei.ui-theme');`
+              + `if(t&&['Midnight','Daylight','Azure','Orchid'].indexOf(t)>-1)`
+              + `document.documentElement.dataset.theme=t;}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body className={`${jakarta.variable} font-sans antialiased`} suppressHydrationWarning>
         <ThemeProvider
           attribute="class"

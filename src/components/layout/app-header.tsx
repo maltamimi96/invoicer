@@ -3,8 +3,7 @@
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { KireiWordmark, KireiMark } from "@/components/brand/kirei-logo";
-import { Moon, Sun, LogOut, Settings, User, Menu, Bot } from "@/components/ui/icons";
-import { useTheme } from "next-themes";
+import { LogOut, Settings, User, Menu, Bot } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -14,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { BriefingBell } from "@/components/briefing/briefing-bell";
 import { GlobalSearch } from "./global-search";
+import { ThemeSwatches } from "./theme-swatches";
 import { useAssistant } from "./assistant-context";
 import type { Business } from "@/types/database";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
@@ -35,7 +35,6 @@ interface AppHeaderProps {
  */
 export function AppHeader({ user, onMenuClick, workerView, features, vocab }: AppHeaderProps) {
   const router = useRouter();
-  const { theme, setTheme } = useTheme();
   const { toggle: toggleAssistant } = useAssistant();
   const supabase = createClient();
 
@@ -56,11 +55,14 @@ export function AppHeader({ user, onMenuClick, workerView, features, vocab }: Ap
   const iconBtn = "inline-flex h-9 w-9 items-center justify-center rounded-md text-nav-foreground/90 transition-colors hover:bg-white/15";
 
   return (
-    <header className="flex h-16 shrink-0 items-center bg-nav text-nav-foreground">
+    <header
+      className="flex h-[72px] shrink-0 items-center border-b border-border bg-background text-foreground"
+      style={{ backgroundImage: "linear-gradient(180deg, var(--accent-soft) 0%, transparent 100%)" }}
+    >
       {/* Brand segment — over the sidebar column (desktop). The lockup carries
           the name, so there's no wordmark text beside it. */}
-      <div className="hidden md:flex h-full w-64 shrink-0 items-center border-r border-white/15 px-4">
-        <KireiWordmark className="h-6 w-auto" accentClassName="fill-[#F05A42]" />
+      <div className="hidden md:flex h-11 shrink-0 items-center border-r border-border pl-6 pr-4">
+        <KireiWordmark className="h-[26px] w-auto" />
       </div>
 
       {/* Mobile: menu + mark (the full lockup won't fit beside the search) */}
@@ -72,28 +74,21 @@ export function AppHeader({ user, onMenuClick, workerView, features, vocab }: Ap
       </div>
 
       {/* Search */}
-      <div className="flex flex-1 items-center px-3 md:px-5">
+      <div className="flex flex-1 items-center px-3 md:px-6">
         <div className="w-full max-w-lg">
           <GlobalSearch workerView={workerView} features={features} vocab={vocab} />
         </div>
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-0.5 pr-2 md:pr-4">
+      <div className="flex items-center gap-1 pr-2 md:pr-6">
         <button className={iconBtn} onClick={toggleAssistant} aria-label="AI assistant" title="Ask Kirei">
           <Bot className="h-[18px] w-[18px]" />
         </button>
         <div className="[&_button]:text-nav-foreground [&_button:hover]:bg-white/15">
           <BriefingBell />
         </div>
-        <button
-          className={iconBtn}
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          aria-label="Toggle theme"
-        >
-          <Sun className="h-[18px] w-[18px] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-          <Moon className="absolute h-[18px] w-[18px] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-        </button>
+        <ThemeSwatches className="mx-1.5" />
         <Link href="/settings" className={iconBtn} aria-label="Settings">
           <Settings className="h-[18px] w-[18px]" />
         </Link>

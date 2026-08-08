@@ -200,6 +200,254 @@
   letter-spacing: -0.03em;
 }
 
+
+/* ==========================================================================
+   Kirei Dashboard v2 themes - Midnight / Daylight / Azure / Orchid
+   --------------------------------------------------------------------------
+   Ported from the Claude Design project "Kirei Dashboard v2". The design
+   ships its own token names (--panel, --ac, --mu, ...). Rather than restyle
+   every component to those names, each theme is expressed in the SHADCN
+   contract the whole app already reads (--background, --card, --border,
+   --primary, ...) - so every existing page picks the theme up for free.
+
+   Two conversions were needed and are worth knowing about:
+
+   1. The design's borders are rgba over a surface (rgba(255,255,255,.07)).
+      hsl(var(--border)) needs a solid colour, so each border is composited
+      over the panel it actually sits on rather than approximated by eye.
+   2. The design's `bg` is the plate BEHIND its floating rounded shell. In the
+      app the content area fills the viewport, so `panel` becomes the canvas
+      and `bg` survives as --canvas-deep for the glow layer.
+
+   Light/dark is a property of the theme, not a separate toggle: Daylight is
+   light, the other three are dark. `color-scheme` tells the browser so native
+   controls and scrollbars follow.
+   ========================================================================== */
+
+[data-theme="Midnight"] {
+  /* Canvas is the design's `panel` (its floating shell interior): the app's
+     content area fills the viewport, so there is no outer `bg` plate. `bg`
+     survives as --canvas-deep for the glow layer behind the shell. */
+  --background: 217.5 41.4% 11.4%;
+  --foreground: 217.5 61.5% 94.9%;
+  --card: 218.6 36.8% 14.9%;
+  --card-foreground: 217.5 61.5% 94.9%;
+  --popover: 218.6 36.8% 14.9%;
+  --popover-foreground: 217.5 61.5% 94.9%;
+  --primary: 217.2 91.2% 59.8%;
+  --primary-foreground: 0.0 0.0% 100.0%;
+  --nav: 217.5 41.4% 11.4%;
+  --nav-foreground: 217.5 61.5% 94.9%;
+  --secondary: 218.2 34.7% 18.6%;
+  --secondary-foreground: 217.5 61.5% 94.9%;
+  --muted: 218.2 34.7% 18.6%;
+  --muted-foreground: 218.5 20.2% 62.2%;
+  --accent: 217.2 91.2% 59.8%;
+  --accent-foreground: 0.0 0.0% 100.0%;
+  --destructive: 0.0 90.6% 70.8%;
+  --destructive-foreground: 0.0 0.0% 100.0%;
+  --border: 218.2 24.4% 17.6%;
+  --input: 218.2 24.4% 17.6%;
+  --ring: 217.2 91.2% 59.8%;
+  --radius: 0.875rem;                 /* 14px - the mock's card radius */
+
+  /* Design tokens the new shell and dashboard use directly. Kept under their
+     own names so they can't collide with the shadcn contract above. */
+  --canvas-deep: 220.0 47.4% 7.5%;
+  --surface-3: 218.2 34.7% 18.6%;
+  --border-strong: 220.0 18.6% 22.2%;
+  --accent-2: 187.9 85.7% 53.3%;
+  --accent-soft: rgba(59,130,246,.16);
+  --ok: 158.1 64.4% 51.6%;
+  --warn: 43.3 96.4% 56.3%;
+  --bad: 0.0 90.6% 70.8%;
+  --lime: 82.0 84.5% 67.1%;
+  --glow: rgba(59,130,246,.18);
+  --shadow-panel: 0 24px 60px rgba(0,0,0,.45);
+  /* The sidebar follows the theme rather than the older data-sidebar-theme
+     presets: in the mock the rail is the same panel as the shell, lit by an
+     accent wash at the top. Mapping the sidebar tokens here means the existing
+     bg-sidebar / text-sidebar-foreground classes need no changes. */
+  --sidebar: var(--background);
+  --sidebar-foreground: var(--muted-foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--surface-3);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+
+  color-scheme: dark;
+}
+
+[data-theme="Daylight"] {
+  /* Canvas is the design's `panel` (its floating shell interior): the app's
+     content area fills the viewport, so there is no outer `bg` plate. `bg`
+     survives as --canvas-deep for the glow layer behind the shell. */
+  --background: 0.0 0.0% 100.0%;
+  --foreground: 220.0 42.9% 11.0%;
+  --card: 220.0 50.0% 97.6%;
+  --card-foreground: 220.0 42.9% 11.0%;
+  --popover: 220.0 50.0% 97.6%;
+  --popover-foreground: 220.0 42.9% 11.0%;
+  --primary: 221.2 83.2% 53.3%;
+  --primary-foreground: 0.0 0.0% 100.0%;
+  --nav: 0.0 0.0% 100.0%;
+  --nav-foreground: 220.0 42.9% 11.0%;
+  --secondary: 218.2 44.0% 95.1%;
+  --secondary-foreground: 220.0 42.9% 11.0%;
+  --muted: 218.2 44.0% 95.1%;
+  --muted-foreground: 217.9 15.7% 47.5%;
+  --accent: 221.2 83.2% 53.3%;
+  --accent-foreground: 0.0 0.0% 100.0%;
+  --destructive: 0.0 72.2% 50.6%;
+  --destructive-foreground: 0.0 0.0% 100.0%;
+  --border: 210.0 5.6% 92.9%;
+  --input: 210.0 5.6% 92.9%;
+  --ring: 221.2 83.2% 53.3%;
+  --radius: 0.875rem;                 /* 14px - the mock's card radius */
+
+  /* Design tokens the new shell and dashboard use directly. Kept under their
+     own names so they can't collide with the shadcn contract above. */
+  --canvas-deep: 216.0 41.7% 95.3%;
+  --surface-3: 218.2 44.0% 95.1%;
+  --border-strong: 220.0 4.8% 87.6%;
+  --accent-2: 198.6 88.7% 48.4%;
+  --accent-soft: rgba(37,99,235,.10);
+  --ok: 161.4 93.5% 30.4%;
+  --warn: 32.1 94.6% 43.7%;
+  --bad: 0.0 72.2% 50.6%;
+  --lime: 84.8 85.2% 34.5%;
+  --glow: rgba(37,99,235,.12);
+  --shadow-panel: 0 24px 60px rgba(16,24,40,.12);
+  /* The sidebar follows the theme rather than the older data-sidebar-theme
+     presets: in the mock the rail is the same panel as the shell, lit by an
+     accent wash at the top. Mapping the sidebar tokens here means the existing
+     bg-sidebar / text-sidebar-foreground classes need no changes. */
+  --sidebar: var(--background);
+  --sidebar-foreground: var(--muted-foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--surface-3);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+
+  color-scheme: light;
+}
+
+[data-theme="Azure"] {
+  /* Canvas is the design's `panel` (its floating shell interior): the app's
+     content area fills the viewport, so there is no outer `bg` plate. `bg`
+     survives as --canvas-deep for the glow layer behind the shell. */
+  --background: 215.7 75.5% 19.2%;
+  --foreground: 214.3 100.0% 95.9%;
+  --card: 215.0 70.0% 23.5%;
+  --card-foreground: 214.3 100.0% 95.9%;
+  --popover: 215.0 70.0% 23.5%;
+  --popover-foreground: 214.3 100.0% 95.9%;
+  --primary: 215.4 100.0% 62.2%;
+  --primary-foreground: 211.5 88.1% 13.1%;
+  --nav: 215.7 75.5% 19.2%;
+  --nav-foreground: 214.3 100.0% 95.9%;
+  --secondary: 215.0 65.8% 28.6%;
+  --secondary-foreground: 214.3 100.0% 95.9%;
+  --muted: 215.0 65.8% 28.6%;
+  --muted-foreground: 215.3 52.3% 74.5%;
+  --accent: 215.4 100.0% 62.2%;
+  --accent-foreground: 211.5 88.1% 13.1%;
+  --destructive: 0.0 93.5% 81.8%;
+  --destructive-foreground: 211.5 88.1% 13.1%;
+  --border: 215.8 48.2% 27.3%;
+  --input: 215.8 48.2% 27.3%;
+  --ring: 215.4 100.0% 62.2%;
+  --radius: 0.875rem;                 /* 14px - the mock's card radius */
+
+  /* Design tokens the new shell and dashboard use directly. Kept under their
+     own names so they can't collide with the shadcn contract above. */
+  --canvas-deep: 216.0 82.1% 13.1%;
+  --surface-3: 215.0 65.8% 28.6%;
+  --border-strong: 216.0 34.9% 33.7%;
+  --accent-2: 199.4 95.5% 73.9%;
+  --accent-soft: rgba(125,211,252,.16);
+  --ok: 170.6 76.9% 64.3%;
+  --warn: 45.9 96.7% 64.5%;
+  --bad: 0.0 93.5% 81.8%;
+  --lime: 82.7 78.0% 55.5%;
+  --glow: rgba(125,211,252,.22);
+  --shadow-panel: 0 24px 60px rgba(2,14,32,.5);
+  /* The sidebar follows the theme rather than the older data-sidebar-theme
+     presets: in the mock the rail is the same panel as the shell, lit by an
+     accent wash at the top. Mapping the sidebar tokens here means the existing
+     bg-sidebar / text-sidebar-foreground classes need no changes. */
+  --sidebar: var(--background);
+  --sidebar-foreground: var(--muted-foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--surface-3);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+
+  color-scheme: dark;
+}
+
+[data-theme="Orchid"] {
+  /* Canvas is the design's `panel` (its floating shell interior): the app's
+     content area fills the viewport, so there is no outer `bg` plate. `bg`
+     survives as --canvas-deep for the glow layer behind the shell. */
+  --background: 260.6 50.0% 12.5%;
+  --foreground: 262.9 100.0% 95.9%;
+  --card: 260.0 48.8% 16.9%;
+  --card-foreground: 262.9 100.0% 95.9%;
+  --popover: 260.0 48.8% 16.9%;
+  --popover-foreground: 262.9 100.0% 95.9%;
+  --primary: 258.3 89.5% 66.3%;
+  --primary-foreground: 0.0 0.0% 100.0%;
+  --nav: 260.6 50.0% 12.5%;
+  --nav-foreground: 262.9 100.0% 95.9%;
+  --secondary: 259.2 47.7% 21.8%;
+  --secondary-foreground: 262.9 100.0% 95.9%;
+  --muted: 259.2 47.7% 21.8%;
+  --muted-foreground: 261.3 29.6% 68.2%;
+  --accent: 258.3 89.5% 66.3%;
+  --accent-foreground: 0.0 0.0% 100.0%;
+  --destructive: 351.3 94.5% 71.4%;
+  --destructive-foreground: 0.0 0.0% 100.0%;
+  --border: 260.7 27.6% 20.6%;
+  --input: 260.7 27.6% 20.6%;
+  --ring: 258.3 89.5% 66.3%;
+  --radius: 0.875rem;                 /* 14px - the mock's card radius */
+
+  /* Design tokens the new shell and dashboard use directly. Kept under their
+     own names so they can't collide with the shadcn contract above. */
+  --canvas-deep: 261.8 52.4% 8.2%;
+  --surface-3: 259.2 47.7% 21.8%;
+  --border-strong: 260.0 20.0% 26.5%;
+  --accent-2: 292.0 91.4% 72.5%;
+  --accent-soft: rgba(139,92,246,.18);
+  --ok: 141.9 69.2% 58.0%;
+  --warn: 43.3 96.4% 56.3%;
+  --bad: 351.3 94.5% 71.4%;
+  --lime: 252.5 94.7% 85.1%;
+  --glow: rgba(139,92,246,.22);
+  --shadow-panel: 0 24px 60px rgba(10,4,20,.55);
+  /* The sidebar follows the theme rather than the older data-sidebar-theme
+     presets: in the mock the rail is the same panel as the shell, lit by an
+     accent wash at the top. Mapping the sidebar tokens here means the existing
+     bg-sidebar / text-sidebar-foreground classes need no changes. */
+  --sidebar: var(--background);
+  --sidebar-foreground: var(--muted-foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--surface-3);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+
+  color-scheme: dark;
+}
+
 /* ─── Sidebar theme presets ───────────────────────────────── */
 
 /* Dark Navy (default — already set in :root) */
