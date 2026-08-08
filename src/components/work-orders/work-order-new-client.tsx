@@ -22,6 +22,7 @@ import { getSitesForAccount, getSite } from "@/lib/actions/sites";
 import { getContactsForAccount } from "@/lib/actions/account-contacts";
 import { getBillingProfilesForAccount, getSiteBilling } from "@/lib/actions/billing-profiles";
 import type { Customer, MemberProfile, Site, AccountContact, BillingProfile } from "@/types/database";
+import { useVocab, lower } from "@/components/layout/vocab-provider";
 
 const AVATAR_COLORS = [
   "bg-blue-500","bg-violet-500","bg-pink-500","bg-orange-500",
@@ -48,6 +49,7 @@ interface WorkOrderNewClientProps {
 export function WorkOrderNewClient({
   customers: initialCustomers, profiles, templates = [], defaultCustomerId, defaultSiteId, defaultSiteAddress,
 }: WorkOrderNewClientProps) {
+  const v = useVocab("/work-orders", "Work Orders");
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [customers, setCustomers] = useState(initialCustomers);
@@ -218,7 +220,7 @@ export function WorkOrderNewClient({
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
       <PageHeader
-        title="New work order"
+        title={`New ${lower(v.singular)}`}
         subtitle="Assign a job to your team — they'll submit photos from site"
         accent="linear-gradient(180deg, #fbbf24 0%, #b45309 100%)"
       />
@@ -437,7 +439,7 @@ export function WorkOrderNewClient({
       <div className="flex justify-end gap-3">
         <Link href="/work-orders"><Button variant="outline">Cancel</Button></Link>
         <Button onClick={handleSubmit} disabled={isPending || !title.trim()}>
-          {isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Creating...</> : "Create Work Order"}
+          {isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Creating...</> : `Create ${v.singular}`}
         </Button>
       </div>
     </div>

@@ -8,6 +8,7 @@ import {
   FileCheck, Wrench, ClipboardList, StickyNote, User, Users, Home,
   Trash2, Star, Save, X, ChevronDown, ChevronUp, ImageIcon, MessageSquare,
   CreditCard, DollarSign, Paperclip, ListChecks,
+  Lock,
 } from "@/components/ui/icons";
 import { AttachmentsPanel } from "@/components/attachments/attachments-panel";
 import { ClientFieldsSummary } from "@/components/customers/client-fields";
@@ -46,6 +47,8 @@ import {
   type BillingProfilePayload,
 } from "@/lib/actions/billing-profiles";
 import { CustomerOnboardingCard } from "@/components/onboarding/customer-onboarding-card";
+import { VaultClient } from "@/components/vault/vault-client";
+import type { VaultItemView } from "@/lib/vault/items";
 import type { OnboardingRequestRow } from "@/lib/actions/onboarding";
 import type {
   Customer, InvoiceWithCustomer, QuoteWithCustomer,
@@ -86,6 +89,9 @@ interface Props {
   accountTypes?: AccountTypeOption[];
   /** Connected card providers, so the payment toggle names the real one. */
   cardProviders?: { stripeEnabled: boolean; revolutEnabled: boolean };
+  /** Vault entries for THIS client; null when the plugin is off or the
+   *  viewer isn't an owner/admin — the tab then doesn't exist at all. */
+  vault?: { items: VaultItemView[]; ready: boolean } | null;
 }
 
 // ── Property Modal ─────────────────────────────────────────────────────────────
@@ -516,6 +522,7 @@ export function CustomerDetailClient({
   clientFields = [],
   accountTypes = [],
   cardProviders,
+  vault,
 }: Props) {
   const [customer, setCustomer] = useState(initial);
   const [editing, setEditing] = useState(false);
@@ -754,7 +761,26 @@ export function CustomerDetailClient({
                     <ClipboardList className="w-3.5 h-3.5" />Onboarding ({onboarding.requests.length})
                   </TabsTrigger>
                 )}
+                {vault && (
+                  <TabsTrigger value="passwords" className="gap-1.5">
+                    <Lock className="w-3.5 h-3.5" />Passwords ({vault.items.length})
+                  </TabsTrigger>
+                )}
               </TabsList>
+
+              {/* ── Passwords ── */}
+              {vault && (
+                <TabsContent value="passwords" className="mt-3">
+                  <VaultClient
+                    items={vault.items}
+                    customers={[]}
+                    log={[]}
+                    ready={vault.ready}
+                    lockedCustomerId={customer.id}
+                    embedded
+                  />
+                </TabsContent>
+              )}
 
               {/* ── Onboarding ── */}
               {onboarding && (

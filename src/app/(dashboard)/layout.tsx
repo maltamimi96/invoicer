@@ -6,6 +6,7 @@ import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { isWorker, isPathAllowedForWorker, type Role } from "@/lib/permissions";
 import { resolveEnabledPlugins, ROUTE_GATES } from "@/lib/plugins/registry";
 import { PRESETS_BY_ID } from "@/lib/plugins/presets";
+import type { NavConfig } from "@/lib/nav/config";
 import { getLayoutBusinesses, fetchLayoutBusinessesDirect, getPluginFlags } from "@/lib/layout-data";
 import type { Business } from "@/types/database";
 
@@ -86,11 +87,17 @@ export default async function DashboardLayout({ children }: { children: React.Re
     if (gate && !plugins[gate.pluginId]) redirect("/dashboard");
   }
 
-  // Vocabulary v1 — sidebar label overrides from the business's industry preset.
-  const vocab = business.industry_preset ? PRESETS_BY_ID[business.industry_preset]?.vocab ?? null : null;
+  // The business's words, resolved ONCE here so the sidebar and the pages
+  // can't disagree: their own overrides win, then the industry preset, then
+  // the built-in labels (supplied by whatever renders them).
+  const presetVocab = business.industry_preset ? PRESETS_BY_ID[business.industry_preset]?.vocab ?? null : null;
+  const navConfig = (business.nav_config ?? null) as NavConfig | null;
+  const vocab = presetVocab || navConfig?.labels
+    ? { ...(presetVocab ?? {}), ...(navConfig?.labels ?? {}) }
+    : null;
 
   return (
-    <DashboardShell business={business} businesses={allBusinesses} user={user} userRole={userRole} features={plugins} vocab={vocab}>
+    <DashboardShell business={business} businesses={allBusinesses} user={user} userRole={userRole} features={plugins} vocab={vocab} navConfig={navConfig}>
       {children}
     </DashboardShell>
   );

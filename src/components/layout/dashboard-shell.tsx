@@ -11,6 +11,8 @@ import { RouteProgress } from "./route-progress";
 import { TabBusinessGuard } from "./tab-business-guard";
 import { FocusModeProvider, useFocusMode } from "./focus-mode";
 import { AssistantProvider } from "./assistant-context";
+import { VocabProvider } from "./vocab-provider";
+import type { NavConfig } from "@/lib/nav/config";
 // The floating AI assistant starts closed and drags in framer-motion + voice
 // capture. Lazy-load it (client-only) so its chunk stays out of every dashboard
 // page's first load — the trigger button appears a beat after hydration.
@@ -31,8 +33,10 @@ interface DashboardShellProps {
   /** Feature flags fetched on the server. Drives conditional sidebar items
    *  (e.g. the Quoting Agent tab only shows when enabled). */
   features?: Record<string, boolean>;
-  /** Sidebar label overrides keyed by href (industry-preset vocabulary). */
+  /** Resolved label overrides keyed by href (business override over preset). */
   vocab?: Record<string, string> | null;
+  /** The business's hide/reorder choices, for the sidebar. */
+  navConfig?: NavConfig | null;
   children: React.ReactNode;
 }
 
@@ -52,13 +56,13 @@ export function DashboardShell(props: DashboardShellProps) {
   );
 }
 
-function ShellBody({ business, businesses, user, userRole, features, vocab, children }: DashboardShellProps) {
+function ShellBody({ business, businesses, user, userRole, features, vocab, navConfig, children }: DashboardShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { focus } = useFocusMode();
   const workerView = isWorker(userRole);
 
   return (
-    <>
+    <VocabProvider labels={vocab ?? null}>
       <Suspense fallback={null}><RouteProgress /></Suspense>
       {/* MYOB chrome: a full-width accent top bar spans over the sidebar
           column, then a row of sidebar + content beneath it. */}
@@ -83,6 +87,7 @@ function ShellBody({ business, businesses, user, userRole, features, vocab, chil
               userRole={userRole}
               features={features}
               vocab={vocab}
+              navConfig={navConfig}
               open={sidebarOpen}
               onClose={() => setSidebarOpen(false)}
             />
@@ -113,6 +118,6 @@ function ShellBody({ business, businesses, user, userRole, features, vocab, chil
       </div>
 
       <AgentPanel />
-    </>
+    </VocabProvider>
   );
 }

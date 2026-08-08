@@ -11,6 +11,7 @@ import { canManageSettings, isWorker, ROLE_LABELS } from "@/lib/permissions";
 import { KireiMark } from "@/components/brand/kirei-logo";
 import { BusinessSwitcher } from "@/components/business/business-switcher";
 import { navSections, filterNav } from "./nav-config";
+import type { NavConfig } from "@/lib/nav/config";
 
 interface AppSidebarProps {
   business: Business;
@@ -20,14 +21,16 @@ interface AppSidebarProps {
   features?: Record<string, boolean>;
   /** Label overrides keyed by href (industry-preset vocabulary, e.g. Work Orders → Projects). */
   vocab?: Record<string, string> | null;
+  /** The business's hide/reorder choices from Settings → Navigation. */
+  navConfig?: NavConfig | null;
   open: boolean;
   onClose: () => void;
 }
 
-export function AppSidebar({ business, businesses, userRole, features, vocab, open, onClose }: AppSidebarProps) {
+export function AppSidebar({ business, businesses, userRole, features, vocab, navConfig, open, onClose }: AppSidebarProps) {
   const pathname = usePathname();
   const workerView = isWorker(userRole);
-  const visibleSections = filterNav(navSections, { workerView, features });
+  const visibleSections = filterNav(navSections, { workerView, features, nav: navConfig });
 
   const isActive = (href: string) =>
     href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);

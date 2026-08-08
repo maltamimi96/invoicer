@@ -219,6 +219,15 @@ A remote **Model Context Protocol** server at **`/api/mcp`** (`mcp-handler` pack
 
 **Scopes** (`ApiScope` in `src/types/database.ts`): `leads/customers/quotes/invoices/work_orders/tasks/products/settings` × `read|write`, plus `email:send`, `agent:access`, and the `admin` wildcard. `expandApiScopes()` turns `admin` into the full set. The Settings → API UI and `createApiKey` validator both derive from `ALL_API_SCOPES`, so new scopes appear + validate automatically.
 
+**🔴 The one standing exception: `revealVaultSecret`.** The password vault
+(`src/lib/actions/vault.ts`) has MCP tools for listing and writing entries but
+deliberately **none for reading a password back**, and none should be added.
+Revealing a credential over MCP would put a client's password into a model
+context, a conversation transcript and an `assistant_messages` row — outside
+the encryption and the audit log that justify storing it. Reveal is a
+cookie-authed server action, owner/admin only, logged. See the header comment
+in `src/lib/mcp/tools/vault-tools.ts`.
+
 **🔴 STANDING RULE — every new feature MUST get an MCP tool.** When you add a server action / capability (new entity, new mutation, new workflow), you also add the matching tool(s) to `src/lib/mcp/register-tools.ts` in the same PR: pick/extend a scope, write the zod schema, scope-check, run via the admin client scoped by `business_id`. The MCP surface is expected to stay at parity with the app's capabilities — treat "added a feature but not its MCP tool" as an incomplete change.
 
 Middleware whitelists `/api/mcp`, `/api/oauth/`, and `/.well-known/` (they own their auth).

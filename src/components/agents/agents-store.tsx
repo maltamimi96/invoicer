@@ -60,6 +60,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
   "clipboard-list": ClipboardList,
   "list-checks": ListChecks,
   "layout-dashboard": LayoutDashboard,
+  lock: Lock,
   users: Users,
   columns: Columns3,
   "users-2": Users2,

@@ -20,7 +20,25 @@
 import { ALL_API_SCOPES, type ApiScope } from "@/types/database";
 import type { Role } from "@/lib/permissions";
 
-const EVERY_SCOPE = ALL_API_SCOPES.map((s) => s.value).filter((s) => s !== "admin");
+/**
+ * Scopes that must never be handed out by the blanket read/write expansions
+ * below.
+ *
+ * READ_SCOPES/WRITE_SCOPES are derived from ALL_API_SCOPES, so adding a scope
+ * to that list silently grants it to editors and viewers. For an ordinary
+ * entity that's the intent. For the password vault it is not: those tables are
+ * owner/admin-only in the database precisely because the entries are other
+ * people's account credentials, and the assistant runs on the admin client
+ * that bypasses exactly that check.
+ *
+ * (No tool ever returns a decrypted password — reveal is a cookie-authed
+ * server action only. This keeps even the entry list away from roles that
+ * can't see it in the UI.)
+ */
+const NEVER_AUTO_GRANTED: readonly string[] = ["vault:read", "vault:write"];
+
+const EVERY_SCOPE = ALL_API_SCOPES.map((s) => s.value)
+  .filter((s) => s !== "admin" && !NEVER_AUTO_GRANTED.includes(s));
 
 const READ_SCOPES = EVERY_SCOPE.filter((s) => s.endsWith(":read"));
 const WRITE_SCOPES = EVERY_SCOPE.filter((s) => s.endsWith(":write"));

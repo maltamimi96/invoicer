@@ -59,6 +59,8 @@ export interface Business {
   sidebar_theme: string;
   /** Industry preset id (src/lib/plugins/presets.ts); null = no preset applied. */
   industry_preset?: string | null;
+  /** Navigation overrides (Settings → Navigation). NULL = the industry preset. */
+  nav_config?: import("@/lib/nav/config").NavConfig | null;
   /** Card-provider state. In the DB since the Stripe/Revolut work; the type
    *  never caught up, so pages reading them failed to compile. */
   stripe_charges_enabled?: boolean | null;
@@ -1629,6 +1631,8 @@ export interface WebhookDelivery {
 // ----------------------------------------------------------------
 
 export type ApiScope =
+  | 'vault:read'
+  | 'vault:write'
   | 'leads:read'
   | 'leads:write'
   | 'customers:read'
@@ -1699,6 +1703,8 @@ export const ALL_API_SCOPES: { value: ApiScope; label: string; group: string }[]
   { value: 'products:write',   label: 'Create / edit products', group: 'Products' },
   { value: 'materials:read',   label: 'Read materials',    group: 'Materials' },
   { value: 'materials:write',  label: 'Create / edit materials', group: 'Materials' },
+  { value: 'vault:read',       label: 'List vault entries (never the passwords)', group: 'Vault' },
+  { value: 'vault:write',      label: 'Create / edit vault entries', group: 'Vault' },
   { value: 'settings:read',    label: 'Read settings',     group: 'Settings' },
   { value: 'settings:write',   label: 'Edit settings & preferences', group: 'Settings' },
   { value: 'bookings:read',    label: 'Read bookings & config', group: 'Bookings' },

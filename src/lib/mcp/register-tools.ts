@@ -41,6 +41,7 @@ import { registerInventoryTools } from "./tools/inventory-tools";
 import { registerTimesheetTools } from "./tools/timesheets-tools";
 import { registerAssetTools } from "./tools/assets-tools";
 import { registerProspectTools } from "./tools/prospects-tools";
+import { registerVaultTools } from "./tools/vault-tools";
 import { registerOutreachTools } from "./tools/outreach-tools";
 import { registerTelephonyTools } from "./tools/telephony-tools";
 import { registerAssistantTools } from "./tools/assistant-tools";
@@ -569,6 +570,43 @@ export function registerTools(register: ToolFn): void {
       const ctx = ctxFrom(extra); assertScope(ctx, "settings:read");
       const { data } = await t(ctx, "businesses").select("*").eq("id", ctx.businessId).single();
       return text(data);
+    });
+
+  // Navigation — what the sidebar is called, in what order, what's hidden.
+  // Renaming is the point of it: an agency asks for "Projects", not "Work
+  // Orders", and the assistant can now do that in one instruction.
+  tool("get_navigation", "Get the business's sidebar navigation overrides: {labels: {href: name}, hidden: [href], order: [href]}. NULL/empty means it follows the industry preset.",
+    {},
+    async (_args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "settings:read");
+      const { data } = await t(ctx, "businesses").select("nav_config, industry_preset").eq("id", ctx.businessId).single();
+      return text(data);
+    });
+
+  tool("update_navigation", "Rename, reorder or hide sidebar items. Keys are page paths ('/work-orders', '/quotes', '/customers'). Only the provided parts change — pass an empty object/array for a part to clear it back to the industry preset. Hiding removes an item from the sidebar; it does NOT disable the feature (use set_plugin_enabled for that).",
+    {
+      labels: z.record(z.string(), z.string()).optional().describe('Page path → name, e.g. {"/work-orders": "Projects"}'),
+      hidden: z.array(z.string()).optional().describe("Page paths to hide from the sidebar"),
+      order: z.array(z.string()).optional().describe("Page paths in display order; anything omitted keeps its default position"),
+    },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "settings:write");
+      const { data: row } = await t(ctx, "businesses").select("nav_config").eq("id", ctx.businessId).single();
+      const prev = (row?.nav_config ?? {}) as Record<string, unknown>;
+      // Merge, so renaming one item doesn't silently drop the hide/order the
+      // user set in Settings.
+      const next: Record<string, unknown> = { ...prev };
+      if (args.labels !== undefined) next.labels = { ...(prev.labels as object ?? {}), ...args.labels };
+      if (args.hidden !== undefined) next.hidden = args.hidden;
+      if (args.order !== undefined) next.order = args.order;
+      for (const k of ["labels", "hidden", "order"]) {
+        const v = next[k];
+        if (!v || (Array.isArray(v) ? v.length === 0 : Object.keys(v).length === 0)) delete next[k];
+      }
+      const value = Object.keys(next).length ? next : null;
+      const { error } = await t(ctx, "businesses").update({ nav_config: value }).eq("id", ctx.businessId);
+      if (error) throw new Error(error.message);
+      return text({ ok: true, nav_config: value });
     });
 
   tool("update_settings", "Update business settings / preferences. Only provided fields change. Common fields: name, email, phone, address, currency, accent_color, sidebar_theme, bg_pattern, invoice_prefix, quote_prefix, bank_name, bank_account_number, bank_account_name, bank_sort_code, license_number. Document defaults: default_notes, payment_terms, and the per-type default terms & conditions default_invoice_terms / default_quote_terms (pre-fill new invoices / quotes — same as the PDF template editor's 'Default terms & conditions').",
@@ -1721,6 +1759,7 @@ export function registerTools(register: ToolFn): void {
 
   // ===== PROSPECTS =====
   registerProspectTools(tool);
+  registerVaultTools(tool);
   registerOutreachTools(tool);
   registerTelephonyTools(tool);
 

@@ -1,8 +1,9 @@
 import {
-  Zap,
+  Zap, Lock,
   LayoutDashboard, FileText, FileCheck, Users,
   Package, FileStack, ClipboardList, Wrench, Users2, UserPlus, CalendarDays, MessageSquare, Bot, Repeat, HelpCircle, Columns3, TrendingUp, Sparkles, ListChecks, Search, Receipt, Boxes, Clock, Hammer, Target, Megaphone, DollarSign, Send, Phone,
 } from "@/components/ui/icons";
+import { applyOrder, isHidden, type NavConfig } from "@/lib/nav/config";
 
 export type NavItem = {
   label: string;
@@ -47,6 +48,7 @@ export const navSections: NavSection[] = [
     { label: "Outreach",   href: "/outreach",   icon: Send,          plugin: "outreach" },
     { label: "Customers",  href: "/customers",  icon: Users                         },
     { label: "Contacts",   href: "/contacts",   icon: Users2                        },
+    { label: "Passwords",  href: "/vault",      icon: Lock,          plugin: "vault" },
     { label: "Onboarding", href: "/onboarding-forms", icon: ClipboardList, plugin: "client-onboarding" },
   ]},
   { section: "Catalog", items: [
@@ -77,16 +79,30 @@ export const navSections: NavSection[] = [
 /** Filter nav sections by worker role + enabled plugins, dropping empty sections. */
 export function filterNav(
   sections: NavSection[],
-  opts: { workerView: boolean; features?: Record<string, boolean> },
+  opts: {
+    workerView: boolean;
+    features?: Record<string, boolean>;
+    /** The business's own hide/reorder choices. Ordering is within a section:
+     *  sections keep their built-in order so an item can't be reordered out of
+     *  the group that explains what it is. */
+    nav?: NavConfig | null;
+  },
 ): NavSection[] {
   return sections
     .map((s) => ({
       ...s,
-      items: s.items.filter((i) => {
-        if (opts.workerView && !i.worker) return false;
-        if (i.plugin && !opts.features?.[i.plugin]) return false;
-        return true;
-      }),
+      items: applyOrder(
+        s.items.filter((i) => {
+          if (opts.workerView && !i.worker) return false;
+          if (i.plugin && !opts.features?.[i.plugin]) return false;
+          // A worker's nav is not the owner's to prune — hiding is a
+          // preference, and a worker hidden out of their own jobs list has no
+          // way to get it back.
+          if (!opts.workerView && isHidden(i.href, opts.nav)) return false;
+          return true;
+        }),
+        opts.nav,
+      ),
     }))
     .filter((s) => s.items.length > 0);
 }

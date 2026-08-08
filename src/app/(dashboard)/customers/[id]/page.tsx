@@ -15,6 +15,53 @@ import {
 } from "@/lib/actions/onboarding";
 import { getClientFieldConfig } from "@/lib/actions/client-fields";
 import { CustomerDetailClient, type CustomerOnboardingData } from "@/components/customers/customer-detail-client";
+import { listVaultItems, vaultReady } from "@/lib/actions/vault";
+import type { VaultItemView } from "@/lib/vault/items";
+
+/**
+ * Vault tab data — this client's stored logins.
+ *
+ * Returns null (no tab at all) when the plugin is off OR the viewer isn't an
+ * owner/admin: listVaultItems returns [] for anyone else, but an empty tab
+ * would advertise that credentials exist and just aren't theirs to see.
+ * Deliberately gated on the same flag the sidebar uses, so turning the plugin
+ * off removes it from the client profile too.
+ */
+async function loadVault(customerId: string): Promise<{ items: VaultItemView[]; ready: boolean } | null> {
+  try {
+    const { createClient } = await import("@/lib/supabase/server");
+    const { getActiveBizId } = await import("@/lib/active-business");
+    const { getUser } = await import("@/lib/auth");
+    const supabase = await createClient();
+    const user = await getUser();
+    const businessId = await getActiveBizId(supabase, user.id);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = supabase as any;
+    const [{ data: settings }, { data: install }] = await Promise.all([
+      sb.from("vault_settings").select("enabled").eq("business_id", businessId).maybeSingle(),
+      sb.from("business_agent_installs").select("enabled")
+        .eq("business_id", businessId).eq("agent_id", "vault").maybeSingle(),
+    ]);
+    // settingsTable ?? installRow ?? default(false) — the resolver's own order.
+    const enabled = settings?.enabled ?? install?.enabled ?? false;
+    if (!enabled) return null;
+
+    // RLS already blocks non-admins; this makes the TAB disappear for them
+    // rather than showing an empty one.
+    const { data: biz } = await sb.from("businesses").select("user_id").eq("id", businessId).single();
+    if (biz?.user_id !== user.id) {
+      const { data: m } = await sb.from("business_members").select("role")
+        .eq("business_id", businessId).eq("user_id", user.id).eq("status", "active").maybeSingle();
+      if (m?.role !== "admin") return null;
+    }
+
+    const [items, ready] = await Promise.all([listVaultItems(customerId), vaultReady()]);
+    return { items, ready };
+  } catch {
+    return null;
+  }
+}
 
 /** Onboarding tab data — only when the plugin is enabled; never break the page. */
 async function loadOnboarding(customerId: string): Promise<CustomerOnboardingData | null> {
@@ -63,7 +110,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
 
 async function CustomerDetailContent({ id }: { id: string }) {
   try {
-    const [customer, invoices, quotes, business, workOrders, reports, properties, contacts, notes, billingProfiles, onboarding, fieldConfig] = await Promise.all([
+    const [customer, invoices, quotes, business, workOrders, reports, properties, contacts, notes, billingProfiles, onboarding, fieldConfig, vault] = await Promise.all([
       getCustomer(id),
       getInvoices({ customer_id: id }),
       getQuotes({ customer_id: id }),
@@ -76,6 +123,7 @@ async function CustomerDetailContent({ id }: { id: string }) {
       getBillingProfilesForAccount(id).catch(() => []),
       loadOnboarding(id),
       getClientFieldConfig().catch(() => null),
+      loadVault(id),
     ]);
     return (
       <CustomerDetailClient
@@ -91,6 +139,7 @@ async function CustomerDetailContent({ id }: { id: string }) {
         currency={business.currency}
         businessCountry={business.country ?? null}
         onboarding={onboarding}
+        vault={vault}
         clientFields={fieldConfig?.fields ?? []}
         accountTypes={fieldConfig?.accountTypes ?? []}
         cardProviders={{
