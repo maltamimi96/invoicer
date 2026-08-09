@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Phone, Mail, MapPin, Plus, X, Trash2, Clock } from "@/components/ui/icons";
+import Link from "next/link";
+import { Phone, Mail, MapPin, Plus, X, Trash2, Clock, ArrowRight } from "@/components/ui/icons";
+import { LeadDrawerBilling } from "@/components/leads/lead-drawer-billing";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -135,9 +137,21 @@ export function LeadDrawer({
             {lead.email && <a href={`mailto:${lead.email}`} className="inline-flex items-center gap-1.5 hover:text-foreground"><Mail className="h-3.5 w-3.5" />{lead.email}</a>}
             {lead.suburb && <span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" />{lead.suburb}</span>}
           </div>
+          <Link
+            href={`/leads/${lead.id}`}
+            className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+          >
+            Open full lead <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
         </SheetHeader>
 
         <div className="space-y-6 p-5">
+          {/* What has been raised against this lead. The drawer showed stage,
+              tags and notes only, and nothing linked to the full lead — so
+              quotes, invoices and onboarding forms were effectively invisible
+              from the pipeline, which is where you actually work. */}
+          <LeadDrawerBilling leadId={lead.id} open={open} />
+
           {/* Status */}
           <section>
             <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Pipeline stage</p>
