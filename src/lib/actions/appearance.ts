@@ -15,7 +15,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { getUser } from "@/lib/auth";
 
-const THEMES = ["Midnight", "Daylight", "Azure", "Orchid"];
+const THEMES = ["Midnight", "Daylight", "Azure", "Orchid", "Studio"];
 
 export type ThemeResult = { ok: true } | { ok: false; error: string };
 

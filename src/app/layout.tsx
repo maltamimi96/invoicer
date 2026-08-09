@@ -17,6 +17,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { PWARegister } from "@/components/pwa-register";
 import { IconProvider } from "@/components/ui/icon-provider";
+import { UI_THEME_KEYS, LIGHT_THEMES, UI_THEME_STORAGE_KEY } from "@/lib/ui-themes";
 
 // One typeface across the app. Plus Jakarta is a variable font (weights
 // 200–800), so both the UI stack (--font-sans) and the heavier display stack
@@ -59,18 +60,23 @@ export default function RootLayout({
     <html lang="en" data-theme="Midnight" suppressHydrationWarning>
       <head>
         {/* Paint the business's theme before first render.
-            Three of the four palettes are dark, so without this every cold
-            load flashes the Midnight default (or white) before the provider
+            Most of the palettes are dark, so without this every cold load
+            flashes the Midnight default (or white) before the provider
             catches up - the one thing a dark theme must not do. The provider
-            mirrors the choice into localStorage; this only reads it. */}
+            mirrors the choice into localStorage; this only reads it.
+
+            Both lists are generated from UI_THEMES rather than typed out. They
+            used to be literals, which meant adding a palette silently left it
+            out of the pre-paint step: pick it, reload, and watch the app flash
+            Midnight before correcting itself. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('kirei.ui-theme');`
-              + `if(t&&['Midnight','Daylight','Azure','Orchid'].indexOf(t)>-1){`
+            __html: `(function(){try{var t=localStorage.getItem('${UI_THEME_STORAGE_KEY}');`
+              + `if(t&&${JSON.stringify(UI_THEME_KEYS)}.indexOf(t)>-1){`
               + `document.documentElement.dataset.theme=t;`
               // Keep the .dark class in step before paint too, or `dark:`
               // styles flash the wrong way round on a light theme.
-              + `document.documentElement.classList.toggle('dark',t!=='Daylight');`
+              + `document.documentElement.classList.toggle('dark',${JSON.stringify(LIGHT_THEMES)}.indexOf(t)<0);`
               + `}}catch(e){}})();`,
           }}
         />

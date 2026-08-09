@@ -57,7 +57,7 @@ export interface Business {
   accent_color: string;
   bg_pattern: string;
   sidebar_theme: string;
-  /** Kirei Dashboard v2 palette: Midnight | Daylight | Azure | Orchid. */
+  /** Kirei Dashboard v2 palette: Midnight | Daylight | Azure | Orchid | Studio. */
   ui_theme?: string;
   /** Industry preset id (src/lib/plugins/presets.ts); null = no preset applied. */
   industry_preset?: string | null;

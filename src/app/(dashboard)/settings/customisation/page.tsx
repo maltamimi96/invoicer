@@ -39,7 +39,7 @@ const GROUPS: Array<{ title: string; blurb: string; items: Item[] }> = [
     title: "Look and feel",
     blurb: "How Kirei looks, and what things are called.",
     items: [
-      { href: "/settings?tab=appearance", label: "Theme", hint: "Midnight, Daylight, Azure or Orchid — applies everywhere.", icon: Palette },
+      { href: "/settings?tab=appearance", label: "Theme", hint: "Midnight, Daylight, Azure, Orchid or Studio — applies everywhere.", icon: Palette },
       { href: "/settings/navigation", label: "Navigation", hint: "Rename, reorder and hide the items in your sidebar.", icon: Columns3 },
     ],
   },

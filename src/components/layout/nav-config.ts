@@ -24,24 +24,31 @@ export const navSections: NavSection[] = [
     { label: "Tasks",      href: "/tasks",      icon: Columns3                      },
     { label: "Automations",href: "/automations",icon: Zap,             plugin: "automations" },
   ]},
+  // Sections follow the same needs the Plugins store groups by: win the work,
+  // do the work, get paid. Expenses used to sit under "Sales", which is the
+  // one place money going OUT does not belong.
   { section: "Sales", items: [
     { label: "Leads",         href: "/leads",         icon: UserPlus,     plugin: "leads"             },
     { label: "Forms",         href: "/forms",         icon: ListChecks,   plugin: "form-builder"      },
     { label: "Quoting Agent", href: "/quoting-agent", icon: Sparkles,     plugin: "quoting-agent"     },
     { label: "Quotes",        href: "/quotes",        icon: FileCheck,    plugin: "quotes"            },
-    { label: "Invoices",      href: "/invoices",      icon: FileText,     plugin: "invoicing"         },
     { label: "Contracts",     href: "/contracts",     icon: FileStack,    plugin: "contracts"         },
-    { label: "Site Reports",  href: "/reports",       icon: ClipboardList, plugin: "site-reports"     },
-    { label: "Recurring",     href: "/recurring",     icon: Repeat,       plugin: "recurring-jobs"    },
-    { label: "Recurring billing", href: "/recurring-invoices", icon: Repeat, plugin: "recurring-billing" },
-    { label: "Expenses",      href: "/expenses",      icon: Receipt,      plugin: "expenses"          },
   ]},
   { section: "Service", items: [
     { label: "Work Orders",    href: "/work-orders",     icon: Wrench,        worker: true, plugin: "jobs" },
     { label: "Schedule",       href: "/schedule",        icon: CalendarDays,  worker: true, plugin: "scheduling" },
+    { label: "Recurring",      href: "/recurring",       icon: Repeat,        plugin: "recurring-jobs" },
+    { label: "Site Reports",   href: "/reports",         icon: ClipboardList, plugin: "site-reports" },
     { label: "Bookings",       href: "/bookings",        icon: CalendarDays,  plugin: "booking" },
     { label: "Online Booking", href: "/settings/booking", icon: CalendarDays,  plugin: "booking" },
     { label: "Assets",         href: "/assets",          icon: Hammer,        plugin: "assets" },
+  ]},
+  { section: "Money", items: [
+    { label: "Invoices",      href: "/invoices",      icon: FileText,     plugin: "invoicing"         },
+    { label: "Recurring billing", href: "/recurring-invoices", icon: Repeat, plugin: "recurring-billing" },
+    { label: "Expenses",      href: "/expenses",      icon: Receipt,      plugin: "expenses"          },
+    { label: "Recurring costs", href: "/expenses/recurring", icon: Repeat, plugin: "expenses"        },
+    { label: "Payroll",       href: "/payroll",       icon: DollarSign,   plugin: "payroll"           },
   ]},
   { section: "Contacts", items: [
     { label: "Prospects",  href: "/prospects",  icon: Target,        plugin: "prospects" },
@@ -60,7 +67,6 @@ export const navSections: NavSection[] = [
   { section: "Workforce", items: [
     { label: "Team",       href: "/team",       icon: Users2                        },
     { label: "Timesheets", href: "/timesheets", icon: Clock,        plugin: "timesheets" },
-    { label: "Payroll",    href: "/payroll",    icon: DollarSign,   plugin: "payroll" },
     { label: "Plugins",    href: "/agents",     icon: Bot                           },
   ]},
   { section: "SEO", items: [
