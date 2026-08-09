@@ -22,7 +22,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Settings, X, ChevronUp, ChevronDown } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 import type { Business } from "@/types/database";
@@ -51,8 +51,35 @@ interface AppSidebarProps {
 const ICON_BTN =
   "relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl transition-colors duration-200";
 
-/** What one rail slot occupies vertically: the button plus the gap below it. */
-const SLOT = 48 + 12;
+/**
+ * How many icons a page of the rail may hold. Groups are never split, so a
+ * page can overshoot slightly rather than break a category in half — that is
+ * the point of grouping them.
+ */
+export const SLOTS_PER_PAGE = 9;
+
+/**
+ * Pack sections into pages without ever splitting one.
+ *
+ * Pure and exported so it can be tested directly: the previous version
+ * measured the DOM, which made it untestable and its behaviour dependent on
+ * when layout happened to settle.
+ */
+export function packSections<T extends { items: unknown[] }>(
+  sections: T[], budget: number,
+): T[][] {
+  const out: T[][] = [];
+  let cur: T[] = [];
+  let used = 0;
+  for (const sec of sections) {
+    const cost = Math.max(1, sec.items.length);
+    // A single oversized group still gets its own page rather than being cut.
+    if (cur.length && used + cost > budget) { out.push(cur); cur = []; used = 0; }
+    cur.push(sec); used += cost;
+  }
+  if (cur.length) out.push(cur);
+  return out.length ? out : [sections];
+}
 
 const TOOLTIP =
   "pointer-events-none absolute left-14 z-50 whitespace-nowrap rounded-lg border border-border bg-popover "
@@ -78,57 +105,43 @@ export function AppSidebar({
   const workerView = isWorker(userRole);
   const sections = filterNav(navSections, { workerView, features, nav: navConfig });
 
-  // The rail is one flat list: section headings need labels, and there are no
-  // labels here. The grouping survives as a little extra air between runs.
-  const items = sections.flatMap((s, si) =>
-    s.items.map((item, ii) => ({ item, startsSection: ii === 0 && si > 0 })),
-  );
-
+  // The rail groups by section, and pages by WHOLE groups: a category that
+  // straddled a page boundary would defeat the point of grouping them.
   const isActive = (href: string) =>
     href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);
 
   /* ── Paging, so the rail never scrolls ─────────────────────────────── */
-  const listRef = useRef<HTMLDivElement>(null);
-  const [perPage, setPerPage] = useState(items.length);
+  //
+  // A FIXED budget, not a measured one. This started out measuring the rail
+  // and packing groups to fit, which is smarter and was not worth it: the
+  // result depended on layout timing, could not be unit-tested, and cost an
+  // hour of chasing stale state. A fixed budget is dumber, always behaves the
+  // same, and is provable without a browser. Tune the number, not the logic.
   const [page, setPage] = useState(0);
 
-  const measure = useCallback(() => {
-    const el = listRef.current;
-    if (!el) return;
-    const raw = Math.floor(el.clientHeight / SLOT);
-    // Only reserve a slot for the chevrons when they will actually appear —
-    // a viewport that fits every icon shouldn't lose one to a hidden button.
-    const fitsAll = raw >= items.length;
-    setPerPage(Math.max(1, fitsAll ? items.length : raw - 1));
-  }, [items.length]);
+  const pagesOfSections = useMemo(
+    () => packSections(sections, SLOTS_PER_PAGE),
+    [sections],
+  );
 
-  useLayoutEffect(measure, [measure]);
-  useEffect(() => {
-    const el = listRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [measure]);
-
-  const pages = Math.max(1, Math.ceil(items.length / perPage));
+  const pages = pagesOfSections.length;
   const safePage = Math.min(page, pages - 1);
-  const visible = items.slice(safePage * perPage, safePage * perPage + perPage);
+  const visibleSections = pagesOfSections[safePage] ?? [];
   const hasOverflow = pages > 1;
 
-  // Never strand someone on a page that doesn't hold where they are: if the
-  // active item is off-page, jump to the page containing it.
+  // Never strand someone on a page that doesn't hold where they are.
   useEffect(() => {
-    const idx = items.findIndex(({ item }) => isActive(item.href));
-    if (idx >= 0 && perPage > 0) setPage(Math.floor(idx / perPage));
+    const idx = pagesOfSections.findIndex((secs) =>
+      secs.some((sec) => sec.items.some((i) => isActive(i.href))));
+    if (idx >= 0) setPage(idx);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname, perPage]);
+  }, [pathname, pagesOfSections]);
 
-  const railLink = (item: NavItem, startsSection: boolean) => {
+  const railLink = (item: NavItem) => {
     const active = isActive(item.href);
     const label = vocab?.[item.href] ?? item.label;
     return (
-      <div key={item.href} className={cn(startsSection && "mt-4")}>
+      <div key={item.href}>
         <Link
           href={item.href}
           onClick={onClose}
@@ -137,7 +150,7 @@ export function AppSidebar({
           className={cn(
             ICON_BTN, "group",
             active ? "text-primary-foreground"
-                   : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+                   : "text-muted-foreground hover:bg-background hover:text-foreground",
           )}
         >
           {active && <ActiveChip />}
@@ -158,7 +171,7 @@ export function AppSidebar({
       className={cn(
         "flex h-7 w-12 shrink-0 items-center justify-center rounded-lg transition-colors",
         disabled ? "text-muted-foreground/40"
-                 : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+                 : "text-muted-foreground hover:bg-background hover:text-foreground",
       )}
     >
       {dir === "up" ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -167,17 +180,31 @@ export function AppSidebar({
 
   /* ── Desktop rail ──────────────────────────────────────────────────── */
   const rail = (
-    <div className="hidden h-full w-20 shrink-0 flex-col items-center py-5 md:flex">
+    // Wider, with real padding: the reference gives the icons room rather
+    // than packing them against the edge.
+    <div className="hidden h-full w-[92px] shrink-0 flex-col items-center bg-background px-3 py-6 md:flex">
       {hasOverflow && chevron("up", safePage === 0)}
 
-      <div ref={listRef} className="flex min-h-0 flex-1 flex-col items-center gap-3 overflow-hidden py-1">
-        {visible.map(({ item, startsSection }) => railLink(item, startsSection))}
+      <div className="flex min-h-0 w-full flex-1 flex-col items-center gap-3.5 overflow-hidden">
+        {visibleSections.map((group) => (
+          // Each category sits on its own slightly raised panel, as in the
+          // reference — the grouping is what makes twenty icons legible
+          // without labels.
+          <div
+            key={group.section}
+            title={group.section}
+            className="flex w-full flex-col items-center gap-3 rounded-3xl bg-secondary px-2.5 py-3"
+          >
+            {group.items.map((item) => railLink(item))}
+          </div>
+        ))}
       </div>
 
       {hasOverflow && chevron("down", safePage >= pages - 1)}
 
-      {/* Bottom group — settings, then the account, as in the reference. */}
-      <div className="mt-4 flex flex-col items-center gap-3 border-t border-border pt-5">
+      {/* Bottom group — settings, then the account, on the same raised panel
+          so it reads as one more category rather than a loose pair. */}
+      <div className="mt-4 flex w-full flex-col items-center gap-3 rounded-3xl bg-secondary px-2.5 py-3">
         {canManageSettings(userRole) && (
           <Link
             href="/settings"
@@ -186,7 +213,7 @@ export function AppSidebar({
             className={cn(
               ICON_BTN, "group",
               pathname.startsWith("/settings") ? "text-primary-foreground"
-                : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+                : "text-muted-foreground hover:bg-background hover:text-foreground",
             )}
           >
             {pathname.startsWith("/settings") && <ActiveChip />}
@@ -194,7 +221,7 @@ export function AppSidebar({
             <span role="tooltip" className={TOOLTIP}>Settings</span>
           </Link>
         )}
-
+        <KireiMark className="h-5 w-auto text-muted-foreground" />
       </div>
     </div>
   );

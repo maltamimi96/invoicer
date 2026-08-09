@@ -64,17 +64,13 @@ function ShellBody({ business, businesses, user, userRole, features, vocab, navC
   return (
     <VocabProvider labels={vocab ?? null}>
       <Suspense fallback={null}><RouteProgress /></Suspense>
-      {/* Full bleed. The rounded frame in the reference is the mockup's device
-          chrome, not the UI — the app itself fills the window and the only
-          framed surface on screen is the content card below. Two soft accent
-          glows sit behind everything, as in the design. */}
+      {/* Full bleed, and flat. The reference's chrome is SOLID: the top bar
+          and the rail are one colour and the body is the thing that differs.
+          Two blurred accent glows used to sit behind everything here, which
+          washed a gradient across the bar and the rail and was exactly what
+          made them look wrong. The only surface that differs is the content
+          card. */}
       <div className="relative flex h-screen flex-col overflow-hidden bg-background">
-        <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute -left-32 -top-44 h-[520px] w-[520px] rounded-full blur-[90px]"
-               style={{ background: "var(--glow)" }} />
-          <div className="absolute -bottom-56 -right-36 h-[480px] w-[480px] rounded-full blur-[100px]"
-               style={{ background: "var(--glow)" }} />
-        </div>
 
         <AppHeader
           user={user}
