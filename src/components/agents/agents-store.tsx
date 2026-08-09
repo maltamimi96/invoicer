@@ -40,7 +40,7 @@ import {
   type AgentInstall,
 } from "@/lib/actions/agents";
 import { setPluginEnabled, applyPresetToActiveBusiness } from "@/lib/actions/plugins";
-import { PLUGIN_REGISTRY, PLUGINS_BY_ID, OPTIONAL_PLUGINS, type PluginDefinition } from "@/lib/plugins/registry";
+import { PLUGIN_REGISTRY, PLUGIN_CATEGORIES, PLUGINS_BY_ID, OPTIONAL_PLUGINS, type PluginDefinition } from "@/lib/plugins/registry";
 import { INDUSTRY_PRESETS, type IndustryPreset } from "@/lib/plugins/presets";
 
 // ── Icon map ──────────────────────────────────────────────────────────────────
@@ -93,6 +93,12 @@ const AGENT_CARD_IDS = new Set(AGENT_CATALOG.map((a) => a.id));
 const MODULES: PluginDefinition[] = PLUGIN_REGISTRY.filter(
   (p) => p.kind === "module" && !AGENT_CARD_IDS.has(p.id)
 );
+
+// Grouped by what the modules are FOR. Empty groups are dropped so removing
+// the last module in a category doesn't leave a heading over nothing.
+const MODULE_GROUPS = PLUGIN_CATEGORIES
+  .map((c) => ({ ...c, modules: MODULES.filter((m) => m.category === c.id) }))
+  .filter((g) => g.modules.length > 0);
 
 function AgentIcon({ name, className }: { name: string; className?: string }) {
   const Icon = ICON_MAP[name] ?? Zap;
@@ -323,11 +329,18 @@ export function AgentsStore({ installs: initialInstalls, pluginEnabled, activePr
         </p>
       </div>
 
-      {/* Modules — the app's building blocks */}
+      {/* Modules — grouped by the job they do, not by where they live in the
+          code. A flat wall of thirty toggles told nobody what to turn on. */}
       <div className="mb-10">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">Modules</h2>
+        {MODULE_GROUPS.map((group) => (
+        <div key={group.id} className="mb-6">
+        <div className="mb-2.5">
+          <p className="text-sm font-semibold">{group.label}</p>
+          <p className="text-xs text-muted-foreground">{group.blurb}</p>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {MODULES.map((m) => {
+          {group.modules.map((m) => {
             const enabled = m.core ? true : (modules[m.id] ?? m.defaultEnabled);
             return (
               <div key={m.id} className="rounded-xl border border-border bg-card p-4 flex items-start gap-3">
@@ -354,6 +367,8 @@ export function AgentsStore({ installs: initialInstalls, pluginEnabled, activePr
             );
           })}
         </div>
+        </div>
+        ))}
         <p className="text-[11px] text-muted-foreground mt-2">Turning a module off only hides it — nothing is deleted, and re-enabling brings everything back.</p>
       </div>
 

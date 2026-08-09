@@ -2,31 +2,15 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { useTheme as useNextTheme } from "next-themes";
+import { UI_THEMES, DEFAULT_UI_THEME, UI_THEME_STORAGE_KEY, isUiTheme, type UiThemeKey } from "@/lib/ui-themes";
 
-/**
- * The Kirei Dashboard v2 palettes.
- *
- * Light vs dark is a property of the theme, not a separate switch — Daylight
- * is the light one. `swatch`/`ring` mirror the design's own theme picker so
- * the dot in the header reads as the theme it selects.
- */
-export const UI_THEMES = [
-  { key: "Midnight", label: "Midnight", swatch: "#3B82F6", ring: "#111A29", dark: true  },
-  { key: "Daylight", label: "Daylight", swatch: "#2563EB", ring: "#FFFFFF", dark: false },
-  { key: "Azure",    label: "Azure",    swatch: "#7DD3FC", ring: "#0C2A56", dark: true  },
-  { key: "Orchid",   label: "Orchid",   swatch: "#8B5CF6", ring: "#1B1030", dark: true  },
-] as const;
-
-export type UiThemeKey = (typeof UI_THEMES)[number]["key"];
-
-export const DEFAULT_UI_THEME: UiThemeKey = "Midnight";
-
-/** Where the no-flash boot script in the root layout stashes the choice. */
-export const UI_THEME_STORAGE_KEY = "kirei.ui-theme";
-
-export function isUiTheme(v: unknown): v is UiThemeKey {
-  return typeof v === "string" && UI_THEMES.some((t) => t.key === v);
-}
+// The palette list itself lives in a plain module so the root layout (a server
+// component) can read it for the no-flash boot script. Re-exported here
+// because every existing caller imports it from this file.
+export {
+  UI_THEMES, LIGHT_THEMES, UI_THEME_KEYS, DEFAULT_UI_THEME,
+  UI_THEME_STORAGE_KEY, isUiTheme, type UiThemeKey,
+} from "@/lib/ui-themes";
 
 export const ACCENT_PRESETS = [
   { key: "teal",    label: "Teal",    hex: "#3a847e" },

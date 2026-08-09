@@ -5,6 +5,7 @@
 import { z } from "zod";
 import { assertScope, t, text, errorText } from "../context";
 import { ctxFrom, UUID, type ToolFn } from "./shared";
+import { nextDueDate, validateSchedule, type ExpenseCadence } from "@/lib/recurring/expense-schedule";
 
 export function registerExpenseTools(tool: ToolFn): void {
   tool("list_expenses", "List expenses (optionally for one job), newest first.",
@@ -126,5 +127,127 @@ export function registerExpenseTools(tool: ToolFn): void {
           .sort((a, b) => b.total - a.total),
         note: "Cash basis. GST collected is estimated as 1/11th of payments received.",
       });
+    });
+}
+
+// ── Recurring costs ─────────────────────────────────────────────────────────
+// Rent, insurance, subscriptions. The cron posts them; these tools let the
+// assistant set one up ("add our $180/mo insurance") and see what's committed.
+
+const CADENCE = z.enum(["weekly", "fortnightly", "monthly", "quarterly", "yearly"]);
+
+export function registerRecurringExpenseTools(tool: ToolFn): void {
+  tool("list_recurring_expenses", "List recurring costs (rent, insurance, subscriptions) and when each next falls due.",
+    { include_inactive: z.boolean().optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "expenses:read");
+      let q = t(ctx, "recurring_expenses")
+        .select("id, name, vendor, category, amount, tax_amount, cadence, preferred_day_of_month, next_run_on, ends_on, active, last_run_at")
+        .eq("business_id", ctx.businessId).order("next_run_on", { ascending: true }).limit(500);
+      if (!args.include_inactive) q = q.eq("active", true);
+      const { data, error } = await q;
+      if (error) throw error;
+      return text(data);
+    });
+
+  tool("create_recurring_expense", "Schedule a recurring cost. It posts an expense automatically on each due date.",
+    {
+      name: z.string(),
+      amount: z.number(),
+      cadence: CADENCE,
+      next_run_on: z.string().describe("YYYY-MM-DD — when it next falls due"),
+      category: z.string().optional(),
+      vendor: z.string().optional(),
+      description: z.string().optional(),
+      tax_amount: z.number().optional(),
+      payment_method: z.string().optional(),
+      preferred_day_of_month: z.number().int().min(1).max(31).optional()
+        .describe("For monthly and longer. 31 lands on the last day of a short month."),
+      ends_on: z.string().optional(),
+      billable: z.boolean().optional(),
+    },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "expenses:write");
+      const problem = validateSchedule(args);
+      if (problem) return errorText(problem);
+      const { data, error } = await t(ctx, "recurring_expenses").insert({
+        business_id: ctx.businessId, user_id: ctx.userId,
+        name: args.name.trim(), vendor: args.vendor?.trim() || null,
+        category: args.category?.trim() || "other",
+        description: args.description?.trim() || null,
+        amount: args.amount, tax_amount: args.tax_amount ?? 0,
+        payment_method: args.payment_method?.trim() || null,
+        billable: args.billable ?? false,
+        cadence: args.cadence, preferred_day_of_month: args.preferred_day_of_month ?? null,
+        next_run_on: args.next_run_on, ends_on: args.ends_on || null, active: true,
+      }).select("id, name, next_run_on").single();
+      if (error) throw error;
+      return text(data);
+    });
+
+  tool("update_recurring_expense", "Change a recurring cost — amount, cadence, next due date, or pause it.",
+    {
+      id: UUID,
+      name: z.string().optional(),
+      amount: z.number().optional(),
+      tax_amount: z.number().optional(),
+      category: z.string().optional(),
+      vendor: z.string().optional(),
+      cadence: CADENCE.optional(),
+      preferred_day_of_month: z.number().int().min(1).max(31).nullable().optional(),
+      next_run_on: z.string().optional(),
+      ends_on: z.string().nullable().optional(),
+      active: z.boolean().optional(),
+    },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "expenses:write");
+      const { id, ...rest } = args;
+      const patch = Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== undefined));
+      if (Object.keys(patch).length === 0) return errorText("Nothing to change.");
+      const { data, error } = await t(ctx, "recurring_expenses")
+        .update(patch).eq("id", id).eq("business_id", ctx.businessId)
+        .select("id, name, amount, cadence, next_run_on, active").single();
+      if (error) throw error;
+      return text(data);
+    });
+
+  tool("delete_recurring_expense", "Stop a recurring cost. Costs it already posted stay in the books.",
+    { id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "expenses:write");
+      const { error } = await t(ctx, "recurring_expenses")
+        .delete().eq("id", args.id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({ ok: true, id: args.id });
+    });
+
+  tool("run_recurring_expense_now", "Post this recurring cost's next occurrence immediately, without waiting for the daily run.",
+    { id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "expenses:write");
+      const { data: sch, error: readErr } = await t(ctx, "recurring_expenses")
+        .select("*").eq("id", args.id).eq("business_id", ctx.businessId).maybeSingle();
+      if (readErr) throw readErr;
+      if (!sch) return errorText("No such recurring cost.");
+
+      const spentOn = String(sch.next_run_on);
+      const { error: insErr } = await t(ctx, "expenses").insert({
+        business_id: ctx.businessId, user_id: ctx.userId, recurring_expense_id: sch.id,
+        vendor: sch.vendor, category: sch.category,
+        description: sch.description ?? sch.name,
+        amount: sch.amount, tax_amount: sch.tax_amount, spent_on: spentOn,
+        payment_method: sch.payment_method, billable: sch.billable, status: "recorded",
+      });
+      // The unique index is the guard against double-posting a cost.
+      if (insErr) {
+        if ((insErr as { code?: string }).code === "23505") return errorText("That occurrence has already been posted.");
+        throw insErr;
+      }
+
+      const next = nextDueDate(spentOn, sch.cadence as ExpenseCadence, sch.preferred_day_of_month);
+      await t(ctx, "recurring_expenses")
+        .update({ next_run_on: next, last_run_at: new Date().toISOString() })
+        .eq("id", args.id).eq("business_id", ctx.businessId);
+      return text({ ok: true, posted_on: spentOn, next_run_on: next });
     });
 }
