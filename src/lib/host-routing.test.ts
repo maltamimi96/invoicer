@@ -45,10 +45,12 @@ describe("splitting the two hosts", () => {
     });
   });
 
-  it("keeps the app's own root on the app host", () => {
-    // app.kireihq.com/ must reach the dashboard, not bounce to the sales page.
+  it("sends the app host's root to the dashboard, never the sales page", () => {
+    // The page at "/" is the marketing home; it only forwards to the dashboard
+    // when already signed in. Left alone, a logged-out visitor to
+    // app.kireihq.com was shown the pitch instead of a login screen.
     withAppHost(APP, () => {
-      expect(hostRedirectTarget(APP, "/")).toBeNull();
+      expect(hostRedirectTarget(APP, "/")).toBe(`https://${APP}/dashboard`);
     });
   });
 

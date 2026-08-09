@@ -92,8 +92,11 @@ export function hostRedirectTarget(host: string | null, pathname: string): strin
     return `https://${app}${pathname}`;
   }
   if (isApp && isMarketingPath(pathname)) {
-    // The app's own root is the dashboard, not the sales pitch.
-    if (pathname === "/") return null;
+    // The app host's root is the dashboard, not the sales pitch. Returning
+    // null here was wrong: the page AT "/" is the marketing home, which only
+    // forwards to the dashboard when you are already signed in — so a
+    // logged-out visitor to app.kireihq.com got the pitch instead of a login.
+    if (pathname === "/") return `https://${app}/dashboard`;
     return `https://${siteHost(app)}${pathname}`;
   }
   return null;
