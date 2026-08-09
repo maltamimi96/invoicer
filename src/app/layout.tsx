@@ -66,8 +66,12 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var t=localStorage.getItem('kirei.ui-theme');`
-              + `if(t&&['Midnight','Daylight','Azure','Orchid'].indexOf(t)>-1)`
-              + `document.documentElement.dataset.theme=t;}catch(e){}})();`,
+              + `if(t&&['Midnight','Daylight','Azure','Orchid'].indexOf(t)>-1){`
+              + `document.documentElement.dataset.theme=t;`
+              // Keep the .dark class in step before paint too, or `dark:`
+              // styles flash the wrong way round on a light theme.
+              + `document.documentElement.classList.toggle('dark',t!=='Daylight');`
+              + `}}catch(e){}})();`,
           }}
         />
       </head>

@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
+import { useTheme as useNextTheme } from "next-themes";
 
 /**
  * The Kirei Dashboard v2 palettes.
@@ -174,6 +175,7 @@ export function AppearanceProvider({
   const [accentColor, setAccentColor]     = useState(initialAccent);
   const [bgPattern,   setBgPattern]       = useState(initialPattern);
   const [sidebarTheme, setSidebarTheme]   = useState(initialTheme);
+  const { setTheme: setNextTheme } = useNextTheme();
   const [uiTheme, setUiTheme] = useState<UiThemeKey>(
     isUiTheme(initialUiTheme) ? initialUiTheme : DEFAULT_UI_THEME,
   );
@@ -189,16 +191,22 @@ export function AppearanceProvider({
     if (isUiTheme(initialUiTheme)) setUiTheme(initialUiTheme);
   }, [initialUiTheme]);
 
-  useEffect(() => { document.documentElement.dataset.accent = accentColor; }, [accentColor]);
-  useEffect(() => { document.documentElement.dataset.pattern = bgPattern; }, [bgPattern]);
-  useEffect(() => { document.documentElement.dataset.sidebarTheme = sidebarTheme; }, [sidebarTheme]);
+  // accent / pattern / sidebarTheme are no longer written to the document:
+  // their CSS was removed because it outranked the theme and overrode it. The
+  // state stays so the values survive round-trips, but nothing styles from it.
   useEffect(() => {
     document.documentElement.dataset.theme = uiTheme;
+    // `dark:` variants key off the .dark class, which next-themes was driving
+    // from the OS. With light/dark now a property of the theme, that meant
+    // choosing Daylight on a dark laptop fired 343 dark-mode styles inside a
+    // light theme - the "conflicting text colour" this fixes. The theme is the
+    // authority; setTheme keeps next-themes in agreement rather than fighting it.
+    setNextTheme(UI_THEMES.find((t) => t.key === uiTheme)?.dark ? "dark" : "light");
     // Mirrored so the boot script can paint the right theme before first
     // render. Without it, a dark-theme business gets a white flash on every
     // cold load, which is exactly what the theme is meant to avoid.
     try { localStorage.setItem(UI_THEME_STORAGE_KEY, uiTheme); } catch { /* private mode */ }
-  }, [uiTheme]);
+  }, [uiTheme, setNextTheme]);
 
   return (
     <AppearanceContext.Provider value={{ accentColor, bgPattern, sidebarTheme, uiTheme, setAccentColor, setBgPattern, setSidebarTheme, setUiTheme }}>
