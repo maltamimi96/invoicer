@@ -43,22 +43,26 @@ function makeSb(state: {
       update(patch: Record<string, unknown>) {
         calls.push(`update:${table}`);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const inSets: Record<string, unknown[]> = {};
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const upd: any = {
           eq(col: string, val: unknown) { filters[col] = val; return upd; },
+          in(col: string, vals: unknown[]) { inSets[col] = vals; return upd; },
           select() {
-            const store = state[table as "leads" | "customers"];
-            const hits = Object.values(store).filter((r) =>
-              Object.entries(filters).every(([k, v]) => r[k] === v));
+            const hits = match();
             hits.forEach((r) => Object.assign(r, patch));
             return Promise.resolve({ data: hits, error: null });
           },
           then(res: (v: unknown) => void) {
-            const store = state[table as "leads" | "customers"];
-            Object.values(store)
-              .filter((r) => Object.entries(filters).every(([k, v]) => r[k] === v))
-              .forEach((r) => Object.assign(r, patch));
+            match().forEach((r) => Object.assign(r, patch));
             return Promise.resolve({ data: null, error: null }).then(res);
           },
+        };
+        const match = () => {
+          const store = state[table as "leads" | "customers"];
+          return Object.values(store).filter((r) =>
+            Object.entries(filters).every(([k, v]) => r[k] === v)
+            && Object.entries(inSets).every(([k, vals]) => vals.includes(r[k])));
         };
         return upd;
       },
@@ -144,5 +148,54 @@ describe("markContactAsClient", () => {
     const { sb } = makeSb({ leads: {}, customers: {} });
     expect(await markContactAsClient(sb, BIZ, null)).toBe(false);
     expect(await markContactAsClient(sb, BIZ, undefined)).toBe(false);
+  });
+});
+
+describe("the pipeline follows the money", () => {
+  it("marks the linked lead won when the contact becomes a client", async () => {
+    // The drift this fixes: 11 leads were marked won, 10 of them with no
+    // contact at all, because three different places wrote "became a customer".
+    const state = {
+      leads: { L1: { id: "L1", business_id: BIZ, customer_id: "C1", status: "quoted" } },
+      customers: { C1: { id: "C1", business_id: BIZ, lifecycle_stage: "lead" } },
+    };
+    const { sb } = makeSb(state);
+    await markContactAsClient(sb, BIZ, "C1");
+    expect(state.customers.C1.lifecycle_stage).toBe("client");
+    expect(state.leads.L1.status).toBe("won");
+  });
+
+  it("does not reopen a lead someone marked lost", async () => {
+    const state = {
+      leads: { L1: { id: "L1", business_id: BIZ, customer_id: "C1", status: "lost" } },
+      customers: { C1: { id: "C1", business_id: BIZ, lifecycle_stage: "lead" } },
+    };
+    const { sb } = makeSb(state);
+    await markContactAsClient(sb, BIZ, "C1");
+    expect(state.leads.L1.status).toBe("lost");
+  });
+
+  it("moves a new lead to quoted when it is first billed", async () => {
+    const state = {
+      leads: { L1: { id: "L1", business_id: BIZ, name: "Acme", email: "a@b.c", customer_id: null, status: "new" } },
+      customers: {} as Record<string, Record<string, unknown>>,
+    };
+    const { sb } = makeSb(state);
+    await ensureContactForLead(sb, BIZ, "L1");
+    expect(state.leads.L1.status).toBe("quoted");
+    expect(state.leads.L1.customer_id).toBeTruthy();
+  });
+
+  it("still links the contact on a lead already marked won", async () => {
+    // The status guard must not stop the LINK being written, or a won lead
+    // would never get the contact row its invoice needs.
+    const state = {
+      leads: { L1: { id: "L1", business_id: BIZ, name: "Acme", email: "a@b.c", customer_id: null, status: "won" } },
+      customers: {} as Record<string, Record<string, unknown>>,
+    };
+    const { sb } = makeSb(state);
+    const res = await ensureContactForLead(sb, BIZ, "L1");
+    expect(state.leads.L1.status).toBe("won");
+    expect(state.leads.L1.customer_id).toBe(res.customerId);
   });
 });

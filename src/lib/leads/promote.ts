@@ -75,6 +75,14 @@ export async function ensureContactForLead(
   }).select("id").single();
   if (insErr) throw new Error(insErr.message);
 
+  // Billing them is a pipeline event: a lead you have just quoted is not still
+  // "new". Only nudged forward from the earliest states, so a manual "lost"
+  // or "won" is never overwritten by the act of raising a document.
+  await tbl(sb, "leads")
+    .update({ customer_id: created.id, status: "quoted" })
+    .eq("id", leadId).in("status", ["new", "contacted"]);
+  // The link itself must be written even when the status guard above matched
+  // nothing, or a lead already marked won/lost would never get its contact.
   await tbl(sb, "leads").update({ customer_id: created.id }).eq("id", leadId);
   return { customerId: created.id, created: true };
 }
@@ -98,6 +106,17 @@ export async function markContactAsClient(
       .eq("id", customerId).eq("business_id", businessId)
       .eq("lifecycle_stage", "lead")   // only ever lead → client, never back
       .select("id");
+
+    // The pipeline follows the money too. Two fields already meant "became a
+    // customer" — leads.status='won' and the contact's stage — and nothing kept
+    // them together: of 11 leads marked won, 10 had no contact at all. Payment
+    // is now the single authority and the board is derived from it, rather
+    // than being a third independent opinion.
+    await tbl(sb, "leads")
+      .update({ status: "won" })
+      .eq("business_id", businessId).eq("customer_id", customerId)
+      .in("status", ["new", "contacted", "quoted"]);   // never reopen a lost lead
+
     return Array.isArray(data) && data.length > 0;
   } catch (e) {
     console.error("[leads] promote to client failed", e instanceof Error ? e.message : e);
