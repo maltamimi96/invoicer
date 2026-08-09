@@ -22,6 +22,7 @@ import { PERIOD_LABELS, type PeriodKind } from "@/lib/expenses/period";
 import type { BooksSummary } from "@/lib/actions/books";
 import { putSignedUpload } from "@/lib/uploads-client";
 import type { Expense } from "@/types/database";
+import { CATEGORY_GROUPS, CATEGORIES, catLabel } from "@/lib/expenses/categories";
 
 interface WO { id: string; number: string | null; title: string | null }
 interface Props {
@@ -33,15 +34,6 @@ interface Props {
   workOrders: WO[];
 }
 
-// Grouped so the dropdown reads as: job costs, overheads/bills, payroll.
-const CATEGORY_GROUPS: { label: string; options: string[] }[] = [
-  { label: "Job costs", options: ["materials", "subcontractor", "equipment-hire", "permits", "fuel", "vehicle", "travel", "tools"] },
-  { label: "Overheads & bills", options: ["rent", "utilities", "insurance", "software", "subscriptions", "phone-internet", "marketing", "accounting", "bank-fees", "office", "tax"] },
-  { label: "Payroll", options: ["wages", "superannuation"] },
-  { label: "Other", options: ["other"] },
-];
-const CATEGORIES = CATEGORY_GROUPS.flatMap((g) => g.options);
-const catLabel = (c: string) => c.replace(/-/g, " ");
 const selectCls = "h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring";
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
 const woLabel = (w?: WO) => w ? (w.title || w.number || "Job") : null;

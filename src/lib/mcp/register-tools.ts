@@ -35,7 +35,7 @@ import { ctxFrom, appBase, UUID, getOrMintPortalToken, type ToolFn } from "./too
 import { registerPluginFormTools } from "./tools/plugin-form-tools";
 import { registerSeoTools } from "./tools/seo-tools";
 import { registerContentTools } from "./tools/content-tools";
-import { registerExpenseTools } from "./tools/expenses-tools";
+import { registerExpenseTools, registerRecurringExpenseTools } from "./tools/expenses-tools";
 import { registerMaterialTools } from "./tools/materials-tools";
 import { registerInventoryTools } from "./tools/inventory-tools";
 import { registerTimesheetTools } from "./tools/timesheets-tools";
@@ -1811,6 +1811,7 @@ export function registerTools(register: ToolFn): void {
 
   // ===== EXPENSES & JOB COSTING =====
   registerExpenseTools(tool);
+  registerRecurringExpenseTools(tool);
 
   registerMaterialTools(tool);
 
