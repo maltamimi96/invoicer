@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -127,6 +128,15 @@ export function SettingsClient({ business: initial, apiKeys, emailConfig, webhoo
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const { uiTheme, setUiTheme } = useAppearance();
 
+  // Deep-linkable tabs: Settings -> Customisation sends people straight to
+  // Appearance, and a bookmark should land where it says it will.
+  const searchParams = useSearchParams();
+  const [tab, setTab] = useState(searchParams.get("tab") ?? "business");
+  useEffect(() => {
+    const t = searchParams.get("tab");
+    if (t) setTab(t);
+  }, [searchParams]);
+
   /** Apply locally first so the whole app repaints on the click, then persist.
    *  A failed save leaves the theme applied for this session - say so rather
    *  than reverting under them. */
@@ -235,7 +245,7 @@ export function SettingsClient({ business: initial, apiKeys, emailConfig, webhoo
         accent="linear-gradient(180deg, #60a5fa 0%, #1d4ed8 100%)"
       />
 
-      <Tabs defaultValue="business">
+      <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="bg-transparent p-0 h-auto border-b border-border w-full justify-start gap-0 rounded-none mb-5 overflow-x-auto whitespace-nowrap">
           {[
             { id: "business",   icon: Building2,  label: "Business"   },
