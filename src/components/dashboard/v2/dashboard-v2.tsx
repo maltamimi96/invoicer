@@ -52,9 +52,9 @@ function toneFor(status?: string): "ok" | "warn" | "bad" | "mu" {
 }
 
 const TONE_TEXT: Record<string, string> = {
-  ok: "text-[hsl(var(--ok))]",
-  warn: "text-[hsl(var(--warn))]",
-  bad: "text-[hsl(var(--bad))]",
+  ok: "text-ok",
+  warn: "text-warn",
+  bad: "text-bad",
   mu: "text-muted-foreground",
 };
 
@@ -111,7 +111,7 @@ export function DashboardV2({
     <div className="grid min-h-0 gap-5 xl:grid-cols-[minmax(0,1fr)_352px]">
       <div className="flex min-w-0 flex-col gap-5">
         <div>
-          <h1 className="text-[26px] font-semibold leading-tight tracking-[-0.02em]">{greeting}!</h1>
+          <h1 className="text-2xl font-semibold leading-tight tracking-[-0.02em]">{greeting}!</h1>
           <p className="mt-1.5 text-sm text-muted-foreground">Here&rsquo;s what&rsquo;s on your books today.</p>
         </div>
 
@@ -121,19 +121,19 @@ export function DashboardV2({
             "flex items-center gap-2.5 rounded-2xl bg-primary px-5 py-3.5 text-sm font-semibold text-primary-foreground",
             "transition-transform duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-0.5 hover:brightness-110",
           )}>
-            <Plus className="h-[17px] w-[17px]" /> New invoice
+            <Plus className="h-4 w-4" /> New invoice
           </Link>
           <Link href="/quotes/new" className={cn(
             "flex items-center gap-2.5 rounded-2xl border border-border bg-card px-5 py-3.5 text-sm font-medium",
-            "transition-[transform,border-color] duration-200 hover:-translate-y-0.5 hover:border-[hsl(var(--border-strong))]",
+            "transition-[transform,border-color] duration-200 hover:-translate-y-0.5 hover:border-border-strong",
           )}>
-            <FileCheck className="h-[17px] w-[17px] text-[hsl(var(--accent-2))]" /> New quote
+            <FileCheck className="h-4 w-4 text-accent-2" /> New quote
           </Link>
           <Link href="/work-orders/new" className={cn(
             "flex items-center gap-2.5 rounded-2xl border border-border bg-card px-5 py-3.5 text-sm font-medium",
-            "transition-[transform,border-color] duration-200 hover:-translate-y-0.5 hover:border-[hsl(var(--border-strong))]",
+            "transition-[transform,border-color] duration-200 hover:-translate-y-0.5 hover:border-border-strong",
           )}>
-            <Wrench className="h-[17px] w-[17px] text-[hsl(var(--lime))]" /> New {lower(jobs.singular)}
+            <Wrench className="h-4 w-4 text-lime" /> New {lower(jobs.singular)}
           </Link>
 
           {/* The mock's overdue nudge. Shown only when there IS overdue money —
@@ -144,10 +144,10 @@ export function DashboardV2({
               onClick={() => setFilter("Overdue")}
               className={cn(
                 "ml-auto flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3",
-                "transition-colors duration-200 hover:border-[hsl(var(--bad))]",
+                "transition-colors duration-200 hover:border-bad",
               )}
             >
-              <span className="h-2 w-2 shrink-0 rounded-full bg-[hsl(var(--bad))]" />
+              <span className="h-2 w-2 shrink-0 rounded-full bg-bad" />
               <span className="text-sm font-medium">
                 {formatCurrency(stats.overdue, currency)} overdue
                 {overdueInvoices.length > 0 && ` across ${overdueInvoices.length} invoice${overdueInvoices.length === 1 ? "" : "s"}`}
@@ -161,10 +161,10 @@ export function DashboardV2({
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Kpi icon={<DollarSign className="h-[18px] w-[18px] text-primary" />}
                label="Revenue, all time" value={formatCurrency(stats.totalRevenue, currency)} />
-          <Kpi icon={<Clock className="h-[18px] w-[18px] text-[hsl(var(--accent-2))]" />}
+          <Kpi icon={<Clock className="h-[18px] w-[18px] text-accent-2" />}
                label="Outstanding" value={formatCurrency(stats.outstanding, currency)}
                note={`${stats.recentInvoices.filter((i) => ["sent", "partial", "overdue"].includes((i.status ?? "").toLowerCase())).length} open`} />
-          <Kpi icon={<AlertTriangle className="h-[18px] w-[18px] text-[hsl(var(--bad))]" />}
+          <Kpi icon={<AlertTriangle className="h-[18px] w-[18px] text-bad" />}
                label="Overdue" value={formatCurrency(stats.overdue, currency)}
                badge={overdueInvoices.length > 0 ? `${overdueInvoices.length} late` : undefined} badgeTone="bad" />
           <Kpi icon={<CheckCircle className="h-[18px] w-[18px] text-primary-foreground" />}
@@ -174,7 +174,7 @@ export function DashboardV2({
 
         {/* ── Revenue flow + split ──────────────────────────────────── */}
         <div className="grid gap-4 lg:grid-cols-[1.45fr_1fr]">
-          <section className="overflow-hidden rounded-[22px] border border-border bg-card">
+          <section className="overflow-hidden rounded-3xl border border-border bg-card">
             <div className="flex flex-wrap items-center justify-between gap-3 p-5">
               <div>
                 <h3 className="text-base font-semibold">Revenue flow</h3>
@@ -195,7 +195,7 @@ export function DashboardV2({
             <RevenueFlow series={series} currency={currency} />
           </section>
 
-          <section className="overflow-hidden rounded-[22px] border border-border bg-card p-5">
+          <section className="overflow-hidden rounded-3xl border border-border bg-card p-5">
             <h3 className="text-base font-semibold">Where the money comes from</h3>
             {/* Said plainly: the mock split by service category, which Kirei
                 does not record. This is by client, from recent invoices. */}
@@ -220,7 +220,7 @@ export function DashboardV2({
         </div>
 
         {/* ── Invoice ledger ────────────────────────────────────────── */}
-        <section className="overflow-hidden rounded-[22px] border border-border bg-card">
+        <section className="overflow-hidden rounded-3xl border border-border bg-card">
           <div className="flex flex-wrap items-center justify-between gap-3 p-5">
             <h3 className="text-base font-semibold">Invoice ledger</h3>
             <div className="flex items-center gap-1 rounded-xl border border-border bg-background p-1">
@@ -254,7 +254,7 @@ export function DashboardV2({
                   >
                     <span className="font-mono text-xs text-muted-foreground">{inv.number ?? "—"}</span>
                     <span className="flex min-w-0 items-center gap-3">
-                      <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-xl bg-secondary text-[11.5px] font-semibold">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-secondary text-xs font-semibold">
                         {initialsOf(inv.customers?.name)}
                       </span>
                       <span className="min-w-0">
@@ -267,7 +267,7 @@ export function DashboardV2({
                       </span>
                     </span>
                     <span className={cn(
-                      "justify-self-start rounded-full bg-[var(--accent-soft)] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.05em] max-sm:hidden",
+                      "justify-self-start rounded-full bg-accent-soft px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.05em] max-sm:hidden",
                       TONE_TEXT[tone],
                     )}>{inv.status ?? "—"}</span>
                     <span className="text-right text-sm font-semibold tabular-nums">
@@ -284,8 +284,8 @@ export function DashboardV2({
       {/* ── Scheduled ─────────────────────────────────────────────── */}
       <aside className="flex min-w-0 flex-col gap-4 xl:border-l xl:border-border xl:pl-6">
         <div>
-          <h3 className="text-[17px] font-semibold">Scheduled</h3>
-          <p className="mt-1 text-[12.5px] text-muted-foreground">
+          <h3 className="text-lg font-semibold">Scheduled</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
             {new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
           </p>
         </div>
@@ -297,9 +297,9 @@ export function DashboardV2({
         ) : (
           todayJobs.map((job) => (
             <Link key={job.id} href={`/work-orders/${job.id}`}
-              className="rounded-2xl border border-border bg-card p-4 transition-[transform,border-color] duration-200 hover:-translate-y-0.5 hover:border-[hsl(var(--border-strong))]">
-              <p className="text-[14.5px] font-semibold">{job.customers?.name ?? "Job"}</p>
-              {job.title && <p className="mt-1 text-[12.5px] text-muted-foreground">{job.title}</p>}
+              className="rounded-2xl border border-border bg-card p-4 transition-[transform,border-color] duration-200 hover:-translate-y-0.5 hover:border-border-strong">
+              <p className="text-sm font-semibold">{job.customers?.name ?? "Job"}</p>
+              {job.title && <p className="mt-1 text-xs text-muted-foreground">{job.title}</p>}
               {job.property_address && (
                 <p className="mt-2.5 flex items-center gap-1.5 text-xs text-muted-foreground">
                   <MapPin className="h-3.5 w-3.5 shrink-0" />
@@ -330,24 +330,24 @@ function Kpi({
 }) {
   return (
     <div className={cn(
-      "rounded-[20px] border p-5 transition-transform duration-[260ms] ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-[3px]",
-      emphasis ? "border-[hsl(var(--border-strong))] bg-secondary" : "border-border bg-card",
+      "rounded-2xl border p-5 transition-transform duration-[260ms] ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-[3px]",
+      emphasis ? "border-border-strong bg-secondary" : "border-border bg-card",
     )}>
       <div className="flex items-center justify-between">
         <span className={cn(
           "flex h-9 w-9 items-center justify-center rounded-xl",
-          iconOnAccent ? "bg-primary" : "bg-[var(--accent-soft)]",
+          iconOnAccent ? "bg-primary" : "bg-accent-soft",
         )}>{icon}</span>
         {badge && (
           <span className={cn(
-            "rounded-full bg-[var(--accent-soft)] px-2.5 py-1.5 text-xs font-semibold",
-            badgeTone === "bad" ? "text-[hsl(var(--bad))]" : "text-[hsl(var(--ok))]",
+            "rounded-full bg-accent-soft px-2.5 py-1.5 text-xs font-semibold",
+            badgeTone === "bad" ? "text-bad" : "text-ok",
           )}>{badge}</span>
         )}
         {!badge && note && <span className="text-xs font-medium text-muted-foreground">{note}</span>}
       </div>
-      <p className="mt-5 text-[12.5px] font-medium text-muted-foreground">{label}</p>
-      <p className="mt-2 text-[32px] font-semibold leading-none tracking-[-0.03em] tabular-nums">{value}</p>
+      <p className="mt-5 text-xs font-medium text-muted-foreground">{label}</p>
+      <p className="mt-2 text-3xl font-semibold leading-none tracking-[-0.03em] tabular-nums">{value}</p>
     </div>
   );
 }
@@ -373,7 +373,7 @@ function RevenueFlow({ series, currency }: { series: Array<{ month: string; reve
 
   return (
     <div className="px-5 pb-5">
-      <svg viewBox={`0 0 ${W} ${H}`} className="h-[200px] w-full" role="img"
+      <svg viewBox={`0 0 ${W} ${H}`} className="h-52 w-full" role="img"
            aria-label={`Revenue over the last ${series.length} months, peaking at ${formatCurrency(max, currency)}`}>
         <defs>
           <linearGradient id="revfill" x1="0" y1="0" x2="0" y2="1">
@@ -406,7 +406,7 @@ function Donut({ parts }: { parts: Array<{ name: string; pct: number }> }) {
   const R = 54, C = 2 * Math.PI * R;
   let offset = 0;
   return (
-    <svg viewBox="0 0 140 140" className="h-[140px] w-[140px] -rotate-90" role="img" aria-label="Revenue split by client">
+    <svg viewBox="0 0 140 140" className="h-36 w-36 -rotate-90" role="img" aria-label="Revenue split by client">
       {parts.map((p, i) => {
         const len = p.pct * C;
         const el = (

@@ -64,9 +64,22 @@ function ShellBody({ business, businesses, user, userRole, features, vocab, navC
   return (
     <VocabProvider labels={vocab ?? null}>
       <Suspense fallback={null}><RouteProgress /></Suspense>
-      {/* MYOB chrome: a full-width accent top bar spans over the sidebar
-          column, then a row of sidebar + content beneath it. */}
-      <div className="flex h-screen flex-col overflow-hidden bg-background">
+      {/* The app sits as one rounded panel floating on a deeper canvas, with
+          two soft accent glows behind it — the shape both the v2 design and
+          the reference dashboard use. Desktop only: on a phone the inset and
+          the radius would just cost usable width. */}
+      <div
+        className="relative h-screen overflow-hidden bg-canvas-deep md:p-5"
+      >
+        <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute -left-32 -top-44 h-[520px] w-[520px] rounded-full blur-[90px]"
+               style={{ background: "var(--glow)" }} />
+          <div className="absolute -bottom-56 -right-36 h-[480px] w-[480px] rounded-full blur-[100px]"
+               style={{ background: "var(--glow)" }} />
+        </div>
+
+        <div className="relative flex h-full flex-col overflow-hidden bg-background md:rounded-3xl md:border md:border-border"
+             style={{ boxShadow: "var(--shadow-panel)" }}>
         <AppHeader
           user={user}
           business={business}
@@ -77,10 +90,11 @@ function ShellBody({ business, businesses, user, userRole, features, vocab, navC
         />
 
         <div className="flex min-h-0 flex-1 overflow-hidden">
-          {/* Sidebar — hidden on desktop when Focus mode is on (MYOB-style
-              document focus). The wrapper's `md:hidden` collapses the desktop
-              aside; on mobile the sidebar is already a hidden drawer. */}
-          <div className={focus ? "md:hidden" : "contents"}>
+          {/* The rail hides on desktop in Focus mode. `contents` keeps the
+              rail a direct flex child in the normal case; `md:hidden` on the
+              wrapper collapses the whole thing, and the mobile drawer is
+              fixed-position inside AppSidebar so it is unaffected either way. */}
+          <div className={focus ? "hidden" : "contents"}>
             <AppSidebar
               business={business}
               businesses={businesses}
@@ -110,10 +124,11 @@ function ShellBody({ business, businesses, user, userRole, features, vocab, navC
                 rows until a hard refresh. */}
             {/* Each tab keeps its own business; see tab-business-guard.tsx. */}
           <TabBusinessGuard businessId={business.id} />
-          <div key={business.id} className="w-full p-6">
+          <div key={business.id} className="w-full p-6 md:px-8 md:py-7">
               {children}
             </div>
           </main>
+        </div>
         </div>
       </div>
 

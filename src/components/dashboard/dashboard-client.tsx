@@ -49,12 +49,12 @@ export function DashboardClient({ stats, currency = "GBP", todayJobs }: Dashboar
           was one click from the dashboard and should stay that way. */}
       <div className="flex flex-wrap gap-3">
         <Link href="/customers/new"
-          className="flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-sm font-medium transition-colors hover:border-[hsl(var(--border-strong))]">
-          <UserPlus className="h-4 w-4 text-[hsl(var(--accent-2))]" /> New client
+          className="flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-sm font-medium transition-colors hover:border-border-strong">
+          <UserPlus className="h-4 w-4 text-accent-2" /> New client
         </Link>
         <Link href="/leads/new"
-          className="flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-sm font-medium transition-colors hover:border-[hsl(var(--border-strong))]">
-          <Plus className="h-4 w-4 text-[hsl(var(--lime))]" /> New lead
+          className="flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-sm font-medium transition-colors hover:border-border-strong">
+          <Plus className="h-4 w-4 text-lime" /> New lead
         </Link>
       </div>
     </div>

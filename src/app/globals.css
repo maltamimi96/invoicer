@@ -28,6 +28,21 @@
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
+  /* Kirei Dashboard v2 palette, as first-class utilities.
+     Registered here rather than written inline as `text-[hsl(var(--ok))]`:
+     arbitrary bracket values compile in the production build but NOT under
+     the dev server, so anything styled with them cannot be checked locally -
+     which is how a whole redesign shipped unseen. `text-ok`, `bg-accent-soft`
+     and friends behave identically in both. */
+  --color-ok: hsl(var(--ok));
+  --color-warn: hsl(var(--warn));
+  --color-bad: hsl(var(--bad));
+  --color-lime: hsl(var(--lime));
+  --color-accent-2: hsl(var(--accent-2));
+  --color-canvas-deep: hsl(var(--canvas-deep));
+  --color-surface-3: hsl(var(--surface-3));
+  --color-border-strong: hsl(var(--border-strong));
+  --color-accent-soft: var(--accent-soft);
   --color-sidebar: hsl(var(--sidebar));
   --color-sidebar-foreground: hsl(var(--sidebar-foreground));
   --color-sidebar-primary: hsl(var(--sidebar-primary));
@@ -40,6 +55,12 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  /* 2xl/3xl were never defined, so `rounded-2xl` and `rounded-3xl` silently
+     produced no radius at all wherever they were used. The v2 design needs
+     both (16px controls, 22px cards), so they are defined off the same
+     --radius the rest of the scale uses. */
+  --radius-2xl: calc(var(--radius) + 2px);
+  --radius-3xl: calc(var(--radius) + 8px);
 }
 
 :root {
