@@ -28,6 +28,9 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const inviteEmail = searchParams.get("email") ?? "";
   const inviteBiz = searchParams.get("biz") ?? "";
+  // Which hub they came in through (/trades or /agencies). Carried to
+  // onboarding so a tradie is never asked to classify their own business.
+  const solution = searchParams.get("solution") ?? "";
   const supabase = createClient();
 
   const {
@@ -45,6 +48,8 @@ export default function RegisterPage() {
     if (inviteBiz) {
       // Use full navigation so the Route Handler's redirect is followed correctly
       window.location.href = `/api/activate-invite?biz=${encodeURIComponent(inviteBiz)}`;
+    } else if (solution) {
+      router.push(`/onboarding?solution=${encodeURIComponent(solution)}`);
     } else {
       router.push("/dashboard");
     }

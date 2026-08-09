@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -45,12 +45,31 @@ const step2Schema = z.object({
 type Step1Data = z.infer<typeof step1Schema>;
 type Step2Data = z.infer<typeof step2Schema>;
 
+/**
+ * useSearchParams() opts a page out of static prerendering, and Next refuses
+ * to build unless the bailout is contained by a Suspense boundary. The wrapper
+ * below is that boundary — without it the whole build fails at the prerender
+ * step, which the compile step reports as success.
+ */
 export default function OnboardingPage() {
+  return (
+    <Suspense fallback={null}>
+      <OnboardingWizard />
+    </Suspense>
+  );
+}
+
+function OnboardingWizard() {
   const router = useRouter();
   const supabase = createClient();
   const [step, setStep] = useState(1);
   const [step1Data, setStep1Data] = useState<Step1Data | null>(null);
-  const [industry, setIndustry] = useState<string>("trades");
+  // Arriving from /trades or /agencies already answers "what kind of business
+  // is this", so the step is pre-filled and hidden rather than asked twice.
+  const searchParams = useSearchParams();
+  const presetFromHub = searchParams.get("solution") ?? "";
+  const cameFromHub = INDUSTRY_PRESETS.some((p) => p.id === presetFromHub);
+  const [industry, setIndustry] = useState<string>(cameFromHub ? presetFromHub : "trades");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -144,10 +163,22 @@ export default function OnboardingPage() {
               <div className="mb-6">
                 <h1 className="text-2xl font-bold">Your business details</h1>
                 <p className="text-sm text-muted-foreground mt-1">This will appear on your invoices and quotes</p>
+                {cameFromHub && (
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Setting up{" "}
+                    <strong className="text-foreground">
+                      {INDUSTRY_PRESETS.find((p) => p.id === presetFromHub)?.label}
+                    </strong>
+                    . You can turn any module on or off later.
+                  </p>
+                )}
               </div>
 
-              {/* Industry — shapes which modules the app starts with */}
-              <div className="mb-6">
+              {/* Industry — shapes which modules the app starts with.
+                  Hidden when they arrived through /trades or /agencies: the
+                  hub already answered it, and asking again is the confusing
+                  signup the split exists to remove. */}
+              <div className={cameFromHub ? "hidden" : "mb-6"}>
                 <Label>What kind of business are you?</Label>
                 <div className="mt-2 grid gap-2">
                   {[...INDUSTRY_PRESETS.map((p) => ({ id: p.id, label: p.label, description: p.description })),
