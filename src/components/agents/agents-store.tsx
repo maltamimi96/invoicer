@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import {
   Bot, MailSearch, PlugZap, BellRing, Send,
-  Settings, Trash2, Plus, Lock,
+  Settings, Trash2, Plus, Lock, Building2,
   Zap, Newspaper, MailCheck, UserRoundCheck, FileClock, CheckCircle, Star, ClipboardList, ListChecks,
   LayoutDashboard, Users, Columns3, Users2, UserPlus, FileCheck, FileText, Repeat, FileStack,
   Wrench, CalendarDays, Package, MessageSquare, TrendingUp, Sparkles, Receipt, Boxes, Clock, Hammer, Target, DollarSign,
@@ -61,6 +61,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
   "list-checks": ListChecks,
   "layout-dashboard": LayoutDashboard,
   lock: Lock,
+  "building-2": Building2,
   users: Users,
   columns: Columns3,
   "users-2": Users2,

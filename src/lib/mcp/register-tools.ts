@@ -609,6 +609,41 @@ export function registerTools(register: ToolFn): void {
       });
     });
 
+  tool("list_client_accounts",
+    "Every business this key can reach, with outstanding, overdue and jobs booked today for each — the agency console as data. Use to answer 'which of my clients needs me today'.",
+    {},
+    async (_args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "customers:read");
+      // NOTE: an API key is scoped to ONE business by design, so this returns
+      // that business only. The cross-account view is a signed-in surface —
+      // widening a key to span businesses would turn one leaked key into a
+      // breach of every client the agency holds.
+      const { data: biz } = await t(ctx, "businesses")
+        .select("id, name, currency, industry_preset").eq("id", ctx.businessId).single();
+      const today = new Date().toISOString().slice(0, 10);
+      const [{ data: invoices }, { data: jobs }] = await Promise.all([
+        t(ctx, "invoices").select("status, total, amount_paid, due_date")
+          .eq("business_id", ctx.businessId).neq("status", "draft").limit(5000),
+        t(ctx, "work_orders").select("id")
+          .eq("business_id", ctx.businessId).eq("scheduled_date", today).limit(2000),
+      ]);
+      const num = (v: unknown) => Number(v ?? 0) || 0;
+      let outstanding = 0, overdue = 0, overdueCount = 0;
+      for (const inv of (invoices ?? []) as Array<Record<string, unknown>>) {
+        const due = num(inv.total) - num(inv.amount_paid);
+        if (String(inv.status) === "paid" || due <= 0) continue;
+        outstanding += due;
+        if (String(inv.status) === "overdue" || (typeof inv.due_date === "string" && inv.due_date < today)) {
+          overdue += due; overdueCount += 1;
+        }
+      }
+      return text([{
+        id: biz?.id, name: biz?.name, currency: biz?.currency ?? "GBP",
+        outstanding, overdue, overdue_count: overdueCount,
+        jobs_today: (jobs ?? []).length,
+      }]);
+    });
+
   tool("get_navigation", "Get the business's sidebar navigation overrides: {labels: {href: name}, hidden: [href], order: [href]}. NULL/empty means it follows the industry preset.",
     {},
     async (_args, extra) => {
