@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useForm } from "react-hook-form";
@@ -45,7 +45,21 @@ const step2Schema = z.object({
 type Step1Data = z.infer<typeof step1Schema>;
 type Step2Data = z.infer<typeof step2Schema>;
 
+/**
+ * useSearchParams() opts a page out of static prerendering, and Next refuses
+ * to build unless the bailout is contained by a Suspense boundary. The wrapper
+ * below is that boundary — without it the whole build fails at the prerender
+ * step, which the compile step reports as success.
+ */
 export default function OnboardingPage() {
+  return (
+    <Suspense fallback={null}>
+      <OnboardingWizard />
+    </Suspense>
+  );
+}
+
+function OnboardingWizard() {
   const router = useRouter();
   const supabase = createClient();
   const [step, setStep] = useState(1);
