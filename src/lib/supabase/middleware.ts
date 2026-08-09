@@ -22,6 +22,15 @@ export async function updateSession(request: NextRequest) {
     pathname === "/api/ai/transcribe";
 
   const isPublicRoute =
+    // The public site. `/` is here so a stranger sees the home page instead of
+    // being bounced to login; the page itself sends signed-in users to their
+    // dashboard, which is what `/` used to do for everyone.
+    pathname === "/" ||
+    pathname === "/trades" ||
+    pathname === "/agencies" ||
+    pathname === "/pricing" ||
+    pathname === "/contact-sales" ||
+    pathname === "/api/marketing/contact" ||
     pathname === "/privacy" ||
     pathname === "/support" ||
     pathname.startsWith("/invoice/") ||
