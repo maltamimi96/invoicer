@@ -86,6 +86,7 @@ export const PLUGIN_REGISTRY: PluginDefinition[] = [
   { id: "client-onboarding", icon: "clipboard-list", name: "Client Onboarding", description: "Custom intake forms customers fill in via the portal.", kind: "module", category: "contacts", defaultEnabled: false, settingsTable: "onboarding_settings", routePrefixes: ["/onboarding-forms"] },
   { id: "form-builder", icon: "list-checks",      name: "Form Builder",      description: "Public lead-capture forms to share or embed.", kind: "module", category: "sales", defaultEnabled: false, settingsTable: "form_builder_settings", routePrefixes: ["/forms"] },
 
+  { id: "agency-console", icon: "building-2", name: "Client accounts", description: "Every business you run on one screen — who is overdue, what is booked, who has gone quiet.", kind: "module", category: "contacts", defaultEnabled: false, routePrefixes: ["/agency"] },
   { id: "vault", icon: "lock", name: "Password vault", description: "Store the account logins you hold for clients — encrypted, owner/admin only, every reveal logged.", kind: "module", category: "contacts", defaultEnabled: false, settingsTable: "vault_settings", routePrefixes: ["/vault"] },
   { id: "automations", icon: "zap", name: "Automations", description: "When something happens, do something: email a new client their onboarding form, text a customer when a job is done.", kind: "module", category: "automation", defaultEnabled: false, settingsTable: "automations_settings", routePrefixes: ["/automations"] },
 
