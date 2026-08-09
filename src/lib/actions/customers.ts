@@ -11,7 +11,16 @@ import { getUser } from "@/lib/auth";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: Awaited<ReturnType<typeof createClient>>, name: string) => (sb as any).from(name);
 
-export async function getCustomers(includeArchived = false): Promise<Customer[]> {
+/**
+ * @param includeArchived  include archived rows (the list's tabs filter them)
+ * @param stage            'client' for the Clients list; omit for pickers,
+ *                         which must still offer contacts created from a lead
+ *                         so an existing quote can be reassigned to them.
+ */
+export async function getCustomers(
+  includeArchived = false,
+  stage?: "client" | "lead",
+): Promise<Customer[]> {
   const supabase = await createClient();
   const user = await getUser();
 
@@ -24,12 +33,18 @@ export async function getCustomers(includeArchived = false): Promise<Customer[]>
       // payload on every consumer page. 1000 covers realistic tenants; a
       // paginated getter is the follow-up if someone outgrows it.
       let query = tbl(supabase, "customers").select("*").eq("business_id", businessId).order("name").limit(1000);
+      // A lead you have quoted has a contact row but is not a client until
+      // they pay; the Clients list would otherwise show them twice over.
+      if (stage) query = query.eq("lifecycle_stage", stage);
       if (!includeArchived) query = query.eq("archived", false);
       const { data, error } = await query;
       if (error) throw error;
       return data as Customer[];
     },
-    [`customers-${businessId}-${includeArchived}`],
+    // `stage` MUST be in the key: the Clients list asks for clients only and
+    // the pickers ask for everyone, so sharing one entry would let whichever
+    // ran first serve the other the wrong set.
+    [`customers-${businessId}-${includeArchived}-${stage ?? "all"}`],
     { tags: [`customers-${businessId}`], revalidate: 30 }
   )();
 }

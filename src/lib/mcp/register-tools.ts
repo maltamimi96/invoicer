@@ -575,6 +575,40 @@ export function registerTools(register: ToolFn): void {
   // Navigation — what the sidebar is called, in what order, what's hidden.
   // Renaming is the point of it: an agency asks for "Projects", not "Work
   // Orders", and the assistant can now do that in one instruction.
+  // Leads and clients are the same people at different stages: a lead gets a
+  // contact row the first time you bill them, and becomes a client when they
+  // pay. These expose that without a second document owner type.
+  tool("prepare_lead_for_billing",
+    "Get (creating if needed) the contact record to raise a quote or invoice against for a lead. The lead stays a lead — they become a client only when a payment arrives. Returns customer_id to pass to create_quote / create_invoice.",
+    { lead_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "leads:write");
+      const { ensureContactForLead } = await import("@/lib/leads/promote");
+      // ctx.sb IS the admin client (see lib/mcp/context.ts); promote.ts takes
+      // a client rather than making one precisely so it works from here.
+      const res = await ensureContactForLead(ctx.sb, ctx.businessId, args.lead_id);
+      return text({ ok: true, ...res });
+    });
+
+  tool("get_lead_billing",
+    "Quotes and invoices raised against a lead, and whether they have become a paying client.",
+    { lead_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "leads:read");
+      const { data: lead } = await t(ctx, "leads")
+        .select("customer_id").eq("id", args.lead_id).eq("business_id", ctx.businessId).maybeSingle();
+      if (!lead?.customer_id) return text({ customer_id: null, quotes: [], invoices: [], is_client: false });
+      const [{ data: quotes }, { data: invoices }, { data: contact }] = await Promise.all([
+        t(ctx, "quotes").select("id, number, status, total").eq("business_id", ctx.businessId).eq("customer_id", lead.customer_id).limit(50),
+        t(ctx, "invoices").select("id, number, status, total, amount_paid").eq("business_id", ctx.businessId).eq("customer_id", lead.customer_id).limit(50),
+        t(ctx, "customers").select("lifecycle_stage").eq("id", lead.customer_id).eq("business_id", ctx.businessId).maybeSingle(),
+      ]);
+      return text({
+        customer_id: lead.customer_id, quotes: quotes ?? [], invoices: invoices ?? [],
+        is_client: contact?.lifecycle_stage === "client",
+      });
+    });
+
   tool("get_navigation", "Get the business's sidebar navigation overrides: {labels: {href: name}, hidden: [href], order: [href]}. NULL/empty means it follows the industry preset.",
     {},
     async (_args, extra) => {

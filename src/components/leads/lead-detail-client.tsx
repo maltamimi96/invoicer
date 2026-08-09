@@ -19,6 +19,8 @@ import {
 } from "@/components/ui/kirei";
 import type { GradientName } from "@/components/ui/kirei";
 import { LeadOnboardingCard, type LeadOnboardingData } from "@/components/leads/lead-onboarding-card";
+import { LeadBillingCard } from "@/components/leads/lead-billing-card";
+import type { LeadDocuments } from "@/lib/actions/lead-billing";
 import type { Lead, LeadStatus } from "@/types/database";
 
 const STATUSES: LeadStatus[] = ["new", "contacted", "quoted", "won", "lost"];
@@ -49,10 +51,13 @@ const SOURCE_LABELS: Record<string, string> = {
 const fmtSource = (s: string | null) =>
   !s ? "—" : (SOURCE_LABELS[s] ?? s.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()));
 
-export function LeadDetailClient({ lead: initial, onboarding }: {
+export function LeadDetailClient({ lead: initial, onboarding, billing, currency }: {
   lead: Lead;
   /** Onboarding forms for this lead; absent when the plugin is off. */
   onboarding?: LeadOnboardingData | null;
+  /** Quotes and invoices raised against this lead's contact row. */
+  billing?: LeadDocuments | null;
+  currency?: string;
 }) {
   const router = useRouter();
   const [lead, setLead] = useState<Lead>(initial);
@@ -223,6 +228,13 @@ export function LeadDetailClient({ lead: initial, onboarding }: {
             <p className="text-sm whitespace-pre-wrap leading-relaxed text-foreground">{lead.notes}</p>
           </div>
         </FadeIn>
+      )}
+
+      {billing && (
+        <section className="space-y-3">
+          <h2 className="text-base font-semibold">Quotes &amp; invoices</h2>
+          <LeadBillingCard leadId={lead.id} docs={billing} currency={currency} />
+        </section>
       )}
 
       {onboarding && <LeadOnboardingCard leadId={lead.id} data={onboarding} />}
