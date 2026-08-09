@@ -18,7 +18,8 @@ import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Controller } from "react-hook-form";
 import { updateBusiness, uploadLogo } from "@/lib/actions/business";
-import { useAppearance, ACCENT_PRESETS, PATTERN_PRESETS, SIDEBAR_THEMES } from "@/components/layout/appearance-provider";
+import { useAppearance, UI_THEMES, type UiThemeKey } from "@/components/layout/appearance-provider";
+import { setUiTheme as persistUiTheme } from "@/lib/actions/appearance";
 import { PageHeader } from "@/components/layout/page-header";
 import { GradientTile } from "@/components/ui/kirei";
 import { ApiKeysSettings } from "@/components/settings/api-keys-settings";
@@ -124,7 +125,17 @@ export function SettingsClient({ business: initial, apiKeys, emailConfig, webhoo
   const [business, setBusiness] = useState(initial);
   const [logoPreview, setLogoPreview] = useState<string | null>(initial.logo_url);
   const [uploadingLogo, setUploadingLogo] = useState(false);
-  const { setAccentColor, setBgPattern, setSidebarTheme, accentColor, bgPattern, sidebarTheme } = useAppearance();
+  const { uiTheme, setUiTheme } = useAppearance();
+
+  /** Apply locally first so the whole app repaints on the click, then persist.
+   *  A failed save leaves the theme applied for this session - say so rather
+   *  than reverting under them. */
+  const pickTheme = (key: UiThemeKey) => {
+    setUiTheme(key);
+    void persistUiTheme(key).then((res) => {
+      if (!res.ok) toast.error(`${res.error} - it will reset on your next visit.`);
+    });
+  };
 
   const businessForm = useForm<BusinessData>({
     resolver: zodResolver(businessSchema),
@@ -192,27 +203,6 @@ export function SettingsClient({ business: initial, apiKeys, emailConfig, webhoo
     } catch { toast.error("Failed to save"); }
   };
 
-  const handleAccentChange = async (key: string) => {
-    setAccentColor(key); // live preview
-    try {
-      await updateBusiness({ accent_color: key });
-    } catch { toast.error("Failed to save"); }
-  };
-
-  const handlePatternChange = async (key: string) => {
-    setBgPattern(key);
-    try {
-      await updateBusiness({ bg_pattern: key });
-    } catch { toast.error("Failed to save"); }
-  };
-
-  const handleThemeChange = async (key: string) => {
-    setSidebarTheme(key);
-    try {
-      await updateBusiness({ sidebar_theme: key });
-    } catch { toast.error("Failed to save"); }
-  };
-
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -268,33 +258,19 @@ export function SettingsClient({ business: initial, apiKeys, emailConfig, webhoo
 
         {/* ── Business tab ── */}
         <TabsContent value="business" className="space-y-4 mt-6">
+          {/* One door to every editor, instead of a card per feature bolted
+              onto this tab as each one shipped. */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Navigation</CardTitle>
+              <CardTitle className="text-base">Customisation</CardTitle>
             </CardHeader>
             <CardContent className="flex items-center justify-between gap-4">
               <p className="text-sm text-muted-foreground">
-                Rename, reorder and hide the items in your sidebar. Names you don&rsquo;t set follow
-                your industry&rsquo;s preset — an agency sees Projects and Proposals where a trades
-                business sees Work Orders and Quotes.
+                Theme, navigation, client fields, email and document templates, forms,
+                job templates, booking and automations &mdash; grouped by what they change.
               </p>
               <Button asChild variant="outline" className="shrink-0">
-                <a href="/settings/navigation">Edit navigation</a>
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Client fields</CardTitle>
-            </CardHeader>
-            <CardContent className="flex items-center justify-between gap-4">
-              <p className="text-sm text-muted-foreground">
-                What you record about a client beyond their contact details. Starts from your industry&rsquo;s
-                defaults — a trades business gets site access and property type, an agency gets retainer and socials.
-              </p>
-              <Button asChild variant="outline" className="shrink-0">
-                <a href="/settings/client-fields">Edit fields</a>
+                <a href="/settings/customisation">Open</a>
               </Button>
             </CardContent>
           </Card>
@@ -497,133 +473,46 @@ export function SettingsClient({ business: initial, apiKeys, emailConfig, webhoo
 
         {/* ── Appearance tab ── */}
         <TabsContent value="appearance" className="space-y-4 mt-6">
-
-          {/* Sidebar theme */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Sidebar Theme</CardTitle>
-              <p className="text-xs text-muted-foreground">Changes the sidebar colour scheme. Updates live instantly.</p>
+              <CardTitle className="text-base">Theme</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Applies everywhere, instantly. Light and dark are part of the theme
+                rather than a separate switch &mdash; Daylight is the light one.
+              </p>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
-                {SIDEBAR_THEMES.map((theme) => {
-                  const active = sidebarTheme === theme.key;
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {UI_THEMES.map((t) => {
+                  const active = uiTheme === t.key;
                   return (
-                    <motion.button
-                      key={theme.key}
+                    <button
+                      key={t.key}
                       type="button"
-                      whileHover={{ scale: 1.04 }}
-                      whileTap={{ scale: 0.97 }}
-                      onClick={() => handleThemeChange(theme.key)}
-                      className="flex flex-col items-center gap-1.5 group"
+                      onClick={() => pickTheme(t.key)}
+                      aria-pressed={active}
+                      className={`flex flex-col items-center gap-2 rounded-2xl border p-3 transition-colors ${
+                        active ? "border-primary bg-secondary" : "border-border hover:border-border-strong"
+                      }`}
                     >
-                      {/* Mini app preview */}
-                      <span className={`w-full aspect-[4/3] rounded-xl overflow-hidden border-2 transition-all duration-200 shadow-sm flex ${
-                        active ? "border-primary shadow-md shadow-primary/25" : "border-border group-hover:border-muted-foreground/40"
-                      }`}>
-                        {/* Sidebar strip */}
-                        <span
-                          className="w-[32%] h-full flex flex-col gap-1 p-1.5 flex-shrink-0"
-                          style={{ backgroundColor: theme.sidebarBg }}
-                        >
-                          {/* Logo dot */}
-                          <span className="w-4 h-4 rounded-md flex-shrink-0" style={{ backgroundColor: theme.dot, opacity: 0.9 }} />
-                          {/* Nav lines */}
-                          {[1,0.5,0.5,0.5].map((o, i) => (
-                            <span key={i} className="h-1 rounded-full" style={{ backgroundColor: theme.sidebarFg, opacity: o * 0.5, width: i === 0 ? "80%" : "60%" }} />
-                          ))}
-                        </span>
-                        {/* Content area */}
-                        <span className="flex-1 h-full bg-background flex flex-col gap-1 p-1.5">
-                          <span className="h-1.5 w-3/4 rounded-full bg-foreground/10" />
-                          <span className="h-1 w-1/2 rounded-full bg-foreground/8" />
-                          <span className="flex-1 rounded-md mt-0.5" style={{ backgroundColor: theme.dot, opacity: 0.12 }} />
-                        </span>
-                      </span>
-                      <span className={`text-[10px] transition-colors ${active ? "text-primary font-semibold" : "text-muted-foreground"}`}>
-                        {theme.label}
-                      </span>
-                    </motion.button>
+                      <span
+                        className="h-12 w-full rounded-xl"
+                        style={{ background: t.ring, boxShadow: `inset 0 0 0 3px ${t.swatch}` }}
+                      />
+                      <span className="text-xs font-medium">{t.label}</span>
+                    </button>
                   );
                 })}
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Accent colour */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Accent Colour</CardTitle>
-              <p className="text-xs text-muted-foreground">Highlights, buttons and active states across the app.</p>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-3">
-                {ACCENT_PRESETS.map((preset) => (
-                  <motion.button
-                    key={preset.key}
-                    type="button"
-                    whileHover={{ scale: 1.12 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => handleAccentChange(preset.key)}
-                    className="flex flex-col items-center gap-1.5"
-                  >
-                    <span
-                      className="w-9 h-9 rounded-xl flex items-center justify-center shadow-md transition-shadow duration-200 hover:shadow-lg"
-                      style={{ backgroundColor: preset.hex }}
-                    >
-                      {accentColor === preset.key && (
-                        <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 500, damping: 25 }}>
-                          <Check className="w-4 h-4 text-white drop-shadow" />
-                        </motion.span>
-                      )}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground">{preset.label}</span>
-                  </motion.button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Background pattern */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Background Pattern</CardTitle>
-              <p className="text-xs text-muted-foreground">Subtle texture on the main content area.</p>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-5 gap-3 sm:flex sm:flex-wrap">
-                {PATTERN_PRESETS.map((pattern) => (
-                  <motion.button
-                    key={pattern.key}
-                    type="button"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.97 }}
-                    onClick={() => handlePatternChange(pattern.key)}
-                    className="flex flex-col items-center gap-1.5"
-                  >
-                    <span
-                      className={`w-full sm:w-16 h-12 rounded-xl border-2 flex items-center justify-center transition-all duration-200 overflow-hidden ${
-                        bgPattern === pattern.key
-                          ? "border-primary shadow-md shadow-primary/20"
-                          : "border-border hover:border-muted-foreground/40"
-                      }`}
-                      style={{ backgroundColor: "hsl(var(--background))", ...PATTERN_PREVIEW[pattern.key] }}
-                    >
-                      {bgPattern === pattern.key && (
-                        <motion.span
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          transition={{ type: "spring", stiffness: 500, damping: 25 }}
-                          className="bg-primary/90 rounded-full p-0.5"
-                        >
-                          <Check className="w-3 h-3 text-primary-foreground" />
-                        </motion.span>
-                      )}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground">{pattern.label}</span>
-                  </motion.button>
-                ))}
-              </div>
+              {/* Said once, plainly: the old accent / sidebar / pattern pickers
+                  are gone because each set the same variables at a higher
+                  specificity than the theme, so choosing a theme and choosing an
+                  accent contradicted each other. */}
+              <p className="text-xs text-muted-foreground">
+                The separate accent, sidebar and background-pattern pickers were removed:
+                they overrode whichever theme you chose, which is why some buttons and
+                inputs kept their old colours. One theme now decides the whole app.
+              </p>
             </CardContent>
           </Card>
         </TabsContent>

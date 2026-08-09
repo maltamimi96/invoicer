@@ -469,108 +469,33 @@
   color-scheme: dark;
 }
 
-/* ─── Sidebar theme presets ───────────────────────────────── */
+/* ─── Appearance is the theme, and only the theme ─────────────
+   The former data-accent / data-sidebar-theme / data-pattern preset layers
+   lived here. Each was written as :root[data-...], which outranks
+   [data-theme="..."], so a business's saved accent quietly overrode the
+   palette it had actually chosen: buttons and inputs kept the old teal while
+   everything around them moved. Removed rather than re-specified - two
+   systems deciding one colour is the bug, not the specificity.
+
+   The businesses.accent_color / sidebar_theme / bg_pattern columns are left
+   in place; nothing reads them now, so no data is lost if they are wanted
+   again. ------------------------------------------------------------ */
+
+
 
 /* Dark Navy (default — already set in :root) */
-:root[data-sidebar-theme="dark-navy"] {
-  --sidebar: 222 47% 10%;
-  --sidebar-foreground: 215 28% 80%;
-  --sidebar-accent: 222 47% 16%;
-  --sidebar-accent-foreground: 215 28% 95%;
-  --sidebar-border: 222 47% 16%;
-}
-
 /* Midnight — near-black with zinc tones */
-:root[data-sidebar-theme="midnight"] {
-  --sidebar: 240 6% 6%;
-  --sidebar-foreground: 240 5% 90%;
-  --sidebar-accent: 240 5% 12%;
-  --sidebar-accent-foreground: 240 5% 96%;
-  --sidebar-border: 240 5% 14%;
-}
-
 /* Forest — deep hunter green */
-:root[data-sidebar-theme="forest"] {
-  --sidebar: 150 45% 8%;
-  --sidebar-foreground: 142 40% 82%;
-  --sidebar-accent: 150 40% 14%;
-  --sidebar-accent-foreground: 142 40% 95%;
-  --sidebar-border: 150 38% 14%;
-}
-
 /* Ocean — deep navy-teal */
-:root[data-sidebar-theme="ocean"] {
-  --sidebar: 200 60% 8%;
-  --sidebar-foreground: 196 60% 84%;
-  --sidebar-accent: 200 55% 14%;
-  --sidebar-accent-foreground: 196 60% 96%;
-  --sidebar-border: 200 52% 14%;
-}
-
 /* Plum — deep purple */
-:root[data-sidebar-theme="plum"] {
-  --sidebar: 270 50% 10%;
-  --sidebar-foreground: 270 40% 88%;
-  --sidebar-accent: 270 45% 17%;
-  --sidebar-accent-foreground: 270 40% 97%;
-  --sidebar-border: 270 44% 17%;
-}
-
 /* Rose — dark rose/burgundy */
-:root[data-sidebar-theme="rose-dark"] {
-  --sidebar: 345 50% 9%;
-  --sidebar-foreground: 345 50% 86%;
-  --sidebar-accent: 345 45% 15%;
-  --sidebar-accent-foreground: 345 50% 97%;
-  --sidebar-border: 345 42% 15%;
-}
-
 /* Slate Mid — medium blue-grey */
-:root[data-sidebar-theme="slate-mid"] {
-  --sidebar: 213 22% 17%;
-  --sidebar-foreground: 215 22% 82%;
-  --sidebar-accent: 213 20% 25%;
-  --sidebar-accent-foreground: 215 22% 96%;
-  --sidebar-border: 213 20% 24%;
-}
-
 /* Light — pure white sidebar */
-:root[data-sidebar-theme="light"] {
-  --sidebar: 0 0% 100%;
-  --sidebar-foreground: 222 47% 12%;
-  --sidebar-accent: 210 20% 94%;
-  --sidebar-accent-foreground: 222 47% 12%;
-  --sidebar-border: 214 22% 88%;
-}
-
 /* Soft — cool off-white sidebar */
-:root[data-sidebar-theme="soft"] {
-  --sidebar: 210 25% 95%;
-  --sidebar-foreground: 222 40% 14%;
-  --sidebar-accent: 210 22% 88%;
-  --sidebar-accent-foreground: 222 40% 10%;
-  --sidebar-border: 214 22% 84%;
-}
-
 /* The two LIGHT sidebar presets have to flip in dark mode — otherwise the
    sidebar stayed pure white with near-black text next to a dark canvas and a
    dark top bar (and "light" is the default preset, so most users saw it).
    The other presets are already dark surfaces, so they need no override. */
-:root[data-sidebar-theme="light"].dark {
-  --sidebar: 60 4% 11%;
-  --sidebar-foreground: 50 17% 92%;
-  --sidebar-accent: 60 4% 17%;
-  --sidebar-accent-foreground: 50 17% 96%;
-  --sidebar-border: 60 4% 19%;
-}
-:root[data-sidebar-theme="soft"].dark {
-  --sidebar: 210 12% 13%;
-  --sidebar-foreground: 210 16% 90%;
-  --sidebar-accent: 210 12% 19%;
-  --sidebar-accent-foreground: 210 16% 96%;
-  --sidebar-border: 210 12% 21%;
-}
-
 /* ─── Accent colour overrides ─────────────────────────────────────────────
    Each accent MUST set its own --primary-foreground. These used to override
    only --primary, so text on a filled accent surface (top bar, active nav
@@ -587,139 +512,13 @@
    ───────────────────────────────────────────────────────────────────────── */
 
 /* Light mode ------------------------------------------------------------- */
-:root[data-accent="teal"] {
-  --primary: 191 38% 36%; --primary-foreground: 0 0% 100%;
-  --ring: 191 38% 36%; --accent: 191 38% 36%; --accent-foreground: 0 0% 100%;
-  --nav: 191 38% 30%; --nav-foreground: 0 0% 100%;
-  --sidebar-primary: 191 38% 36%; --sidebar-primary-foreground: 0 0% 100%; --sidebar-ring: 191 50% 45%;
-}
-:root[data-accent="blue"] {
-  --primary: 221 83% 48%; --primary-foreground: 0 0% 100%;
-  --ring: 221 83% 48%; --accent: 221 83% 48%; --accent-foreground: 0 0% 100%;
-  --nav: 221 75% 38%; --nav-foreground: 0 0% 100%;
-  --sidebar-primary: 221 83% 48%; --sidebar-primary-foreground: 0 0% 100%; --sidebar-ring: 217 91% 60%;
-}
-:root[data-accent="violet"] {
-  --primary: 263 70% 50%; --primary-foreground: 0 0% 100%;
-  --ring: 263 70% 50%; --accent: 263 70% 50%; --accent-foreground: 0 0% 100%;
-  --nav: 263 62% 40%; --nav-foreground: 0 0% 100%;
-  --sidebar-primary: 263 70% 50%; --sidebar-primary-foreground: 0 0% 100%; --sidebar-ring: 258 90% 66%;
-}
-:root[data-accent="emerald"] {
-  --primary: 160 84% 28%; --primary-foreground: 0 0% 100%;
-  --ring: 160 84% 28%; --accent: 160 84% 28%; --accent-foreground: 0 0% 100%;
-  --nav: 160 76% 24%; --nav-foreground: 0 0% 100%;
-  --sidebar-primary: 160 84% 28%; --sidebar-primary-foreground: 0 0% 100%; --sidebar-ring: 158 64% 45%;
-}
-:root[data-accent="rose"] {
-  --primary: 347 77% 45%; --primary-foreground: 0 0% 100%;
-  --ring: 347 77% 45%; --accent: 347 77% 45%; --accent-foreground: 0 0% 100%;
-  --nav: 347 70% 36%; --nav-foreground: 0 0% 100%;
-  --sidebar-primary: 347 77% 45%; --sidebar-primary-foreground: 0 0% 100%; --sidebar-ring: 347 77% 62%;
-}
 /* Orange + amber are perceptually bright: their light-mode shade is pulled
    down so white text still clears AA (the old 53%/48% did not). */
-:root[data-accent="orange"] {
-  --primary: 25 90% 39%; --primary-foreground: 0 0% 100%;
-  --ring: 25 90% 39%; --accent: 25 90% 39%; --accent-foreground: 0 0% 100%;
-  --nav: 25 84% 34%; --nav-foreground: 0 0% 100%;
-  --sidebar-primary: 25 90% 39%; --sidebar-primary-foreground: 0 0% 100%; --sidebar-ring: 25 95% 60%;
-}
-:root[data-accent="amber"] {
-  --primary: 38 90% 33%; --primary-foreground: 0 0% 100%;
-  --ring: 38 90% 33%; --accent: 38 90% 33%; --accent-foreground: 0 0% 100%;
-  --nav: 38 84% 28%; --nav-foreground: 0 0% 100%;
-  --sidebar-primary: 38 90% 33%; --sidebar-primary-foreground: 0 0% 100%; --sidebar-ring: 38 92% 56%;
-}
-:root[data-accent="slate"] {
-  --primary: 215 20% 38%; --primary-foreground: 0 0% 100%;
-  --ring: 215 20% 38%; --accent: 215 20% 38%; --accent-foreground: 0 0% 100%;
-  --nav: 215 25% 26%; --nav-foreground: 0 0% 100%;
-  --sidebar-primary: 215 20% 38%; --sidebar-primary-foreground: 0 0% 100%; --sidebar-ring: 215 20% 72%;
-}
-
 /* Dark mode -------------------------------------------------------------- */
-:root[data-accent="teal"].dark {
-  --primary: 191 50% 58%; --primary-foreground: 191 45% 10%;
-  --ring: 191 50% 58%; --accent: 191 50% 58%; --accent-foreground: 191 45% 10%;
-  --nav: 191 42% 22%; --nav-foreground: 0 0% 100%;
-  --sidebar-primary: 191 50% 58%; --sidebar-primary-foreground: 191 45% 10%;
-}
-:root[data-accent="blue"].dark {
-  --primary: 217 91% 66%; --primary-foreground: 221 60% 12%;
-  --ring: 217 91% 66%; --accent: 217 91% 66%; --accent-foreground: 221 60% 12%;
-  --nav: 221 60% 24%; --nav-foreground: 0 0% 100%;
-  --sidebar-primary: 217 91% 66%; --sidebar-primary-foreground: 221 60% 12%;
-}
-:root[data-accent="violet"].dark {
-  --primary: 258 90% 72%; --primary-foreground: 263 50% 13%;
-  --ring: 258 90% 72%; --accent: 258 90% 72%; --accent-foreground: 263 50% 13%;
-  --nav: 263 50% 26%; --nav-foreground: 0 0% 100%;
-  --sidebar-primary: 258 90% 72%; --sidebar-primary-foreground: 263 50% 13%;
-}
-:root[data-accent="emerald"].dark {
-  --primary: 158 64% 56%; --primary-foreground: 160 55% 9%;
-  --ring: 158 64% 56%; --accent: 158 64% 56%; --accent-foreground: 160 55% 9%;
-  --nav: 160 60% 17%; --nav-foreground: 0 0% 100%;
-  --sidebar-primary: 158 64% 56%; --sidebar-primary-foreground: 160 55% 9%;
-}
-:root[data-accent="rose"].dark {
-  --primary: 347 80% 68%; --primary-foreground: 347 55% 12%;
-  --ring: 347 80% 68%; --accent: 347 80% 68%; --accent-foreground: 347 55% 12%;
-  --nav: 347 55% 24%; --nav-foreground: 0 0% 100%;
-  --sidebar-primary: 347 80% 68%; --sidebar-primary-foreground: 347 55% 12%;
-}
-:root[data-accent="orange"].dark {
-  --primary: 25 95% 63%; --primary-foreground: 25 60% 10%;
-  --ring: 25 95% 63%; --accent: 25 95% 63%; --accent-foreground: 25 60% 10%;
-  --nav: 25 70% 22%; --nav-foreground: 0 0% 100%;
-  --sidebar-primary: 25 95% 63%; --sidebar-primary-foreground: 25 60% 10%;
-}
-:root[data-accent="amber"].dark {
-  --primary: 38 92% 60%; --primary-foreground: 38 60% 10%;
-  --ring: 38 92% 60%; --accent: 38 92% 60%; --accent-foreground: 38 60% 10%;
-  --nav: 38 70% 20%; --nav-foreground: 0 0% 100%;
-  --sidebar-primary: 38 92% 60%; --sidebar-primary-foreground: 38 60% 10%;
-}
-:root[data-accent="slate"].dark {
-  --primary: 215 25% 70%; --primary-foreground: 215 35% 12%;
-  --ring: 215 25% 70%; --accent: 215 25% 70%; --accent-foreground: 215 35% 12%;
-  --nav: 215 28% 20%; --nav-foreground: 0 0% 100%;
-  --sidebar-primary: 215 25% 70%; --sidebar-primary-foreground: 215 35% 12%;
-}
-
 /* ─── Background patterns (applied to .app-content area) ──── */
 .app-content {
   transition: background-image 0.3s ease;
 }
-:root[data-pattern="dots"] .app-content {
-  background-image: radial-gradient(circle, hsl(var(--border)) 1.5px, transparent 1.5px);
-  background-size: 28px 28px;
-}
-:root[data-pattern="grid"] .app-content {
-  background-image:
-    linear-gradient(hsl(var(--border) / 0.6) 1px, transparent 1px),
-    linear-gradient(90deg, hsl(var(--border) / 0.6) 1px, transparent 1px);
-  background-size: 32px 32px;
-}
-:root[data-pattern="diagonal"] .app-content {
-  background-image: repeating-linear-gradient(
-    45deg,
-    transparent 0,
-    transparent 18px,
-    hsl(var(--border) / 0.55) 18px,
-    hsl(var(--border) / 0.55) 19px
-  );
-}
-:root[data-pattern="cross"] .app-content {
-  background-image:
-    linear-gradient(hsl(var(--border) / 0.5) 1px, transparent 1px),
-    linear-gradient(90deg, hsl(var(--border) / 0.5) 1px, transparent 1px),
-    linear-gradient(hsl(var(--border) / 0.25) 1px, transparent 1px),
-    linear-gradient(90deg, hsl(var(--border) / 0.25) 1px, transparent 1px);
-  background-size: 64px 64px, 64px 64px, 16px 16px, 16px 16px;
-}
-
 /* ─── Connected Hub utility classes ────────────────────────────
    Scoped utility set lifted from the design handoff; bound to our
    HSL token vars so accent / sidebar / theme customisation drives

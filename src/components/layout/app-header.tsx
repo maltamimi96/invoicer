@@ -14,7 +14,6 @@ import {
 import { BriefingBell } from "@/components/briefing/briefing-bell";
 import { GlobalSearch } from "./global-search";
 import { BusinessSwitcher } from "@/components/business/business-switcher";
-import { ThemeSwatches } from "./theme-swatches";
 import { useAssistant } from "./assistant-context";
 import type { Business } from "@/types/database";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
@@ -89,8 +88,6 @@ export function AppHeader({ user, business, businesses, onMenuClick, workerView,
         <div className="hidden sm:block">
           <BusinessSwitcher business={business} businesses={businesses} />
         </div>
-
-        <ThemeSwatches />
 
         <button className={iconBtn} onClick={toggleAssistant} aria-label="AI assistant" title="Ask Kirei">
           <Bot className="h-[18px] w-[18px]" />
