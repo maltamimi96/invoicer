@@ -1,3 +1,4 @@
+import { markContactAsClient } from "@/lib/leads/promote";
 /**
  * Shared Stripe payment recording — used by both the webhook (hosted Checkout)
  * and the off-session autopay charge engine, so a payment is recorded exactly
@@ -88,6 +89,7 @@ async function revalidateInvoiceViews(invoiceId: string): Promise<void> {
   } catch { /* not in a revalidatable context — nothing to do */ }
 }
 
+/** Money arriving is what makes someone a client — see lib/leads/promote.ts. */
 export async function recordStripePayment(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   sb: any,
@@ -135,6 +137,9 @@ export async function recordStripePayment(
 
   await recomputeInvoice(sb, businessId, invoiceId, invoice.total);
   if (invoice.parent_invoice_id) await recomputeParent(sb, businessId, invoice.parent_invoice_id);
+  // Money arrived: if this contact was still a lead, they are a client now.
+  // Best-effort inside promote() — a labelling failure must not fail a payment.
+  await markContactAsClient(sb, businessId, invoice.customer_id);
   await revalidateInvoiceViews(invoiceId);
 
   try {

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { assertOk } from "@/lib/db";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
+import { markContactAsClient } from "@/lib/leads/promote";
 import { dispatchWebhook } from "@/lib/webhooks";
 import { sendEmail, buildBusinessFrom } from "@/lib/email";
 import { invoiceEmailHtml, invoiceEmailSubject } from "@/lib/emails/invoice";
@@ -352,7 +353,7 @@ export async function addPayment(invoiceId: string, payment: { amount: number; d
   }
 
   const { data: invoice } = await tbl(supabase, "invoices")
-    .select("total, amount_paid")
+    .select("total, amount_paid, customer_id")
     .eq("id", invoiceId)
     .single();
   if (!invoice) throw new Error("Invoice not found");
@@ -368,6 +369,10 @@ export async function addPayment(invoiceId: string, payment: { amount: number; d
     }),
     "record the payment",
   );
+
+  // A manually recorded payment is money arriving too: if this contact was
+  // still a lead, they have now bought something and are a client.
+  await markContactAsClient(supabase, businessId, invoice.customer_id);
 
   // Recompute this invoice's amount_paid from truth (payments table + any
   // children's collections if it's a parent of a progress-billed job). This
