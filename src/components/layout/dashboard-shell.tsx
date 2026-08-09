@@ -64,13 +64,11 @@ function ShellBody({ business, businesses, user, userRole, features, vocab, navC
   return (
     <VocabProvider labels={vocab ?? null}>
       <Suspense fallback={null}><RouteProgress /></Suspense>
-      {/* The app sits as one rounded panel floating on a deeper canvas, with
-          two soft accent glows behind it — the shape both the v2 design and
-          the reference dashboard use. Desktop only: on a phone the inset and
-          the radius would just cost usable width. */}
-      <div
-        className="relative h-screen overflow-hidden bg-canvas-deep md:p-5"
-      >
+      {/* Full bleed. The rounded frame in the reference is the mockup's device
+          chrome, not the UI — the app itself fills the window and the only
+          framed surface on screen is the content card below. Two soft accent
+          glows sit behind everything, as in the design. */}
+      <div className="relative flex h-screen flex-col overflow-hidden bg-background">
         <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
           <div className="absolute -left-32 -top-44 h-[520px] w-[520px] rounded-full blur-[90px]"
                style={{ background: "var(--glow)" }} />
@@ -78,11 +76,10 @@ function ShellBody({ business, businesses, user, userRole, features, vocab, navC
                style={{ background: "var(--glow)" }} />
         </div>
 
-        <div className="relative flex h-full flex-col overflow-hidden bg-background md:rounded-3xl md:border md:border-border"
-             style={{ boxShadow: "var(--shadow-panel)" }}>
         <AppHeader
           user={user}
           business={business}
+          businesses={businesses}
           onMenuClick={() => setSidebarOpen((o) => !o)}
           workerView={workerView}
           features={features}
@@ -115,7 +112,7 @@ function ShellBody({ business, businesses, user, userRole, features, vocab, navC
             />
           )}
 
-          <main className="app-content min-w-0 flex-1 overflow-auto">
+          <main className="app-content relative min-w-0 flex-1 overflow-hidden pb-5 pr-5 max-md:px-3 max-md:pb-3">
             {/* Connected Hub layout: content fills the main pane (no max-width
                 cap), with the prototype's uniform 24px padding.
                 Keyed by business.id so switching businesses fully remounts
@@ -124,11 +121,13 @@ function ShellBody({ business, businesses, user, userRole, features, vocab, navC
                 rows until a hard refresh. */}
             {/* Each tab keeps its own business; see tab-business-guard.tsx. */}
           <TabBusinessGuard businessId={business.id} />
-          <div key={business.id} className="w-full p-6 md:px-8 md:py-7">
+          <div
+            key={business.id}
+            className="h-full w-full overflow-auto rounded-3xl border border-border bg-card p-5 md:p-7"
+          >
               {children}
             </div>
           </main>
-        </div>
         </div>
       </div>
 

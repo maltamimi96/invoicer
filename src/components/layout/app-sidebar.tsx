@@ -195,12 +195,6 @@ export function AppSidebar({
           </Link>
         )}
 
-        {/* The business switcher, reduced to its trigger. The full name and
-            chevron cannot fit an 80px rail, so the label is stripped and the
-            menu still opens from here. */}
-        <div className="[&_button]:h-12 [&_button]:w-12 [&_button]:justify-center [&_button]:rounded-2xl [&_button]:px-0 [&_button>span]:hidden [&_button_svg:last-child]:hidden">
-          <BusinessSwitcher business={business} businesses={businesses} onClose={onClose} />
-        </div>
       </div>
     </div>
   );
