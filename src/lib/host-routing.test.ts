@@ -91,6 +91,25 @@ describe("what must never be redirected", () => {
   });
 });
 
+describe("www counts as the marketing host", () => {
+  it("redirects app paths on www, not just the apex", () => {
+    // The apex 307s to www, so www IS the public host. Matching only the apex
+    // let /dashboard on www fall through to the login page instead of hopping
+    // to the app - which is exactly what happened in production.
+    withAppHost(APP, () => {
+      expect(hostRedirectTarget(`www.${SITE}`, "/dashboard")).toBe(`https://${APP}/dashboard`);
+      expect(hostRedirectTarget(`www.${SITE}`, "/auth/login")).toBe(`https://${APP}/auth/login`);
+    });
+  });
+
+  it("still leaves marketing pages alone on www", () => {
+    withAppHost(APP, () => {
+      expect(hostRedirectTarget(`www.${SITE}`, "/pricing")).toBeNull();
+      expect(hostRedirectTarget(`www.${SITE}`, "/")).toBeNull();
+    });
+  });
+});
+
 describe("other hosts are left alone", () => {
   it("ignores previews and localhost", () => {
     // A preview deployment must keep serving everything from one origin, or it

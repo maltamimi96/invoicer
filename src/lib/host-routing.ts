@@ -83,7 +83,7 @@ export function hostRedirectTarget(host: string | null, pathname: string): strin
   // deployment must keep serving the whole app from one origin, or it stops
   // being testable.
   const isApp = h === app;
-  const isMarketing = h === marketingHostFor(app);
+  const isMarketing = isMarketingHost(h, app);
   if (!isApp && !isMarketing) return null;
 
   if (isSharedPath(pathname)) return null;
@@ -94,7 +94,7 @@ export function hostRedirectTarget(host: string | null, pathname: string): strin
   if (isApp && isMarketingPath(pathname)) {
     // The app's own root is the dashboard, not the sales pitch.
     if (pathname === "/") return null;
-    return `https://${marketingHostFor(app)}${pathname}`;
+    return `https://${siteHost(app)}${pathname}`;
   }
   return null;
 }
@@ -103,4 +103,28 @@ export function hostRedirectTarget(host: string | null, pathname: string): strin
 export function marketingHostFor(app: string): string {
   const parts = app.split(".");
   return parts.length > 2 ? parts.slice(1).join(".") : app;
+}
+
+/**
+ * Where to send someone who lands on a marketing path at the app host.
+ *
+ * NEXT_PUBLIC_SITE_HOST exists because the canonical public host is not always
+ * the bare apex: kireihq.com 307s to www.kireihq.com, so redirecting to the
+ * apex would cost an extra hop on every link.
+ */
+export function siteHost(app: string): string {
+  const explicit = process.env.NEXT_PUBLIC_SITE_HOST?.trim().toLowerCase();
+  return explicit ? explicit.replace(/^https?:\/\//, "").replace(/\/$/, "") : marketingHostFor(app);
+}
+
+/**
+ * Is this the public site?
+ *
+ * Both the apex and its www form count. Matching only the apex is what let
+ * app paths on www.kireihq.com fall through to the login page instead of
+ * hopping to the app — the site is actually served on www.
+ */
+export function isMarketingHost(h: string, app: string): boolean {
+  const apex = marketingHostFor(app);
+  return h === apex || h === `www.${apex}` || h === siteHost(app);
 }
