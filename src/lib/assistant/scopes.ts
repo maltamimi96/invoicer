@@ -26,16 +26,19 @@ import type { Role } from "@/lib/permissions";
  *
  * READ_SCOPES/WRITE_SCOPES are derived from ALL_API_SCOPES, so adding a scope
  * to that list silently grants it to editors and viewers. For an ordinary
- * entity that's the intent. For the password vault it is not: those tables are
- * owner/admin-only in the database precisely because the entries are other
- * people's account credentials, and the assistant runs on the admin client
- * that bypasses exactly that check.
+ * entity that's the intent. For the password vault and stored payment details
+ * it is not: those tables are owner/admin-only in the database precisely
+ * because the entries are other people's credentials and bank accounts, and
+ * the assistant runs on the admin client that bypasses exactly that check.
  *
- * (No tool ever returns a decrypted password — reveal is a cookie-authed
- * server action only. This keeps even the entry list away from roles that
- * can't see it in the UI.)
+ * (No tool ever returns a decrypted password or account number — reveal is a
+ * cookie-authed server action only. This keeps even the masked list away from
+ * roles that can't see it in the UI.)
  */
-const NEVER_AUTO_GRANTED: readonly string[] = ["vault:read", "vault:write"];
+const NEVER_AUTO_GRANTED: readonly string[] = [
+  "vault:read", "vault:write",
+  "payment_details:read", "payment_details:write",
+];
 
 const EVERY_SCOPE = ALL_API_SCOPES.map((s) => s.value)
   .filter((s) => s !== "admin" && !NEVER_AUTO_GRANTED.includes(s));
