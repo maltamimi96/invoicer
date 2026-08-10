@@ -984,3 +984,31 @@
   box-shadow: inset 0 -2px 0 0 hsl(var(--primary));
   border-color: hsl(var(--primary) / 0.6);
 }
+
+/* ─── Themed scrollbar ────────────────────────────────────────────────────
+   The default scrollbar is painted by the OS, so on the dark palettes it
+   arrives as a light grey slab against a near-black rail — the one element on
+   screen that ignores the theme. These are token-driven, so it follows
+   Midnight, Daylight, Azure, Orchid and Studio without further work.
+
+   Firefox gets the standard two-value `scrollbar-color`; WebKit/Blink get the
+   pseudo-elements. Both are set: neither alone covers the browsers in use. */
+.ch-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--border-strong)) transparent;
+}
+.ch-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+.ch-scroll::-webkit-scrollbar-track { background: transparent; }
+.ch-scroll::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--border-strong));
+  border-radius: 999px;
+  /* Transparent border + background-clip insets the thumb, so it reads as a
+     slim pill with air around it rather than a bar wedged against the edge. */
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+.ch-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--muted-foreground));
+  background-clip: content-box;
+}
+.ch-scroll::-webkit-scrollbar-corner { background: transparent; }

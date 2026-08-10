@@ -1,26 +1,25 @@
 "use client";
 
 /**
- * The sidebar: named links, grouped by category.
+ * The sidebar: every link, named, grouped by category.
  *
- * This was an unlabelled 112px icon rail for a while. Twenty-five icons with
- * no words, distinguishable only by hovering for a tooltip, is a memory test —
- * so the labels are back. What stays from that pass is the *look*: raised
- * rounded group panels, the spring-animated active pill, and paging behind a
- * chevron instead of a scrollbar.
+ * It scrolls. That is the whole design now, and it replaces two earlier
+ * attempts that both failed the same way: an unlabelled icon rail (a memory
+ * test), and a paged list behind chevrons (four pages of clicking to find
+ * something, and a fixed slot budget that could never know the viewport).
  *
- * Everything cannot fit at once — twenty-five rows plus headings runs past a
- * thousand pixels — so paging stays, and each group carries its heading so a
- * page is always self-explaining.
- *
- * Desktop and mobile now render the same list; mobile just gets it in a
- * drawer.
+ * Paging was avoiding a scrollbar. The scrollbar was only ugly because it was
+ * painted by the OS — a light grey slab on a near-black rail, the one element
+ * ignoring the theme. `.ch-scroll` in globals.css fixes that with tokens, so
+ * it follows every palette. Once it matches, scrolling is simply better:
+ * everything is present, nothing is a click away, and the browser handles a
+ * short viewport for free.
  */
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { AnimatePresence, motion } from "framer-motion";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { motion } from "framer-motion";
+import { useMemo } from "react";
 import { Settings, X, ChevronUp, ChevronDown } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 import type { Business } from "@/types/database";
@@ -49,44 +48,6 @@ interface AppSidebarProps {
 const NAV_ROW =
   "relative flex h-10 w-full shrink-0 items-center gap-2.5 rounded-full px-3 text-sm transition-colors duration-200";
 
-/**
- * How many icons a page of the rail may hold. Groups are never split, so a
- * page can overshoot slightly rather than break a category in half — that is
- * the point of grouping them.
- *
- * Raised to 14 with the return of labels: a row is 40px instead of a 56px
- * icon tile, so noticeably more fits per page. Still a fixed budget rather
- * than a measured one — see the note at the call site for why.
- *
- * Groups are never split, so the real page count is coarser than this number
- * suggests: with every plugin enabled it lands on four pages, fewer once a
- * business's disabled modules drop out.
- */
-export const SLOTS_PER_PAGE = 14;
-
-/**
- * Pack sections into pages without ever splitting one.
- *
- * Pure and exported so it can be tested directly: the previous version
- * measured the DOM, which made it untestable and its behaviour dependent on
- * when layout happened to settle.
- */
-export function packSections<T extends { items: unknown[] }>(
-  sections: T[], budget: number,
-): T[][] {
-  const out: T[][] = [];
-  let cur: T[] = [];
-  let used = 0;
-  for (const sec of sections) {
-    const cost = Math.max(1, sec.items.length);
-    // A single oversized group still gets its own page rather than being cut.
-    if (cur.length && used + cost > budget) { out.push(cur); cur = []; used = 0; }
-    cur.push(sec); used += cost;
-  }
-  if (cur.length) out.push(cur);
-  return out.length ? out : [sections];
-}
-
 /** The filled square behind the current page — the reference's active state. */
 function ActiveChip() {
   return (
@@ -104,68 +65,17 @@ export function AppSidebar({
 }: AppSidebarProps) {
   const pathname = usePathname();
   const workerView = isWorker(userRole);
-  // Memoised for IDENTITY, not for speed. filterNav returns a fresh array
-  // every call; feeding that to useMemo below meant `pagesOfSections` was a
-  // new object on every render, which is what broke the paging arrows — see
-  // the effect further down.
+  // Memoised because filterNav returns a fresh array on every call, and this
+  // feeds a list of ~40 rows. (It also used to feed a paging effect, where the
+  // churning identity made the arrows appear dead — that whole mechanism is
+  // gone now, but stable identity is still the right default here.)
   const sections = useMemo(
     () => filterNav(navSections, { workerView, features, nav: navConfig }),
     [workerView, features, navConfig],
   );
 
-  // The rail groups by section, and pages by WHOLE groups: a category that
-  // straddled a page boundary would defeat the point of grouping them.
   const isActive = (href: string) =>
     href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);
-
-  /* ── Paging, so the rail never scrolls ─────────────────────────────── */
-  //
-  // A FIXED budget, not a measured one. This started out measuring the rail
-  // and packing groups to fit, which is smarter and was not worth it: the
-  // result depended on layout timing, could not be unit-tested, and cost an
-  // hour of chasing stale state. A fixed budget is dumber, always behaves the
-  // same, and is provable without a browser. Tune the number, not the logic.
-  const [page, setPage] = useState(0);
-  // +1 paging down, -1 paging up. Drives which way the icons slide.
-  const [dir, setDir] = useState(1);
-
-  const pagesOfSections = useMemo(
-    () => packSections(sections, SLOTS_PER_PAGE),
-    [sections],
-  );
-
-  const pages = pagesOfSections.length;
-  const safePage = Math.min(page, pages - 1);
-  const visibleSections = pagesOfSections[safePage] ?? [];
-  const hasOverflow = pages > 1;
-
-  // Never strand someone on a page that doesn't hold where they are.
-  //
-  // 🔴 Keyed on `pathname` ALONE, deliberately. This used to list
-  // `pagesOfSections` too, which looked correct and silently broke the arrows:
-  // that array had a new identity on every render, so the effect ran after
-  // every render — including the one caused by clicking an arrow — and snapped
-  // the page straight back to whichever one holds the current route. The
-  // arrows appeared dead. `sections` is now memoised as well, but the honest
-  // dependency here is the route: "when I navigate, show me where I am."
-  const pagesRef = useRef(pagesOfSections);
-  pagesRef.current = pagesOfSections;
-  useEffect(() => {
-    const idx = pagesRef.current.findIndex((secs) =>
-      secs.some((sec) => sec.items.some((i) => (
-        i.href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(i.href)
-      ))));
-    if (idx >= 0) {
-      setDir((d) => (idx === page ? d : idx > page ? 1 : -1));
-      setPage(idx);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
-
-  const goto = useCallback((next: number) => {
-    setDir(next > page ? 1 : -1);
-    setPage(Math.min(pages - 1, Math.max(0, next)));
-  }, [page, pages]);
 
   const navRow = (item: NavItem) => {
     const active = isActive(item.href);
@@ -191,24 +101,6 @@ export function AppSidebar({
     );
   };
 
-  const chevron = (arrow: "up" | "down", disabled: boolean) => (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={() => goto(safePage + (arrow === "up" ? -1 : 1))}
-      aria-label={arrow === "up" ? "Previous menu items" : "More menu items"}
-      className={cn(
-        "flex h-8 w-full shrink-0 items-center justify-center gap-1.5 rounded-full text-xs font-medium transition-colors",
-        disabled ? "text-muted-foreground/40"
-                 : "text-muted-foreground hover:bg-background hover:text-foreground",
-      )}
-    >
-      {arrow === "up"
-        ? <><ChevronUp className="h-3.5 w-3.5" /> Back</>
-        : <><ChevronDown className="h-3.5 w-3.5" /> More</>}
-    </button>
-  );
-
   /* ── Desktop sidebar ───────────────────────────────────────────────── */
   const rail = (
     // w-64 (256px). Wide enough that "Recurring billing" and "Client
@@ -216,44 +108,23 @@ export function AppSidebar({
     // scale step, not a bracket value: arbitrary widths compile in the
     // production build but NOT under this dev server.
     <div className="hidden h-full w-64 shrink-0 flex-col bg-background px-3 py-5 md:flex">
-      {hasOverflow && chevron("up", safePage === 0)}
-
-      {/* The page slides in from the direction you asked for, so paging reads
-          as movement along one list rather than the contents being swapped
-          underneath you. mode="wait" stops the two pages overlapping. */}
-      {/* overflow-y-auto, not hidden: the budget above is a guess at the
-          viewport, and guessing high would CLIP rows out of existence with no
-          way to reach them. Scrolling is the ugly-but-safe fallback; on a
-          normal screen it never engages. */}
-      <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto">
-        <AnimatePresence mode="wait" initial={false} custom={dir}>
-          <motion.div
-            key={safePage}
-            custom={dir}
-            initial={{ opacity: 0, y: dir * 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: dir * -14 }}
-            transition={{ type: "spring", stiffness: 420, damping: 38, mass: 0.7 }}
-            className="flex w-full flex-col gap-2.5"
+      {/* One list, scrolled. `.ch-scroll` themes the bar itself (globals.css)
+          — the OS default was a light slab on a dark rail, which is the only
+          reason the earlier versions went to such lengths to avoid one. */}
+      <nav className="ch-scroll flex min-h-0 w-full flex-1 flex-col gap-2.5 overflow-y-auto pr-1">
+        {sections.map((group) => (
+          // Each category on its own raised panel, with its name on it.
+          <div
+            key={group.section}
+            className="flex w-full shrink-0 flex-col gap-0.5 rounded-3xl bg-secondary px-2 py-2.5"
           >
-            {visibleSections.map((group) => (
-              // Each category on its own raised panel, with its name on it —
-              // so a page of the list always explains itself.
-              <div
-                key={group.section}
-                className="flex w-full flex-col gap-0.5 rounded-3xl bg-secondary px-2 py-2.5"
-              >
-                <p className="px-3 pb-1 pt-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground/70">
-                  {group.section}
-                </p>
-                {group.items.map((item) => navRow(item))}
-              </div>
-            ))}
-          </motion.div>
-        </AnimatePresence>
-      </div>
-
-      {hasOverflow && chevron("down", safePage >= pages - 1)}
+            <p className="px-3 pb-1 pt-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground/70">
+              {group.section}
+            </p>
+            {group.items.map((item) => navRow(item))}
+          </div>
+        ))}
+      </nav>
 
       {/* Settings sits on its own panel, as one more category. */}
       <div className="mt-3 flex w-full flex-col gap-0.5 rounded-3xl bg-secondary px-2 py-2.5">
