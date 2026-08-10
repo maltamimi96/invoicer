@@ -22,8 +22,21 @@ export default function ForgotPasswordPage() {
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({ resolver: zodResolver(schema) });
 
   const onSubmit = async (data: FormData) => {
+    // Come back to the ORIGIN THEY ARE ON, not NEXT_PUBLIC_APP_URL.
+    //
+    // Two reasons. The PKCE code verifier is stored per-origin, so the
+    // exchange only works on the host that started it. And APP_URL is the
+    // marketing apex, so every reset link took a kireihq.com → www → app
+    // detour before arriving anywhere useful.
+    //
+    // ⚠️ Whatever origin this resolves to must be in Supabase's redirect
+    // allow-list (Auth → URL Configuration) or Supabase ignores it and falls
+    // back to the Site URL.
+    const origin = typeof window !== "undefined"
+      ? window.location.origin
+      : (process.env.NEXT_PUBLIC_APP_URL ?? "");
     const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
-      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/auth/reset-password`,
+      redirectTo: `${origin}/auth/callback?next=/auth/reset-password`,
     });
     if (error) { toast.error(error.message); return; }
     setSent(true);
