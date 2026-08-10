@@ -1367,6 +1367,22 @@ export function registerTools(register: ToolFn): void {
       return text({ finalised: true });
     });
 
+  tool("mark_lead_as_client",
+    "Promote a lead to a paying client by hand — for cash, a bank transfer settled outside Kirei, or simply deciding. A payment does this automatically; this is the manual override. Creates their contact row first if they don't have one.",
+    { lead_id: UUID },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "leads:write"); assertScope(ctx, "customers:write");
+      const { ensureContactForLead, markContactAsClient } = await import("@/lib/leads/promote");
+      try {
+        const { customerId } = await ensureContactForLead(ctx.sb, ctx.businessId, args.lead_id);
+        const ok = await markContactAsClient(ctx.sb, ctx.businessId, customerId);
+        if (!ok) return errorText("Couldn't update their record.");
+        return text({ ok: true, customer_id: customerId, lifecycle_stage: "client" });
+      } catch (e) {
+        return errorText(e instanceof Error ? e.message : "Couldn't convert this lead");
+      }
+    });
+
   tool("convert_lead_to_customer", "Create a customer from a lead and link them (sets lead status to contacted).",
     { lead_id: UUID },
     async (args, extra) => {
