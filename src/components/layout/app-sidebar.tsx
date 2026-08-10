@@ -21,8 +21,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Settings, X, ChevronUp, ChevronDown } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 import type { Business } from "@/types/database";
@@ -47,16 +47,21 @@ interface AppSidebarProps {
   onClose: () => void;
 }
 
-/** Icon button: 48px, generously rounded, with air around it. */
+/** Icon button: 56px and fully round. */
 const ICON_BTN =
-  "relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl transition-colors duration-200";
+  "relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full transition-colors duration-200";
 
 /**
  * How many icons a page of the rail may hold. Groups are never split, so a
  * page can overshoot slightly rather than break a category in half — that is
  * the point of grouping them.
+ *
+ * Dropped 9 → 7 when the icons went from 48px to 56px. Each slot now costs
+ * ~66px including its gap, so nine of them plus group padding and the two
+ * chevrons no longer clear a ~800px viewport — and the whole reason this
+ * budget exists is that the rail must never scroll.
  */
-export const SLOTS_PER_PAGE = 9;
+export const SLOTS_PER_PAGE = 7;
 
 /**
  * Pack sections into pages without ever splitting one.
@@ -82,7 +87,7 @@ export function packSections<T extends { items: unknown[] }>(
 }
 
 const TOOLTIP =
-  "pointer-events-none absolute left-14 z-50 whitespace-nowrap rounded-lg border border-border bg-popover "
+  "pointer-events-none absolute left-16 z-50 whitespace-nowrap rounded-lg border border-border bg-popover "
   + "px-2.5 py-1.5 text-xs font-medium text-popover-foreground opacity-0 shadow-lg transition-opacity duration-150 "
   + "group-hover:opacity-100 group-focus-visible:opacity-100";
 
@@ -91,7 +96,7 @@ function ActiveChip() {
   return (
     <motion.span
       layoutId="rail-active"
-      className="absolute inset-0 rounded-2xl bg-primary"
+      className="absolute inset-0 rounded-full bg-primary"
       style={{ boxShadow: "0 10px 26px -6px hsl(var(--primary) / 0.55)" }}
       transition={{ type: "spring", stiffness: 420, damping: 34 }}
     />
@@ -103,7 +108,14 @@ export function AppSidebar({
 }: AppSidebarProps) {
   const pathname = usePathname();
   const workerView = isWorker(userRole);
-  const sections = filterNav(navSections, { workerView, features, nav: navConfig });
+  // Memoised for IDENTITY, not for speed. filterNav returns a fresh array
+  // every call; feeding that to useMemo below meant `pagesOfSections` was a
+  // new object on every render, which is what broke the paging arrows — see
+  // the effect further down.
+  const sections = useMemo(
+    () => filterNav(navSections, { workerView, features, nav: navConfig }),
+    [workerView, features, navConfig],
+  );
 
   // The rail groups by section, and pages by WHOLE groups: a category that
   // straddled a page boundary would defeat the point of grouping them.
@@ -118,6 +130,8 @@ export function AppSidebar({
   // hour of chasing stale state. A fixed budget is dumber, always behaves the
   // same, and is provable without a browser. Tune the number, not the logic.
   const [page, setPage] = useState(0);
+  // +1 paging down, -1 paging up. Drives which way the icons slide.
+  const [dir, setDir] = useState(1);
 
   const pagesOfSections = useMemo(
     () => packSections(sections, SLOTS_PER_PAGE),
@@ -130,12 +144,32 @@ export function AppSidebar({
   const hasOverflow = pages > 1;
 
   // Never strand someone on a page that doesn't hold where they are.
+  //
+  // 🔴 Keyed on `pathname` ALONE, deliberately. This used to list
+  // `pagesOfSections` too, which looked correct and silently broke the arrows:
+  // that array had a new identity on every render, so the effect ran after
+  // every render — including the one caused by clicking an arrow — and snapped
+  // the page straight back to whichever one holds the current route. The
+  // arrows appeared dead. `sections` is now memoised as well, but the honest
+  // dependency here is the route: "when I navigate, show me where I am."
+  const pagesRef = useRef(pagesOfSections);
+  pagesRef.current = pagesOfSections;
   useEffect(() => {
-    const idx = pagesOfSections.findIndex((secs) =>
-      secs.some((sec) => sec.items.some((i) => isActive(i.href))));
-    if (idx >= 0) setPage(idx);
+    const idx = pagesRef.current.findIndex((secs) =>
+      secs.some((sec) => sec.items.some((i) => (
+        i.href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(i.href)
+      ))));
+    if (idx >= 0) {
+      setDir((d) => (idx === page ? d : idx > page ? 1 : -1));
+      setPage(idx);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname, pagesOfSections]);
+  }, [pathname]);
+
+  const goto = useCallback((next: number) => {
+    setDir(next > page ? 1 : -1);
+    setPage(Math.min(pages - 1, Math.max(0, next)));
+  }, [page, pages]);
 
   const railLink = (item: NavItem) => {
     const active = isActive(item.href);
@@ -162,49 +196,65 @@ export function AppSidebar({
     );
   };
 
-  const chevron = (dir: "up" | "down", disabled: boolean) => (
+  const chevron = (arrow: "up" | "down", disabled: boolean) => (
     <button
       type="button"
       disabled={disabled}
-      onClick={() => setPage((p) => Math.min(pages - 1, Math.max(0, p + (dir === "up" ? -1 : 1))))}
-      aria-label={dir === "up" ? "Previous menu items" : "More menu items"}
+      onClick={() => goto(safePage + (arrow === "up" ? -1 : 1))}
+      aria-label={arrow === "up" ? "Previous menu items" : "More menu items"}
       className={cn(
-        "flex h-7 w-12 shrink-0 items-center justify-center rounded-lg transition-colors",
+        "flex h-8 w-14 shrink-0 items-center justify-center rounded-full transition-colors",
         disabled ? "text-muted-foreground/40"
                  : "text-muted-foreground hover:bg-background hover:text-foreground",
       )}
     >
-      {dir === "up" ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+      {arrow === "up" ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
     </button>
   );
 
   /* ── Desktop rail ──────────────────────────────────────────────────── */
   const rail = (
-    // Wider, with real padding: the reference gives the icons room rather
-    // than packing them against the edge.
-    <div className="hidden h-full w-[92px] shrink-0 flex-col items-center bg-background px-3 py-6 md:flex">
+    // w-28 (112px), not an arbitrary value: bracket widths compile in the
+    // production build but NOT under this dev server, so `w-[92px]` rendered
+    // with no width at all locally. Registered scale steps only, here.
+    <div className="hidden h-full w-28 shrink-0 flex-col items-center bg-background px-3 py-6 md:flex">
       {hasOverflow && chevron("up", safePage === 0)}
 
-      <div className="flex min-h-0 w-full flex-1 flex-col items-center gap-3.5 overflow-hidden">
-        {visibleSections.map((group) => (
-          // Each category sits on its own slightly raised panel, as in the
-          // reference — the grouping is what makes twenty icons legible
-          // without labels.
-          <div
-            key={group.section}
-            title={group.section}
-            className="flex w-full flex-col items-center gap-3 rounded-3xl bg-secondary px-2.5 py-3"
+      {/* The page slides in from the direction you asked for, so paging reads
+          as movement along one list rather than the icons being swapped out
+          underneath you. mode="wait" keeps the outgoing page from overlapping
+          the incoming one in a 112px column. */}
+      <div className="flex min-h-0 w-full flex-1 flex-col items-center overflow-hidden">
+        <AnimatePresence mode="wait" initial={false} custom={dir}>
+          <motion.div
+            key={safePage}
+            custom={dir}
+            initial={{ opacity: 0, y: dir * 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: dir * -18 }}
+            transition={{ type: "spring", stiffness: 420, damping: 38, mass: 0.7 }}
+            className="flex w-full flex-col items-center gap-3.5"
           >
-            {group.items.map((item) => railLink(item))}
-          </div>
-        ))}
+            {visibleSections.map((group) => (
+              // Each category sits on its own slightly raised panel — the
+              // grouping is what makes twenty icons legible without labels.
+              <div
+                key={group.section}
+                title={group.section}
+                className="flex w-full flex-col items-center gap-2.5 rounded-3xl bg-secondary px-2 py-3"
+              >
+                {group.items.map((item) => railLink(item))}
+              </div>
+            ))}
+          </motion.div>
+        </AnimatePresence>
       </div>
 
       {hasOverflow && chevron("down", safePage >= pages - 1)}
 
       {/* Bottom group — settings, then the account, on the same raised panel
           so it reads as one more category rather than a loose pair. */}
-      <div className="mt-4 flex w-full flex-col items-center gap-3 rounded-3xl bg-secondary px-2.5 py-3">
+      <div className="mt-4 flex w-full flex-col items-center gap-2.5 rounded-3xl bg-secondary px-2 py-3">
         {canManageSettings(userRole) && (
           <Link
             href="/settings"
