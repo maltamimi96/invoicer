@@ -11,6 +11,7 @@ import { randomBytes } from "node:crypto";
 import { appUrl } from "@/lib/app-url";
 import { sendEmail, buildBusinessFrom } from "@/lib/email";
 import { secureFieldsAvailable } from "./crypto";
+import { ensureContactForLead } from "@/lib/leads/promote";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Sb = any;
@@ -124,4 +125,35 @@ export async function sendOnboardingFormFor(
   }
 
   return { ok: true, request_id: requestId, url };
+}
+
+
+/**
+ * Send an onboarding form to a LEAD.
+ *
+ * The link is a customer-portal link, so the lead needs a contact row to hang
+ * it on — `ensureContactForLead` mints one, exactly as the Quote and Invoice
+ * buttons already do. **They stay a lead**: the contact is created at stage
+ * 'lead' and only a payment promotes it. Filling in a questionnaire is not
+ * buying something.
+ *
+ * The request itself is therefore customer-scoped (onboarding_requests has a
+ * CHECK that exactly one of customer_id/lead_id is set, and the portal page
+ * matches the request's customer against the token's). It still shows on the
+ * lead, the same way its quotes and invoices do — through leads.customer_id.
+ */
+export async function sendOnboardingFormToLead(
+  sb: Sb,
+  businessId: string,
+  formId: string,
+  leadId: string,
+  opts: { email?: boolean; createdBy?: string | null } = {},
+): Promise<SendOnboardingResult> {
+  let customerId: string;
+  try {
+    ({ customerId } = await ensureContactForLead(sb, businessId, leadId));
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not prepare this lead" };
+  }
+  return sendOnboardingFormFor(sb, businessId, formId, customerId, opts);
 }

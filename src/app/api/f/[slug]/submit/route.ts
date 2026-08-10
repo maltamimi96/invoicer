@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { processAnswersForStorage, missingRequiredFields, invalidAnswerFields } from "@/lib/onboarding/answers";
 import { sendEmail, buildBusinessFrom } from "@/lib/email";
 import { rateLimit, clientIp } from "@/lib/booking/public";
+import { resolveInvite } from "@/lib/forms/invite";
 import type { OnboardingField, PublicFormSettings } from "@/types/database";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -13,7 +14,7 @@ const tbl = (sb: any, name: string) => sb.from(name);
 export async function POST(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let body: { answers?: Record<string, any>; _hp?: string };
+  let body: { answers?: Record<string, any>; _hp?: string; invite?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Bad request" }, { status: 400 }); }
 
   // Honeypot — bots fill the hidden field. Pretend success, do nothing.
@@ -49,9 +50,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     referrer: req.headers.get("referer") ?? null,
   };
 
-  // Optionally create a lead.
-  let leadId: string | null = null;
-  if (settings.create_lead ?? true) {
+  // Was this sent to someone we already have? If so the submission belongs to
+  // THEM — creating a lead here would mint a second record of a person already
+  // in the pipeline, which is the whole reason invites exist.
+  //
+  // An unusable token (expired, wrong form) resolves to null and the
+  // submission proceeds as ordinary public traffic. Someone answering a form
+  // they were sent should never hit an error because the link aged out; their
+  // answers land either way, just unattached.
+  const invite = await resolveInvite(sb, form.id, body.invite);
+
+  let leadId: string | null = invite?.lead_id ?? null;
+  if (!invite && (settings.create_lead ?? true)) {
     const val = (fieldId?: string) => (fieldId ? String(answers[fieldId] ?? "").trim() : "");
     const firstOfType = (types: string[]) => schema.find((f) => types.includes(f.type))?.id;
     const nameFieldId  = settings.lead_map?.name  ?? schema.find((f) => /name/i.test(f.label) && ["short_text", "company"].includes(f.type))?.id;
@@ -112,9 +122,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
   }
 
   const { error } = await tbl(sb, "public_form_submissions").insert({
-    business_id: form.business_id, form_id: form.id, answers: stored, lead_id: leadId, meta,
+    business_id: form.business_id, form_id: form.id, answers: stored,
+    lead_id: leadId, invite_id: invite?.id ?? null, meta,
   });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Stamp the invite so the lead's card reads "answered" rather than "waiting",
+  // and so a resend reuses nothing that's already been filled in.
+  if (invite) {
+    await tbl(sb, "public_form_invites")
+      .update({ submitted_at: new Date().toISOString() }).eq("id", invite.id);
+  }
 
   // Notify (best-effort).
   const notify = settings.notify_emails ?? [];

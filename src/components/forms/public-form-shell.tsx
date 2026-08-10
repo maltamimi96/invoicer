@@ -7,7 +7,7 @@ import type { OnboardingField, PublicFormSettings, PublicFormTheme } from "@/typ
 const tbl = (sb: any, name: string) => sb.from(name);
 
 /** Shared render for the hosted (/f) and embedded (/embed) public form pages. */
-export async function PublicFormShell({ slug, embed }: { slug: string; embed?: boolean }) {
+export async function PublicFormShell({ slug, embed, invite }: { slug: string; embed?: boolean; invite?: string }) {
   const sb = createAdminClient();
   const { data: form } = await tbl(sb, "public_forms")
     .select("id, business_id, name, description, status, schema, settings, theme").eq("slug", slug).maybeSingle();
@@ -36,6 +36,7 @@ export async function PublicFormShell({ slug, embed }: { slug: string; embed?: b
       <div className={form.description ? "" : "mt-5"}>
         <PublicFormFill
           slug={slug}
+          invite={invite}
           fields={schema}
           submitText={settings.submit_text || "Submit"}
           thankYouMessage={settings.thank_you_message ?? null}

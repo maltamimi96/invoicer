@@ -26,8 +26,12 @@ async function loadLeadOnboarding(leadId: string): Promise<LeadOnboardingData | 
       getFillablePublicForms().catch(() => []),
     ]);
     return {
+      // NOT filtered to staff-fillable any more: a form that is all uploads
+      // has nothing you can type on their behalf, but sending it to them is
+      // exactly the right move. The card decides which of the two buttons to
+      // offer per form.
       forms: forms
-        .filter((f) => f.status !== "archived" && staffFillableFields(f.schema).length > 0)
+        .filter((f) => f.status !== "archived" && (f.schema?.length ?? 0) > 0)
         .map((f): StaffFillForm => ({ id: f.id, name: f.name, schema: f.schema, kind: "onboarding" }))
         .concat(publicForms.map((f): StaffFillForm => ({ id: f.id, name: f.name, schema: f.schema, kind: "public" }))),
       responses,
