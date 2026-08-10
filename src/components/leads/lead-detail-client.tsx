@@ -20,6 +20,7 @@ import {
 import type { GradientName } from "@/components/ui/kirei";
 import { LeadOnboardingCard, type LeadOnboardingData } from "@/components/leads/lead-onboarding-card";
 import { LeadBillingCard } from "@/components/leads/lead-billing-card";
+import { LeadPortalCard } from "@/components/leads/lead-portal-card";
 import type { LeadDocuments } from "@/lib/actions/lead-billing";
 import type { Lead, LeadStatus } from "@/types/database";
 
@@ -230,6 +231,10 @@ export function LeadDetailClient({ lead: initial, onboarding, billing, currency 
         </FadeIn>
       )}
 
+      {/* The hub: everything raised against this lead, and the page they see.
+          Grouped rather than tabbed — a lead has a fraction of a customer's
+          history, and three short cards read faster than three tabs you have
+          to click through to discover are nearly empty. */}
       {billing && (
         <section className="space-y-3">
           <h2 className="text-base font-semibold">Quotes &amp; invoices</h2>
@@ -238,6 +243,8 @@ export function LeadDetailClient({ lead: initial, onboarding, billing, currency 
       )}
 
       {onboarding && <LeadOnboardingCard leadId={lead.id} data={onboarding} />}
+
+      <LeadPortalCard leadId={lead.id} />
 
       {/* Convert actions */}
       <FadeIn delay={260}>

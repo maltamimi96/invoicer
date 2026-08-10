@@ -90,3 +90,33 @@ export async function getLeadDocuments(leadId: string): Promise<LeadDocuments> {
     isClient: contact?.lifecycle_stage === "client",
   };
 }
+
+/**
+ * A portal link for a lead — the customer end of their hub.
+ *
+ * The portal is keyed on a contact, so this mints the lead's contact row the
+ * same way quoting them does, then reuses the existing portal token. Once they
+ * have one, /portal/<token> already shows their quotes, invoices, work orders
+ * and reports: none of that needed building, it needed reaching.
+ *
+ * **They stay a lead.** ensureContactForLead creates the contact at stage
+ * 'lead'; only a payment promotes anyone.
+ */
+export async function getLeadPortalLink(
+  leadId: string,
+): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  const supabase = await createClient();
+  const user = await getUser();
+  const businessId = await getActiveBizId(supabase, user.id);
+
+  try {
+    const { customerId } = await ensureContactForLead(supabase, businessId, leadId);
+    const { mintPortalTokenFor } = await import("@/lib/onboarding/send");
+    const token = await mintPortalTokenFor(supabase, businessId, customerId, user.id);
+    const { appUrl } = await import("@/lib/app-url");
+    revalidatePath(`/leads/${leadId}`);
+    return { ok: true, url: `${appUrl()}/portal/${token}` };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not create a portal link" };
+  }
+}
