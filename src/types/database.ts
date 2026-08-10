@@ -1635,6 +1635,8 @@ export interface WebhookDelivery {
 export type ApiScope =
   | 'vault:read'
   | 'vault:write'
+  | 'payment_details:read'
+  | 'payment_details:write'
   | 'leads:read'
   | 'leads:write'
   | 'customers:read'
@@ -1707,6 +1709,8 @@ export const ALL_API_SCOPES: { value: ApiScope; label: string; group: string }[]
   { value: 'materials:write',  label: 'Create / edit materials', group: 'Materials' },
   { value: 'vault:read',       label: 'List vault entries (never the passwords)', group: 'Vault' },
   { value: 'vault:write',      label: 'Create / edit vault entries', group: 'Vault' },
+  { value: 'payment_details:read',  label: 'List stored payment details (masked only, never the number)', group: 'Payment details' },
+  { value: 'payment_details:write', label: 'Store / delete payment details', group: 'Payment details' },
   { value: 'settings:read',    label: 'Read settings',     group: 'Settings' },
   { value: 'settings:write',   label: 'Edit settings & preferences', group: 'Settings' },
   { value: 'bookings:read',    label: 'Read bookings & config', group: 'Bookings' },
