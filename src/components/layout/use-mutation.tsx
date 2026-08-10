@@ -90,3 +90,46 @@ export function useMutation() {
     pending: isRunning || isRefreshing,
   };
 }
+
+
+/**
+ * A `router.refresh()` that is actually tracked, plus the global busy scrim.
+ *
+ * The minimal fix for the 20-odd call sites shaped like:
+ *
+ *     startTransition(async () => {
+ *       await doThing();
+ *       router.refresh();     // untracked — see the note at the top
+ *     });
+ *
+ * Swap `router.refresh()` for this `refresh()` and the wait becomes visible:
+ * it runs inside its own synchronous transition, and raises the scrim until
+ * the new server output commits. One line per site, no restructuring of
+ * error handling or toasts that already work.
+ *
+ * Prefer `useMutation` for new code — it owns the whole operation. This exists
+ * so existing call sites can be corrected without being rewritten.
+ *
+ * Pass `null` when the caller already manages the scrim itself (the business
+ * switcher has its own label and a stall timeout). Two owners of one overlay
+ * means a label that changes mid-action and a clear that races.
+ */
+export function useTrackedRefresh(label: string | null = "Updating…") {
+  const router = useRouter();
+  const { setBusy } = useAppLoading();
+  const [pending, startTransition] = useTransition();
+  const armed = useRef(false);
+
+  useEffect(() => {
+    if (label === null) return;          // caller owns the overlay
+    if (pending) { armed.current = true; return; }
+    if (armed.current) { armed.current = false; setBusy(null); }
+  }, [pending, setBusy, label]);
+
+  const refresh = useCallback(() => {
+    if (label !== null) setBusy(label);
+    startTransition(() => { router.refresh(); });
+  }, [router, setBusy, label]);
+
+  return { refresh, pending };
+}

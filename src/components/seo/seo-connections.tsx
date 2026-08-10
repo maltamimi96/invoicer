@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect, useRef } from "react";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Check, GithubLogo } from "@/components/ui/icons";
@@ -65,6 +66,10 @@ export function SeoConnections({
 }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  // refresh() after an await runs OUTSIDE the transition, so the
+  // spinner stopped while the server was still re-rendering. See
+  // components/layout/use-mutation.tsx.
+  const { refresh } = useTrackedRefresh();
   const [editing, setEditing] = useState<{ def: ConnectorDef; conn?: ConnectionView } | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
 
@@ -82,7 +87,7 @@ export function SeoConnections({
         await saveConnection({ site_id: siteId, provider: editing.def.id, values, connection_id: editing.conn?.id });
         toast.success(`${editing.def.name} ${editing.conn ? "updated" : "connected"}`);
         setEditing(null);
-        router.refresh();
+        refresh();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Couldn't save connection");
       }
@@ -94,7 +99,7 @@ export function SeoConnections({
       try {
         await deleteConnection(conn.id, siteId);
         toast.success("Connection removed");
-        router.refresh();
+        refresh();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Couldn't remove");
       }
@@ -121,7 +126,7 @@ export function SeoConnections({
         .catch((e) => toast.error(e instanceof Error ? e.message : "Couldn't list repositories"));
     } else {
       router.replace(`/seo/${siteId}`, { scroll: false });
-      if (known?.ok) router.refresh();
+      if (known?.ok) refresh();
     }
   }, [githubStatus, ghToken, router, siteId]);
 
@@ -140,7 +145,7 @@ export function SeoConnections({
         toast.success("GitHub connected");
         setPicker(null);
         router.replace(`/seo/${siteId}`, { scroll: false });
-        router.refresh();
+        refresh();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Couldn't connect that repository");
       }
@@ -165,7 +170,7 @@ export function SeoConnections({
         .catch((e) => toast.error(e instanceof Error ? e.message : "Couldn't list properties"));
     } else {
       router.replace(`/seo/${siteId}`, { scroll: false });
-      if (known?.ok) router.refresh();
+      if (known?.ok) refresh();
     }
   }, [gscStatus, gscToken, gscGuess, router, siteId]);
 
@@ -184,7 +189,7 @@ export function SeoConnections({
         toast.success("Search Console connected");
         setGscPicker(null);
         router.replace(`/seo/${siteId}`, { scroll: false });
-        router.refresh();
+        refresh();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Couldn't connect that property");
       }

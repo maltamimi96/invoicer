@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -62,6 +63,10 @@ export function OutreachClient({
   const [tab, setTab] = useState<Tab>("overview");
   const [settings, setSettings] = useState(initialSettings);
   const [busy, startTransition] = useTransition();
+  // refresh() after an await runs OUTSIDE the transition, so the
+  // spinner stopped while the server was still re-rendering. See
+  // components/layout/use-mutation.tsx.
+  const { refresh } = useTrackedRefresh();
   const [running, setRunning] = useState(false);
 
   const patch = (p: Partial<OutreachSettings>) => setSettings((s) => ({ ...s, ...p }));
@@ -90,7 +95,7 @@ export function OutreachClient({
           sourcing_daily_quota: settings.sourcing_daily_quota,
         });
         toast.success("Settings saved");
-        router.refresh();
+        refresh();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Couldn't save");
       }
@@ -104,7 +109,7 @@ export function OutreachClient({
       toast.success(
         r.sent ? `Sent ${r.sent}${r.failed ? ` · ${r.failed} failed` : ""}` : "Nothing was due to send",
       );
-      router.refresh();
+      refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Run failed");
     } finally {
@@ -146,7 +151,7 @@ export function OutreachClient({
               startTransition(async () => {
                 await updateOutreachSettings({ enabled: true });
                 toast.success("Outreach enabled");
-                router.refresh();
+                refresh();
               });
             }}
           >
@@ -213,11 +218,11 @@ export function OutreachClient({
       )}
 
       {tab === "campaigns" && (
-        <CampaignsTab campaigns={campaigns} sequences={sequences} onDone={() => router.refresh()} />
+        <CampaignsTab campaigns={campaigns} sequences={sequences} onDone={() => refresh()} />
       )}
 
       {tab === "sequences" && (
-        <SequencesTab sequences={sequences} onDone={() => router.refresh()} />
+        <SequencesTab sequences={sequences} onDone={() => refresh()} />
       )}
 
       {tab === "activity" && <ActivityTab messages={messages} />}
@@ -226,7 +231,7 @@ export function OutreachClient({
         <SettingsTab
           settings={settings} patch={patch} save={saveSettings} busy={busy}
           businessName={businessName} businessLogoUrl={businessLogoUrl}
-          onDone={() => router.refresh()}
+          onDone={() => refresh()}
         />
       )}
     </div>

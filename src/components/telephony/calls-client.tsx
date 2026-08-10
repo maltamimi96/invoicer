@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -61,6 +62,10 @@ export function CallsClient({
   const [settings, setSettings] = useState(initial);
   const [url, setUrl] = useState(webhookUrl);
   const [busy, startTransition] = useTransition();
+  // refresh() after an await runs OUTSIDE the transition, so the
+  // spinner stopped while the server was still re-rendering. See
+  // components/layout/use-mutation.tsx.
+  const { refresh } = useTrackedRefresh();
   const [syncing, setSyncing] = useState(false);
   const [apiKey, setApiKey] = useState("");
   const [openCallId, setOpenCallId] = useState<string | null>(null);
@@ -70,7 +75,7 @@ export function CallsClient({
     startTransition(async () => {
       try {
         await updateTelephonySettings(p);
-        router.refresh();
+        refresh();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Couldn't save");
       }
@@ -98,7 +103,7 @@ export function CallsClient({
             action: { label: "Open", onClick: () => setOpenCallId(c.id) },
             duration: 20000,
           });
-          router.refresh();
+          refresh();
         },
       )
       .subscribe();
@@ -118,7 +123,7 @@ export function CallsClient({
             <Button variant="outline" disabled={busy} onClick={async () => {
               const n = await rematchCalls();
               toast.success(n ? `Matched ${n} more call${n === 1 ? "" : "s"}` : "No new matches");
-              router.refresh();
+              refresh();
             }}>
               <RefreshCw className="mr-1.5 h-4 w-4" /> Re-match callers
             </Button>
@@ -128,7 +133,7 @@ export function CallsClient({
                 const r = await syncCallsNow(30, true);
                 if (r.errors.length) toast.error(r.errors[0]);
                 else toast.success(`Synced ${r.ingested} of ${r.fetched} calls from the last 30 days`);
-                router.refresh();
+                refresh();
               } catch (e) {
                 toast.error(e instanceof Error ? e.message : "Sync failed");
               } finally { setSyncing(false); }
@@ -313,7 +318,7 @@ export function CallsClient({
                   <Button variant="outline" disabled={!apiKey} onClick={async () => {
                     try {
                       await setTelephonyApiKey(apiKey); setApiKey("");
-                      toast.success("Saved (encrypted)"); router.refresh();
+                      toast.success("Saved (encrypted)"); refresh();
                     } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't save"); }
                   }}>Save</Button>
                   <Button variant="outline" onClick={async () => {
@@ -332,7 +337,7 @@ export function CallsClient({
                 <Input id="endpoint" defaultValue={settings.api_base_url ?? "https://au.voipcloud.online"}
                   placeholder="https://au.voipcloud.online"
                   onBlur={async (e) => {
-                    try { await setTelephonyEndpoint(e.target.value); toast.success("Endpoint saved"); router.refresh(); }
+                    try { await setTelephonyEndpoint(e.target.value); toast.success("Endpoint saved"); refresh(); }
                     catch (err) { toast.error(err instanceof Error ? err.message : "Invalid endpoint"); }
                   }} />
                 <p className="mt-1 text-xs text-muted-foreground">

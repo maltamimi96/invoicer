@@ -13,6 +13,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -353,6 +354,10 @@ function PortfolioHeader({
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  // refresh() after an await runs OUTSIDE the transition, so the
+  // spinner stopped while the server was still re-rendering. See
+  // components/layout/use-mutation.tsx.
+  const { refresh } = useTrackedRefresh();
   const status = (workOrder.status ?? "draft") as WorkOrderStatus;
   // Owners + admins can reschedule (same gate as delete/assign).
   const canReschedule = deletable;
@@ -361,7 +366,7 @@ function PortfolioHeader({
     : workOrder.property_address ?? "";
 
   const setStatus = (next: WorkOrderStatus) => startTransition(async () => {
-    try { await updateWorkOrderStatus(workOrder.id, next); router.refresh(); toast.success(`Status → ${STATUS_LABELS[next]}`); }
+    try { await updateWorkOrderStatus(workOrder.id, next); refresh(); toast.success(`Status → ${STATUS_LABELS[next]}`); }
     catch (e) { toast.error(e instanceof Error ? e.message : "Status update failed"); }
   });
 
@@ -456,7 +461,7 @@ function PortfolioHeader({
         workOrderId={workOrder.id}
         availableWorkers={availableWorkers}
         initialSelected={assignedWorkers.map((w) => w.id)}
-        onSaved={() => router.refresh()}
+        onSaved={() => refresh()}
       />
 
       <RescheduleDialog
@@ -466,7 +471,7 @@ function PortfolioHeader({
         initialDate={workOrder.scheduled_date}
         initialStart={workOrder.start_time}
         initialEnd={workOrder.end_time}
-        onSaved={() => router.refresh()}
+        onSaved={() => refresh()}
       />
     </motion.div>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,10 @@ const selectCls = "h-8 rounded-md border border-input bg-background px-2 text-xs
 export function ProspectsImport({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  // refresh() after an await runs OUTSIDE the transition, so the
+  // spinner stopped while the server was still re-rendering. See
+  // components/layout/use-mutation.tsx.
+  const { refresh } = useTrackedRefresh();
   const [mode, setMode] = useState<"csv" | "paste">("csv");
   const [headers, setHeaders] = useState<string[]>([]);
   const [dataRows, setDataRows] = useState<string[][]>([]);
@@ -96,7 +101,7 @@ export function ProspectsImport({ open, onOpenChange }: { open: boolean; onOpenC
         const r = await importProspects(rows);
         toast.success(`Imported ${r.imported}${r.skipped ? `, skipped ${r.skipped} duplicates` : ""}`);
         onOpenChange(false); setHeaders([]); setDataRows([]); setPaste("");
-        router.refresh();
+        refresh();
       } catch (e) { toast.error(e instanceof Error ? e.message : "Import failed"); }
     });
   }

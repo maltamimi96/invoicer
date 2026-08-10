@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { FileText, Plus, Check, Trash2, Download, Send } from "@/components/ui/icons";
@@ -20,33 +21,37 @@ const fmt = (d: string) => new Date(d).toLocaleDateString("en-AU", { day: "2-dig
 export function SeoReports({ siteId, reports }: { siteId: string; reports: Report[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  // refresh() after an await runs OUTSIDE the transition, so the
+  // spinner stopped while the server was still re-rendering. See
+  // components/layout/use-mutation.tsx.
+  const { refresh } = useTrackedRefresh();
   const [generating, setGenerating] = useState(false);
 
   function handleGenerate() {
     setGenerating(true);
     generateSeoReport(siteId)
-      .then(() => { toast.success("Report generated"); router.refresh(); })
+      .then(() => { toast.success("Report generated"); refresh(); })
       .catch((e) => toast.error(e instanceof Error ? e.message : "Couldn't generate"))
       .finally(() => setGenerating(false));
   }
 
   function handleApprove(r: Report) {
     startTransition(async () => {
-      try { await approveSeoReport(r.id, siteId); toast.success("Approved"); router.refresh(); }
+      try { await approveSeoReport(r.id, siteId); toast.success("Approved"); refresh(); }
       catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't approve"); }
     });
   }
 
   function handleDelete(r: Report) {
     startTransition(async () => {
-      try { await deleteSeoReport(r.id, siteId); toast.success("Deleted"); router.refresh(); }
+      try { await deleteSeoReport(r.id, siteId); toast.success("Deleted"); refresh(); }
       catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't delete"); }
     });
   }
 
   function handleSend(r: Report) {
     startTransition(async () => {
-      try { await sendSeoReport(r.id, siteId); toast.success("Sent to client"); router.refresh(); }
+      try { await sendSeoReport(r.id, siteId); toast.success("Sent to client"); refresh(); }
       catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't send"); }
     });
   }

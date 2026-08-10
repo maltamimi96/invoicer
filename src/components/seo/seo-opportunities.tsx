@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Search, Sparkles, Plus, ChevronDown, ChevronRight } from "@/components/ui/icons";
@@ -21,13 +22,17 @@ const TYPE_TONE: Record<string, string> = {
 export function SeoOpportunities({ siteId, opportunities }: { siteId: string; opportunities: Opp[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  // refresh() after an await runs OUTSIDE the transition, so the
+  // spinner stopped while the server was still re-rendering. See
+  // components/layout/use-mutation.tsx.
+  const { refresh } = useTrackedRefresh();
   const [scanning, setScanning] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
 
   function handleScan() {
     setScanning(true);
     scanOpportunities(siteId)
-      .then((r) => { toast.success(r.inserted ? `Found ${r.inserted} opportunities` : "No new opportunities"); router.refresh(); })
+      .then((r) => { toast.success(r.inserted ? `Found ${r.inserted} opportunities` : "No new opportunities"); refresh(); })
       .catch((e) => toast.error(e instanceof Error ? e.message : "Scan failed"))
       .finally(() => setScanning(false));
   }
@@ -46,7 +51,7 @@ export function SeoOpportunities({ siteId, opportunities }: { siteId: string; op
 
   function handleStatus(o: Opp, status: string) {
     startTransition(async () => {
-      try { await setOpportunityStatus(o.id, status, siteId); router.refresh(); }
+      try { await setOpportunityStatus(o.id, status, siteId); refresh(); }
       catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't update"); }
     });
   }

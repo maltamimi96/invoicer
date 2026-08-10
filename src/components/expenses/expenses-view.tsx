@@ -3,6 +3,7 @@
 import { useConfirm } from "@/components/ui/confirm";
 
 import { useState, useTransition } from "react";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Receipt, Plus, Trash2, FileText, Edit, ChevronLeft, ChevronRight, Download } from "@/components/ui/icons";
@@ -44,6 +45,10 @@ export function ExpensesView({ expenses, allCount, books, periodKind, offset, wo
   const router = useRouter();
   const confirm = useConfirm();
   const [isPending, startTransition] = useTransition();
+  // refresh() after an await runs OUTSIDE the transition, so the
+  // spinner stopped while the server was still re-rendering. See
+  // components/layout/use-mutation.tsx.
+  const { refresh } = useTrackedRefresh();
   const [open, setOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -129,7 +134,7 @@ export function ExpensesView({ expenses, allCount, books, periodKind, offset, wo
           await createExpense(payload);
           toast.success("Expense recorded");
         }
-        setOpen(false); reset(); router.refresh();
+        setOpen(false); reset(); refresh();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Couldn't save");
       }
@@ -145,7 +150,7 @@ export function ExpensesView({ expenses, allCount, books, periodKind, offset, wo
       confirmLabel: "Delete expense",
     }))) return;
     startTransition(async () => {
-      try { await deleteExpense(id); toast.success("Deleted"); router.refresh(); }
+      try { await deleteExpense(id); toast.success("Deleted"); refresh(); }
       catch (err) { toast.error(err instanceof Error ? err.message : "Couldn't delete"); }
     });
   }

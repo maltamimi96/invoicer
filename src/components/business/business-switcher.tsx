@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect, useRef } from "react";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { useRouter } from "next/navigation";
 import { ChevronsUpDown, Check, Plus, Building2 } from "@/components/ui/icons";
 import {
@@ -27,6 +28,10 @@ interface BusinessSwitcherProps {
 export function BusinessSwitcher({ business, businesses, onClose }: BusinessSwitcherProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  // null: this component owns the overlay — it has its own per-business label
+  // and a stall timeout. useTrackedRefresh is here purely to make the refresh
+  // run inside a transition, which it did not before.
+  const { refresh } = useTrackedRefresh(null);
   const [addOpen, setAddOpen] = useState(false);
   const { setBusy } = useAppLoading();
   const pendingSwitch = useRef(false);
@@ -39,12 +44,12 @@ export function BusinessSwitcher({ business, businesses, onClose }: BusinessSwit
     rememberTabBusiness(biz.id);
     pendingSwitch.current = true;
     onClose?.();
-    // setActiveBusiness flips the cookie, then router.refresh() refetches the
+    // setActiveBusiness flips the cookie, then refresh() refetches the
     // whole tree for the new business. Both run inside the transition, so
     // `isPending` stays true until the refreshed dashboard has committed.
     startTransition(async () => {
       await setActiveBusiness(biz.id);
-      router.refresh();
+      refresh();
     });
     // Safety net: never let the overlay get stuck if the refresh stalls.
     window.setTimeout(() => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -43,6 +44,10 @@ const selectCls =
 export function SeoSitesView({ sites, customers, budget }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  // refresh() after an await runs OUTSIDE the transition, so the
+  // spinner stopped while the server was still re-rendering. See
+  // components/layout/use-mutation.tsx.
+  const { refresh } = useTrackedRefresh();
   const [addOpen, setAddOpen] = useState(false);
   const [budgetOpen, setBudgetOpen] = useState(false);
   const [budgetDollars, setBudgetDollars] = useState(String((budget.budgetCents / 100) || 0));
@@ -53,7 +58,7 @@ export function SeoSitesView({ sites, customers, budget }: Props) {
         await setSeoBudget(Math.round(parseFloat(budgetDollars || "0") * 100));
         toast.success("Budget updated");
         setBudgetOpen(false);
-        router.refresh();
+        refresh();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Couldn't save budget");
       }
@@ -85,7 +90,7 @@ export function SeoSitesView({ sites, customers, budget }: Props) {
         toast.success("Client site added");
         setAddOpen(false);
         resetForm();
-        router.refresh();
+        refresh();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Couldn't add site");
       }
@@ -97,7 +102,7 @@ export function SeoSitesView({ sites, customers, budget }: Props) {
       try {
         await deleteSeoSite(site.id);
         toast.success("Site removed");
-        router.refresh();
+        refresh();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Couldn't remove site");
       } finally {
