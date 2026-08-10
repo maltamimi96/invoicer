@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { toast } from "sonner";
 import { ArrowLeft, Copy, Search, ExternalLink, Download, Play } from "@/components/ui/icons";
 import { PageHeader } from "@/components/layout/page-header";
@@ -21,6 +22,9 @@ const TONE: Record<string, string> = {
 
 export function SeoAuditsView({ link, audits }: Props) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const [copied, setCopied] = useState(false);
   const [runningId, setRunningId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -35,7 +39,7 @@ export function SeoAuditsView({ link, audits }: Props) {
   function runAudit(a: Audit) {
     setRunningId(a.id);
     runAuditNow(a.id)
-      .then((r) => { toast.success(`Audit scored ${r.score}/100`); router.refresh(); })
+      .then((r) => { toast.success(`Audit scored ${r.score}/100`); refresh(); })
       .catch((e) => toast.error(e instanceof Error ? e.message : "Audit failed"))
       .finally(() => setRunningId(null));
   }

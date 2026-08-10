@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { Sparkles, AlertTriangle, Check, RotateCcw } from "@/components/ui/icons";
@@ -24,6 +25,9 @@ type Stage = "analyzing" | "review" | "applying" | "done" | "empty";
 
 export function CleanupModal({ open, onOpenChange, entity, entityLabel }: Props) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const [stage,     setStage]     = useState<Stage>("analyzing");
   const [proposals, setProposals] = useState<ProposedChange[]>([]);
   const [selected,  setSelected]  = useState<Set<string>>(new Set());
@@ -98,7 +102,7 @@ export function CleanupModal({ open, onOpenChange, entity, entityLabel }: Props)
       setProgress(100);
       setStage("done");
       // Refetch so the page picks up the changes immediately.
-      router.refresh();
+      refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Couldn't apply changes");
       setStage("review");
@@ -111,7 +115,7 @@ export function CleanupModal({ open, onOpenChange, entity, entityLabel }: Props)
       const { reverted } = await undoCleanup(runId);
       toast.success(`Undid ${reverted} change${reverted === 1 ? "" : "s"}`);
       onOpenChange(false);
-      router.refresh();
+      refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Couldn't undo");
     }
@@ -121,7 +125,7 @@ export function CleanupModal({ open, onOpenChange, entity, entityLabel }: Props)
   // components that hold their own useState(initial) pick up the new data.
   const handleOpenChange = (next: boolean) => {
     if (!next && stage === "done") {
-      router.refresh();
+      refresh();
     }
     onOpenChange(next);
   };

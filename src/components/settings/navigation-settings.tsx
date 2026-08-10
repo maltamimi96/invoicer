@@ -10,6 +10,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { Reorder } from "framer-motion";
 import { toast } from "sonner";
 import { Eye, EyeOff, GripVertical, Loader2, RotateCcw } from "@/components/ui/icons";
@@ -36,6 +37,9 @@ export function NavigationSettings({
   presetName: string | null;
 }) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const [labels, setLabels] = useState<Record<string, string>>(config?.labels ?? {});
   const [hidden, setHidden] = useState<string[]>(config?.hidden ?? []);
   const [order, setOrder] = useState<string[]>(
@@ -60,7 +64,7 @@ export function NavigationSettings({
       const res = await saveNavConfig({ labels, hidden, order, ...next });
       if (!res.ok) { toast.error(res.error); return; }
       toast.success("Navigation updated");
-      router.refresh();
+      refresh();
     } catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
     finally { setBusy(false); }
   };

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import Link from "next/link";
 import { ArrowLeft, Trash2, XCircle, Send, Download, Save, Loader2, Copy } from "@/components/ui/icons";
 import { toast } from "sonner";
@@ -36,6 +37,9 @@ interface Props {
 
 export function ContractDetailClient({ contract, renderedHtml, canEdit }: Props) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const isDraft = contract.status === "draft";
   const isSignable = !["signed", "voided", "declined"].includes(contract.status);
   const [editing, setEditing] = useState(false);
@@ -47,13 +51,13 @@ export function ContractDetailClient({ contract, renderedHtml, canEdit }: Props)
     setBusy(true);
     try {
       await updateContract(contract.id, { title: title.trim(), content_html: contract.kind === "rich_text" ? content : undefined });
-      toast.success("Saved"); setEditing(false); router.refresh();
+      toast.success("Saved"); setEditing(false); refresh();
     } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't save"); }
     finally { setBusy(false); }
   };
 
   const doVoid = async () => {
-    try { await voidContract(contract.id); toast.success("Contract voided"); router.refresh(); }
+    try { await voidContract(contract.id); toast.success("Contract voided"); refresh(); }
     catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't void"); }
   };
 
@@ -74,7 +78,7 @@ export function ContractDetailClient({ contract, renderedHtml, canEdit }: Props)
     setBusy(true);
     try {
       await sendContractForSignature(contract.id);
-      toast.success(`Emailed to ${contract.customers.email} to sign`); router.refresh();
+      toast.success(`Emailed to ${contract.customers.email} to sign`); refresh();
     } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't send"); }
     finally { setBusy(false); }
   };

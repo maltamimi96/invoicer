@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { toast } from "sonner";
 import { ArrowLeft, FileText, Trash2, CheckCircle } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,9 @@ const money = (n: number) => `$${(Number(n) || 0).toLocaleString("en-AU", { mini
 
 export function PayRunDetailClient({ run: initialRun, lines: initialLines }: { run: PayRun; lines: PayRunLine[] }) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const confirm = useConfirm();
   const [pending, start] = useTransition();
   const [run, setRun] = useState(initialRun);
@@ -60,7 +64,7 @@ export function PayRunDetailClient({ run: initialRun, lines: initialLines }: { r
   const finalise = async () => {
     if (!(await confirm({ title: "Finalise this pay run?", body: "It locks the run and posts wages + super to Expenses. This can't be edited afterwards.", confirmLabel: "Finalise" }))) return;
     start(async () => {
-      try { await finalisePayRun(run.id); setRun((p) => ({ ...p, status: "finalised" })); toast.success("Pay run finalised"); router.refresh(); }
+      try { await finalisePayRun(run.id); setRun((p) => ({ ...p, status: "finalised" })); toast.success("Pay run finalised"); refresh(); }
       catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't finalise"); }
     });
   };

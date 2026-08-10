@@ -10,6 +10,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { toast } from "sonner";
 import {
   AlertTriangle, Building2, Clock, CalendarDays, Loader2, Plus, ChevronRight,
@@ -27,6 +28,9 @@ import type { ClientAccount } from "@/lib/actions/agency-console";
 
 export function ClientAccountsClient({ accounts }: { accounts: ClientAccount[] }) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const { setBusy } = useAppLoading();
   const [addOpen, setAddOpen] = useState(false);
   const [switching, setSwitching] = useState<string | null>(null);
@@ -54,7 +58,7 @@ export function ClientAccountsClient({ accounts }: { accounts: ClientAccount[] }
     try {
       await setActiveBusiness(account.id);
       router.push("/dashboard");
-      router.refresh();
+      refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Couldn't open that account");
       setBusy(null);

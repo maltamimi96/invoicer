@@ -4,6 +4,7 @@ import { useConfirm } from "@/components/ui/confirm";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { Plus, Repeat, Pause, Play, Trash2, Edit2, CreditCard, Zap } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -63,6 +64,9 @@ function emptyForm() {
 
 export function RecurringInvoicesClient({ initial, customers, products, currency, stripeEnabled }: Props) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const confirm = useConfirm();
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -100,7 +104,7 @@ export function RecurringInvoicesClient({ initial, customers, products, currency
       else await createRecurringInvoice(payload);
       toast.success(form.id ? "Schedule updated" : "Recurring invoice created");
       setOpen(false);
-      router.refresh();
+      refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Couldn't save");
     } finally { setSaving(false); }
@@ -108,7 +112,7 @@ export function RecurringInvoicesClient({ initial, customers, products, currency
 
   const toggleActive = async (r: RecurringInvoice) => {
     setBusyId(r.id);
-    try { await setRecurringInvoiceActive(r.id, !r.active); router.refresh(); }
+    try { await setRecurringInvoiceActive(r.id, !r.active); refresh(); }
     catch { toast.error("Couldn't update"); }
     finally { setBusyId(null); }
   };
@@ -128,7 +132,7 @@ export function RecurringInvoicesClient({ initial, customers, products, currency
     try {
       const res = await runRecurringInvoiceNow(r.id);
       toast.success(`${res.number} created${res.charged ? " + charged" : res.emailed ? " + emailed" : ""}`);
-      router.refresh();
+      refresh();
     } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't run"); }
     finally { setBusyId(null); }
   };
@@ -282,7 +286,7 @@ export function RecurringInvoicesClient({ initial, customers, products, currency
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={async () => { if (deleteId) { try { await deleteRecurringInvoice(deleteId); toast.success("Deleted"); router.refresh(); } catch { toast.error("Couldn't delete"); } setDeleteId(null); } }}
+              onClick={async () => { if (deleteId) { try { await deleteRecurringInvoice(deleteId); toast.success("Deleted"); refresh(); } catch { toast.error("Couldn't delete"); } setDeleteId(null); } }}
             >Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

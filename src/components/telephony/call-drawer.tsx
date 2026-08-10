@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,9 @@ const money = (n: unknown) => `$${(Number(n) || 0).toFixed(2)}`;
  */
 export function CallDrawer({ callId, onClose }: { callId: string | null; onClose: () => void }) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const [ctx, setCtx] = useState<CallContext | null>(null);
   const [loading, setLoading] = useState(false);
   const [notes, setNotes] = useState("");
@@ -122,7 +126,7 @@ export function CallDrawer({ callId, onClose }: { callId: string | null; onClose
                       toast.success(r.linkedCalls > 1
                         ? `Customer created — ${r.linkedCalls} calls linked`
                         : "Customer created");
-                      onClose(); router.refresh();
+                      onClose(); refresh();
                     } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't create"); }
                   }}>
                     <UserPlus className="mr-1.5 h-3.5 w-3.5" /> Create customer
@@ -184,7 +188,7 @@ export function CallDrawer({ callId, onClose }: { callId: string | null; onClose
                 placeholder="Quoted the gutter repair, sending Thursday…" />
               <Button size="sm" className="mt-2" disabled={saving} onClick={async () => {
                 setSaving(true);
-                try { await setCallNotes(ctx.call.id, notes); toast.success("Saved"); router.refresh(); }
+                try { await setCallNotes(ctx.call.id, notes); toast.success("Saved"); refresh(); }
                 catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't save"); }
                 finally { setSaving(false); }
               }}>

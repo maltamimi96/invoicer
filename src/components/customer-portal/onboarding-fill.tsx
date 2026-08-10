@@ -8,6 +8,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { Check, Loader2, Upload, X, Star } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,9 @@ interface Props {
 
 export function OnboardingFill({ token, requestId, fields, initialAnswers, alreadySubmitted, thankYouMessage }: Props) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const [answers, setAnswers] = useState<OnboardingAnswers>(initialAnswers);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(alreadySubmitted);
@@ -100,7 +104,7 @@ export function OnboardingFill({ token, requestId, fields, initialAnswers, alrea
         return;
       }
       setDone(true);
-      router.refresh();
+      refresh();
     } finally { setSubmitting(false); }
   };
 

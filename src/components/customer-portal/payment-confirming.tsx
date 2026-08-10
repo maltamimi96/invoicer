@@ -18,6 +18,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { Loader2, Check } from "@/components/ui/icons";
 
 /** ~18s total. Long enough for a slow webhook, short enough not to strand. */
@@ -28,6 +29,9 @@ export function PaymentConfirming({ businessPhone, businessEmail }: {
   businessEmail?: string | null;
 }) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const [attempt, setAttempt] = useState(0);
   const gaveUp = attempt >= CHECKS.length;
 
@@ -36,7 +40,7 @@ export function PaymentConfirming({ businessPhone, businessEmail }: {
     const t = setTimeout(() => {
       // A refresh re-runs the server component; if the webhook has landed, the
       // page renders as paid and this component is gone.
-      router.refresh();
+      refresh();
       setAttempt((n) => n + 1);
     }, CHECKS[attempt]);
     return () => clearTimeout(t);

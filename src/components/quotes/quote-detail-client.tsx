@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { Edit, Trash2, ArrowRight, MoreHorizontal, Send, Copy, Link2, FileCheck, Calendar, DollarSign } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,9 @@ interface QuoteDetailClientProps {
 
 export function QuoteDetailClient({ quote: initial, customers, products, materials, business }: QuoteDetailClientProps) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const [quote, setQuote] = useState(initial);
   const [editing, setEditing] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
@@ -97,7 +101,7 @@ export function QuoteDetailClient({ quote: initial, customers, products, materia
       onSaved={(saved) => {
         setQuote((prev) => ({ ...prev, ...saved } as typeof prev));
         setEditing(false);
-        router.refresh();
+        refresh();
       }}
     />
   );
@@ -297,7 +301,7 @@ export function QuoteDetailClient({ quote: initial, customers, products, materia
             body: r.body,
           });
           toast.success(`Scheduled for ${new Date(sendAtIso).toLocaleString()}`);
-          router.refresh();
+          refresh();
         }}
       />
 

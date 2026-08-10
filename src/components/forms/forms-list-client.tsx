@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Plus, ListChecks, Trash2, Copy, Loader2, Eye, ExternalLink, CodeIcon } from "@/components/ui/icons";
@@ -33,6 +34,9 @@ interface Props {
 
 export function FormsListClient({ enabled, forms, baseUrl }: Props) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const [busy, setBusy] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [name, setName] = useState("");
@@ -57,7 +61,7 @@ export function FormsListClient({ enabled, forms, baseUrl }: Props) {
             <Button className="mt-2" disabled={busy}
               onClick={async () => {
                 setBusy(true);
-                try { await setFormBuilderEnabled(true); toast.success("Form Builder enabled"); router.refresh(); }
+                try { await setFormBuilderEnabled(true); toast.success("Form Builder enabled"); refresh(); }
                 catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't enable"); }
                 finally { setBusy(false); }
               }}>
@@ -95,7 +99,7 @@ export function FormsListClient({ enabled, forms, baseUrl }: Props) {
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Switch checked onCheckedChange={async (v) => {
                 if (v) return;
-                try { await setFormBuilderEnabled(false); toast.success("Form Builder disabled"); router.refresh(); }
+                try { await setFormBuilderEnabled(false); toast.success("Form Builder disabled"); refresh(); }
                 catch { toast.error("Couldn't disable"); }
               }} />
               Enabled
@@ -140,7 +144,7 @@ export function FormsListClient({ enabled, forms, baseUrl }: Props) {
                   <button className="text-muted-foreground hover:text-destructive p-1.5"
                     onClick={async () => {
                       if (!confirm(`Delete "${f.name}" and all its submissions?`)) return;
-                      try { await deletePublicForm(f.id); toast.success("Deleted"); router.refresh(); }
+                      try { await deletePublicForm(f.id); toast.success("Deleted"); refresh(); }
                       catch { toast.error("Delete failed"); }
                     }}>
                     <Trash2 className="w-3.5 h-3.5" />

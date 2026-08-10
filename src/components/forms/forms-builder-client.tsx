@@ -8,6 +8,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import Link from "next/link";
 import { Reorder } from "framer-motion";
 import { toast } from "sonner";
@@ -80,6 +81,9 @@ interface Props { form: PublicForm; submissions: SubmissionRow[]; baseUrl: strin
 
 export function FormsBuilderClient({ form, submissions, baseUrl }: Props) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const [name, setName] = useState(form.name);
   const [description, setDescription] = useState(form.description ?? "");
   const [status, setStatus] = useState(form.status);
@@ -118,7 +122,7 @@ export function FormsBuilderClient({ form, submissions, baseUrl }: Props) {
     setSaving(true);
     try {
       await updatePublicForm(form.id, { name: name.trim(), description: description.trim() || null, status, schema: fields, settings });
-      toast.success("Saved"); router.refresh();
+      toast.success("Saved"); refresh();
     } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't save"); }
     finally { setSaving(false); }
   };
@@ -365,7 +369,7 @@ export function FormsBuilderClient({ form, submissions, baseUrl }: Props) {
                     <p className="text-xs text-muted-foreground">{formatDate(s.created_at)}
                       {s.leads?.name ? <> · lead: <Link href={`/leads/${s.lead_id}`} className="underline hover:text-foreground">{s.leads.name}</Link></> : ""}</p>
                     <button className="text-muted-foreground hover:text-destructive"
-                      onClick={async () => { if (!confirm("Delete this submission?")) return; try { await deleteFormSubmission(s.id); router.refresh(); } catch { toast.error("Delete failed"); } }}>
+                      onClick={async () => { if (!confirm("Delete this submission?")) return; try { await deleteFormSubmission(s.id); refresh(); } catch { toast.error("Delete failed"); } }}>
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>

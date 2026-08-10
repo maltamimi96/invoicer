@@ -2,11 +2,15 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { Button } from "@/components/ui/button";
 import { Check, Loader2 } from "@/components/ui/icons";
 
 export function AcceptQuoteButton({ token, quoteId }: { token: string; quoteId: string }) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const [pending, start] = useTransition();
   const [done, setDone] = useState(false);
 
@@ -19,7 +23,7 @@ export function AcceptQuoteButton({ token, quoteId }: { token: string; quoteId: 
         return;
       }
       setDone(true);
-      router.refresh();
+      refresh();
     });
   };
 

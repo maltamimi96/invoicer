@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { getDocumentTemplates, setDocumentTemplate } from "@/lib/actions/document-templates";
 
 /**
@@ -15,6 +16,9 @@ export function TemplatePicker({ docType, docId, currentTemplateId }: {
   currentTemplateId?: string | null;
 }) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const [opts, setOpts] = useState<{ id: string; name: string }[] | null>(null);
   const [val, setVal] = useState(currentTemplateId ?? "");
   const [saving, setSaving] = useState(false);
@@ -39,7 +43,7 @@ export function TemplatePicker({ docType, docId, currentTemplateId }: {
           setSaving(true);
           try {
             await setDocumentTemplate(docType, docId, v || null);
-            router.refresh();
+            refresh();
           } finally {
             setSaving(false);
           }

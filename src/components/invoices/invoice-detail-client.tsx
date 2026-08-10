@@ -5,6 +5,7 @@ import { useConfirm } from "@/components/ui/confirm";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { Edit, Send, Copy, Trash2, CheckCircle, DollarSign, MoreHorizontal, FileStack, ArrowRight, Link2, FileText, Calendar, CreditCard, Loader2 } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -62,6 +63,9 @@ export function InvoiceDetailClient({
   progressInvoices = [], parentInvoice = null,
 }: InvoiceDetailClientProps) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const confirm = useConfirm();
   const [invoice, setInvoice] = useState(initial);
   const [editing, setEditing] = useState(false);
@@ -155,7 +159,7 @@ export function InvoiceDetailClient({
       if (!wasPaid && (num(invoice.amount_paid) + paid + 0.005) >= num(invoice.total)) {
         setConfettiKey((k) => k + 1);
       }
-      router.refresh();
+      refresh();
     } catch { toast.error("Failed to record payment"); }
     setSaving(false);
   };
@@ -173,7 +177,7 @@ export function InvoiceDetailClient({
           // re-render with the just-saved values without needing a hard refresh.
           setInvoice((prev) => ({ ...prev, ...saved } as typeof prev));
           setEditing(false);
-          router.refresh();
+          refresh();
         }}
       />
     );
@@ -526,7 +530,7 @@ export function InvoiceDetailClient({
                     setCharging(true);
                     try {
                       const res = await chargeSavedCardNow(invoice.id);
-                      if (res.ok) { toast.success(res.message); router.refresh(); }
+                      if (res.ok) { toast.success(res.message); refresh(); }
                       else toast.error(res.message);
                     } catch (e) {
                       toast.error(e instanceof Error ? e.message : "Charge failed");
@@ -615,7 +619,7 @@ export function InvoiceDetailClient({
             body: r.body,
           });
           toast.success(`Scheduled for ${new Date(sendAtIso).toLocaleString()}`);
-          router.refresh();
+          refresh();
         }}
       />
 

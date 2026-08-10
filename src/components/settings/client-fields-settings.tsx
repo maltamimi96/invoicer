@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,9 @@ const slug = (s: string) =>
 
 export function ClientFieldsSettings({ config }: { config: ClientFieldConfig }) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const [fields, setFields] = useState<OnboardingField[]>(config.fields);
   const [types, setTypes] = useState<AccountTypeOption[]>(config.accountTypes);
   const [preview, setPreview] = useState<Record<string, unknown>>({});
@@ -50,7 +54,7 @@ export function ClientFieldsSettings({ config }: { config: ClientFieldConfig }) 
       const res = await saveClientAccountTypes(types);
       if (!res.ok) { toast.error(res.error); return; }
       toast.success(`Saved — ${res.count} client type${res.count === 1 ? "" : "s"}`);
-      router.refresh();
+      refresh();
     } finally { setSavingTypes(false); }
   };
 
@@ -78,7 +82,7 @@ export function ClientFieldsSettings({ config }: { config: ClientFieldConfig }) 
       const res = await saveClientFields(fields);
       if (!res.ok) { toast.error(res.error); return; }
       toast.success(`Saved — ${res.count} field${res.count === 1 ? "" : "s"} on the client form`);
-      router.refresh();
+      refresh();
     } finally { setSaving(false); }
   };
 
@@ -94,7 +98,7 @@ export function ClientFieldsSettings({ config }: { config: ClientFieldConfig }) 
               const res = await resetClientFieldsToPreset();
               if (!res.ok) { toast.error(res.error); return; }
               toast.success("Back to the preset defaults");
-              router.refresh();
+              refresh();
             }}>
               <RefreshCw className="mr-1.5 h-4 w-4" /> Reset to preset
             </Button>

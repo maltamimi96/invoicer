@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import Link from "next/link";
 import { KireiWordmark, KireiMark } from "@/components/brand/kirei-logo";
 import { LogOut, Settings, User, Menu, Bot } from "@/components/ui/icons";
@@ -39,6 +40,9 @@ interface AppHeaderProps {
  */
 export function AppHeader({ user, business, businesses, onMenuClick, workerView, features, vocab }: AppHeaderProps) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const { toggle: toggleAssistant } = useAssistant();
   const supabase = createClient();
 
@@ -53,7 +57,7 @@ export function AppHeader({ user, business, businesses, onMenuClick, workerView,
     await supabase.auth.signOut();
     toast.success("Signed out");
     router.push("/auth/login");
-    router.refresh();
+    refresh();
   };
 
   const iconBtn = "inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border bg-card text-muted-foreground transition-colors hover:text-foreground hover:border-border-strong";
