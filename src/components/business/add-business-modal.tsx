@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -39,6 +40,10 @@ interface AddBusinessModalProps {
 export function AddBusinessModal({ open, onOpenChange }: AddBusinessModalProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  // refresh() after an await runs OUTSIDE the transition, so the
+  // spinner stopped while the server was still re-rendering. See
+  // components/layout/use-mutation.tsx.
+  const { refresh } = useTrackedRefresh();
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -60,7 +65,7 @@ export function AddBusinessModal({ open, onOpenChange }: AddBusinessModalProps) 
         toast.success(`"${data.name}" created and switched!`);
         reset();
         onOpenChange(false);
-        router.refresh();
+        refresh();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to create business");
       }

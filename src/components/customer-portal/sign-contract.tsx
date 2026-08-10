@@ -2,11 +2,15 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { Button } from "@/components/ui/button";
 import { Check, Loader2 } from "@/components/ui/icons";
 
 export function SignContract({ token, contractId }: { token: string; contractId: string }) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const [pending, start] = useTransition();
   const [mode, setMode] = useState<"typed" | "drawn">("typed");
   const [name, setName] = useState("");
@@ -58,7 +62,7 @@ export function SignContract({ token, contractId }: { token: string; contractId:
         setError(j.error || "Could not sign. Please try again.");
         return;
       }
-      router.refresh();
+      refresh();
     });
   };
 

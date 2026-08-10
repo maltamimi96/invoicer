@@ -11,6 +11,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { toast } from "sonner";
 import {
   Lock, Plus, Search, Eye, EyeOff, Copy, Trash2, Loader2, ExternalLink,
@@ -55,6 +56,9 @@ interface Props {
 
 export function VaultClient({ items, customers, log, ready, lockedCustomerId, embedded }: Props) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const confirm = useConfirm();
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<VaultItemView | "new" | null>(null);
@@ -77,7 +81,7 @@ export function VaultClient({ items, customers, log, ready, lockedCustomerId, em
     const res = await deleteVaultItem(item.id);
     if (!res.ok) { toast.error(res.error); return; }
     toast.success("Deleted");
-    router.refresh();
+    refresh();
   };
 
   return (
@@ -156,7 +160,7 @@ export function VaultClient({ items, customers, log, ready, lockedCustomerId, em
           customers={customers}
           lockedCustomerId={lockedCustomerId}
           onClose={() => setEditing(null)}
-          onSaved={() => { setEditing(null); router.refresh(); }}
+          onSaved={() => { setEditing(null); refresh(); }}
         />
       )}
 

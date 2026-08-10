@@ -20,6 +20,7 @@
 
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { setActiveBusiness } from "@/lib/actions/business";
 import { readBusinessHint } from "@/lib/business-cookie";
 
@@ -27,6 +28,9 @@ const KEY = "kirei.tab.business";
 
 export function TabBusinessGuard({ businessId }: { businessId: string }) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   // One re-assert at a time: the action + refresh is a round trip, and focus
   // can fire twice (visibilitychange then focus) for a single tab switch.
   const busy = useRef(false);
@@ -50,7 +54,7 @@ export function TabBusinessGuard({ businessId }: { businessId: string }) {
       busy.current = true;
       try {
         await setActiveBusiness(mine);
-        if (!cancelled) router.refresh();
+        if (!cancelled) refresh();
       } catch {
         // The remembered business is gone or belongs to another account —
         // e.g. signed in as someone else in this tab. Forget it and let the

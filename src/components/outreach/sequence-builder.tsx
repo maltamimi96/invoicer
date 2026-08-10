@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,9 @@ export function SequenceBuilder({
   businessLogoUrl: string | null;
 }) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const [name, setName] = useState(sequence.name);
   const [steps, setSteps] = useState<Draft[]>(
     initialSteps.map((s) => ({ subject: s.subject, body: s.body, delay_days: s.delay_days })),
@@ -70,7 +74,7 @@ export function SequenceBuilder({
       if (name.trim() && name !== sequence.name) await updateSequence(sequence.id, { name: name.trim() });
       await saveSequenceSteps(sequence.id, steps);
       toast.success("Sequence saved");
-      router.refresh();
+      refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Couldn't save");
     } finally { setSaving(false); }

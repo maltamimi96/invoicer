@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { Clock, X } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,6 +24,9 @@ const STATUS_LABEL: Record<ScheduledSend["status"], string> = {
 
 export function ScheduledSendsCard({ docType, docId }: Props) {
   const router = useRouter();
+  // Named routeRefresh: this component already has its own `refresh`, which
+  // reloads its rows from the server rather than re-rendering the route.
+  const { refresh: routeRefresh } = useTrackedRefresh();
   const [rows, setRows] = useState<ScheduledSend[] | null>(null);
 
   const refresh = useCallback(async () => {
@@ -40,8 +44,8 @@ export function ScheduledSendsCard({ docType, docId }: Props) {
     try {
       await cancelScheduledSend(id);
       toast.success("Scheduled send cancelled");
-      await refresh();
-      router.refresh();
+      await refresh();      // reload this card's rows
+      routeRefresh();       // and the page around it
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Couldn't cancel");
     }

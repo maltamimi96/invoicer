@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,10 @@ import { emailProspects } from "@/lib/actions/prospects";
 export function ProspectEmailDialog({ open, onOpenChange, prospectIds }: { open: boolean; onOpenChange: (o: boolean) => void; prospectIds: string[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  // refresh() after an await runs OUTSIDE the transition, so the
+  // spinner stopped while the server was still re-rendering. See
+  // components/layout/use-mutation.tsx.
+  const { refresh } = useTrackedRefresh();
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
 
@@ -23,7 +28,7 @@ export function ProspectEmailDialog({ open, onOpenChange, prospectIds }: { open:
         const r = await emailProspects(prospectIds, subject, body);
         toast.success(`Sent ${r.sent}${r.skipped ? `, skipped ${r.skipped}` : ""}${r.failed ? `, ${r.failed} failed` : ""}`);
         onOpenChange(false); setSubject(""); setBody("");
-        router.refresh();
+        refresh();
       } catch (e) { toast.error(e instanceof Error ? e.message : "Send failed"); }
     });
   }

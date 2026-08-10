@@ -15,6 +15,7 @@
  */
 
 import { useEffect, useState, useTransition } from "react";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Landmark, Plus, Trash2, Eye, EyeOff, Loader2, Copy, Check, Lock } from "@/components/ui/icons";
@@ -49,6 +50,10 @@ export function PaymentDetailsCard({ customerId, details, ready }: Props) {
   const router = useRouter();
   const confirm = useConfirm();
   const [pending, startTransition] = useTransition();
+  // refresh() after an await runs OUTSIDE the transition, so the
+  // spinner stopped while the server was still re-rendering. See
+  // components/layout/use-mutation.tsx.
+  const { refresh } = useTrackedRefresh();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ ...BLANK });
   const [shown, setShown] = useState<Record<string, { account: string | null; routing: string | null }>>({});
@@ -71,7 +76,7 @@ export function PaymentDetailsCard({ customerId, details, ready }: Props) {
       if (!res.ok) { toast.error(res.error); return; }
       toast.success("Saved");
       setOpen(false); setForm({ ...BLANK });
-      router.refresh();
+      refresh();
     });
   }
 
@@ -98,7 +103,7 @@ export function PaymentDetailsCard({ customerId, details, ready }: Props) {
       const res = await deletePaymentDetail(d.id);
       if (!res.ok) { toast.error(res.error); return; }
       toast.success("Deleted");
-      router.refresh();
+      refresh();
     });
   }
 

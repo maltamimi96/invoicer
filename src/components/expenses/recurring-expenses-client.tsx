@@ -11,6 +11,7 @@
  */
 
 import { useState, useTransition } from "react";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Repeat, Plus, Trash2, Edit, Play, Receipt } from "@/components/ui/icons";
@@ -59,6 +60,10 @@ export function RecurringExpensesClient({
   const router = useRouter();
   const confirm = useConfirm();
   const [pending, startTransition] = useTransition();
+  // refresh() after an await runs OUTSIDE the transition, so the
+  // spinner stopped while the server was still re-rendering. See
+  // components/layout/use-mutation.tsx.
+  const { refresh } = useTrackedRefresh();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [form, setForm] = useState<Partial<RecurringExpense>>(BLANK);
@@ -75,7 +80,7 @@ export function RecurringExpensesClient({
       if (!res.ok) { toast.error(res.error); return; }
       toast.success(editing ? "Saved" : "Recurring cost added");
       setOpen(false);
-      router.refresh();
+      refresh();
     });
   }
 
@@ -83,7 +88,7 @@ export function RecurringExpensesClient({
     startTransition(async () => {
       const res = await setRecurringExpenseActive(r.id, next);
       if (!res.ok) { toast.error(res.error); return; }
-      router.refresh();
+      refresh();
     });
   }
 
@@ -92,7 +97,7 @@ export function RecurringExpensesClient({
       const res = await runRecurringExpenseNow(r.id);
       if (!res.ok) { toast.error(res.error); return; }
       toast.success(`Posted ${r.name}`);
-      router.refresh();
+      refresh();
     });
   }
 
@@ -108,7 +113,7 @@ export function RecurringExpensesClient({
       const res = await deleteRecurringExpense(r.id);
       if (!res.ok) { toast.error(res.error); return; }
       toast.success("Deleted");
-      router.refresh();
+      refresh();
     });
   }
 

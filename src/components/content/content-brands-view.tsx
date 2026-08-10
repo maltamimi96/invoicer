@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Megaphone, Plus, Trash2 } from "@/components/ui/icons";
@@ -28,6 +29,9 @@ export function ContentBrandsView({
   customers: { id: string; name: string }[];
 }) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
 
@@ -76,7 +80,7 @@ export function ContentBrandsView({
       try {
         await deleteContentBrand(brand.id);
         toast.success(`${brand.name} removed.`);
-        router.refresh();
+        refresh();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Couldn't remove that brand.");
       }

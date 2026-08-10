@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Boxes, Plus } from "@/components/ui/icons";
@@ -19,6 +20,10 @@ const selectCls = "h-9 w-full rounded-md border border-input bg-background px-3 
 export function InventoryView({ items }: { items: InventoryProduct[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  // refresh() after an await runs OUTSIDE the transition, so the
+  // spinner stopped while the server was still re-rendering. See
+  // components/layout/use-mutation.tsx.
+  const { refresh } = useTrackedRefresh();
   const [addOpen, setAddOpen] = useState(false);
   const [adjustFor, setAdjustFor] = useState<InventoryProduct | null>(null);
 
@@ -39,7 +44,7 @@ export function InventoryView({ items }: { items: InventoryProduct[] }) {
         await createStockItem({ name, unit, stock_qty: qty, reorder_point: reorder || null, unit_cost: cost || null, unit_price: price });
         toast.success("Stock item added");
         setAddOpen(false); setName(""); setUnit(""); setQty(""); setReorder(""); setCost(""); setPrice("");
-        router.refresh();
+        refresh();
       } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't add"); }
     });
   }
@@ -53,7 +58,7 @@ export function InventoryView({ items }: { items: InventoryProduct[] }) {
       try {
         const r = await adjustStock({ product_id: adjustFor.id, delta: sign * d, reason, note });
         toast.success(`On hand: ${r.stock_qty}`);
-        setAdjustFor(null); router.refresh();
+        setAdjustFor(null); refresh();
       } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't adjust"); }
     });
   }

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useTransition, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { useMutation } from "@/components/layout/use-mutation";
 import { Target, Plus, Search, Upload, Trash2 } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,8 +25,12 @@ const TONE: Record<string, string> = {
 const selectCls = "h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring";
 
 export function ProspectsView({ prospects }: { prospects: Prospect[] }) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const router = useRouter();   // row clicks still navigate
+  // useMutation, not a raw useTransition: `router.refresh()` after an `await`
+  // sits OUTSIDE the transition, so isPending went false while the server was
+  // still re-rendering — the click looked like it did nothing. See
+  // components/layout/use-mutation.tsx.
+  const { run, pending: isPending } = useMutation();
   const [open, setOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
@@ -40,11 +45,8 @@ export function ProspectsView({ prospects }: { prospects: Prospect[] }) {
   }
   function clearSel() { setSelected(new Set()); }
 
-  function runBulk(fn: () => Promise<unknown>, msg: string) {
-    startTransition(async () => {
-      try { await fn(); toast.success(msg); clearSel(); router.refresh(); }
-      catch (e) { toast.error(e instanceof Error ? e.message : "Bulk action failed"); }
-    });
+  function runBulk(fn: () => Promise<unknown>, msg: string, busy = "Updating…") {
+    void run(async () => { await fn(); clearSel(); }, { busy, success: msg, error: "Bulk action failed" });
   }
 
   const [name, setName] = useState(""); const [email, setEmail] = useState(""); const [company, setCompany] = useState("");
@@ -61,14 +63,10 @@ export function ProspectsView({ prospects }: { prospects: Prospect[] }) {
 
   function handleAdd() {
     if (!name.trim() && !email.trim()) { toast.error("Enter a name or email"); return; }
-    startTransition(async () => {
-      try {
-        await createProspect({ name, email, company, phone, source });
-        toast.success("Prospect added");
-        setOpen(false); setName(""); setEmail(""); setCompany(""); setPhone(""); setSource("");
-        router.refresh();
-      } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't add"); }
-    });
+    void run(async () => {
+      await createProspect({ name, email, company, phone, source });
+      setOpen(false); setName(""); setEmail(""); setCompany(""); setPhone(""); setSource("");
+    }, { busy: "Adding prospect…", success: "Prospect added", error: "Couldn't add" });
   }
 
   return (
@@ -117,7 +115,7 @@ export function ProspectsView({ prospects }: { prospects: Prospect[] }) {
                 <Input value={bulkTag} onChange={(e) => setBulkTag(e.target.value)} placeholder="Add tag" className="h-8 w-28 text-xs" />
                 <Button size="sm" variant="outline" className="h-8" disabled={!bulkTag.trim() || isPending} onClick={() => { runBulk(() => bulkUpdateProspects([...selected], { add_tag: bulkTag.trim() }), "Tag added"); setBulkTag(""); }}>Tag</Button>
               </div>
-              <button onClick={() => runBulk(() => bulkDeleteProspects([...selected]), "Deleted")} disabled={isPending} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-destructive"><Trash2 className="w-4 h-4" /> Delete</button>
+              <button onClick={() => runBulk(() => bulkDeleteProspects([...selected]), "Deleted", "Deleting…")} disabled={isPending} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-destructive"><Trash2 className="w-4 h-4" /> Delete</button>
               <button onClick={clearSel} className="text-xs text-muted-foreground hover:text-foreground ml-auto">Clear</button>
             </div>
           )}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -129,6 +130,10 @@ interface AgentsStoreProps {
 export function AgentsStore({ installs: initialInstalls, pluginEnabled, activePreset }: AgentsStoreProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  // refresh() after an await runs OUTSIDE the transition, so the
+  // spinner stopped while the server was still re-rendering. See
+  // components/layout/use-mutation.tsx.
+  const { refresh } = useTrackedRefresh();
   const [installs, setInstalls] = useState<AgentInstall[]>(initialInstalls);
   const [activeCategory, setActiveCategory] = useState<AgentCategory | "all">("all");
   const [uninstallTarget, setUninstallTarget] = useState<AgentDefinition | null>(null);
@@ -144,7 +149,7 @@ export function AgentsStore({ installs: initialInstalls, pluginEnabled, activePr
         for (const p of OPTIONAL_PLUGINS) next[p.id] = preset.plugins.includes(p.id);
         setModules(next);
         toast.success(`${preset.label} preset applied`);
-        router.refresh();
+        refresh();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Couldn't apply preset");
       } finally {
@@ -159,7 +164,7 @@ export function AgentsStore({ installs: initialInstalls, pluginEnabled, activePr
       try {
         await setPluginEnabled(plugin.id, enabled);
         toast.success(enabled ? `${plugin.name} enabled` : `${plugin.name} hidden — data kept, re-enable anytime`);
-        router.refresh();
+        refresh();
       } catch (e) {
         setModules((prev) => ({ ...prev, [plugin.id]: !enabled }));
         toast.error(e instanceof Error ? e.message : "Couldn't update module");
@@ -193,7 +198,7 @@ export function AgentsStore({ installs: initialInstalls, pluginEnabled, activePr
           },
         ]);
         toast.success(`${agent.name} added`);
-        router.refresh();
+        refresh();
       } catch {
         toast.error("Failed to add agent");
       }
@@ -206,7 +211,7 @@ export function AgentsStore({ installs: initialInstalls, pluginEnabled, activePr
         await uninstallAgent(agent.id);
         setInstalls((prev) => prev.filter((i) => i.agent_id !== agent.id));
         toast.success(`${agent.name} removed`);
-        router.refresh();
+        refresh();
       } catch {
         toast.error("Failed to remove agent");
       } finally {
@@ -223,7 +228,7 @@ export function AgentsStore({ installs: initialInstalls, pluginEnabled, activePr
       try {
         await toggleAgent(agent.id, enabled);
         toast.success(enabled ? `${agent.name} enabled` : `${agent.name} paused`);
-        router.refresh();
+        refresh();
       } catch {
         // revert
         setInstalls((prev) =>

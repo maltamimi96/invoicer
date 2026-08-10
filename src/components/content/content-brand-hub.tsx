@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useEffect } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
@@ -48,6 +49,9 @@ export function ContentBrandHub({
   scoutBusy: boolean;
 }) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const pathname = usePathname();
   const params = useSearchParams();
   const [pending, start] = useTransition();
@@ -76,7 +80,7 @@ export function ContentBrandHub({
   const running = pieces.some((p) => p.status === "running") || scouting;
   useEffect(() => {
     if (!running) return;
-    const t = setInterval(() => router.refresh(), 5000);
+    const t = setInterval(() => refresh(), 5000);
     return () => clearInterval(t);
   }, [running, router]);
 
@@ -89,7 +93,7 @@ export function ContentBrandHub({
         await scanTopics(brand.id);
         toast.success("Scout queued — it researches for a few minutes. Watch Activity.");
         setScouting(true);
-        router.refresh();
+        refresh();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "The scout couldn't run.");
       }
@@ -110,7 +114,7 @@ export function ContentBrandHub({
         setTopic("");
         setTopicId(null);
         setTab("pieces");
-        router.refresh();
+        refresh();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Couldn't start that.");
       }

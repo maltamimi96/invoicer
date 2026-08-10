@@ -120,3 +120,42 @@ export async function getLeadPortalLink(
     return { ok: false, error: e instanceof Error ? e.message : "Could not create a portal link" };
   }
 }
+
+/**
+ * Promote a lead to client BY HAND.
+ *
+ * Payment is the automatic rule and stays that way — but it can't be the only
+ * one. Cash, a bank transfer settled outside Kirei, or simply deciding someone
+ * is a client now: all real, none of them produce a payment row.
+ *
+ * Before this existed there was no path at all. Quoting a lead creates their
+ * contact at stage 'lead', which set leads.customer_id, which DISABLED the
+ * "To customer" button — it read "Customer linked" and did nothing. The more
+ * you'd worked a lead, the more stuck it was.
+ *
+ * Idempotent: ensureContactForLead reuses the existing contact rather than
+ * forking them, so this is safe to press twice.
+ */
+export async function markLeadAsClient(
+  leadId: string,
+): Promise<{ ok: true; customerId: string } | { ok: false; error: string }> {
+  const supabase = await createClient();
+  const user = await getUser();
+  const businessId = await getActiveBizId(supabase, user.id);
+
+  try {
+    const { customerId } = await ensureContactForLead(supabase, businessId, leadId);
+    const { markContactAsClient } = await import("@/lib/leads/promote");
+    const promoted = await markContactAsClient(supabase, businessId, customerId);
+    if (!promoted) {
+      return { ok: false, error: "Couldn't update their record. Try again in a moment." };
+    }
+    revalidatePath(`/leads/${leadId}`);
+    revalidatePath("/leads");
+    revalidatePath("/customers");
+    revalidatePath(`/customers/${customerId}`);
+    return { ok: true, customerId };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Couldn't convert this lead" };
+  }
+}

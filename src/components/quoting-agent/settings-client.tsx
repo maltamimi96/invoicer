@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Sparkles, Save, Plus, Trash2, Pencil, X, AlertCircle, Check } from "@/components/ui/icons";
@@ -35,6 +36,10 @@ const KIND_LABEL: Record<KnowledgeKind, string> = {
 export function QuotingAgentSettingsClient({ settings: initial, knowledge: initialKnowledge, currency }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  // refresh() after an await runs OUTSIDE the transition, so the
+  // spinner stopped while the server was still re-rendering. See
+  // components/layout/use-mutation.tsx.
+  const { refresh } = useTrackedRefresh();
   const [settings, setSettings]    = useState(initial);
   const [knowledge, setKnowledge]  = useState(initialKnowledge);
   const [adding, setAdding]        = useState(false);
@@ -67,7 +72,7 @@ export function QuotingAgentSettingsClient({ settings: initial, knowledge: initi
         await setQuotingAgentEnabled(v);
         setSettings({ ...settings, enabled: v });
         toast.success(v ? "Agent enabled" : "Agent disabled");
-        router.refresh();
+        refresh();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Couldn't update");
       }

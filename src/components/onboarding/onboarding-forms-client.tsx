@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Plus, ClipboardList, Send, Trash2, Copy, Loader2, Eye } from "@/components/ui/icons";
@@ -40,6 +41,9 @@ interface Props {
 
 export function OnboardingFormsClient({ enabled, forms, requests, customers }: Props) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const [busy, setBusy] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [name, setName] = useState("");
@@ -70,7 +74,7 @@ export function OnboardingFormsClient({ enabled, forms, requests, customers }: P
               disabled={busy}
               onClick={async () => {
                 setBusy(true);
-                try { await setOnboardingEnabled(true); toast.success("Client Onboarding enabled"); router.refresh(); }
+                try { await setOnboardingEnabled(true); toast.success("Client Onboarding enabled"); refresh(); }
                 catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't enable"); }
                 finally { setBusy(false); }
               }}
@@ -106,7 +110,7 @@ export function OnboardingFormsClient({ enabled, forms, requests, customers }: P
       await navigator.clipboard.writeText(url).catch(() => {});
       toast.success("Sent — link also copied to your clipboard");
       setSendForm(null); setSendCustomer("");
-      router.refresh();
+      refresh();
     } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't send"); }
     finally { setBusy(false); }
   };
@@ -118,7 +122,7 @@ export function OnboardingFormsClient({ enabled, forms, requests, customers }: P
       const { url } = res;
       await navigator.clipboard.writeText(url);
       toast.success("Link copied");
-      router.refresh();
+      refresh();
     } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't get link"); }
   };
 
@@ -135,7 +139,7 @@ export function OnboardingFormsClient({ enabled, forms, requests, customers }: P
                 checked
                 onCheckedChange={async (v) => {
                   if (v) return;
-                  try { await setOnboardingEnabled(false); toast.success("Client Onboarding disabled"); router.refresh(); }
+                  try { await setOnboardingEnabled(false); toast.success("Client Onboarding disabled"); refresh(); }
                   catch { toast.error("Couldn't disable"); }
                 }}
               />
@@ -193,7 +197,7 @@ export function OnboardingFormsClient({ enabled, forms, requests, customers }: P
                       className="ml-auto text-muted-foreground hover:text-destructive"
                       onClick={async () => {
                         if (!confirm(`Delete "${f.name}" and all its responses?`)) return;
-                        try { await deleteOnboardingForm(f.id); toast.success("Deleted"); router.refresh(); }
+                        try { await deleteOnboardingForm(f.id); toast.success("Deleted"); refresh(); }
                         catch { toast.error("Delete failed"); }
                       }}
                     >
@@ -244,7 +248,7 @@ export function OnboardingFormsClient({ enabled, forms, requests, customers }: P
                       <button className="text-muted-foreground hover:text-destructive"
                         onClick={async () => {
                           if (!confirm("Delete this request (and any answers)?")) return;
-                          try { await deleteOnboardingRequest(r.id); router.refresh(); }
+                          try { await deleteOnboardingRequest(r.id); refresh(); }
                           catch { toast.error("Delete failed"); }
                         }}>
                         <Trash2 className="w-3.5 h-3.5" />
@@ -309,7 +313,7 @@ export function OnboardingFormsClient({ enabled, forms, requests, customers }: P
                   await navigator.clipboard.writeText(url);
                   toast.success("Share link copied — send it however you like");
                   setSendForm(null); setSendCustomer("");
-                  router.refresh();
+                  refresh();
                 } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't create link"); }
                 finally { setBusy(false); }
               }}

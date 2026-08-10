@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { toast } from "sonner";
 import { Loader2, Mail, RotateCcw, Eye } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
@@ -52,6 +53,9 @@ function formFromSummary(s: EmailTemplateSummary): FormState {
 
 export function EmailTemplatesClient({ initial }: Props) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const [active, setActive] = useState<EmailTemplateType>(initial[0]?.type ?? "invoice");
   const summary = initial.find((s) => s.type === active)!;
 
@@ -103,7 +107,7 @@ export function EmailTemplatesClient({ initial }: Props) {
           custom_html: form.custom_html.trim() === "" ? null : form.custom_html,
         });
         toast.success("Template saved");
-        router.refresh();
+        refresh();
       } catch {
         toast.error("Failed to save template");
       }
@@ -122,7 +126,7 @@ export function EmailTemplatesClient({ initial }: Props) {
           show_buttons: d.show_buttons, custom_html: "",
         });
         toast.success("Template reset to default");
-        router.refresh();
+        refresh();
       } catch {
         toast.error("Failed to reset template");
       }

@@ -10,6 +10,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { toast } from "sonner";
 import { Plus, Trash2, Sparkles, Loader2 } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,9 @@ export function ContentCampaignsView({
   topics: ContentTopic[];
 }) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const [pending, start] = useTransition();
   const [creating, setCreating] = useState(false);
   const [planning, setPlanning] = useState<ContentCampaign | null>(null);
@@ -53,7 +57,7 @@ export function ContentCampaignsView({
         toast.success("Campaign created. Plan it to queue the pieces.");
         setCreating(false);
         setForm({ name: "", theme: "", goal: "", starts_on: "", cadence: "weekly" });
-        router.refresh();
+        refresh();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Couldn't create that.");
       }
@@ -73,7 +77,7 @@ export function ContentCampaignsView({
         toast.success(`${queued} piece${queued === 1 ? "" : "s"} queued. Watch the calendar fill in.`);
         setPlanning(null);
         setPicked([]);
-        router.refresh();
+        refresh();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Couldn't plan that.");
       }
@@ -84,7 +88,7 @@ export function ContentCampaignsView({
       try {
         await deleteContentCampaign(c.id);
         toast.success("Campaign deleted. Its pieces are still there.");
-        router.refresh();
+        refresh();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Couldn't delete that.");
       }

@@ -9,6 +9,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import Link from "next/link";
 import { toast } from "sonner";
 import { ClipboardList, Send, Copy, Loader2, Lock, Check, ChevronDown, Eye, PenLine } from "@/components/ui/icons";
@@ -47,6 +48,9 @@ interface Props {
 export function CustomerOnboardingCard({ customerId, requests, responses, activeForms, allowSecureFill = false }: Props) {
   const blockedForms = activeForms.filter((f) => f.blocked);
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const [pickedForm, setPickedForm] = useState("");
   const [busy, setBusy] = useState(false);
   const [fillAnswers, setFillAnswers] = useState<Record<string, unknown>>({});
@@ -68,7 +72,7 @@ export function CustomerOnboardingCard({ customerId, requests, responses, active
           : "Saved against this customer",
       );
       setFilling(false); setFillAnswers({}); setPickedForm("");
-      router.refresh();
+      refresh();
     } catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
     finally { setBusy(false); }
   };
@@ -83,7 +87,7 @@ export function CustomerOnboardingCard({ customerId, requests, responses, active
       await navigator.clipboard.writeText(res.url).catch(() => {});
       toast.success(email ? "Sent — link also copied" : "Share link copied");
       setPickedForm("");
-      router.refresh();
+      refresh();
     } catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
     finally { setBusy(false); }
   };

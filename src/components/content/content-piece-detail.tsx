@@ -12,6 +12,7 @@
 
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import Link from "next/link";
 import { toast } from "sonner";
 import { ArrowLeft, Check, ChevronDown, ChevronRight, X, Loader2 } from "@/components/ui/icons";
@@ -141,6 +142,9 @@ export function ContentPieceDetail({
   brandName: string;
 }) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const [pending, start] = useTransition();
   const [view, setView] = useState<"variations" | "working">("variations");
   const [open, setOpen] = useState<string | null>(null);
@@ -149,7 +153,7 @@ export function ContentPieceDetail({
   // catch up on its own rather than sit empty.
   useEffect(() => {
     if (piece.status !== "running") return;
-    const t = setInterval(() => router.refresh(), 5000);
+    const t = setInterval(() => refresh(), 5000);
     return () => clearInterval(t);
   }, [piece.status, router]);
 
@@ -157,7 +161,7 @@ export function ContentPieceDetail({
     start(async () => {
       try {
         await setVariationStatus(id, status);
-        router.refresh();
+        refresh();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Couldn't save that.");
       }

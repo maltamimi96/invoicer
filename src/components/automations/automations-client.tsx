@@ -10,6 +10,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { toast } from "sonner";
 import {
   Plus, Trash2, Loader2, Zap, Check, X, ChevronDown,
@@ -52,6 +53,9 @@ const BLANK = {
 
 export function AutomationsClient({ automations, runs, forms }: Props) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const [draft, setDraft] = useState<typeof BLANK | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -65,7 +69,7 @@ export function AutomationsClient({ automations, runs, forms }: Props) {
       if (!res.ok) { toast.error(res.error); return; }
       toast.success(draft.id ? "Automation updated" : "Automation created");
       setDraft(null);
-      router.refresh();
+      refresh();
     } finally { setBusy(false); }
   };
 
@@ -329,6 +333,7 @@ function AutomationCard({ automation, runs, forms, onEdit }: {
   forms: Array<{ id: string; name: string }>;
   onEdit: () => void;
 }) {
+  const { refresh } = useTrackedRefresh();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -373,7 +378,7 @@ function AutomationCard({ automation, runs, forms, onEdit }: {
             disabled={busy}
             onCheckedChange={async (v) => {
               setBusy(true);
-              try { await setAutomationEnabled(automation.id, v); router.refresh(); }
+              try { await setAutomationEnabled(automation.id, v); refresh(); }
               finally { setBusy(false); }
             }}
           />
@@ -383,7 +388,7 @@ function AutomationCard({ automation, runs, forms, onEdit }: {
             onClick={async () => {
               if (!confirm(`Delete "${automation.name}"? Its run history goes with it.`)) return;
               setBusy(true);
-              try { await deleteAutomation(automation.id); toast.success("Deleted"); router.refresh(); }
+              try { await deleteAutomation(automation.id); toast.success("Deleted"); refresh(); }
               finally { setBusy(false); }
             }}>
             <Trash2 className="w-3.5 h-3.5" />
@@ -425,6 +430,7 @@ function AutomationCard({ automation, runs, forms, onEdit }: {
 
 /** Shown when the plugin is off — the same shape as the other plugin pages. */
 export function AutomationsDisabled() {
+  const { refresh } = useTrackedRefresh();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   return (
@@ -440,7 +446,7 @@ export function AutomationsDisabled() {
         try {
           const { setAutomationsEnabled } = await import("@/lib/actions/automations");
           await setAutomationsEnabled(true);
-          router.refresh();
+          refresh();
         } finally { setBusy(false); }
       }}>
         {busy ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Check className="w-4 h-4 mr-1.5" />}

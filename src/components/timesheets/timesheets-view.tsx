@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { toast } from "sonner";
 import { ChevronLeft, ChevronRight, Download } from "@/components/ui/icons";
 import { PageHeader } from "@/components/layout/page-header";
@@ -21,6 +22,9 @@ const fmt = (d: string) => new Date(d + "T00:00:00Z").toLocaleDateString("en-AU"
 
 export function TimesheetsView({ data, prevWeek, nextWeek }: Props) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const [rates, setRates] = useState<Record<string, string>>(
     Object.fromEntries(data.rows.filter((r) => r.member_id).map((r) => [r.member_id as string, r.hourly_rate != null ? String(r.hourly_rate) : ""])),
   );
@@ -28,7 +32,7 @@ export function TimesheetsView({ data, prevWeek, nextWeek }: Props) {
   function saveRate(memberId: string) {
     const v = rates[memberId];
     setMemberRate(memberId, v === "" ? null : Number(v))
-      .then(() => { toast.success("Rate saved"); router.refresh(); })
+      .then(() => { toast.success("Rate saved"); refresh(); })
       .catch((e) => toast.error(e instanceof Error ? e.message : "Couldn't save"));
   }
 

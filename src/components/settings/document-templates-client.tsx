@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import {
   Plus, Trash2, Star, Copy, ArrowLeft, ChevronUp, ChevronDown, Upload, Loader2, FileText,
 } from "@/components/ui/icons";
@@ -31,6 +32,9 @@ function mergeConfig(partial?: unknown): TemplateConfig {
 
 export function DocumentTemplatesClient({ initialTemplates }: { initialTemplates: DocumentTemplate[] }) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const confirm = useConfirm();
   const [templates, setTemplates] = useState(initialTemplates);
   useEffect(() => setTemplates(initialTemplates), [initialTemplates]);
@@ -54,7 +58,7 @@ export function DocumentTemplatesClient({ initialTemplates }: { initialTemplates
     setEditing({ id: tpl.id, name: tpl.name, doc_type: tpl.doc_type, config: mergeConfig(tpl.config) });
 
   if (editing) {
-    return <TemplateEditor editing={editing} setEditing={setEditing} onSaved={() => { setEditing(null); router.refresh(); }} />;
+    return <TemplateEditor editing={editing} setEditing={setEditing} onSaved={() => { setEditing(null); refresh(); }} />;
   }
 
   return (
@@ -103,17 +107,17 @@ export function DocumentTemplatesClient({ initialTemplates }: { initialTemplates
                 <div className="flex flex-wrap gap-1.5">
                   <Button size="sm" variant="outline" onClick={() => editExisting(tpl)}>Edit</Button>
                   {!tpl.is_default && (
-                    <Button size="sm" variant="ghost" onClick={async () => { await setDefaultDocumentTemplate(tpl.id); router.refresh(); }}>
+                    <Button size="sm" variant="ghost" onClick={async () => { await setDefaultDocumentTemplate(tpl.id); refresh(); }}>
                       <Star className="w-3.5 h-3.5 mr-1" />Set default
                     </Button>
                   )}
                   <Button size="sm" variant="ghost" onClick={async () => {
                     await createDocumentTemplate({ name: `${tpl.name} copy`, doc_type: tpl.doc_type, config: cfg });
-                    router.refresh();
+                    refresh();
                   }}><Copy className="w-3.5 h-3.5 mr-1" />Duplicate</Button>
                   <Button size="sm" variant="ghost" className="text-destructive" onClick={async () => {
                     if (!(await confirm({ title: "Delete this template?", body: "Documents using it will fall back to the default." }))) return;
-                    await deleteDocumentTemplate(tpl.id); router.refresh();
+                    await deleteDocumentTemplate(tpl.id); refresh();
                   }}><Trash2 className="w-3.5 h-3.5" /></Button>
                 </div>
               </div>

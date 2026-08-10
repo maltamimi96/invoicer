@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { motion } from "framer-motion";
 import { FileText, Plus, Trash2, Download, Eye, ClipboardList } from "@/components/ui/icons";
 import { toast } from "sonner";
@@ -25,6 +26,9 @@ const statusColor: Record<string, string> = {
 
 export function ReportsClient({ reports }: ReportsClientProps) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const [deleting, setDeleting] = useState<string | null>(null);
 
   const handleDelete = async (id: string) => {
@@ -32,7 +36,7 @@ export function ReportsClient({ reports }: ReportsClientProps) {
     try {
       await deleteReport(id);
       toast.success("Report deleted");
-      router.refresh();
+      refresh();
     } catch {
       toast.error("Failed to delete report");
     } finally {

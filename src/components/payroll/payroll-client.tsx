@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Plus, DollarSign, Users, ChevronRight } from "@/components/ui/icons";
@@ -24,6 +25,9 @@ function daysAgo(n: number) { return new Date(Date.now() - n * 86400000).toISOSt
 
 export function PayrollClient({ payRuns, employees, members }: { payRuns: PayRun[]; employees: PayrollEmployee[]; members: LinkableMember[] }) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const [pending, start] = useTransition();
   const [runOpen, setRunOpen] = useState(false);
   const [empModal, setEmpModal] = useState<{ open: boolean; employee?: PayrollEmployee }>({ open: false });
@@ -144,7 +148,7 @@ export function PayrollClient({ payRuns, employees, members }: { payRuns: PayRun
           employee={empModal.employee}
           members={members}
           onClose={() => setEmpModal({ open: false })}
-          onSaved={() => { setEmpModal({ open: false }); router.refresh(); }}
+          onSaved={() => { setEmpModal({ open: false }); refresh(); }}
         />
       )}
     </>

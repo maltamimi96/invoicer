@@ -20,6 +20,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import Link from "next/link";
 import { toast } from "sonner";
 import { ClipboardList, Loader2, PenLine, Eye, ChevronDown, Send, Copy, Check } from "@/components/ui/icons";
@@ -43,6 +44,9 @@ export function LeadOnboardingCard({
   leadId, data, delay = 230,
 }: { leadId: string; data: LeadOnboardingData; delay?: number }) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const [picked, setPicked] = useState("");
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
   const [busy, setBusy] = useState(false);
@@ -71,7 +75,7 @@ export function LeadOnboardingCard({
       if (!res.ok) { toast.error(res.error); return; }
       toast.success("Saved against this lead");
       setPicked(""); setAnswers({});
-      router.refresh();
+      refresh();
     } finally { setBusy(false); }
   };
 
@@ -95,7 +99,7 @@ export function LeadOnboardingCard({
       toast.success(emailed ? "Sent — they'll get an email" : "Link ready — no email on file, copy it below");
       setSentUrl(res.url);
       setPicked(""); setAnswers({});
-      router.refresh();
+      refresh();
     } finally { setSending(false); }
   };
 

@@ -11,6 +11,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import {
   Bot, Send, Loader2, CheckCircle2, AlertCircle, Sparkles, Mic,
   Square, Plus, Trash2, RotateCcw, Volume2, VolumeX, MessageSquare,
@@ -259,6 +260,9 @@ export function AssistantChat({
   initialConversations: AssistantConversation[];
 }) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
 
   const [conversations, setConversations] = useState(initialConversations);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -547,7 +551,7 @@ export function AssistantChat({
       } finally {
         abortRef.current = null;
         setLoading(false);
-        router.refresh();
+        refresh();
       }
     },
     [apiHistory, attached, conversationId, effort, loading, model, router, speakReplies]

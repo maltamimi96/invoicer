@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/layout/page-header";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import {
   revealSecureAnswer, getOnboardingUploadUrl, updateOnboardingResponse,
   deleteOnboardingRequest, sendOnboardingRequest,
@@ -43,6 +44,9 @@ export function ResponseViewerClient({
   formId, formName, response, customerName, customerId, allowSecureFill = false,
 }: Props) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const schema = (response.schema_snapshot ?? []) as OnboardingField[];
   const fields = schema.filter((f) => !["instructions", "heading", "divider"].includes(f.type));
   const opts = { allowSecure: allowSecureFill };
@@ -74,7 +78,7 @@ export function ResponseViewerClient({
       if (!res.ok) { toast.error(res.error); return; }
       toast.success("Answers updated");
       setEditing(false);
-      router.refresh();
+      refresh();
     } finally { setBusy(false); }
   };
 

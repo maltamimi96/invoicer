@@ -21,6 +21,7 @@ import type { GradientName } from "@/components/ui/kirei";
 import { LeadOnboardingCard, type LeadOnboardingData } from "@/components/leads/lead-onboarding-card";
 import { LeadBillingCard } from "@/components/leads/lead-billing-card";
 import { LeadPortalCard } from "@/components/leads/lead-portal-card";
+import { markLeadAsClient } from "@/lib/actions/lead-billing";
 import type { LeadDocuments } from "@/lib/actions/lead-billing";
 import type { Lead, LeadStatus } from "@/types/database";
 
@@ -84,6 +85,24 @@ export function LeadDetailClient({ lead: initial, onboarding, billing, currency 
         toast.success("Customer created");
         router.push(`/customers/${customer_id}`);
       } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't convert"); }
+    });
+  };
+
+  /**
+   * Promote by hand.
+   *
+   * Quoting a lead already gives them a contact row (at stage 'lead'), which
+   * used to DISABLE the button above — it read "Customer linked" and did
+   * nothing, so the more you'd worked a lead the more stuck it was. Payment is
+   * still the automatic rule; this is the override for cash, a bank transfer
+   * settled elsewhere, or simply deciding.
+   */
+  const makeClient = () => {
+    startTransition(async () => {
+      const res = await markLeadAsClient(lead.id);
+      if (!res.ok) { toast.error(res.error); return; }
+      toast.success("They're a client now");
+      router.push(`/customers/${res.customerId}`);
     });
   };
 
@@ -251,10 +270,19 @@ export function LeadDetailClient({ lead: initial, onboarding, billing, currency 
         <div>
           <p className="text-[11px] uppercase tracking-wide font-bold text-muted-foreground mb-2.5">Convert</p>
           <div className="flex flex-wrap gap-2">
-            <button onClick={convertCustomer} disabled={pending || !!lead.customer_id} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-md border border-border bg-card hover:bg-muted text-sm font-medium disabled:opacity-50">
-              <GradientTile gradient="blue" size={28} radius={8}><UserPlus className="w-3.5 h-3.5" /></GradientTile>
-              {lead.customer_id ? "Customer linked" : "To customer"}
-            </button>
+            {/* Already has a contact (they were quoted) → offer the promotion.
+                Otherwise → create the record. Never a dead button. */}
+            {billing?.isClient ? (
+              <button onClick={() => router.push(`/customers/${billing.customerId}`)} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-md border border-border bg-card hover:bg-muted text-sm font-medium">
+                <GradientTile gradient="emerald" size={28} radius={8}><UserPlus className="w-3.5 h-3.5" /></GradientTile>
+                Open their client record
+              </button>
+            ) : (
+              <button onClick={lead.customer_id ? makeClient : convertCustomer} disabled={pending} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-md border border-border bg-card hover:bg-muted text-sm font-medium disabled:opacity-50">
+                <GradientTile gradient="blue" size={28} radius={8}><UserPlus className="w-3.5 h-3.5" /></GradientTile>
+                {lead.customer_id ? "Mark as client" : "To customer"}
+              </button>
+            )}
             <button onClick={convertQuote} disabled={pending || !!lead.quote_id} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-md border border-border bg-card hover:bg-muted text-sm font-medium disabled:opacity-50">
               <GradientTile gradient="violet" size={28} radius={8}><FileCheck className="w-3.5 h-3.5" /></GradientTile>
               {lead.quote_id ? "Quote drafted" : "To quote"}

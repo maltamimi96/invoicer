@@ -8,6 +8,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import Link from "next/link";
 import { Reorder } from "framer-motion";
 import { toast } from "sonner";
@@ -98,6 +99,9 @@ interface Props { form: OnboardingForm; secureAvailable: boolean; startInPreview
 
 export function FormBuilderClient({ form, secureAvailable, startInPreview = false }: Props) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const [name, setName] = useState(form.name);
   const [description, setDescription] = useState(form.description ?? "");
   const [status, setStatus] = useState(form.status);
@@ -145,7 +149,7 @@ export function FormBuilderClient({ form, secureAvailable, startInPreview = fals
         name: name.trim(), description: description.trim() || null, status, schema: fields,
       });
       toast.success("Saved");
-      router.refresh();
+      refresh();
     } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't save"); }
     finally { setSaving(false); }
   };

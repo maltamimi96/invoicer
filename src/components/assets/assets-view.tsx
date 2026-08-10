@@ -3,6 +3,7 @@
 import { useConfirm } from "@/components/ui/confirm";
 
 import { useState, useTransition } from "react";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Hammer, Plus, Trash2, Wrench } from "@/components/ui/icons";
@@ -29,6 +30,10 @@ export function AssetsView({ assets, members }: Props) {
   const router = useRouter();
   const confirm = useConfirm();
   const [isPending, startTransition] = useTransition();
+  // refresh() after an await runs OUTSIDE the transition, so the
+  // spinner stopped while the server was still re-rendering. See
+  // components/layout/use-mutation.tsx.
+  const { refresh } = useTrackedRefresh();
   const [addOpen, setAddOpen] = useState(false);
   const [serviceFor, setServiceFor] = useState<Asset | null>(null);
 
@@ -51,12 +56,12 @@ export function AssetsView({ assets, members }: Props) {
         await createAsset({ name, category, identifier, assigned_to: assignedTo || null, next_service_on: nextService || null, purchase_cost: cost || null });
         toast.success("Asset added");
         setAddOpen(false); setName(""); setCategory("tool"); setIdentifier(""); setAssignedTo(""); setNextService(""); setCost("");
-        router.refresh();
+        refresh();
       } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't add"); }
     });
   }
   function handleStatus(a: Asset, status: AssetStatus) {
-    startTransition(async () => { try { await updateAsset(a.id, { status }); router.refresh(); } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't update"); } });
+    startTransition(async () => { try { await updateAsset(a.id, { status }); refresh(); } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't update"); } });
   }
   // deleteAsset is a hard row delete, not an archive — the asset and its
   // service history go for good, from an unconfirmed 16px icon.
@@ -66,7 +71,7 @@ export function AssetsView({ assets, members }: Props) {
       body: "The asset and its full service history are permanently deleted. This cannot be undone.",
       confirmLabel: "Delete asset",
     }))) return;
-    startTransition(async () => { try { await deleteAsset(id); toast.success("Deleted"); router.refresh(); } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't delete"); } });
+    startTransition(async () => { try { await deleteAsset(id); toast.success("Deleted"); refresh(); } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't delete"); } });
   }
   function handleLogService() {
     if (!serviceFor) return;
@@ -75,7 +80,7 @@ export function AssetsView({ assets, members }: Props) {
         await logAssetService({ asset_id: serviceFor.id, serviced_on: svcDate, description: svcDesc, cost: svcCost || null, next_due: svcNext || null });
         toast.success("Service logged");
         setServiceFor(null); setSvcDate(todayISO()); setSvcDesc(""); setSvcCost(""); setSvcNext("");
-        router.refresh();
+        refresh();
       } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't log"); }
     });
   }

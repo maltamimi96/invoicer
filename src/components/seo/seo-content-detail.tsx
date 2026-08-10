@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -37,6 +38,10 @@ const STATUS_TONE: Record<string, string> = {
 export function SeoContentDetail({ piece, connections }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  // refresh() after an await runs OUTSIDE the transition, so the
+  // spinner stopped while the server was still re-rendering. See
+  // components/layout/use-mutation.tsx.
+  const { refresh } = useTrackedRefresh();
   const [running, setRunning] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
   const publishable = connections.filter((c) => c.provider !== "gsc");
@@ -78,7 +83,7 @@ export function SeoContentDetail({ piece, connections }: Props) {
       try {
         const res = await publishContentPiece(piece.id, connId);
         toast.success(res.url ? "Published" : "Published (no public URL returned)");
-        router.refresh();
+        refresh();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Publish failed");
       }
@@ -101,7 +106,7 @@ export function SeoContentDetail({ piece, connections }: Props) {
       try {
         const r = await runOne();
         toast.success(r.status === "awaiting_approval" ? "Draft complete — ready for review" : "Step complete");
-        router.refresh();
+        refresh();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Step failed");
       }
@@ -113,7 +118,7 @@ export function SeoContentDetail({ piece, connections }: Props) {
     try {
       for (let i = 0; i < steps.length + 1; i++) {
         const r = await runOne();
-        router.refresh();
+        refresh();
         if (r.status === "awaiting_approval") { toast.success("Draft complete — ready for review"); break; }
         if (r.status === "failed") { toast.error("A step failed — see the stage below"); break; }
       }
@@ -129,7 +134,7 @@ export function SeoContentDetail({ piece, connections }: Props) {
       try {
         await approveContentPiece(piece.id);
         toast.success("Approved");
-        router.refresh();
+        refresh();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Couldn't approve");
       }

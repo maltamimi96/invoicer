@@ -12,6 +12,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +42,9 @@ const area =
 
 export function ContentVoiceEditor({ brand }: { brand: ContentBrand }) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const [pending, start] = useTransition();
 
   const [form, setForm] = useState({
@@ -63,7 +67,7 @@ export function ContentVoiceEditor({ brand }: { brand: ContentBrand }) {
       try {
         await updateContentBrand(brand.id, form);
         toast.success("Saved. The next run uses this.");
-        router.refresh();
+        refresh();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Couldn't save that.");
       }

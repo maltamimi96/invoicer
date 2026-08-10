@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -27,13 +28,17 @@ const selectCls = "h-9 w-full rounded-md border border-input bg-background px-3 
 export function ProspectDetail({ prospect, activities }: { prospect: Prospect; activities: Activity[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  // refresh() after an await runs OUTSIDE the transition, so the
+  // spinner stopped while the server was still re-rendering. See
+  // components/layout/use-mutation.tsx.
+  const { refresh } = useTrackedRefresh();
   const [emailOpen, setEmailOpen] = useState(false);
   const [note, setNote] = useState("");
 
   function saveNote() {
     if (!note.trim()) return;
     startTransition(async () => {
-      try { await addProspectNote(prospect.id, note); setNote(""); toast.success("Note added"); router.refresh(); }
+      try { await addProspectNote(prospect.id, note); setNote(""); toast.success("Note added"); refresh(); }
       catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't add note"); }
     });
   }
@@ -48,13 +53,13 @@ export function ProspectDetail({ prospect, activities }: { prospect: Prospect; a
 
   function save() {
     startTransition(async () => {
-      try { await updateProspect(prospect.id, { ...f, status: f.status as ProspectStatus }); toast.success("Saved"); router.refresh(); }
+      try { await updateProspect(prospect.id, { ...f, status: f.status as ProspectStatus }); toast.success("Saved"); refresh(); }
       catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't save"); }
     });
   }
   function convert() {
     startTransition(async () => {
-      try { const r = await convertProspectToLead(prospect.id); toast.success("Converted to lead"); if (r.lead_id) router.push(`/leads/${r.lead_id}`); else router.refresh(); }
+      try { const r = await convertProspectToLead(prospect.id); toast.success("Converted to lead"); if (r.lead_id) router.push(`/leads/${r.lead_id}`); else refresh(); }
       catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't convert"); }
     });
   }

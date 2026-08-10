@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { Plus, Wrench, Trash2, MoreHorizontal, MapPin, Calendar, Camera, Briefcase } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -61,6 +62,9 @@ export function WorkOrdersClient({ workOrders, userRole }: WorkOrdersClientProps
   const v = useVocab("/work-orders", "Work Orders");
   const canDelete = canManageTeam(userRole);
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const [tab, setTab] = useState<typeof TABS[number]["value"]>("all");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -93,7 +97,7 @@ export function WorkOrdersClient({ workOrders, userRole }: WorkOrdersClientProps
     try {
       await deleteWorkOrder(deleteId);
       toast.success(`${v.singular} deleted`);
-      router.refresh();
+      refresh();
     } catch { toast.error("Failed to delete"); }
     setBusy(false);
     setDeleteId(null);
@@ -112,7 +116,7 @@ export function WorkOrdersClient({ workOrders, userRole }: WorkOrdersClientProps
       await bulkDeleteWorkOrders(ids);
       setSelected(new Set());
       toast.success(`${ids.length} ${lower(ids.length === 1 ? v.singular : v.plural)} deleted`);
-      router.refresh();
+      refresh();
     } catch (e) { toast.error(e instanceof Error ? e.message : "Failed to delete"); }
     setBulkBusy(false);
   };
@@ -125,7 +129,7 @@ export function WorkOrdersClient({ workOrders, userRole }: WorkOrdersClientProps
       await bulkUpdateWorkOrderStatus(ids, status);
       setSelected(new Set());
       toast.success(`${ids.length} ${lower(ids.length === 1 ? v.singular : v.plural)} updated`);
-      router.refresh();
+      refresh();
     } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't update status"); }
     setBulkBusy(false);
   };
@@ -134,7 +138,7 @@ export function WorkOrdersClient({ workOrders, userRole }: WorkOrdersClientProps
     try {
       await updateWorkOrderStatus(id, status);
       toast.success("Status updated");
-      router.refresh();
+      refresh();
     } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't update status"); }
   };
 

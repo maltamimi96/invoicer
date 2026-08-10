@@ -10,6 +10,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useTrackedRefresh } from "@/components/layout/use-mutation";
 import { toast } from "sonner";
 import { ChevronLeft, ChevronRight, Check, X, ExternalLink } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
@@ -60,6 +61,9 @@ export function ContentCalendar({
   onMonth: (year: number, month: number) => void;
 }) {
   const router = useRouter();
+  // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
+  // fires when refresh() is CALLED, not when the server output arrives.
+  const { refresh } = useTrackedRefresh();
   const [pending, start] = useTransition();
   const [open, setOpen] = useState<CalendarEntry | null>(null);
   const [url, setUrl] = useState("");
@@ -104,7 +108,7 @@ export function ContentCalendar({
         await fn();
         toast.success(ok);
         setOpen(null);
-        router.refresh();
+        refresh();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "That didn't work.");
       }
