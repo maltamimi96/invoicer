@@ -91,6 +91,34 @@ describe("ensureContactForLead", () => {
     expect(state.leads.L1.customer_id).toBe(res.customerId);
   });
 
+  it("carries the lead's owner and suburb onto the contact", async () => {
+    // Both of these shipped broken and the mock never noticed:
+    //   customers.user_id is NOT NULL with no default — omitting it failed
+    //   every insert; and leads has `suburb`, not `city`, so the old code
+    //   selected three columns that do not exist at all.
+    const state = {
+      leads: {
+        L1: {
+          id: "L1", business_id: BIZ, user_id: "U7", name: "Acme",
+          email: "hi@acme.com", phone: "0400", address: "1 Main St",
+          suburb: "Bondi", customer_id: null, source: "form",
+        },
+      },
+      customers: {} as Record<string, Record<string, unknown>>,
+    };
+    const { sb } = makeSb(state);
+    const res = await ensureContactForLead(sb, BIZ, "L1");
+    const contact = state.customers[res.customerId];
+
+    expect(contact.user_id).toBe("U7");     // NOT NULL — insert dies without it
+    expect(contact.city).toBe("Bondi");     // leads.suburb → customers.city
+    expect(contact.address).toBe("1 Main St");
+    // Columns that do not exist on leads must never be written.
+    expect(contact).not.toHaveProperty("suburb");
+    expect(contact).not.toHaveProperty("postcode");
+    expect(contact).not.toHaveProperty("company");
+  });
+
   it("is idempotent — quoting twice does not create two contacts", async () => {
     const state = {
       leads: { L1: { id: "L1", business_id: BIZ, name: "Acme", email: "hi@acme.com", customer_id: "C9" } },
