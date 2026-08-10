@@ -16,6 +16,7 @@ import {
 import { getClientFieldConfig } from "@/lib/actions/client-fields";
 import { CustomerDetailClient, type CustomerOnboardingData } from "@/components/customers/customer-detail-client";
 import { listVaultItems, vaultReady } from "@/lib/actions/vault";
+import { listPaymentDetails, paymentDetailsReady, type PaymentDetailView } from "@/lib/actions/payment-details";
 import type { VaultItemView } from "@/lib/vault/items";
 
 /**
@@ -58,6 +59,26 @@ async function loadVault(customerId: string): Promise<{ items: VaultItemView[]; 
 
     const [items, ready] = await Promise.all([listVaultItems(customerId), vaultReady()]);
     return { items, ready };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Stored bank details. Owner/admin only — `listPaymentDetails` already returns
+ * [] for anyone else, but returning null here removes the card entirely rather
+ * than showing an empty one that implies nothing is stored.
+ */
+async function loadPaymentDetails(
+  customerId: string,
+): Promise<{ details: PaymentDetailView[]; ready: boolean } | null> {
+  try {
+    const [details, ready] = await Promise.all([
+      listPaymentDetails(customerId), paymentDetailsReady(),
+    ]);
+    // No rows AND no key means there is nothing to show and nothing to add.
+    if (details.length === 0 && !ready) return null;
+    return { details, ready };
   } catch {
     return null;
   }
@@ -110,7 +131,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
 
 async function CustomerDetailContent({ id }: { id: string }) {
   try {
-    const [customer, invoices, quotes, business, workOrders, reports, properties, contacts, notes, billingProfiles, onboarding, fieldConfig, vault] = await Promise.all([
+    const [customer, invoices, quotes, business, workOrders, reports, properties, contacts, notes, billingProfiles, onboarding, fieldConfig, vault, paymentDetails] = await Promise.all([
       getCustomer(id),
       getInvoices({ customer_id: id }),
       getQuotes({ customer_id: id }),
@@ -124,6 +145,7 @@ async function CustomerDetailContent({ id }: { id: string }) {
       loadOnboarding(id),
       getClientFieldConfig().catch(() => null),
       loadVault(id),
+      loadPaymentDetails(id),
     ]);
     return (
       <CustomerDetailClient
@@ -140,6 +162,7 @@ async function CustomerDetailContent({ id }: { id: string }) {
         businessCountry={business.country ?? null}
         onboarding={onboarding}
         vault={vault}
+        paymentDetails={paymentDetails}
         clientFields={fieldConfig?.fields ?? []}
         accountTypes={fieldConfig?.accountTypes ?? []}
         cardProviders={{

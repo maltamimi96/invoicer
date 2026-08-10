@@ -8,7 +8,7 @@ import {
   FileCheck, Wrench, ClipboardList, StickyNote, User, Users, Home,
   Trash2, Star, Save, X, ChevronDown, ChevronUp, ImageIcon, MessageSquare,
   CreditCard, DollarSign, Paperclip, ListChecks,
-  Lock,
+  Lock, Landmark,
 } from "@/components/ui/icons";
 import { AttachmentsPanel } from "@/components/attachments/attachments-panel";
 import { ClientFieldsSummary } from "@/components/customers/client-fields";
@@ -49,6 +49,8 @@ import {
 import { CustomerOnboardingCard } from "@/components/onboarding/customer-onboarding-card";
 import { VaultClient } from "@/components/vault/vault-client";
 import type { VaultItemView } from "@/lib/vault/items";
+import { PaymentDetailsCard } from "@/components/customers/payment-details-card";
+import type { PaymentDetailView } from "@/lib/actions/payment-details";
 import type { OnboardingRequestRow } from "@/lib/actions/onboarding";
 import type {
   Customer, InvoiceWithCustomer, QuoteWithCustomer,
@@ -92,6 +94,8 @@ interface Props {
   /** Vault entries for THIS client; null when the plugin is off or the
    *  viewer isn't an owner/admin — the tab then doesn't exist at all. */
   vault?: { items: VaultItemView[]; ready: boolean } | null;
+  /** Bank details on file. Null when the caller isn't owner/admin. */
+  paymentDetails?: { details: PaymentDetailView[]; ready: boolean } | null;
 }
 
 // ── Property Modal ─────────────────────────────────────────────────────────────
@@ -523,6 +527,7 @@ export function CustomerDetailClient({
   accountTypes = [],
   cardProviders,
   vault,
+  paymentDetails,
 }: Props) {
   const [customer, setCustomer] = useState(initial);
   const [editing, setEditing] = useState(false);
@@ -766,7 +771,23 @@ export function CustomerDetailClient({
                     <Lock className="w-3.5 h-3.5" />Passwords ({vault.items.length})
                   </TabsTrigger>
                 )}
+                {paymentDetails && (
+                  <TabsTrigger value="payment-details" className="gap-1.5">
+                    <Landmark className="w-3.5 h-3.5" />Payment details ({paymentDetails.details.length})
+                  </TabsTrigger>
+                )}
               </TabsList>
+
+              {/* ── Payment details ── */}
+              {paymentDetails && (
+                <TabsContent value="payment-details" className="mt-3">
+                  <PaymentDetailsCard
+                    customerId={customer.id}
+                    details={paymentDetails.details}
+                    ready={paymentDetails.ready}
+                  />
+                </TabsContent>
+              )}
 
               {/* ── Passwords ── */}
               {vault && (
