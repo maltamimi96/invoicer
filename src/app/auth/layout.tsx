@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import { KireiWordmark } from "@/components/brand/kirei-logo";
+import { AuthErrorNotice } from "@/components/auth/auth-error-notice";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +44,11 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <div className="flex items-center mb-8 lg:hidden">
             <KireiWordmark className="h-8 w-auto text-foreground" />
           </div>
+          {/* Suspense because useSearchParams opts the subtree into CSR — without
+              it every statically-prerendered auth page fails the build. */}
+          <Suspense fallback={null}>
+            <AuthErrorNotice />
+          </Suspense>
           {children}
         </div>
       </div>
