@@ -112,9 +112,15 @@ export function LeadOnboardingCard({
         </div>
 
         {data.responses.map((r) => (
-          <FilledForm key={r.id} response={r} formName={
-            data.forms.find((f) => f.id === r.form_id)?.name ?? "Form"
-          } />
+          <FilledForm
+            key={r.id}
+            response={r}
+            formName={data.forms.find((f) => f.id === r.form_id)?.name ?? "Form"}
+            // Two form systems, two places to view an answer. Sending an
+            // onboarding id to /forms (or vice versa) 404s.
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            kind={(r as any).kind === "public" ? "public" : "onboarding"}
+          />
         ))}
 
         {sendable.length > 0 && (
@@ -173,7 +179,9 @@ export function LeadOnboardingCard({
   );
 }
 
-function FilledForm({ response, formName }: { response: OnboardingResponse; formName: string }) {
+function FilledForm({ response, formName, kind = "onboarding" }: {
+  response: OnboardingResponse; formName: string; kind?: "onboarding" | "public";
+}) {
   const [open, setOpen] = useState(false);
   const fields = (response.schema_snapshot ?? []).filter(
     (f: OnboardingField) => !["heading", "divider", "instructions"].includes(f.type),
@@ -190,7 +198,9 @@ function FilledForm({ response, formName }: { response: OnboardingResponse; form
           </span>
         </button>
         <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
-          <Link href={`/onboarding-forms/${response.form_id}?response=${response.request_id}`}>
+          <Link href={kind === "public"
+            ? `/forms/${response.form_id}?tab=submissions`
+            : `/onboarding-forms/${response.form_id}?response=${response.request_id}`}>
             <Eye className="w-3 h-3 mr-1" /> View
           </Link>
         </Button>

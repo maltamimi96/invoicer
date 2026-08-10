@@ -5,7 +5,7 @@ import {
   getOnboardingSettings, getOnboardingForms, getOnboardingResponsesForLead, getSecureFieldsAvailable,
 } from "@/lib/actions/onboarding";
 import { staffFillableFields } from "@/lib/onboarding/staff-fill";
-import { getFillablePublicForms } from "@/lib/actions/public-form-fill";
+import { getFillablePublicForms, getPublicFormFillsForLead } from "@/lib/actions/public-form-fill";
 import { getLeadDocuments } from "@/lib/actions/lead-billing";
 import { getBusiness } from "@/lib/actions/business";
 import type { StaffFillForm } from "@/components/onboarding/staff-onboarding-fill";
@@ -31,9 +31,12 @@ async function loadLeadOnboarding(leadId: string): Promise<LeadOnboardingData | 
     ]);
     if (!onboardingOn && publicForms.length === 0) return null;
 
-    const [forms, responses, allowSecureFill] = await Promise.all([
+    const [forms, responses, publicFills, allowSecureFill] = await Promise.all([
       onboardingOn ? getOnboardingForms() : Promise.resolve([]),
       getOnboardingResponsesForLead(leadId),
+      // Custom-form answers live in their own table. Reading only the
+      // onboarding one is why a form filled against a lead vanished.
+      getPublicFormFillsForLead(leadId).catch(() => []),
       getSecureFieldsAvailable(),
     ]);
     return {
@@ -45,7 +48,9 @@ async function loadLeadOnboarding(leadId: string): Promise<LeadOnboardingData | 
         .filter((f) => f.status !== "archived" && (f.schema?.length ?? 0) > 0)
         .map((f): StaffFillForm => ({ id: f.id, name: f.name, schema: f.schema, kind: "onboarding" }))
         .concat(publicForms.map((f): StaffFillForm => ({ id: f.id, name: f.name, schema: f.schema, kind: "public" }))),
-      responses,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      responses: [...responses, ...(publicFills as any[])]
+        .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at))),
       allowSecureFill,
     };
   } catch {
