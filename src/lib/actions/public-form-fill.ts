@@ -95,3 +95,69 @@ export async function getFillablePublicForms(): Promise<Array<{ id: string; name
     .filter((f) => (f.schema?.length ?? 0) > 0)
     .map((f) => ({ id: f.id, name: f.name, schema: f.schema as OnboardingField[] }));
 }
+
+/**
+ * Custom-form answers recorded against a lead.
+ *
+ * These live in `public_form_submissions`, NOT `onboarding_responses` — two
+ * form systems, two tables. The lead page read only the onboarding table, so a
+ * custom form filled in against a lead saved successfully, said "Saved", and
+ * then appeared nowhere. Confirmed against production: one such row existed.
+ *
+ * Both routes in, like the onboarding side: rows attached to the lead itself,
+ * and rows attached to the contact the lead was given when it was quoted.
+ *
+ * Shaped to match OnboardingResponse so the lead card can render one list.
+ * `schema_snapshot` is the form's CURRENT schema — public forms don't snapshot,
+ * so an edited form re-labels old answers. Worth knowing; better than hiding
+ * them.
+ */
+export async function getPublicFormFillsForLead(leadId: string): Promise<Array<{
+  id: string;
+  form_id: string;
+  request_id: string;
+  kind: "public";
+  answers: Record<string, unknown>;
+  schema_snapshot: OnboardingField[];
+  submitted_at: string | null;
+  created_at: string;
+}>> {
+  const supabase = await createClient();
+  const user = await getUser();
+  const businessId = await getActiveBizId(supabase, user.id);
+
+  const { data: lead } = await tbl(supabase, "leads")
+    .select("customer_id").eq("id", leadId).eq("business_id", businessId).maybeSingle();
+  const customerId: string | null = lead?.customer_id ?? null;
+
+  // Two queries rather than one .or(): PostgREST's or-grammar uses , and . as
+  // separators and this repo has been burnt building those strings (PR #398).
+  const [own, viaContact] = await Promise.all([
+    tbl(supabase, "public_form_submissions")
+      .select("id, form_id, answers, created_at, public_forms(name, schema)")
+      .eq("business_id", businessId).eq("lead_id", leadId)
+      .order("created_at", { ascending: false }).limit(50),
+    customerId
+      ? tbl(supabase, "public_form_submissions")
+          .select("id, form_id, answers, created_at, public_forms(name, schema)")
+          .eq("business_id", businessId).eq("customer_id", customerId)
+          .order("created_at", { ascending: false }).limit(50)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rows = [...((own.data ?? []) as any[]), ...((viaContact.data ?? []) as any[])]
+    .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+
+  return rows.map((r) => ({
+    id: r.id,
+    form_id: r.form_id,
+    // The card links by request_id; a submission is its own "request".
+    request_id: r.id,
+    kind: "public" as const,
+    answers: (r.answers ?? {}) as Record<string, unknown>,
+    schema_snapshot: ((r.public_forms?.schema ?? []) as OnboardingField[]),
+    submitted_at: r.created_at,
+    created_at: r.created_at,
+  }));
+}
