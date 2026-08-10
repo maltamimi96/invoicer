@@ -11,6 +11,8 @@ import { assertScope, t, text, errorText } from "../context";
 import { sendEmail, buildBusinessFrom } from "@/lib/email";
 import { ctxFrom, appBase, UUID, getOrMintPortalToken, type ToolFn } from "./shared";
 import { secureFieldsAvailable } from "@/lib/onboarding/crypto";
+import { sendOnboardingFormToLead } from "@/lib/onboarding/send";
+import { sendPublicFormTo } from "@/lib/forms/invite";
 
 /**
  * A secure field is unusable without ONBOARDING_SECRET_KEY: the customer fills
@@ -673,5 +675,67 @@ export function registerPluginFormTools(tool: ToolFn): void {
         answered: Object.keys(clean).length,
         still_needs_customer: staffOnlyCustomerFields(schema, opts).map((f) => f.label),
       });
+    });
+}
+
+// ── Sending a form to someone already in the pipeline ───────────────────────
+// These reuse the same session-free libs the web UI calls, rather than a third
+// copy of the send logic. A lead sent a form STAYS a lead — only a payment
+// promotes anyone to client.
+
+export function registerLeadFormTools(tool: ToolFn): void {
+  tool("send_onboarding_form_to_lead",
+    "Email an onboarding form to a LEAD so they fill it in themselves. Creates the lead's contact row if needed (they remain a lead, not a client). Returns the link.",
+    { form_id: UUID, lead_id: UUID, email: z.boolean().optional().describe("false = just mint the link, don't email") },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "onboarding:write");
+      const res = await sendOnboardingFormToLead(
+        ctx.sb, ctx.businessId, args.form_id, args.lead_id,
+        { email: args.email, createdBy: ctx.userId ?? null },
+      );
+      if (!res.ok) return errorText(res.error);
+      return text(res);
+    });
+
+  tool("send_form_to_lead",
+    "Email a custom (Form Builder) form to a LEAD. The link carries a one-person invite, so their answers attach to THIS lead instead of creating a duplicate one.",
+    { form_id: UUID, lead_id: UUID, email: z.boolean().optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "forms:write");
+      const res = await sendPublicFormTo(
+        ctx.sb, ctx.businessId, args.form_id, { kind: "lead", id: args.lead_id },
+        { email: args.email, createdBy: ctx.userId ?? null },
+      );
+      if (!res.ok) return errorText(res.error);
+      return text(res);
+    });
+
+  tool("send_form_to_customer",
+    "Email a custom (Form Builder) form to an existing customer, attached to them rather than creating a lead.",
+    { form_id: UUID, customer_id: UUID, email: z.boolean().optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "forms:write");
+      const res = await sendPublicFormTo(
+        ctx.sb, ctx.businessId, args.form_id, { kind: "customer", id: args.customer_id },
+        { email: args.email, createdBy: ctx.userId ?? null },
+      );
+      if (!res.ok) return errorText(res.error);
+      return text(res);
+    });
+
+  tool("list_form_invites",
+    "Custom forms sent to specific leads or customers, and whether they have been answered.",
+    { form_id: UUID.optional(), lead_id: UUID.optional(), customer_id: UUID.optional() },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "forms:read");
+      let q = t(ctx, "public_form_invites")
+        .select("id, form_id, lead_id, customer_id, sent_at, submitted_at, expires_at, public_forms(name, slug)")
+        .eq("business_id", ctx.businessId).order("created_at", { ascending: false }).limit(200);
+      if (args.form_id) q = q.eq("form_id", args.form_id);
+      if (args.lead_id) q = q.eq("lead_id", args.lead_id);
+      if (args.customer_id) q = q.eq("customer_id", args.customer_id);
+      const { data, error } = await q;
+      if (error) throw error;
+      return text(data);
     });
 }

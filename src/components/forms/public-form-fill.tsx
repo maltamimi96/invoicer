@@ -21,13 +21,15 @@ const DAY_LABEL: Record<string, string> = { mon: "Mon", tue: "Tue", wed: "Wed", 
 
 interface Props {
   slug: string;
+  /** One-person invite token from ?i= — attaches the answers to that lead. */
+  invite?: string;
   fields: OnboardingField[];
   submitText: string;
   thankYouMessage: string | null;
   accent?: string;
 }
 
-export function PublicFormFill({ slug, fields, submitText, thankYouMessage, accent }: Props) {
+export function PublicFormFill({ slug, invite, fields, submitText, thankYouMessage, accent }: Props) {
   const [answers, setAnswers] = useState<OnboardingAnswers>({});
   const [problems, setProblems] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -51,7 +53,7 @@ export function PublicFormFill({ slug, fields, submitText, thankYouMessage, acce
     try {
       const res = await fetch(`${endpoint}/submit`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers, _hp: hp.current }),
+        body: JSON.stringify({ answers, _hp: hp.current, invite }),
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok) {

@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveBizId } from "@/lib/active-business";
 import { getUser } from "@/lib/auth";
 import { slugifyFormName } from "@/lib/forms/slug";
+import { sendPublicFormTo, type SendFormResult } from "@/lib/forms/invite";
 import { pluginFlagsTag } from "@/lib/layout-data";
 import type { PublicForm, PublicFormSubmission, OnboardingField } from "@/types/database";
 
@@ -182,4 +183,114 @@ export async function getFormUploadUrl(path: string): Promise<string | null> {
   const { data, error } = await (admin as any).storage.from("public-form-uploads").createSignedUrl(path, 3600);
   if (error) throw error;
   return data?.signedUrl ?? null;
+}
+
+
+// ── Sending a form to someone you already have ──────────────────────────────
+
+/** A form sent to this lead, and whether they have answered it. */
+export interface LeadFormRow {
+  invite_id: string;
+  form_id: string;
+  form_name: string;
+  slug: string;
+  url: string;
+  sent_at: string | null;
+  submitted_at: string | null;
+  submission_id: string | null;
+}
+
+export interface LeadFormsData {
+  /** Published forms available to send. Drafts are excluded — their link 404s. */
+  forms: { id: string; name: string; slug: string }[];
+  sent: LeadFormRow[];
+}
+
+/** Which custom forms can be sent to this lead, and which already were. */
+export async function getLeadForms(leadId: string): Promise<LeadFormsData> {
+  const supabase = await createClient();
+  const user = await getUser();
+  const businessId = await getActiveBizId(supabase, user.id);
+
+  const [{ data: forms }, { data: invites }] = await Promise.all([
+    tbl(supabase, "public_forms")
+      .select("id, name, slug").eq("business_id", businessId).eq("status", "published")
+      .order("name", { ascending: true }).limit(200),
+    tbl(supabase, "public_form_invites")
+      .select("id, form_id, token, sent_at, submitted_at")
+      .eq("business_id", businessId).eq("lead_id", leadId)
+      .order("created_at", { ascending: false }).limit(50),
+  ]);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const formRows = ((forms ?? []) as any[]);
+  const byId = new Map(formRows.map((f) => [f.id, f]));
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const inviteRows = ((invites ?? []) as any[]);
+  const inviteIds = inviteRows.map((i) => i.id);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let subs: any[] = [];
+  if (inviteIds.length > 0) {
+    const { data } = await tbl(supabase, "public_form_submissions")
+      .select("id, invite_id").eq("business_id", businessId).in("invite_id", inviteIds);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    subs = (data ?? []) as any[];
+  }
+  const subByInvite = new Map(subs.map((s) => [s.invite_id, s.id]));
+
+  const { inviteUrl } = await import("@/lib/forms/invite");
+
+  return {
+    forms: formRows.map((f) => ({ id: f.id, name: f.name, slug: f.slug })),
+    sent: inviteRows
+      // A form deleted after being sent leaves an invite with nothing to show.
+      .filter((i) => byId.has(i.form_id))
+      .map((i) => ({
+        invite_id: i.id,
+        form_id: i.form_id,
+        form_name: byId.get(i.form_id).name,
+        slug: byId.get(i.form_id).slug,
+        url: inviteUrl(byId.get(i.form_id).slug, i.token),
+        sent_at: i.sent_at,
+        submitted_at: i.submitted_at,
+        submission_id: subByInvite.get(i.id) ?? null,
+      })),
+  };
+}
+
+/**
+ * Send a custom form to a lead.
+ *
+ * The link carries a one-person invite token, so their answers attach to THIS
+ * lead instead of calling upsert_lead and minting a second record of someone
+ * already in the pipeline.
+ */
+export async function sendFormToLead(
+  formId: string, leadId: string, opts: { email?: boolean } = {},
+): Promise<SendFormResult> {
+  const supabase = await createClient();
+  const user = await getUser();
+  const businessId = await getActiveBizId(supabase, user.id);
+
+  const res = await sendPublicFormTo(supabase, businessId, formId, { kind: "lead", id: leadId }, {
+    email: opts.email, createdBy: user.id,
+  });
+  if (res.ok) revalidatePath(`/leads/${leadId}`);
+  return res;
+}
+
+/** Send a custom form to an existing customer. Same invite mechanism. */
+export async function sendFormToCustomer(
+  formId: string, customerId: string, opts: { email?: boolean } = {},
+): Promise<SendFormResult> {
+  const supabase = await createClient();
+  const user = await getUser();
+  const businessId = await getActiveBizId(supabase, user.id);
+
+  const res = await sendPublicFormTo(supabase, businessId, formId, { kind: "customer", id: customerId }, {
+    email: opts.email, createdBy: user.id,
+  });
+  if (res.ok) revalidatePath(`/customers/${customerId}`);
+  return res;
 }

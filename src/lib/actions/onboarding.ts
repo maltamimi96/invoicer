@@ -13,7 +13,7 @@ import {
   staffOnlyCustomerFields, stripUnfillableAnswers, staffFillProblems, staffFillErrorMessage,
 } from "@/lib/onboarding/staff-fill";
 import { decryptSecret, isEncryptedAnswer, secureFieldsAvailable } from "@/lib/onboarding/crypto";
-import { sendOnboardingFormFor, type SendOnboardingResult } from "@/lib/onboarding/send";
+import { sendOnboardingFormFor, sendOnboardingFormToLead, type SendOnboardingResult } from "@/lib/onboarding/send";
 import type {
   OnboardingForm, OnboardingField, OnboardingRequest, OnboardingResponse,
 } from "@/types/database";
@@ -398,19 +398,74 @@ export async function getOnboardingResponse(requestId: string): Promise<(Onboard
   return { ...data, answers: redactSecureAnswers(schema, data.answers ?? {}), redacted: true };
 }
 
-/** All of a LEAD's responses (secure answers redacted). */
+/**
+ * All of a LEAD's responses (secure answers redacted).
+ *
+ * Two sources, because a lead's answers can arrive two ways and the DB's
+ * subject CHECK allows exactly one owner per row:
+ *
+ *   lead_id      — staff typed the answers in on the lead's behalf.
+ *   customer_id  — the lead was SENT the form and filled it in themselves.
+ *                  Portal links hang off a contact row, so those rows are
+ *                  customer-scoped and reachable only through leads.customer_id
+ *                  — the same route by which a lead's quotes and invoices show.
+ *
+ * Fetched as two queries rather than one `.or()`: PostgREST's or-grammar uses
+ * `,` and `.` as separators, and this codebase has already been burnt by
+ * building those strings (PR #398).
+ */
 export async function getOnboardingResponsesForLead(leadId: string): Promise<OnboardingResponse[]> {
   const supabase = await createClient();
   const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
-  const { data } = await tbl(supabase, "onboarding_responses")
-    .select("*").eq("lead_id", leadId).eq("business_id", businessId)
-    .order("created_at", { ascending: false });
+
+  const { data: lead } = await tbl(supabase, "leads")
+    .select("customer_id").eq("id", leadId).eq("business_id", businessId).maybeSingle();
+  const customerId: string | null = lead?.customer_id ?? null;
+
+  const [own, viaContact] = await Promise.all([
+    tbl(supabase, "onboarding_responses")
+      .select("*").eq("lead_id", leadId).eq("business_id", businessId)
+      .order("created_at", { ascending: false }),
+    customerId
+      ? tbl(supabase, "onboarding_responses")
+          .select("*").eq("customer_id", customerId).eq("business_id", businessId)
+          .order("created_at", { ascending: false })
+      : Promise.resolve({ data: [] }),
+  ]);
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return ((data ?? []) as any[]).map((r) => ({
+  const rows = [...((own.data ?? []) as any[]), ...((viaContact.data ?? []) as any[])]
+    .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+
+  return rows.map((r) => ({
     ...r,
     answers: redactSecureAnswers((r.schema_snapshot ?? []) as OnboardingField[], r.answers ?? {}),
   })) as OnboardingResponse[];
+}
+
+/**
+ * Send an onboarding form to a lead so they fill it in themselves.
+ *
+ * Creates the lead's contact row if it doesn't have one (same as quoting them)
+ * and emails a portal link. They remain a lead — only payment makes a client.
+ */
+export async function sendOnboardingToLead(
+  formId: string, leadId: string, opts: { email?: boolean } = {},
+): Promise<SendOnboardingResult> {
+  const supabase = await createClient();
+  const user = await getUser();
+  const businessId = await getActiveBizId(supabase, user.id);
+
+  const res = await sendOnboardingFormToLead(supabase, businessId, formId, leadId, {
+    email: opts.email, createdBy: user.id,
+  });
+
+  if (res.ok) {
+    revalidatePath(`/leads/${leadId}`);
+    revalidatePath("/onboarding-forms");
+  }
+  return res;
 }
 
 /** All of a customer's responses (secure answers redacted) — for the profile tab. */

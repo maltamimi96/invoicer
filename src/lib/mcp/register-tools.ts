@@ -32,7 +32,7 @@ import { decryptSecret } from "@/lib/crypto";
 import { presetByKey, TEMPLATE_PRESETS } from "@/lib/documents/presets";
 import type { LineItem } from "@/types/database";
 import { ctxFrom, appBase, UUID, getOrMintPortalToken, type ToolFn } from "./tools/shared";
-import { registerPluginFormTools } from "./tools/plugin-form-tools";
+import { registerPluginFormTools, registerLeadFormTools } from "./tools/plugin-form-tools";
 import { registerSeoTools } from "./tools/seo-tools";
 import { registerContentTools } from "./tools/content-tools";
 import { registerExpenseTools, registerRecurringExpenseTools } from "./tools/expenses-tools";
@@ -1802,6 +1802,7 @@ export function registerTools(register: ToolFn): void {
   // ===== PLUGINS · PRESETS · FORM BUILDER · ONBOARDING · CONTRACTS =====
   // Registered from ./tools/plugin-form-tools to keep this file focused.
   registerPluginFormTools(tool);
+  registerLeadFormTools(tool);
 
   // ===== SEO PRODUCTION (docs/SEO_AGENCY_PLAN.md, Phase 2) =====
   registerSeoTools(tool);
