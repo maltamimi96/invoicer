@@ -17,10 +17,28 @@
  *                           because paying is what the user defines a client as.
  */
 
+import type { Lead } from "@/types/database";
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Sb = any;
 
 const tbl = (sb: Sb, name: string) => sb.from(name);
+
+/**
+ * Exactly the lead columns this module reads.
+ *
+ * Typed as a Pick of the real Lead so a name that isn't a column cannot be
+ * written here without TypeScript objecting. `tbl()` returns `any`, which is
+ * how `city`, `postcode` and `company` — none of which exist on leads — got
+ * selected and shipped. The type in database.ts was right the whole time;
+ * nothing was reading it.
+ */
+type LeadForContact = Pick<
+  Lead, "id" | "user_id" | "name" | "email" | "phone" | "address" | "suburb" | "customer_id" | "source"
+>;
+const LEAD_CONTACT_COLUMNS: ReadonlyArray<keyof LeadForContact> = [
+  "id", "user_id", "name", "email", "phone", "address", "suburb", "customer_id", "source",
+];
 
 export interface LeadContactResult {
   customerId: string;
@@ -40,11 +58,12 @@ export interface LeadContactResult {
 export async function ensureContactForLead(
   sb: Sb, businessId: string, leadId: string,
 ): Promise<LeadContactResult> {
-  const { data: lead, error } = await tbl(sb, "leads")
-    .select("id, name, email, phone, address, city, postcode, company, customer_id, source")
+  const { data, error } = await tbl(sb, "leads")
+    .select(LEAD_CONTACT_COLUMNS.join(", "))
     .eq("id", leadId).eq("business_id", businessId).maybeSingle();
   if (error) throw new Error(error.message);
-  if (!lead) throw new Error("Lead not found");
+  if (!data) throw new Error("Lead not found");
+  const lead = data as LeadForContact;
 
   if (lead.customer_id) return { customerId: lead.customer_id, created: false };
 
@@ -63,13 +82,16 @@ export async function ensureContactForLead(
 
   const { data: created, error: insErr } = await tbl(sb, "customers").insert({
     business_id: businessId,
-    name: lead.name?.trim() || lead.company?.trim() || "Unnamed lead",
+    // NOT NULL with no default. Carry the lead's owner across — omitting it
+    // failed every insert with a null-violation, behind the column error.
+    user_id: lead.user_id,
+    name: lead.name?.trim() || "Unnamed lead",
     email: lead.email ?? null,
     phone: lead.phone ?? null,
     address: lead.address ?? null,
-    city: lead.city ?? null,
-    postcode: lead.postcode ?? null,
-    company: lead.company ?? null,
+    // leads.suburb is the city-level field; customers calls it `city`. There
+    // is no postcode or company on a lead to carry.
+    city: lead.suburb ?? null,
     // The point of the whole exercise: billable, but not yet a client.
     lifecycle_stage: "lead",
   }).select("id").single();
