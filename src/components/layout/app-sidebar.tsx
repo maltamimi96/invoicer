@@ -1,22 +1,20 @@
 "use client";
 
 /**
- * The icon rail.
+ * The sidebar: named links, grouped by category.
  *
- * Modelled on the reference dashboard: a narrow floating strip of icons with
- * real space between them — no labels, no right-hand border, no collapse
- * toggle, and **no scrollbar**.
+ * This was an unlabelled 112px icon rail for a while. Twenty-five icons with
+ * no words, distinguishable only by hovering for a tooltip, is a memory test —
+ * so the labels are back. What stays from that pass is the *look*: raised
+ * rounded group panels, the spring-animated active pill, and paging behind a
+ * chevron instead of a scrollbar.
  *
- * The overflow problem is the interesting part. The reference has six icons
- * and this app has twenty-odd across seven sections, so on a short viewport
- * they cannot all fit. A scrollbar is out — it is the thing the design is
- * avoiding — and shrinking the icons defeats the point. So the rail measures
- * itself, shows as many icons as genuinely fit, and pages the rest behind a
- * chevron: the spacing never compresses, and nothing is hidden without a way
- * to reach it.
+ * Everything cannot fit at once — twenty-five rows plus headings runs past a
+ * thousand pixels — so paging stays, and each group carries its heading so a
+ * page is always self-explaining.
  *
- * Mobile is deliberately different: the drawer is full width with labels,
- * because an 80px strip of unlabelled icons is not navigable on a phone.
+ * Desktop and mobile now render the same list; mobile just gets it in a
+ * drawer.
  */
 
 import Link from "next/link";
@@ -47,21 +45,24 @@ interface AppSidebarProps {
   onClose: () => void;
 }
 
-/** Icon button: 56px and fully round. */
-const ICON_BTN =
-  "relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full transition-colors duration-200";
+/** A nav row: icon + label, full width, rounded pill. */
+const NAV_ROW =
+  "relative flex h-10 w-full shrink-0 items-center gap-2.5 rounded-full px-3 text-sm transition-colors duration-200";
 
 /**
  * How many icons a page of the rail may hold. Groups are never split, so a
  * page can overshoot slightly rather than break a category in half — that is
  * the point of grouping them.
  *
- * Dropped 9 → 7 when the icons went from 48px to 56px. Each slot now costs
- * ~66px including its gap, so nine of them plus group padding and the two
- * chevrons no longer clear a ~800px viewport — and the whole reason this
- * budget exists is that the rail must never scroll.
+ * Raised to 14 with the return of labels: a row is 40px instead of a 56px
+ * icon tile, so noticeably more fits per page. Still a fixed budget rather
+ * than a measured one — see the note at the call site for why.
+ *
+ * Groups are never split, so the real page count is coarser than this number
+ * suggests: with every plugin enabled it lands on four pages, fewer once a
+ * business's disabled modules drop out.
  */
-export const SLOTS_PER_PAGE = 7;
+export const SLOTS_PER_PAGE = 14;
 
 /**
  * Pack sections into pages without ever splitting one.
@@ -85,11 +86,6 @@ export function packSections<T extends { items: unknown[] }>(
   if (cur.length) out.push(cur);
   return out.length ? out : [sections];
 }
-
-const TOOLTIP =
-  "pointer-events-none absolute left-16 z-50 whitespace-nowrap rounded-lg border border-border bg-popover "
-  + "px-2.5 py-1.5 text-xs font-medium text-popover-foreground opacity-0 shadow-lg transition-opacity duration-150 "
-  + "group-hover:opacity-100 group-focus-visible:opacity-100";
 
 /** The filled square behind the current page — the reference's active state. */
 function ActiveChip() {
@@ -171,28 +167,27 @@ export function AppSidebar({
     setPage(Math.min(pages - 1, Math.max(0, next)));
   }, [page, pages]);
 
-  const railLink = (item: NavItem) => {
+  const navRow = (item: NavItem) => {
     const active = isActive(item.href);
     const label = vocab?.[item.href] ?? item.label;
     return (
-      <div key={item.href}>
-        <Link
-          href={item.href}
-          onClick={onClose}
-          aria-label={label}
-          aria-current={active ? "page" : undefined}
-          className={cn(
-            ICON_BTN, "group",
-            active ? "text-primary-foreground"
-                   : "text-muted-foreground hover:bg-background hover:text-foreground",
-          )}
-        >
-          {active && <ActiveChip />}
-          <item.icon className="relative z-10 h-5 w-5" />
-          {/* The only way to learn what an unlabelled icon is. */}
-          <span role="tooltip" className={TOOLTIP}>{label}</span>
-        </Link>
-      </div>
+      <Link
+        key={item.href}
+        href={item.href}
+        onClick={onClose}
+        aria-current={active ? "page" : undefined}
+        className={cn(
+          NAV_ROW,
+          active ? "font-semibold text-primary-foreground"
+                 : "text-muted-foreground hover:bg-background hover:text-foreground",
+        )}
+      >
+        {active && <ActiveChip />}
+        <item.icon className="relative z-10 h-4 w-4 shrink-0" />
+        {/* truncate, not wrap: a two-line row breaks the 40px rhythm the
+            group panels are built on. The full text is in the title. */}
+        <span className="relative z-10 truncate" title={label}>{label}</span>
+      </Link>
     );
   };
 
@@ -203,47 +198,55 @@ export function AppSidebar({
       onClick={() => goto(safePage + (arrow === "up" ? -1 : 1))}
       aria-label={arrow === "up" ? "Previous menu items" : "More menu items"}
       className={cn(
-        "flex h-8 w-14 shrink-0 items-center justify-center rounded-full transition-colors",
+        "flex h-8 w-full shrink-0 items-center justify-center gap-1.5 rounded-full text-xs font-medium transition-colors",
         disabled ? "text-muted-foreground/40"
                  : "text-muted-foreground hover:bg-background hover:text-foreground",
       )}
     >
-      {arrow === "up" ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+      {arrow === "up"
+        ? <><ChevronUp className="h-3.5 w-3.5" /> Back</>
+        : <><ChevronDown className="h-3.5 w-3.5" /> More</>}
     </button>
   );
 
-  /* ── Desktop rail ──────────────────────────────────────────────────── */
+  /* ── Desktop sidebar ───────────────────────────────────────────────── */
   const rail = (
-    // w-28 (112px), not an arbitrary value: bracket widths compile in the
-    // production build but NOT under this dev server, so `w-[92px]` rendered
-    // with no width at all locally. Registered scale steps only, here.
-    <div className="hidden h-full w-28 shrink-0 flex-col items-center bg-background px-3 py-6 md:flex">
+    // w-64 (256px). Wide enough that "Recurring billing" and "Client
+    // accounts" read in full rather than truncating to nothing. A registered
+    // scale step, not a bracket value: arbitrary widths compile in the
+    // production build but NOT under this dev server.
+    <div className="hidden h-full w-64 shrink-0 flex-col bg-background px-3 py-5 md:flex">
       {hasOverflow && chevron("up", safePage === 0)}
 
       {/* The page slides in from the direction you asked for, so paging reads
-          as movement along one list rather than the icons being swapped out
-          underneath you. mode="wait" keeps the outgoing page from overlapping
-          the incoming one in a 112px column. */}
-      <div className="flex min-h-0 w-full flex-1 flex-col items-center overflow-hidden">
+          as movement along one list rather than the contents being swapped
+          underneath you. mode="wait" stops the two pages overlapping. */}
+      {/* overflow-y-auto, not hidden: the budget above is a guess at the
+          viewport, and guessing high would CLIP rows out of existence with no
+          way to reach them. Scrolling is the ugly-but-safe fallback; on a
+          normal screen it never engages. */}
+      <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto">
         <AnimatePresence mode="wait" initial={false} custom={dir}>
           <motion.div
             key={safePage}
             custom={dir}
-            initial={{ opacity: 0, y: dir * 18 }}
+            initial={{ opacity: 0, y: dir * 14 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: dir * -18 }}
+            exit={{ opacity: 0, y: dir * -14 }}
             transition={{ type: "spring", stiffness: 420, damping: 38, mass: 0.7 }}
-            className="flex w-full flex-col items-center gap-3.5"
+            className="flex w-full flex-col gap-2.5"
           >
             {visibleSections.map((group) => (
-              // Each category sits on its own slightly raised panel — the
-              // grouping is what makes twenty icons legible without labels.
+              // Each category on its own raised panel, with its name on it —
+              // so a page of the list always explains itself.
               <div
                 key={group.section}
-                title={group.section}
-                className="flex w-full flex-col items-center gap-2.5 rounded-3xl bg-secondary px-2 py-3"
+                className="flex w-full flex-col gap-0.5 rounded-3xl bg-secondary px-2 py-2.5"
               >
-                {group.items.map((item) => railLink(item))}
+                <p className="px-3 pb-1 pt-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground/70">
+                  {group.section}
+                </p>
+                {group.items.map((item) => navRow(item))}
               </div>
             ))}
           </motion.div>
@@ -252,26 +255,27 @@ export function AppSidebar({
 
       {hasOverflow && chevron("down", safePage >= pages - 1)}
 
-      {/* Bottom group — settings, then the account, on the same raised panel
-          so it reads as one more category rather than a loose pair. */}
-      <div className="mt-4 flex w-full flex-col items-center gap-2.5 rounded-3xl bg-secondary px-2 py-3">
+      {/* Settings sits on its own panel, as one more category. */}
+      <div className="mt-3 flex w-full flex-col gap-0.5 rounded-3xl bg-secondary px-2 py-2.5">
         {canManageSettings(userRole) && (
           <Link
             href="/settings"
-            aria-label="Settings"
             aria-current={pathname.startsWith("/settings") ? "page" : undefined}
             className={cn(
-              ICON_BTN, "group",
-              pathname.startsWith("/settings") ? "text-primary-foreground"
+              NAV_ROW,
+              pathname.startsWith("/settings")
+                ? "font-semibold text-primary-foreground"
                 : "text-muted-foreground hover:bg-background hover:text-foreground",
             )}
           >
             {pathname.startsWith("/settings") && <ActiveChip />}
-            <Settings className="relative z-10 h-5 w-5" />
-            <span role="tooltip" className={TOOLTIP}>Settings</span>
+            <Settings className="relative z-10 h-4 w-4 shrink-0" />
+            <span className="relative z-10">Settings</span>
           </Link>
         )}
-        <KireiMark className="h-5 w-auto text-muted-foreground" />
+        <div className="flex items-center justify-center pb-0.5 pt-1.5">
+          <KireiMark className="h-4 w-auto text-muted-foreground/60" />
+        </div>
       </div>
     </div>
   );
