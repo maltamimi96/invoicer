@@ -11,19 +11,30 @@ import { getBusiness } from "@/lib/actions/business";
 import type { StaffFillForm } from "@/components/onboarding/staff-onboarding-fill";
 import type { LeadOnboardingData } from "@/components/leads/lead-onboarding-card";
 
-/** Onboarding data for a lead — only when the plugin is on. Never break the
- *  page over it: a lead is useful without its forms. */
+/**
+ * Forms for a lead — from BOTH form systems, each gated on its own plugin.
+ *
+ * This used to bail on `!onboardingSettings.enabled`, which took the custom
+ * (Form Builder) forms down with it: a business running Form Builder but not
+ * Client Onboarding got no forms section on a lead at all, and no clue one
+ * existed. The two plugins are independent everywhere else and they are
+ * independent here.
+ *
+ * Never break the page over it: a lead is useful without its forms.
+ */
 async function loadLeadOnboarding(leadId: string): Promise<LeadOnboardingData | null> {
   try {
-    const settings = await getOnboardingSettings();
-    if (!settings.enabled) return null;
-    const [forms, responses, allowSecureFill, publicForms] = await Promise.all([
-      getOnboardingForms(),
+    const [onboardingOn, publicForms] = await Promise.all([
+      getOnboardingSettings().then((s) => s.enabled).catch(() => false),
+      // getFillablePublicForms already returns [] when Form Builder is off.
+      getFillablePublicForms().catch(() => []),
+    ]);
+    if (!onboardingOn && publicForms.length === 0) return null;
+
+    const [forms, responses, allowSecureFill] = await Promise.all([
+      onboardingOn ? getOnboardingForms() : Promise.resolve([]),
       getOnboardingResponsesForLead(leadId),
       getSecureFieldsAvailable(),
-      // Form Builder forms are fillable here too — same field engine, answers
-      // just land in their own table.
-      getFillablePublicForms().catch(() => []),
     ]);
     return {
       // NOT filtered to staff-fillable any more: a form that is all uploads

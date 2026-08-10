@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Onboarding forms filled in against a LEAD.
+ * Forms against a LEAD — onboarding forms and custom (Form Builder) forms.
  *
  * Qualifying a lead means asking the same questions you'd ask a client, and
  * before this there was nowhere to put the answers until the lead converted.
@@ -108,7 +108,7 @@ export function LeadOnboardingCard({
           <GradientTile gradient="blue" size={28} radius={8}>
             <ClipboardList className="w-3.5 h-3.5" />
           </GradientTile>
-          <p className="text-sm font-semibold">Onboarding</p>
+          <p className="text-sm font-semibold">Forms</p>
         </div>
 
         {data.responses.map((r) => (
@@ -161,8 +161,10 @@ export function LeadOnboardingCard({
             )}
 
             <p className="text-xs text-muted-foreground">
-              <strong>Save answers</strong> records what you already know. <strong>Send to them</strong> emails
-              a link they fill in themselves &mdash; they stay a lead until they pay.
+              Onboarding forms and custom forms both appear here.{" "}
+              <strong>Save answers</strong> records what you already know;{" "}
+              <strong>Send to them</strong> emails a link they fill in themselves.
+              Either way they stay a lead until they pay.
             </p>
           </div>
         )}
