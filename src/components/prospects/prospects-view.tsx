@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useMutation } from "@/components/layout/use-mutation";
@@ -76,6 +77,7 @@ export function ProspectsView({ prospects }: { prospects: Prospect[] }) {
         subtitle="Your cold-outreach list — import, reach out, and convert the good ones to leads"
         actions={
           <>
+            <Button variant="outline" asChild><Link href="/prospects/hunts"><Target className="w-4 h-4 mr-1.5" /> Find prospects</Link></Button>
             <Button variant="outline" onClick={() => setImportOpen(true)} disabled={isPending}><Upload className="w-4 h-4 mr-1.5" /> Import</Button>
             <Button onClick={() => setOpen(true)} disabled={isPending}><Plus className="w-4 h-4 mr-1.5" /> Add prospect</Button>
           </>
