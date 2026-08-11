@@ -1,0 +1,159 @@
+/**
+ * Finding businesses in an area, via Google Places.
+ *
+ * Places rather than web search, for one decisive reason: it returns a
+ * `websiteUri` field. "Has no website" is then a FACT from the source, not a
+ * model's inference from failing to find one — and that is exactly the sort of
+ * criterion this feature exists to hunt on. It also takes a circle natively,
+ * so "within 25km of Parramatta" is one request rather than a guess.
+ *
+ * What it will never give you is an email address. Prospects arrive with a
+ * phone and an address; email is the outreach system's problem.
+ *
+ * Plain module — no session. The runner and the cron both use it.
+ */
+
+export interface PlaceHit {
+  place_id: string;
+  name: string;
+  address: string | null;
+  phone: string | null;
+  website: string | null;
+  category: string | null;
+  rating: number | null;
+  review_count: number | null;
+  lat: number | null;
+  lng: number | null;
+  raw: Record<string, unknown>;
+}
+
+/**
+ * The fields to ask for. Places bills by field mask, so asking for everything
+ * costs materially more per call — this is the minimum that supports the
+ * filters and the review screen.
+ */
+const FIELD_MASK = [
+  "places.id",
+  "places.displayName",
+  "places.formattedAddress",
+  "places.nationalPhoneNumber",
+  "places.websiteUri",
+  "places.primaryTypeDisplayName",
+  "places.rating",
+  "places.userRatingCount",
+  "places.location",
+].join(",");
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function toHit(p: any): PlaceHit {
+  return {
+    place_id: String(p.id),
+    name: p.displayName?.text ?? "Unnamed",
+    address: p.formattedAddress ?? null,
+    phone: p.nationalPhoneNumber ?? null,
+    website: p.websiteUri ?? null,
+    category: p.primaryTypeDisplayName?.text ?? null,
+    rating: typeof p.rating === "number" ? p.rating : null,
+    review_count: typeof p.userRatingCount === "number" ? p.userRatingCount : null,
+    lat: p.location?.latitude ?? null,
+    lng: p.location?.longitude ?? null,
+    raw: p,
+  };
+}
+
+export interface SearchArea {
+  lat: number;
+  lng: number;
+  radiusM: number;
+}
+
+/**
+ * One text query, biased to a circle.
+ *
+ * `locationRestriction` rather than `locationBias`: a bias is a suggestion and
+ * Places will happily return results from the next state if it likes them
+ * better. A hunt with a 10km radius means 10km.
+ *
+ * Paginated to `maxPages` because Places returns 20 per page and a broad query
+ * in a city can run to hundreds — each page is a billed request, and the run
+ * has a budget.
+ */
+export async function searchPlaces(
+  apiKey: string,
+  query: string,
+  area: SearchArea,
+  maxPages = 3,
+): Promise<{ hits: PlaceHit[]; error: string | null }> {
+  const hits: PlaceHit[] = [];
+  let pageToken: string | undefined;
+
+  for (let page = 0; page < maxPages; page++) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const body: Record<string, any> = {
+      textQuery: query,
+      locationRestriction: {
+        circle: {
+          center: { latitude: area.lat, longitude: area.lng },
+          // Places caps the radius at 50km; asking for more is a 400.
+          radius: Math.min(Math.max(area.radiusM, 1), 50_000),
+        },
+      },
+      maxResultCount: 20,
+    };
+    if (pageToken) body.pageToken = pageToken;
+
+    let res: Response;
+    try {
+      res = await fetch("https://places.googleapis.com/v1/places:searchText", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": apiKey,
+          "X-Goog-FieldMask": `${FIELD_MASK},nextPageToken`,
+        },
+        body: JSON.stringify(body),
+      });
+    } catch (e) {
+      return { hits, error: e instanceof Error ? e.message : "Places request failed" };
+    }
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      // Surface Google's own message — "API key not valid" and "billing not
+      // enabled" are the two everyone hits, and both are actionable.
+      return { hits, error: `Places ${res.status}: ${text.slice(0, 300)}` };
+    }
+
+    const json = await res.json().catch(() => ({}));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const p of (json.places ?? []) as any[]) hits.push(toHit(p));
+
+    pageToken = json.nextPageToken;
+    if (!pageToken) break;
+  }
+
+  return { hits, error: null };
+}
+
+/** Turn a place name into coordinates, so a hunt can be defined by suburb. */
+export async function geocodeArea(
+  apiKey: string, label: string,
+): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const res = await fetch("https://places.googleapis.com/v1/places:searchText", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": apiKey,
+        "X-Goog-FieldMask": "places.location",
+      },
+      body: JSON.stringify({ textQuery: label, maxResultCount: 1 }),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const loc = json.places?.[0]?.location;
+    return loc ? { lat: loc.latitude, lng: loc.longitude } : null;
+  } catch {
+    return null;
+  }
+}

@@ -41,6 +41,7 @@ import { registerInventoryTools } from "./tools/inventory-tools";
 import { registerTimesheetTools } from "./tools/timesheets-tools";
 import { registerAssetTools } from "./tools/assets-tools";
 import { registerProspectTools } from "./tools/prospects-tools";
+import { registerHuntTools } from "./tools/hunt-tools";
 import { registerVaultTools } from "./tools/vault-tools";
 import { registerPaymentDetailTools } from "./tools/payment-detail-tools";
 import { registerOutreachTools } from "./tools/outreach-tools";
@@ -1847,6 +1848,7 @@ export function registerTools(register: ToolFn): void {
 
   // ===== PROSPECTS =====
   registerProspectTools(tool);
+  registerHuntTools(tool);
   registerVaultTools(tool);
   registerPaymentDetailTools(tool);
   registerOutreachTools(tool);

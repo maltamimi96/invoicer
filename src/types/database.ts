@@ -751,6 +751,78 @@ export interface Prospect {
   updated_at: string;
 }
 
+// ── Prospecting agent (hunts → candidates → reviewed into prospects) ────────
+export interface ProspectHuntFilters {
+  no_website?: boolean;
+  has_website?: boolean;
+  min_rating?: number;
+  max_rating?: number;
+  min_reviews?: number;
+  max_reviews?: number;
+  require_phone?: boolean;
+}
+
+export interface ProspectHunt {
+  id: string;
+  business_id: string;
+  name: string;
+  queries: string[];
+  centre_label: string | null;
+  centre_lat: number | null;
+  centre_lng: number | null;
+  radius_m: number;
+  /** Free text handed to the verifying agent verbatim. Deliberately not an enum. */
+  criteria: string;
+  filters: ProspectHuntFilters;
+  active: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ProspectHuntRunStatus = 'running' | 'done' | 'failed' | 'cancelled';
+export interface ProspectHuntRun {
+  id: string;
+  business_id: string;
+  hunt_id: string;
+  status: ProspectHuntRunStatus;
+  found: number;
+  screened_out: number;
+  verified: number;
+  rejected: number;
+  cost_cents: number;
+  error: string | null;
+  started_at: string;
+  finished_at: string | null;
+}
+
+export type ProspectCandidateStatus =
+  | 'pending' | 'screened_out' | 'verified' | 'rejected' | 'added' | 'dismissed';
+export interface ProspectCandidate {
+  id: string;
+  business_id: string;
+  hunt_id: string;
+  run_id: string | null;
+  place_id: string | null;
+  name: string;
+  address: string | null;
+  phone: string | null;
+  website: string | null;
+  category: string | null;
+  rating: number | null;
+  review_count: number | null;
+  lat: number | null;
+  lng: number | null;
+  raw: Record<string, unknown>;
+  status: ProspectCandidateStatus;
+  score: number | null;
+  reasoning: string | null;
+  checks: Record<string, unknown>;
+  prospect_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // ── Assets & equipment (field-services plugin) ──────────────────────────────
 export type AssetCategory = 'tool' | 'vehicle' | 'equipment' | 'other';
 export type AssetStatus = 'active' | 'in_repair' | 'retired';
