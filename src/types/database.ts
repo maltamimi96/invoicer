@@ -762,6 +762,26 @@ export interface ProspectHuntFilters {
   require_phone?: boolean;
 }
 
+/** One named requirement, judged and reported on its own. */
+export interface ProspectHuntParam {
+  id: string;
+  label: string;
+  /** What the agent should check, in plain words. */
+  requirement: string;
+  /** A failure here disqualifies the business outright. */
+  required: boolean;
+}
+
+/** A named area in `suburbs` mode — each is searched in its own right. */
+export interface ProspectHuntSuburb {
+  label: string;
+  lat: number | null;
+  lng: number | null;
+  radius_m: number;
+}
+
+export type ProspectHuntAreaMode = 'radius' | 'suburbs';
+
 export interface ProspectHunt {
   id: string;
   business_id: string;
@@ -774,6 +794,11 @@ export interface ProspectHunt {
   /** Free text handed to the verifying agent verbatim. Deliberately not an enum. */
   criteria: string;
   filters: ProspectHuntFilters;
+  /** How many verified prospects this run should aim for (1-100). */
+  target_count: number;
+  area_mode: ProspectHuntAreaMode;
+  suburbs: ProspectHuntSuburb[];
+  custom_params: ProspectHuntParam[];
   active: boolean;
   created_by: string | null;
   created_at: string;
@@ -781,6 +806,29 @@ export interface ProspectHunt {
 }
 
 export type ProspectHuntRunStatus = 'running' | 'done' | 'failed' | 'cancelled';
+export type ProspectHuntStage =
+  'queued' | 'searching' | 'screening' | 'verifying' | 'auditing' | 'finished';
+
+export interface ProspectAuditProblem {
+  severity: 'high' | 'medium' | 'low';
+  title: string;
+  detail: string;
+  fix: string;
+}
+export interface ProspectAudit {
+  summary: string;
+  problems: ProspectAuditProblem[];
+}
+
+export interface ProspectHuntEvent {
+  id: string;
+  business_id: string;
+  hunt_id: string | null;
+  run_id: string | null;
+  level: 'info' | 'success' | 'warn' | 'error';
+  message: string;
+  created_at: string;
+}
 export interface ProspectHuntRun {
   id: string;
   business_id: string;
@@ -795,6 +843,11 @@ export interface ProspectHuntRun {
   places_requests: number;
   places_cost_cents: number;
   model_cost_cents: number;
+  stage: ProspectHuntStage;
+  /** Progress within the current stage, for the bar. */
+  processed: number;
+  total: number;
+  audit: ProspectAudit | null;
   error: string | null;
   started_at: string;
   finished_at: string | null;
@@ -822,6 +875,8 @@ export interface ProspectCandidate {
   score: number | null;
   reasoning: string | null;
   checks: Record<string, unknown>;
+  /** Per-named-requirement verdicts: which one it met, which it missed. */
+  param_results: { id: string; label: string; pass: boolean; note: string }[];
   prospect_id: string | null;
   created_at: string;
   updated_at: string;
