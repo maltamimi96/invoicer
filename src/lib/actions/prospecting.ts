@@ -19,6 +19,7 @@ import { getPlacesKey, resolvePlacesKey, runHunt, type HuntRow, type RunResult }
 import { prospectingSpendStatus, type SpendStatus } from "@/lib/prospecting/budget";
 import type {
   ProspectHunt, ProspectHuntRun, ProspectCandidate, ProspectHuntFilters,
+  ProspectHuntParam, ProspectHuntSuburb, ProspectHuntAreaMode, ProspectHuntEvent,
 } from "@/types/database";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -42,7 +43,28 @@ export interface HuntInput {
   centre_lng?: number | null;
   radius_km?: number;
   filters?: ProspectHuntFilters;
+  /** How many verified prospects a run should aim for (1-100). */
+  target_count?: number;
+  area_mode?: ProspectHuntAreaMode;
+  /** Named areas, geocoded on save so a run never pays to look them up. */
+  suburb_labels?: string[];
+  custom_params?: ProspectHuntParam[];
   active?: boolean;
+}
+
+const clampTarget = (n?: number) => Math.min(Math.max(Math.round(n ?? 20), 1), 100);
+
+/** Give every param a stable id — the verifier answers by id, not by label. */
+function normaliseParams(params: ProspectHuntParam[]): ProspectHuntParam[] {
+  return params
+    .filter((p) => p.label?.trim() && p.requirement?.trim())
+    .slice(0, 12)
+    .map((p, i) => ({
+      id: p.id?.trim() || `p${i + 1}`,
+      label: p.label.trim().slice(0, 60),
+      requirement: p.requirement.trim().slice(0, 400),
+      required: Boolean(p.required),
+    }));
 }
 
 // ── Hunts ───────────────────────────────────────────────────────────────────
@@ -76,6 +98,29 @@ async function resolveArea(
   return key ? geocodeArea(key, label) : null;
 }
 
+/**
+ * Geocode each named suburb once, at save time.
+ *
+ * Doing it per run would bill a Places request per suburb per run for an
+ * answer that never changes. A suburb that can't be found is kept with null
+ * coordinates so the operator can see it was dropped, rather than silently
+ * vanishing from their service area.
+ */
+async function geocodeSuburbs(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any, businessId: string, labels: string[],
+): Promise<ProspectHuntSuburb[]> {
+  const key = await getPlacesKey(supabase, businessId);
+  const out: ProspectHuntSuburb[] = [];
+  for (const raw of labels.slice(0, 25)) {
+    const label = raw.trim();
+    if (!label) continue;
+    const found = key ? await geocodeArea(key, label) : null;
+    out.push({ label, lat: found?.lat ?? null, lng: found?.lng ?? null, radius_m: 5000 });
+  }
+  return out;
+}
+
 export async function createHunt(input: HuntInput): Promise<ProspectHunt> {
   const { supabase, user, businessId } = await ctx();
 
@@ -98,6 +143,12 @@ export async function createHunt(input: HuntInput): Promise<ProspectHunt> {
     centre_lng: lng,
     radius_m: Math.round(Math.min(Math.max(input.radius_km ?? 25, 1), 50) * 1000),
     filters: input.filters ?? {},
+    target_count: clampTarget(input.target_count),
+    area_mode: input.area_mode ?? "radius",
+    suburbs: input.area_mode === "suburbs" && input.suburb_labels?.length
+      ? await geocodeSuburbs(supabase, businessId, input.suburb_labels)
+      : [],
+    custom_params: normaliseParams(input.custom_params ?? []),
     active: input.active ?? true,
   }).select().single();
   if (error) throw error;
@@ -115,6 +166,12 @@ export async function updateHunt(id: string, input: Partial<HuntInput>): Promise
   if (input.criteria !== undefined) patch.criteria = input.criteria.trim();
   if (input.filters !== undefined) patch.filters = input.filters;
   if (input.active !== undefined) patch.active = input.active;
+  if (input.target_count !== undefined) patch.target_count = clampTarget(input.target_count);
+  if (input.area_mode !== undefined) patch.area_mode = input.area_mode;
+  if (input.custom_params !== undefined) patch.custom_params = normaliseParams(input.custom_params);
+  if (input.suburb_labels !== undefined) {
+    patch.suburbs = await geocodeSuburbs(supabase, businessId, input.suburb_labels);
+  }
   if (input.radius_km !== undefined) {
     patch.radius_m = Math.round(Math.min(Math.max(input.radius_km, 1), 50) * 1000);
   }
@@ -149,6 +206,14 @@ export async function deleteHunt(id: string): Promise<void> {
 
 // ── Runs ────────────────────────────────────────────────────────────────────
 
+/**
+ * Run a hunt synchronously and wait for it.
+ *
+ * Kept for MCP and any caller that genuinely wants the finished result in
+ * hand. The UI does NOT use this — it POSTs to /api/prospecting/run and polls,
+ * because a hunt takes minutes and a blocking call is a spinner with no
+ * information, plus anything past the function limit loses its results.
+ */
 export async function runHuntNow(id: string): Promise<RunResult> {
   const { supabase, businessId } = await ctx();
   const { data: hunt, error } = await tbl(supabase, "prospect_hunts").select("*")
@@ -160,6 +225,54 @@ export async function runHuntNow(id: string): Promise<RunResult> {
   revalidatePath("/prospects/hunts");
   revalidatePath(`/prospects/hunts/${id}`);
   return result;
+}
+
+export interface RunProgress {
+  run: ProspectHuntRun | null;
+  events: ProspectHuntEvent[];
+  /** New candidates already queued by this run, so the queue fills live. */
+  verified: ProspectCandidate[];
+}
+
+/**
+ * One poll of a running hunt: the run row (stage + counters), the events since
+ * the last one the client saw, and whatever has been verified so far.
+ *
+ * `sinceIso` rather than an offset — events are append-only and timestamped,
+ * so the client can ask for "anything newer than the last line I have" without
+ * the server tracking cursors.
+ */
+export async function getRunProgress(runId: string, sinceIso?: string): Promise<RunProgress> {
+  const { supabase, businessId } = await ctx();
+
+  const { data: run } = await tbl(supabase, "prospect_hunt_runs").select("*")
+    .eq("id", runId).eq("business_id", businessId).maybeSingle();
+  if (!run) return { run: null, events: [], verified: [] };
+
+  let q = tbl(supabase, "prospect_hunt_events").select("*")
+    .eq("run_id", runId).eq("business_id", businessId)
+    .order("created_at", { ascending: true }).limit(300);
+  if (sinceIso) q = q.gt("created_at", sinceIso);
+  const { data: events } = await q;
+
+  const { data: verified } = await tbl(supabase, "prospect_candidates").select("*")
+    .eq("run_id", runId).eq("business_id", businessId).eq("status", "verified")
+    .order("score", { ascending: false, nullsFirst: false }).limit(100);
+
+  return {
+    run: run as ProspectHuntRun,
+    events: (events ?? []) as ProspectHuntEvent[],
+    verified: (verified ?? []) as ProspectCandidate[],
+  };
+}
+
+/** The most recent run for a hunt — so a reopened page rejoins one in flight. */
+export async function getLatestRun(huntId: string): Promise<ProspectHuntRun | null> {
+  const { supabase, businessId } = await ctx();
+  const { data } = await tbl(supabase, "prospect_hunt_runs").select("*")
+    .eq("hunt_id", huntId).eq("business_id", businessId)
+    .order("started_at", { ascending: false }).limit(1).maybeSingle();
+  return (data as ProspectHuntRun) ?? null;
 }
 
 export async function listHuntRuns(huntId: string, limit = 20): Promise<ProspectHuntRun[]> {

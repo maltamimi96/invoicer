@@ -23,6 +23,9 @@ import {
 } from "@/components/ui/dialog";
 import { Target, Plus, MapPin, Search, Globe, Star } from "@/components/ui/icons";
 import { createHunt, setProspectingBudget } from "@/lib/actions/prospecting";
+import {
+  HuntBuilder, emptyDraft, validateDraft, type HuntDraft,
+} from "@/components/prospects/hunt-builder";
 import type { SpendStatus } from "@/lib/prospecting/budget";
 import type { ProspectHunt } from "@/types/database";
 
@@ -111,28 +114,27 @@ export function HuntsView({ hunts, pendingReview, budget, canHunt }: Props) {
   const { run, pending } = useMutation();
   const [open, setOpen] = useState(false);
 
-  const [name, setName] = useState("");
-  const [queries, setQueries] = useState("");
-  const [criteria, setCriteria] = useState("");
-  const [area, setArea] = useState("");
-  const [radius, setRadius] = useState("25");
-  const [noWebsite, setNoWebsite] = useState(false);
-  const [requirePhone, setRequirePhone] = useState(true);
+  const [draft, setDraft] = useState<HuntDraft>(emptyDraft);
 
   function handleCreate() {
-    const terms = queries.split(/[,\n]/).map((q) => q.trim()).filter(Boolean);
-    if (!name.trim()) { toast.error("Give the hunt a name"); return; }
-    if (!terms.length) { toast.error("Add at least one search term"); return; }
-    if (!criteria.trim()) { toast.error("Describe what makes a business a prospect"); return; }
+    const problem = validateDraft(draft);
+    if (problem) { toast.error(problem); return; }
 
     void run(async () => {
       await createHunt({
-        name, queries: terms, criteria, area,
-        radius_km: Number(radius) || 25,
-        filters: { no_website: noWebsite || undefined, require_phone: requirePhone || undefined },
+        name: draft.name,
+        queries: draft.queries,
+        criteria: draft.criteria,
+        target_count: draft.target_count,
+        area_mode: draft.area_mode,
+        area: draft.area,
+        radius_km: draft.radius_km,
+        suburb_labels: draft.suburb_labels,
+        custom_params: draft.custom_params,
+        filters: draft.filters,
       });
       setOpen(false);
-      setName(""); setQueries(""); setCriteria(""); setArea("");
+      setDraft(emptyDraft());
     }, { busy: "Creating hunt…", success: "Hunt created", error: "Couldn't create the hunt" });
   }
 
@@ -215,7 +217,7 @@ export function HuntsView({ hunts, pendingReview, budget, canHunt }: Props) {
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
           <DialogHeader>
             <DialogTitle>New hunt</DialogTitle>
             <DialogDescription>
@@ -223,59 +225,7 @@ export function HuntsView({ hunts, pendingReview, budget, canHunt }: Props) {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="hunt-name">Name</Label>
-              <Input id="hunt-name" value={name} onChange={(e) => setName(e.target.value)}
-                placeholder="Western Sydney tradies" />
-            </div>
-
-            <div>
-              <Label htmlFor="hunt-queries">Search terms</Label>
-              <Textarea id="hunt-queries" rows={2} value={queries} onChange={(e) => setQueries(e.target.value)}
-                placeholder="plumber, electrician, roofing contractor" />
-              <p className="mt-1 text-xs text-muted-foreground">
-                One per line or comma-separated. These go to Google as-is.
-              </p>
-            </div>
-
-            <div>
-              <Label htmlFor="hunt-criteria">What makes them a prospect?</Label>
-              <Textarea id="hunt-criteria" rows={3} value={criteria} onChange={(e) => setCriteria(e.target.value)}
-                placeholder="Service-based tradies who look like owner-operators or small crews — not franchises or national chains." />
-              <p className="mt-1 text-xs text-muted-foreground">
-                Plain English. An agent reads every listing and judges it against this.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label htmlFor="hunt-area">Area</Label>
-                <Input id="hunt-area" value={area} onChange={(e) => setArea(e.target.value)}
-                  placeholder="Parramatta NSW" />
-              </div>
-              <div>
-                <Label htmlFor="hunt-radius">Radius (km)</Label>
-                <Input id="hunt-radius" type="number" min={1} max={50} value={radius}
-                  onChange={(e) => setRadius(e.target.value)} />
-              </div>
-            </div>
-
-            <div className="space-y-2 rounded-lg border border-border p-3">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Hard filters — applied before anything is judged
-              </p>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={noWebsite} onChange={(e) => setNoWebsite(e.target.checked)} />
-                Only businesses with no real website
-                <span className="text-xs text-muted-foreground">(a Facebook page doesn&apos;t count)</span>
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={requirePhone} onChange={(e) => setRequirePhone(e.target.checked)} />
-                Must have a phone number
-              </label>
-            </div>
-          </div>
+          <HuntBuilder draft={draft} onChange={setDraft} />
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)} disabled={pending}>Cancel</Button>

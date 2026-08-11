@@ -13,5 +13,17 @@ export default async function HuntPage({ params }: { params: Promise<{ id: strin
     listCandidates({ hunt_id: id, status: "verified" }),
   ]);
 
-  return <HuntDetail hunt={hunt} runs={runs} candidates={candidates} />;
+  // A run started in another tab (or before a reload) is rejoined rather than
+  // orphaned — the work continues server-side either way, so the page should
+  // pick the progress back up instead of pretending nothing is happening.
+  const active = runs.find((r) => r.status === "running") ?? null;
+
+  return (
+    <HuntDetail
+      hunt={hunt}
+      runs={runs}
+      candidates={candidates}
+      activeRunId={active?.id ?? null}
+    />
+  );
 }

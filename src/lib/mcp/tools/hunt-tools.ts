@@ -23,11 +23,47 @@ const FILTERS = z.object({
   require_phone: z.boolean().optional(),
 });
 
+const PARAMS = z.array(z.object({
+  id: z.string().optional(),
+  label: z.string().min(1).describe("Short name, e.g. 'Owner-operator'"),
+  requirement: z.string().min(1).describe("What to check, in plain words"),
+  required: z.boolean().optional().describe("A failure here disqualifies the business outright"),
+})).max(12);
+
 const CANDIDATE_STATUS = z.enum([
   "pending", "screened_out", "verified", "rejected", "added", "dismissed",
 ]);
 
 const clean = (v?: string) => (v?.trim() ? v.trim() : null);
+
+/** Stable ids — the verifier answers by id, not by label. */
+function normaliseParams(
+  params: { id?: string; label: string; requirement: string; required?: boolean }[],
+) {
+  return params.map((p, i) => ({
+    id: p.id?.trim() || `p${i + 1}`,
+    label: p.label.trim().slice(0, 60),
+    requirement: p.requirement.trim().slice(0, 400),
+    required: Boolean(p.required),
+  }));
+}
+
+/**
+ * Geocode named suburbs once, at save time — doing it per run would bill a
+ * Places request per suburb per run for an answer that never changes.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function geocodeSuburbs(sb: any, businessId: string, labels: string[]) {
+  const key = await getPlacesKey(sb, businessId);
+  const out = [];
+  for (const raw of labels) {
+    const label = raw.trim();
+    if (!label) continue;
+    const found = key ? await geocodeArea(key, label) : null;
+    out.push({ label, lat: found?.lat ?? null, lng: found?.lng ?? null, radius_m: 5000 });
+  }
+  return out;
+}
 const radiusM = (km?: number) => Math.round(Math.min(Math.max(km ?? 25, 1), 50) * 1000);
 
 export function registerHuntTools(tool: ToolFn): void {
@@ -54,6 +90,13 @@ export function registerHuntTools(tool: ToolFn): void {
       centre_lng: z.number().optional(),
       radius_km: z.number().min(1).max(50).optional(),
       filters: FILTERS.optional(),
+      target_count: z.number().int().min(1).max(100).optional()
+        .describe("How many verified prospects this run should aim for. The run stops there."),
+      area_mode: z.enum(["radius", "suburbs"]).optional(),
+      suburbs: z.array(z.string()).max(25).optional()
+        .describe("Named suburbs, each searched separately. Used when area_mode = suburbs."),
+      custom_params: PARAMS.optional()
+        .describe("Named requirements judged one by one, so a rejection says which failed."),
     },
     async (args, extra) => {
       const ctx = ctxFrom(extra); assertScope(ctx, "prospects:write");
@@ -78,6 +121,12 @@ export function registerHuntTools(tool: ToolFn): void {
         centre_lng: lng,
         radius_m: radiusM(args.radius_km),
         filters: args.filters ?? {},
+        target_count: args.target_count ?? 20,
+        area_mode: args.area_mode ?? "radius",
+        suburbs: args.area_mode === "suburbs"
+          ? await geocodeSuburbs(ctx.sb, ctx.businessId, args.suburbs ?? [])
+          : [],
+        custom_params: normaliseParams(args.custom_params ?? []),
       }).select("id").single();
       if (error) throw error;
 
@@ -102,6 +151,10 @@ export function registerHuntTools(tool: ToolFn): void {
       centre_lng: z.number().optional(),
       radius_km: z.number().min(1).max(50).optional(),
       filters: FILTERS.optional(),
+      target_count: z.number().int().min(1).max(100).optional(),
+      area_mode: z.enum(["radius", "suburbs"]).optional(),
+      suburbs: z.array(z.string()).max(25).optional(),
+      custom_params: PARAMS.optional(),
       active: z.boolean().optional(),
     },
     async (args, extra) => {
@@ -113,6 +166,12 @@ export function registerHuntTools(tool: ToolFn): void {
       if (args.filters !== undefined) patch.filters = args.filters;
       if (args.active !== undefined) patch.active = args.active;
       if (args.radius_km !== undefined) patch.radius_m = radiusM(args.radius_km);
+      if (args.target_count !== undefined) patch.target_count = args.target_count;
+      if (args.area_mode !== undefined) patch.area_mode = args.area_mode;
+      if (args.custom_params !== undefined) patch.custom_params = normaliseParams(args.custom_params);
+      if (args.suburbs !== undefined) {
+        patch.suburbs = await geocodeSuburbs(ctx.sb, ctx.businessId, args.suburbs);
+      }
       if (args.centre_lat !== undefined) patch.centre_lat = args.centre_lat;
       if (args.centre_lng !== undefined) patch.centre_lng = args.centre_lng;
       if (args.area !== undefined) {
@@ -153,7 +212,8 @@ export function registerHuntTools(tool: ToolFn): void {
       return text(result);
     });
 
-  tool("list_prospect_hunt_runs", "Run history for a hunt, with the funnel counts and what each run cost.",
+  tool("list_prospect_hunt_runs",
+    "Run history for a hunt: the funnel counts, what each run cost, and the audit agent's verdict on WHY a run under-delivered (`audit.problems`, each with a concrete fix).",
     { hunt_id: UUID, limit: z.number().int().min(1).max(100).optional() },
     async (args, extra) => {
       const ctx = ctxFrom(extra); assertScope(ctx, "prospects:read");
