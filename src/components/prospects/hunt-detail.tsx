@@ -89,6 +89,10 @@ export function HuntDetail({ hunt, runs, candidates }: Props) {
           <div className="ch-stat"><span>Filtered out</span><strong>{last.screened_out}</strong></div>
           <div className="ch-stat"><span>Not a fit</span><strong>{last.rejected}</strong></div>
           <div className="ch-stat"><span>To review</span><strong>{last.verified}</strong></div>
+          <div className="ch-stat">
+            <span>Cost</span>
+            <strong>${(Number(last.cost_cents) / 100).toFixed(2)}</strong>
+          </div>
         </div>
       )}
 

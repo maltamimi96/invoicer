@@ -790,7 +790,11 @@ export interface ProspectHuntRun {
   screened_out: number;
   verified: number;
   rejected: number;
+  /** Total for the run: places_cost_cents + model_cost_cents. */
   cost_cents: number;
+  places_requests: number;
+  places_cost_cents: number;
+  model_cost_cents: number;
   error: string | null;
   started_at: string;
   finished_at: string | null;

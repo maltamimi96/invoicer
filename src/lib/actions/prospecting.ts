@@ -15,7 +15,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { getUser } from "@/lib/auth";
 import { geocodeArea } from "@/lib/prospecting/places";
-import { getPlacesKey, runHunt, type HuntRow, type RunResult } from "@/lib/prospecting/run";
+import { getPlacesKey, resolvePlacesKey, runHunt, type HuntRow, type RunResult } from "@/lib/prospecting/run";
+import { prospectingSpendStatus, type SpendStatus } from "@/lib/prospecting/budget";
 import type {
   ProspectHunt, ProspectHuntRun, ProspectCandidate, ProspectHuntFilters,
 } from "@/types/database";
@@ -168,6 +169,29 @@ export async function listHuntRuns(huntId: string, limit = 20): Promise<Prospect
     .order("started_at", { ascending: false }).limit(limit);
   if (error) throw error;
   return (data ?? []) as ProspectHuntRun[];
+}
+
+// ── Budget ──────────────────────────────────────────────────────────────────
+
+/**
+ * This month's prospecting spend against the cap, plus whose Places key is
+ * paying. The UI needs both: a cap only makes sense to someone who can see
+ * what they've spent, and "whose key" changes whether the cap applies at all.
+ */
+export async function getProspectingBudget(): Promise<SpendStatus> {
+  const { supabase, businessId } = await ctx();
+  const { platform } = await resolvePlacesKey(supabase, businessId);
+  return prospectingSpendStatus(supabase, businessId, { usingPlatformKey: platform });
+}
+
+export async function setProspectingBudget(cents: number): Promise<{ budget_cents: number }> {
+  const { supabase, businessId } = await ctx();
+  const value = Math.max(0, Math.round(cents));
+  const { error } = await tbl(supabase, "businesses")
+    .update({ prospecting_monthly_budget_cents: value }).eq("id", businessId);
+  if (error) throw error;
+  revalidatePath("/prospects/hunts");
+  return { budget_cents: value };
 }
 
 // ── The review queue ────────────────────────────────────────────────────────

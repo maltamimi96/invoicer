@@ -10,7 +10,8 @@ import { z } from "zod";
 import { assertScope, t, text, errorText } from "../context";
 import { ctxFrom, UUID, type ToolFn } from "./shared";
 import { geocodeArea } from "@/lib/prospecting/places";
-import { getPlacesKey, runHunt, type HuntRow } from "@/lib/prospecting/run";
+import { getPlacesKey, resolvePlacesKey, runHunt, type HuntRow } from "@/lib/prospecting/run";
+import { prospectingSpendStatus } from "@/lib/prospecting/budget";
 
 const FILTERS = z.object({
   no_website: z.boolean().optional(),
@@ -161,6 +162,26 @@ export function registerHuntTools(tool: ToolFn): void {
         .order("started_at", { ascending: false }).limit(args.limit ?? 20);
       if (error) throw error;
       return text(data);
+    });
+
+  tool("get_prospecting_budget",
+    "This month's prospecting spend (Places searches + verification) against the monthly cap, and whether hunts are running on Kirei's shared Google Places key or the business's own.",
+    {},
+    async (_args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "prospects:read");
+      const { platform } = await resolvePlacesKey(ctx.sb, ctx.businessId);
+      return text(await prospectingSpendStatus(ctx.sb, ctx.businessId, { usingPlatformKey: platform }));
+    });
+
+  tool("set_prospecting_budget",
+    "Set the monthly prospecting cap in cents (0 = unlimited). Hunts stop once the month's spend reaches it. Only applies while using Kirei's shared Places key — a business paying Google directly is capped by its own Cloud quota.",
+    { cents: z.number().int().min(0) },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "prospects:write");
+      const { error } = await t(ctx, "businesses")
+        .update({ prospecting_monthly_budget_cents: args.cents }).eq("id", ctx.businessId);
+      if (error) throw error;
+      return text({ budget_cents: args.cents });
     });
 
   tool("list_prospect_candidates",

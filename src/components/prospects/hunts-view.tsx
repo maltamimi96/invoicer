@@ -22,16 +22,92 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import { Target, Plus, MapPin, Search, Globe, Star } from "@/components/ui/icons";
-import { createHunt } from "@/lib/actions/prospecting";
+import { createHunt, setProspectingBudget } from "@/lib/actions/prospecting";
+import type { SpendStatus } from "@/lib/prospecting/budget";
 import type { ProspectHunt } from "@/types/database";
 
 interface Props {
   hunts: ProspectHunt[];
   pendingReview: number;
-  hasPlacesKey: boolean;
+  budget: SpendStatus;
+  /** A Places key is available — the business's own, or Kirei's. */
+  canHunt: boolean;
 }
 
-export function HuntsView({ hunts, pendingReview, hasPlacesKey }: Props) {
+const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+
+/**
+ * Spend against the cap.
+ *
+ * Shown only when hunts run on Kirei's shared key — that's the only case where
+ * a cap is doing anything. A business paying Google on its own key is already
+ * capped by its own Cloud quota, and showing them a Kirei budget would imply
+ * we're rationing money that isn't ours to ration.
+ */
+function BudgetCard({ budget }: { budget: SpendStatus }) {
+  const { run, pending } = useMutation();
+  const [editing, setEditing] = useState(false);
+  const [dollars, setDollars] = useState((budget.budgetCents / 100).toFixed(2));
+
+  if (!budget.usingPlatformKey) return null;
+
+  const unlimited = budget.budgetCents === 0;
+  const pct = unlimited ? 0 : Math.min(100, (budget.spentCents / budget.budgetCents) * 100);
+
+  function save() {
+    const cents = Math.round(Number(dollars) * 100);
+    if (!Number.isFinite(cents) || cents < 0) { toast.error("Enter an amount"); return; }
+    void run(() => setProspectingBudget(cents), {
+      busy: "Saving budget…", success: "Budget updated", error: "Couldn't save",
+    }).then(() => setEditing(false));
+  }
+
+  return (
+    <div className="mb-4 rounded-xl border border-border bg-card p-4 shadow-sm">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="text-sm font-medium">
+          {money(budget.spentCents)} spent this month
+          {!unlimited && <span className="text-muted-foreground"> of {money(budget.budgetCents)}</span>}
+        </p>
+        {editing ? (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">$</span>
+            <Input className="h-8 w-24" type="number" min={0} step="0.5"
+              value={dollars} onChange={(e) => setDollars(e.target.value)} />
+            <Button size="sm" onClick={save} disabled={pending}>Save</Button>
+            <Button size="sm" variant="outline" onClick={() => setEditing(false)} disabled={pending}>
+              Cancel
+            </Button>
+          </div>
+        ) : (
+          <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+            {unlimited ? "Set a cap" : "Change cap"}
+          </Button>
+        )}
+      </div>
+
+      {!unlimited && (
+        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+          <div
+            className={pct >= 100 ? "h-full bg-destructive" : "h-full bg-primary"}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      )}
+
+      <p className="mt-2 text-xs text-muted-foreground">
+        Hunts run on Kirei&apos;s Google Places key, so searching and verifying are metered.
+        {unlimited
+          ? " No cap set — hunts will keep running."
+          : " Hunts stop once the month's spend reaches the cap."}{" "}
+        Using your own key instead (<Link href="/outreach/settings" className="underline">Outreach settings</Link>)
+        removes the cap and bills Google directly.
+      </p>
+    </div>
+  );
+}
+
+export function HuntsView({ hunts, pendingReview, budget, canHunt }: Props) {
   const { run, pending } = useMutation();
   const [open, setOpen] = useState(false);
 
@@ -72,15 +148,17 @@ export function HuntsView({ hunts, pendingReview, hasPlacesKey }: Props) {
         }
       />
 
-      {!hasPlacesKey && (
+      {!canHunt && (
         <div className="ch-empty mb-4 border-amber-300 bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
-          <p className="font-medium">A Google Places API key is needed to run hunts.</p>
+          <p className="font-medium">No Google Places key is available, so hunts can&apos;t search.</p>
           <p className="text-sm mt-1">
-            Hunts search Google directly, so the key — and its billing — stay yours.
-            Add one under <Link href="/outreach/settings" className="underline">Outreach settings</Link>.
+            Add your own under <Link href="/outreach/settings" className="underline">Outreach settings</Link>,
+            or ask an admin to configure Kirei&apos;s.
           </p>
         </div>
       )}
+
+      {canHunt && <BudgetCard budget={budget} />}
 
       {pendingReview > 0 && (
         <Link
