@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { ensureContactForLead, markContactAsClient } from "./promote";
+import { ensureContactForLead, markContactAsClient, findExistingContact } from "./promote";
 
 /**
  * A fake just rich enough for these two functions: chained filters collect
@@ -225,5 +225,52 @@ describe("the pipeline follows the money", () => {
     const res = await ensureContactForLead(sb, BIZ, "L1");
     expect(state.leads.L1.status).toBe("won");
     expect(state.leads.L1.customer_id).toBe(res.customerId);
+  });
+});
+
+describe("findExistingContact", () => {
+  // The duplication bug: two code paths, two different answers to "do we
+  // already have this person". Five duplicate groups in production.
+  const BIZ2 = "biz-1";
+
+  it("matches on email, case-insensitively", async () => {
+    const { sb } = makeSb({
+      leads: {},
+      customers: { C1: { id: "C1", business_id: BIZ2, email: "hi@acme.com" } },
+    });
+    expect(await findExistingContact(sb, BIZ2, { email: "HI@Acme.com" })).toBe("C1");
+  });
+
+  it("matches on phone when there is no email at all", async () => {
+    // 71 of 151 real contacts have no email. Email-only matching cannot help
+    // them, and phone alone found twice as many duplicate groups.
+    const { sb } = makeSb({
+      leads: {},
+      customers: { C1: { id: "C1", business_id: BIZ2, phone_digits: "490688630" } },
+    });
+    expect(await findExistingContact(sb, BIZ2, { phone: "+61 490 688 630" })).toBe("C1");
+    expect(await findExistingContact(sb, BIZ2, { phone: "0490 688 630" })).toBe("C1");
+  });
+
+  it("ignores a phone too short to be one", async () => {
+    const { sb } = makeSb({ leads: {}, customers: { C1: { id: "C1", business_id: BIZ2, phone_digits: "123" } } });
+    expect(await findExistingContact(sb, BIZ2, { phone: "123" })).toBeNull();
+  });
+
+  it("returns null for someone genuinely new", async () => {
+    const { sb } = makeSb({
+      leads: {},
+      customers: { C1: { id: "C1", business_id: BIZ2, email: "hi@acme.com", phone_digits: "490688630" } },
+    });
+    expect(await findExistingContact(sb, BIZ2, { email: "new@example.com", phone: "0400 000 111" })).toBeNull();
+  });
+
+  it("does not reach across businesses", async () => {
+    // Matching another tenant's contact would be worse than a duplicate.
+    const { sb } = makeSb({
+      leads: {},
+      customers: { C1: { id: "C1", business_id: "other-biz", email: "hi@acme.com" } },
+    });
+    expect(await findExistingContact(sb, BIZ2, { email: "hi@acme.com" })).toBeNull();
   });
 });

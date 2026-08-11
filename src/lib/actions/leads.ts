@@ -11,6 +11,7 @@ import { createWorkOrder } from "@/lib/actions/work-orders";
 import type { Lead, LeadStatus, LeadNote, LeadTagPreset } from "@/types/database";
 
 import { getUser } from "@/lib/auth";
+import { findExistingContact } from "@/lib/leads/promote";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tbl = (sb: any, name: string) => sb.from(name);
 
@@ -261,8 +262,25 @@ export async function deleteLeadNote(noteId: string): Promise<void> {
 
 // ── Pipeline conversions ────────────────────────────────────────────────────
 
+/**
+ * The customer record for a lead.
+ *
+ * Checks for an existing contact BEFORE creating one. It did not, which is
+ * how "To customer" produced a second record for someone who already had a
+ * contact from being quoted — the two paths disagreed about whether to look.
+ * Both now share findExistingContact.
+ */
 async function ensureCustomerForLead(lead: Lead): Promise<string> {
   if (lead.customer_id) return lead.customer_id;
+
+  const supabase = await createClient();
+  const user = await getUser();
+  const businessId = await getActiveBizId(supabase, user.id);
+  const existing = await findExistingContact(supabase, businessId, {
+    email: lead.email, phone: lead.phone,
+  });
+  if (existing) return existing;
+
   const customer = await createCustomer({
     name: lead.name,
     email: lead.email ?? null,

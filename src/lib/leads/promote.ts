@@ -47,6 +47,45 @@ export interface LeadContactResult {
 }
 
 /**
+ * An existing contact for this person, or null.
+ *
+ * ONE matcher, shared by every path that turns a lead into a billable
+ * contact. There used to be two: this module matched on email, and
+ * `ensureCustomerForLead` in actions/leads.ts matched on nothing at all — so
+ * quoting a lead reused their contact while converting the same lead made a
+ * second one. Five duplicate groups in production came from that split.
+ *
+ * Email first, then phone. `customers.phone_digits` is a GENERATED column —
+ * the last 9 digits with non-digits stripped — so "+61 490 688 630" and
+ * "0490 688 630" match each other without any normalising here.
+ *
+ * Phone matters more than it looks: 71 of 151 contacts have no email at all,
+ * and phone alone found twice as many duplicate groups as email did.
+ */
+export async function findExistingContact(
+  sb: Sb, businessId: string,
+  person: { email?: string | null; phone?: string | null },
+): Promise<string | null> {
+  const email = (person.email ?? "").trim().toLowerCase();
+  if (email) {
+    const { data } = await tbl(sb, "customers")
+      .select("id").eq("business_id", businessId).ilike("email", email)
+      .limit(1).maybeSingle();
+    if (data?.id) return data.id;
+  }
+
+  // Same rule as the generated column, so we compare like with like.
+  const digits = (person.phone ?? "").replace(/\D/g, "").slice(-9);
+  if (digits.length >= 6) {   // shorter than that isn't a phone number
+    const { data } = await tbl(sb, "customers")
+      .select("id").eq("business_id", businessId).eq("phone_digits", digits)
+      .limit(1).maybeSingle();
+    if (data?.id) return data.id;
+  }
+  return null;
+}
+
+/**
  * The contact row for a lead, creating it if this is the first document.
  *
  * Idempotent: a lead that already has customer_id gets that row back, so
@@ -67,17 +106,13 @@ export async function ensureContactForLead(
 
   if (lead.customer_id) return { customerId: lead.customer_id, created: false };
 
-  // Reuse an existing contact with the same email before creating one. A lead
-  // captured from a form and a client typed in by hand are regularly the same
-  // person, and quoting the lead should not fork them.
-  const email = (lead.email ?? "").trim().toLowerCase();
-  if (email) {
-    const { data: match } = await tbl(sb, "customers")
-      .select("id").eq("business_id", businessId).ilike("email", email).limit(1).maybeSingle();
-    if (match?.id) {
-      await tbl(sb, "leads").update({ customer_id: match.id }).eq("id", leadId);
-      return { customerId: match.id, created: false };
-    }
+  // Reuse an existing contact before creating one. A lead captured from a form
+  // and a client typed in by hand are regularly the same person, and quoting
+  // the lead should not fork them.
+  const existing = await findExistingContact(sb, businessId, lead);
+  if (existing) {
+    await tbl(sb, "leads").update({ customer_id: existing }).eq("id", leadId);
+    return { customerId: existing, created: false };
   }
 
   const { data: created, error: insErr } = await tbl(sb, "customers").insert({
