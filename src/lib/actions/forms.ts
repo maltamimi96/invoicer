@@ -164,12 +164,44 @@ export async function getFormSubmissions(formId: string): Promise<SubmissionRow[
   return (data ?? []) as SubmissionRow[];
 }
 
+/** A submission plus the form it came from — enough to render it standalone. */
+export interface SubmissionWithForm extends SubmissionRow {
+  public_forms?: { id: string; name: string; schema: OnboardingField[] } | null;
+}
+
+/**
+ * Every form's submissions in one list, newest first.
+ *
+ * The per-form view required opening the form's BUILDER to read replies, which
+ * put "read what someone sent me" behind "edit my form" — two different jobs,
+ * and the dangerous one guarding the routine one. This is the routine one.
+ *
+ * The form's schema rides along because answers are keyed by field id and
+ * there is no schema snapshot on `public_form_submissions`; labels have to
+ * come from the form as it stands today.
+ */
+export async function listAllFormSubmissions(formId?: string): Promise<SubmissionWithForm[]> {
+  const supabase = await createClient();
+  const user = await getUser();
+  const businessId = await getActiveBizId(supabase, user.id);
+
+  let q = tbl(supabase, "public_form_submissions")
+    .select("*, leads(id, name), public_forms(id, name, schema)")
+    .eq("business_id", businessId);
+  if (formId) q = q.eq("form_id", formId);
+
+  const { data, error } = await q.order("created_at", { ascending: false }).limit(500);
+  if (error) throw error;
+  return (data ?? []) as SubmissionWithForm[];
+}
+
 export async function deleteFormSubmission(id: string): Promise<void> {
   const supabase = await createClient();
   const user = await getUser();
   const businessId = await getActiveBizId(supabase, user.id);
   const { error } = await tbl(supabase, "public_form_submissions").delete().eq("id", id).eq("business_id", businessId);
   if (error) throw error;
+  revalidatePath("/forms");
 }
 
 /** Signed URL for a submission's uploaded file/image (private bucket). */
