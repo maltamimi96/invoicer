@@ -83,8 +83,9 @@ export async function searchPlaces(
   query: string,
   area: SearchArea,
   maxPages = 3,
-): Promise<{ hits: PlaceHit[]; error: string | null }> {
+): Promise<{ hits: PlaceHit[]; error: string | null; requests: number }> {
   const hits: PlaceHit[] = [];
+  let requests = 0;
   let pageToken: string | undefined;
 
   for (let page = 0; page < maxPages; page++) {
@@ -103,6 +104,10 @@ export async function searchPlaces(
     if (pageToken) body.pageToken = pageToken;
 
     let res: Response;
+    // Counted before the await: Google bills the request, not the response, so
+    // a call that times out still cost money. Under-counting here would let a
+    // flaky run slip past the budget.
+    requests++;
     try {
       res = await fetch("https://places.googleapis.com/v1/places:searchText", {
         method: "POST",
@@ -114,14 +119,14 @@ export async function searchPlaces(
         body: JSON.stringify(body),
       });
     } catch (e) {
-      return { hits, error: e instanceof Error ? e.message : "Places request failed" };
+      return { hits, requests, error: e instanceof Error ? e.message : "Places request failed" };
     }
 
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       // Surface Google's own message — "API key not valid" and "billing not
       // enabled" are the two everyone hits, and both are actionable.
-      return { hits, error: `Places ${res.status}: ${text.slice(0, 300)}` };
+      return { hits, requests, error: `Places ${res.status}: ${text.slice(0, 300)}` };
     }
 
     const json = await res.json().catch(() => ({}));
@@ -132,7 +137,7 @@ export async function searchPlaces(
     if (!pageToken) break;
   }
 
-  return { hits, error: null };
+  return { hits, requests, error: null };
 }
 
 /** Turn a place name into coordinates, so a hunt can be defined by suburb. */
