@@ -1,5 +1,5 @@
 export type AgentCategory = "productivity" | "leads" | "integrations" | "billing" | "communication";
-export type AgentBadge = "new" | "beta" | "coming-soon";
+export type AgentBadge = "new" | "beta";
 
 /**
  * configType controls what happens when a user clicks "Configure":
@@ -24,6 +24,19 @@ export interface AgentDefinition {
   badge?: AgentBadge;
 }
 
+/**
+ * What belongs in here: things that DO WORK ON THEIR OWN — on a schedule, or off
+ * a trigger, without anyone opening a page. A cron that emails overdue invoices
+ * is an agent. A form builder is not; that's a module you use, and it lives in
+ * the plugin registry.
+ *
+ * Two rules learned the hard way:
+ *   - Nothing ships here without an implementation. Four entries once sat in
+ *     production badged "coming soon" with not one line of code behind them.
+ *   - Nothing appears here AND in src/lib/plugins/registry.ts. Client
+ *     Onboarding and Form Builder were in both, so the same feature showed up
+ *     twice with two different mental models attached.
+ */
 export const AGENT_CATALOG: AgentDefinition[] = [
   // ── Productivity ────────────────────────────────────────────────────────────
   {
@@ -35,30 +48,6 @@ export const AGENT_CATALOG: AgentDefinition[] = [
     icon: "bot",
     category: "productivity",
     configType: "none",
-    badge: "new",
-  },
-  {
-    id: "client-onboarding",
-    name: "Client Onboarding",
-    description: "Build custom intake forms and send them to customers to complete.",
-    longDescription:
-      "Design your own onboarding form with a drag-and-drop builder — ABN, social accounts, opening hours, brand images, even securely-encrypted credentials — then send customers a link to fill it in. Answers are stored on the customer's profile. Enabling adds an Onboarding tab under Contacts.",
-    icon: "clipboard-list",
-    category: "productivity",
-    configType: "inline",
-    configPath: "/onboarding-forms",
-    badge: "new",
-  },
-  {
-    id: "form-builder",
-    name: "Form Builder",
-    description: "Build public lead-capture forms to share or embed on your website.",
-    longDescription:
-      "Design public forms with the drag-and-drop builder and share them via a link or embed them on any website with an iframe snippet. Every submission is captured, and can automatically create a lead in your sales pipeline. Enabling adds a Forms tab under Sales.",
-    icon: "list-checks",
-    category: "leads",
-    configType: "inline",
-    configPath: "/forms",
     badge: "new",
   },
   {
@@ -84,30 +73,6 @@ export const AGENT_CATALOG: AgentDefinition[] = [
     configType: "email-config",
     configPath: "/settings?tab=email",
   },
-  {
-    id: "lead-auto-response",
-    name: "Lead Auto-Response",
-    description: "Instantly reply to new leads with a personalised acknowledgement email.",
-    longDescription:
-      "When a new lead is created, automatically send them a warm acknowledgement email so they know you received their enquiry — reducing no-shows and building trust from the first contact.",
-    icon: "mail-check",
-    category: "leads",
-    configType: "inline",
-    badge: "coming-soon",
-  },
-  {
-    id: "customer-reengagement",
-    name: "Customer Re-engagement",
-    description: "Automatically reach out to customers who haven't booked in a while.",
-    longDescription:
-      "Identify dormant customers and send a personalised re-engagement email to bring them back. Configure how long since their last invoice before the agent triggers.",
-    icon: "user-round-check",
-    category: "leads",
-    configType: "inline",
-    badge: "coming-soon",
-  },
-
-  // ── Billing ─────────────────────────────────────────────────────────────────
   {
     id: "invoice-reminders",
     name: "Invoice Reminder Agent",
@@ -141,30 +106,6 @@ export const AGENT_CATALOG: AgentDefinition[] = [
     configType: "none",
   },
   {
-    id: "review-request",
-    name: "Review Request Agent",
-    description: "Ask customers for a review a few days after a job is completed.",
-    longDescription:
-      "Automatically send a review request email to customers 3–5 days after their work order is marked complete. Helps build your online reputation on autopilot.",
-    icon: "star",
-    category: "communication",
-    configType: "inline",
-    badge: "coming-soon",
-  },
-  {
-    id: "telegram-bot",
-    name: "Telegram Bot",
-    description: "Receive lead notifications and manage your business via Telegram.",
-    longDescription:
-      "Connect a Telegram bot to get instant lead alerts and send commands to your business AI directly from the Telegram app.",
-    icon: "send",
-    category: "communication",
-    configType: "inline",
-    badge: "coming-soon",
-  },
-
-  // ── Integrations ────────────────────────────────────────────────────────────
-  {
     id: "api-agent",
     name: "External API Agent",
     description: "Expose your business AI via API for Telegram, SMS, and third-party apps.",
@@ -188,5 +129,4 @@ export const CATEGORY_LABELS: Record<AgentCategory, string> = {
 export const BADGE_LABELS: Record<AgentBadge, string> = {
   new: "New",
   beta: "Beta",
-  "coming-soon": "Coming Soon",
 };

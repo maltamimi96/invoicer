@@ -11,9 +11,10 @@ import {
   Zap, Newspaper, MailCheck, UserRoundCheck, FileClock, CheckCircle, Star, ClipboardList, ListChecks,
   LayoutDashboard, Users, Columns3, Users2, UserPlus, FileCheck, FileText, Repeat, FileStack,
   Wrench, CalendarDays, Package, MessageSquare, TrendingUp, Sparkles, Receipt, Boxes, Clock, Hammer, Target, DollarSign,
-  Megaphone,
+  Megaphone, Search, X,
 } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -136,6 +137,7 @@ export function AgentsStore({ installs: initialInstalls, pluginEnabled, activePr
   const { refresh } = useTrackedRefresh();
   const [installs, setInstalls] = useState<AgentInstall[]>(initialInstalls);
   const [activeCategory, setActiveCategory] = useState<AgentCategory | "all">("all");
+  const [search, setSearch] = useState("");
   const [uninstallTarget, setUninstallTarget] = useState<AgentDefinition | null>(null);
   const [modules, setModules] = useState<Record<string, boolean>>(pluginEnabled);
   const [presetTarget, setPresetTarget] = useState<IndustryPreset | null>(null);
@@ -174,10 +176,25 @@ export function AgentsStore({ installs: initialInstalls, pluginEnabled, activePr
 
   const installMap = new Map(installs.map((i) => [i.agent_id, i]));
 
-  const filtered =
-    activeCategory === "all"
-      ? AGENT_CATALOG
-      : AGENT_CATALOG.filter((a) => a.category === activeCategory);
+  // One search across BOTH catalogues. Someone hunting for "invoice" does not
+  // know or care whether the thing they want is filed as a module or an agent —
+  // asking them to guess which of two lists to look in is the search box's job
+  // to make unnecessary.
+  const query = search.trim().toLowerCase();
+  const matches = (name: string, description: string) =>
+    !query || `${name} ${description}`.toLowerCase().includes(query);
+
+  const filtered = AGENT_CATALOG
+    .filter((a) => activeCategory === "all" || a.category === activeCategory)
+    .filter((a) => matches(a.name, a.description));
+
+  // Groups whose modules all filtered out are dropped, so a search never leaves
+  // a heading standing over nothing.
+  const visibleGroups = MODULE_GROUPS
+    .map((g) => ({ ...g, modules: g.modules.filter((m) => matches(m.name, m.description)) }))
+    .filter((g) => g.modules.length > 0);
+
+  const hitCount = filtered.length + visibleGroups.reduce((n, g) => n + g.modules.length, 0);
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
@@ -274,8 +291,37 @@ export function AgentsStore({ installs: initialInstalls, pluginEnabled, activePr
           )}
         </div>
 
-        {/* Category filter */}
-        <div className="mt-5 flex flex-wrap gap-2">
+        {/* Search — spans modules and agents alike */}
+        <div className="mt-5 relative max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search modules and agents…"
+            className="pl-9 pr-9"
+            aria-label="Search modules and agents"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label="Clear search"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        {query && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            {hitCount === 0
+              ? `Nothing matches "${search.trim()}"`
+              : `${hitCount} ${hitCount === 1 ? "match" : "matches"} for "${search.trim()}"`}
+          </p>
+        )}
+
+        {/* Category filter — agents only, so it is hidden while searching */}
+        <div className={cn("mt-5 flex flex-wrap gap-2", query && "hidden")}>
           {ALL_CATEGORIES.map((cat) => (
             <button
               key={cat}
@@ -293,8 +339,9 @@ export function AgentsStore({ installs: initialInstalls, pluginEnabled, activePr
         </div>
       </div>
 
-      {/* Industry presets — one click to shape the whole app for a business type */}
-      <div className="mb-10">
+      {/* Industry presets — one click to shape the whole app for a business type.
+          Hidden mid-search: they are not things you search FOR. */}
+      <div className={cn("mb-10", query && "hidden")}>
         <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">Industry preset</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {INDUSTRY_PRESETS.map((preset) => {
@@ -336,9 +383,9 @@ export function AgentsStore({ installs: initialInstalls, pluginEnabled, activePr
 
       {/* Modules — grouped by the job they do, not by where they live in the
           code. A flat wall of thirty toggles told nobody what to turn on. */}
-      <div className="mb-10">
+      <div className={cn("mb-10", visibleGroups.length === 0 && "hidden")}>
         <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">Modules</h2>
-        {MODULE_GROUPS.map((group) => (
+        {visibleGroups.map((group) => (
         <div key={group.id} className="mb-6">
         <div className="mb-2.5">
           <p className="text-sm font-semibold">{group.label}</p>
@@ -377,13 +424,15 @@ export function AgentsStore({ installs: initialInstalls, pluginEnabled, activePr
         <p className="text-[11px] text-muted-foreground mt-2">Turning a module off only hides it — nothing is deleted, and re-enabling brings everything back.</p>
       </div>
 
-      <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">AI Agents</h2>
+      <h2 className={cn(
+        "text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3",
+        filtered.length === 0 && "hidden",
+      )}>AI Agents</h2>
       {/* Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.map((agent, i) => {
           const install = installMap.get(agent.id);
           const isInstalled = !!install;
-          const isComingSoon = agent.badge === "coming-soon";
 
           return (
             <motion.div
@@ -396,7 +445,6 @@ export function AgentsStore({ installs: initialInstalls, pluginEnabled, activePr
                 agent={agent}
                 install={install}
                 isInstalled={isInstalled}
-                isComingSoon={isComingSoon}
                 isPending={isPending}
                 onInstall={() => handleInstall(agent)}
                 onUninstall={() => setUninstallTarget(agent)}
@@ -482,7 +530,6 @@ interface AgentCardProps {
   agent: AgentDefinition;
   install: AgentInstall | undefined;
   isInstalled: boolean;
-  isComingSoon: boolean;
   isPending: boolean;
   onInstall: () => void;
   onUninstall: () => void;
@@ -494,7 +541,6 @@ function AgentCard({
   agent,
   install,
   isInstalled,
-  isComingSoon,
   isPending,
   onInstall,
   onUninstall,
@@ -507,8 +553,7 @@ function AgentCard({
     <div
       className={cn(
         "relative flex flex-col rounded-xl border bg-card p-5 gap-4 transition-shadow",
-        isComingSoon && "opacity-60",
-        isInstalled && !isComingSoon && "border-primary/30 shadow-sm"
+        isInstalled && "border-primary/30 shadow-sm"
       )}
     >
       {/* Status dot for installed agents */}
@@ -537,14 +582,9 @@ function AgentCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold text-sm">{agent.name}</span>
-            {agent.badge && agent.badge !== "coming-soon" && (
+            {agent.badge && (
               <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                 {BADGE_LABELS[agent.badge]}
-              </Badge>
-            )}
-            {isComingSoon && (
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                Coming Soon
               </Badge>
             )}
           </div>
@@ -561,9 +601,7 @@ function AgentCard({
 
       {/* Footer actions */}
       <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/60">
-        {isComingSoon ? (
-          <span className="text-xs text-muted-foreground">Available soon</span>
-        ) : isInstalled ? (
+        {isInstalled ? (
           <>
             {/* Enable / disable toggle */}
             <div className="flex items-center gap-2">
