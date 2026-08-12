@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { processAnswersForStorage, missingRequiredFields, invalidAnswerFields } from "@/lib/onboarding/answers";
+import { processAnswersForStorageSafe, missingRequiredFields, invalidAnswerFields } from "@/lib/onboarding/answers";
 import type { OnboardingField } from "@/types/database";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -50,27 +50,35 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     }
   }
 
-  let stored;
-  try {
-    stored = processAnswersForStorage(schema, merged);
-  } catch (e) {
-    // Secure field present but ONBOARDING_SECRET_KEY missing on the server.
-    const msg = e instanceof Error ? e.message : "Could not save secure fields";
-    return NextResponse.json({ error: msg }, { status: 500 });
+  // Encrypt what we can. A secure field that fails (server key missing or
+  // malformed) used to 500 the ENTIRE payload, so a client who filled in twenty
+  // fields and one credential lost all twenty and saw a server error naming an
+  // env var they can't do anything about.
+  const { stored, failed } = processAnswersForStorageSafe(schema, merged);
+
+  // A failed field is never written as plaintext, so re-instate whatever was
+  // already stored for it — otherwise a retry that fails again would also wipe
+  // a value saved successfully on an earlier pass.
+  for (const id of failed) {
+    const prior = (existing?.answers as Record<string, unknown> | undefined)?.[id];
+    if (prior !== undefined) stored[id] = prior as never;
   }
+
+  // Don't call a submission complete when part of it didn't save.
+  const submitting = Boolean(body.submit) && failed.length === 0;
 
   const nowIso = new Date().toISOString();
   const row = {
     business_id: link.business_id, request_id: id, form_id: request.form_id,
     customer_id: link.customer_id, answers: stored, schema_snapshot: schema,
-    draft: !body.submit, ...(body.submit ? { submitted_at: nowIso } : {}),
+    draft: !submitting, ...(submitting ? { submitted_at: nowIso } : {}),
   };
   const { error } = existing
     ? await tbl(sb, "onboarding_responses").update(row).eq("id", existing.id)
     : await tbl(sb, "onboarding_responses").insert(row);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  if (body.submit) {
+  if (submitting) {
     await tbl(sb, "onboarding_requests")
       .update({ status: "completed", completed_at: nowIso }).eq("id", id);
   } else if (request.status === "pending") {
@@ -78,5 +86,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
       .update({ status: "viewed", viewed_at: nowIso }).eq("id", id);
   }
 
-  return NextResponse.json({ ok: true, submitted: !!body.submit });
+  // Everything else is saved; report the fields that aren't so the client can
+  // highlight them. 422 rather than 500 — the payload was fine, one field
+  // couldn't be secured, and that is a fixable state, not a crash.
+  if (failed.length > 0) {
+    return NextResponse.json({
+      error: "Secure fields couldn't be saved — everything else was. Please re-enter them.",
+      failed,
+      saved: true,
+    }, { status: 422 });
+  }
+
+  return NextResponse.json({ ok: true, submitted: submitting });
 }

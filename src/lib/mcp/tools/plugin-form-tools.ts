@@ -322,6 +322,13 @@ export function registerPluginFormTools(tool: ToolFn): void {
     async (args, extra) => {
       const ctx = ctxFrom(extra); assertScope(ctx, "onboarding:write");
       const { form_id, fields, thank_you_message, allow_edit_after_submit, ...rest } = args;
+
+      // create_onboarding_form has always checked this; update never did, so a
+      // secure field could be added to an existing form whatever the server key
+      // was doing — producing a form the customer then cannot submit.
+      const blocked = secureFieldsBlocked(fields);
+      if (blocked) return errorText(blocked);
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const clean: Record<string, any> = Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== undefined));
       if (fields !== undefined) clean.schema = fields;
