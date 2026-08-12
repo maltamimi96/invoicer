@@ -12,7 +12,7 @@ import { Eye, EyeOff, Loader2, UserCheck } from "@/components/ui/icons";
 import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AnimatedPress } from "@/components/ui/kirei";
+import { Button } from "@/components/ui/button";
 
 const schema = z.object({
   email: z.string().email("Enter a valid email"),
@@ -128,13 +128,18 @@ export default function LoginPage() {
           </div>
           {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
         </div>
-        <AnimatedPress
-          onClick={handleSubmit(onSubmit) as unknown as () => void}
-          className={`w-full inline-flex items-center justify-center gap-2  bg-primary text-primary-foreground text-sm font-semibold shadow-sm cursor-pointer ${isSubmitting ? "opacity-70" : ""}`}
-        >
+        {/* The app's Button, like every other form in the product — including
+            the sibling forgot-password and reset-password pages. This was an
+            AnimatedPress, which is an unstyled motion.div: it carried bg-primary
+            but no radius, height or padding (note the double space where those
+            classes had been removed), so the primary call to action rendered as
+            a 20px-tall square-cornered strip. A div is also not focusable and
+            isn't announced as a button, which is a poor thing for the one
+            control on the sign-in page to be. */}
+        <Button type="submit" className="w-full" disabled={isSubmitting}>
           {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
           Sign in
-        </AnimatedPress>
+        </Button>
       </form>
 
       <p className="text-center text-sm text-muted-foreground mt-6">
