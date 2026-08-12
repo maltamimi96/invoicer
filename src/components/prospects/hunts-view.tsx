@@ -142,6 +142,7 @@ export function HuntsView({ hunts, pendingReview, budget, canHunt }: Props) {
     <>
       <PageHeader
         title="Prospecting"
+        trail={[{ label: "Prospects", href: "/prospects" }]}
         subtitle="Describe who you want to find. The agent searches your area, checks each business, and queues the matches for you."
         actions={
           <Button onClick={() => setOpen(true)} disabled={pending}>

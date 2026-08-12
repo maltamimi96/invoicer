@@ -1,7 +1,4 @@
-import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "@/components/ui/icons";
 import { CandidateQueue } from "@/components/prospects/candidate-queue";
 import { listCandidates, listHunts } from "@/lib/actions/prospecting";
 
@@ -18,11 +15,10 @@ export default async function ReviewPage() {
       <PageHeader
         title="Review"
         subtitle="Businesses your hunts found and verified. Add the good ones to your prospect list."
-        actions={
-          <Button variant="outline" asChild>
-            <Link href="/prospects/hunts"><ArrowLeft className="w-4 h-4 mr-1.5" /> Hunts</Link>
-          </Button>
-        }
+        trail={[
+          { label: "Prospects", href: "/prospects" },
+          { label: "Prospecting", href: "/prospects/hunts" },
+        ]}
       />
       <CandidateQueue
         candidates={candidates}

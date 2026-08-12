@@ -10,7 +10,6 @@
  */
 
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@/components/layout/use-mutation";
 import { PageHeader } from "@/components/layout/page-header";
@@ -20,7 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
-  Play, MapPin, ArrowLeft, Trash2, Edit, Target, AlertTriangle, CheckCircle,
+  Play, MapPin, Trash2, Edit, Target, AlertTriangle, CheckCircle,
 } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 import { CandidateQueue } from "@/components/prospects/candidate-queue";
@@ -130,11 +129,12 @@ export function HuntDetail({ hunt, runs, candidates, activeRunId }: Props) {
       <PageHeader
         title={hunt.name}
         subtitle={hunt.criteria}
+        trail={[
+          { label: "Prospects", href: "/prospects" },
+          { label: "Prospecting", href: "/prospects/hunts" },
+        ]}
         actions={
           <>
-            <Button variant="outline" asChild>
-              <Link href="/prospects/hunts"><ArrowLeft className="w-4 h-4 mr-1.5" /> All hunts</Link>
-            </Button>
             <Button variant="outline" onClick={() => { setDraft(draftFrom(hunt)); setEditing(true); }}>
               <Edit className="w-4 h-4 mr-1.5" /> Edit
             </Button>
