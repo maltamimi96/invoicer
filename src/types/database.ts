@@ -93,6 +93,13 @@ export interface Business {
 }
 
 export interface Customer {
+  /**
+   * 'lead' until they become a real client. The migration that added this
+   * column never added it to THIS type, so nothing could set it and every
+   * lead-created contact silently took the 'client' default — which is why
+   * the Lead tag never appeared anywhere.
+   */
+  lifecycle_stage: LifecycleStage;
   id: string;
   user_id: string;
   business_id: string;
@@ -303,8 +310,8 @@ export interface LineItem {
   total: number;
 }
 
-export type InvoiceWithCustomer = Invoice & { customers: Pick<Customer, "id" | "name" | "email" | "company"> | null };
-export type QuoteWithCustomer = Quote & { customers: Pick<Customer, "id" | "name" | "email" | "company"> | null };
+export type InvoiceWithCustomer = Invoice & { customers: Pick<Customer, "id" | "name" | "email" | "company" | "lifecycle_stage"> | null };
+export type QuoteWithCustomer = Quote & { customers: Pick<Customer, "id" | "name" | "email" | "company" | "lifecycle_stage"> | null };
 
 // ----------------------------------------------------------------
 // REPORTS
@@ -364,7 +371,7 @@ export interface Report {
 }
 
 export type ReportWithCustomer = Report & {
-  customers: Pick<Customer, "id" | "name" | "email" | "company"> | null;
+  customers: Pick<Customer, "id" | "name" | "email" | "company" | "lifecycle_stage"> | null;
 };
 
 // ----------------------------------------------------------------

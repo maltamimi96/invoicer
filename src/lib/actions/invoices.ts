@@ -32,7 +32,7 @@ export async function getInvoices(filters?: { status?: string; customer_id?: str
       id, user_id, number, status, customer_id,
       issue_date, due_date, total, amount_paid,
       parent_invoice_id, created_at, updated_at,
-      customers(id, name, email, company)
+      customers(id, name, email, company, lifecycle_stage)
     `)
     .eq("business_id", businessId)
     .order("created_at", { ascending: false })
