@@ -10,6 +10,7 @@
  * manage_token for self-serve reschedule/cancel.
  */
 import { NextRequest } from "next/server";
+import { isSlotBookable, workOrderTimesFor } from "@/lib/booking/validate";
 import { emitAutomationEvent } from "@/lib/automations/emit";
 import {
   resolveTenant, json, publicError, preflight, rateLimit, clientIp,
@@ -85,6 +86,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     start = new Date(startIso);
     if (isNaN(start.getTime())) return publicError("Invalid start", 400);
     end = new Date(start.getTime() + type.duration_minutes * 60_000);
+
+    // Without this, `start` was whatever the caller sent: 4am, a blackout day,
+    // last Tuesday, or a year past max_advance_days. The exclusion constraint
+    // only ever stopped two bookings colliding — it never had an opinion about
+    // whether the business was open. A hold took the same path through
+    // isSlotBookable when it was created, so it isn't re-checked here.
+    const check = await isSlotBookable(sb, settings, typeId, resourceId, start);
+    if (!check.ok) return publicError(check.reason, 409);
   }
 
   // Insert — the exclusion constraint guards concurrency. 23P01 = overlap.
@@ -155,6 +164,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
       if (leadId) await emitAutomationEvent(sb, businessId, "lead.created", "lead", leadId);
     }
     if (settings.create_work_order && ownerId) {
+      const { data: bs } = await sb.from("booking_settings")
+        .select("timezone").eq("business_id", businessId).maybeSingle();
+      const bookingTz: string = bs?.timezone || "UTC";
       const next = biz?.work_order_next_number ?? 1;
       const number = `${biz?.work_order_prefix ?? "WO"}-${String(next).padStart(4, "0")}`;
       await sb.from("businesses").update({ work_order_next_number: next + 1 }).eq("id", businessId);
@@ -166,9 +178,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
         business_id: businessId, user_id: ownerId, number,
         title: `Booking: ${customerName}`,
         status: profileId ? "assigned" : "draft",
-        scheduled_date: start.toISOString().slice(0, 10),
-        start_time: start.toISOString().slice(11, 16),
-        end_time: end.toISOString().slice(11, 16),
+        // Local wall-clock, not UTC — work_orders stores a naive date+time that
+        // booking_busy_intervals reads back AT TIME ZONE the business's own.
+        ...workOrderTimesFor(start, end, bookingTz),
       };
       if (profileId) woInsert.assigned_to_profile_id = profileId;
       if (customerId) woInsert.customer_id = customerId;

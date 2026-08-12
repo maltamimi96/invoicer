@@ -172,19 +172,27 @@ export function BookingAdminClient({
             <ResourceRow key={r.id} resource={r} teamMembers={teamMembers}
               onLink={(memberId) => start(async () => { await updateResource(r.id, { member_profile_id: memberId }); setResources((arr) => arr.map((x) => x.id === r.id ? { ...x, member_profile_id: memberId } : x)); })}
               onDelete={async () => {
-                // appointments.resource_id REFERENCES booking_resources
-                // ON DELETE CASCADE — so this does not just remove the
-                // resource, it permanently deletes every appointment ever
-                // booked against it. That has to be said out loud.
+                // The FK is ON DELETE RESTRICT now and the action retires a
+                // resource that has any appointments rather than deleting it,
+                // so the old "this wipes every appointment" warning would be
+                // untrue — and scaring an owner off a safe action is its own
+                // kind of bug.
                 if (!(await confirm({
-                  title: `Delete "${r.display_name}"?`,
-                  body: "Every appointment ever booked against this resource will be permanently deleted too, including past bookings. This cannot be undone.",
-                  confirmLabel: "Delete resource and its appointments",
+                  title: `Remove "${r.display_name}"?`,
+                  body: "It stops being offered for new bookings. If anything has ever been booked with it, the resource is kept so that history and the calendar still make sense.",
+                  confirmLabel: "Remove resource",
                 }))) return;
                 start(async () => {
-                  await deleteResource(r.id);
-                  setResources((arr) => arr.filter((x) => x.id !== r.id));
-                  toast.success("Resource deleted");
+                  const res = await deleteResource(r.id);
+                  if (res.deleted) {
+                    setResources((arr) => arr.filter((x) => x.id !== r.id));
+                    toast.success("Resource deleted");
+                  } else {
+                    setResources((arr) => arr.map((x) => x.id === r.id ? { ...x, active: false } : x));
+                    toast.success(
+                      `Resource retired — ${res.appointments} appointment${res.appointments === 1 ? "" : "s"} kept`,
+                    );
+                  }
                 });
               }} />
           ))}

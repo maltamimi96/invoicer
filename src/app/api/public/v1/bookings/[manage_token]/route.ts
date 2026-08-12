@@ -8,7 +8,8 @@
 import { NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { json, publicError, preflight, rateLimit, clientIp } from "@/lib/booking/public";
-import { fireBookingWebhook, notifyBookingCancelled } from "@/lib/booking/notify";
+import { fireBookingWebhook, notifyBookingCancelled, notifyBookingRescheduled } from "@/lib/booking/notify";
+import { isSlotBookable, workOrderTimesFor } from "@/lib/booking/validate";
 import type { Appointment, BookingSettings } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -79,9 +80,41 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ma
   const newStart = new Date(startIso);
   if (isNaN(newStart.getTime())) return publicError("Invalid start", 400);
 
+  // The cancellation window applies to moving a booking too. It only guarded
+  // DELETE, so a customer blocked from cancelling two hours out could simply
+  // reschedule to next month instead — same outcome for the crew, window
+  // defeated.
+  const hoursUntil = (new Date(appt.starts_at).getTime() - Date.now()) / 3_600_000;
+  if (hoursUntil < settings.cancellation_window_hours) {
+    return publicError(`Changes require at least ${settings.cancellation_window_hours}h notice`, 409);
+  }
+
   const durationMs = new Date(appt.ends_at).getTime() - new Date(appt.starts_at).getTime();
   const newEnd = new Date(newStart.getTime() + durationMs);
   const resourceId = String(body.resource_id ?? appt.resource_id);
+
+  // resource_id came straight from the request body and went into the update
+  // unchecked — a customer could move their job onto any resource id at all,
+  // including another business's, orphaning it from the calendar it belonged to.
+  if (resourceId !== appt.resource_id) {
+    const { data: res } = await sb.from("booking_resources")
+      .select("id, active").eq("id", resourceId).eq("business_id", appt.business_id).maybeSingle();
+    if (!res || !res.active) return publicError("That resource isn't available", 400);
+  }
+
+  // Validate against real availability, not just "does something else overlap".
+  // Without it a customer could move their booking to 4am. Appointments made
+  // outside a form (admin-created) have no form to validate against; those keep
+  // the overlap-only check below rather than becoming unreschedulable.
+  const typeId = appt.appointment_type_id;
+  if (appt.form_id && typeId) {
+    const { data: form } = await sb.from("booking_forms")
+      .select("*").eq("id", appt.form_id).eq("business_id", appt.business_id).maybeSingle();
+    if (form) {
+      const check = await isSlotBookable(sb, form, typeId, resourceId, newStart);
+      if (!check.ok) return publicError(check.reason, 409);
+    }
+  }
 
   // Free up the old slot first by marking this row rescheduled-exempt: we update
   // in place — the exclusion constraint ignores the row's own prior range since
@@ -106,10 +139,21 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ma
     return publicError("Could not reschedule", 500);
   }
 
+  // Move the generated job with the booking. It used to stay at the old time,
+  // so the crew's schedule still showed the original slot — and the stale row
+  // kept blocking that window in booking_busy_intervals.
+  if (appt.work_order_id) {
+    await sb.from("work_orders")
+      .update(workOrderTimesFor(newStart, newEnd, settings.timezone))
+      .eq("id", appt.work_order_id).eq("business_id", appt.business_id);
+  }
+
   await sb.from("booking_audit_log").insert({
     business_id: appt.business_id, appointment_id: appt.id, event: "rescheduled", actor: "customer",
     detail: { from: appt.starts_at, to: newStart.toISOString() },
   });
+  await notifyBookingRescheduled(sb, appt.business_id, settings, updated as Appointment, appt.starts_at)
+    .catch(() => undefined);
   await fireBookingWebhook(appt.business_id, settings, "booking.rescheduled", {
     id: appt.id, from: appt.starts_at, to: newStart.toISOString(), resource_id: resourceId,
   });
@@ -136,6 +180,13 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ m
     status: "cancelled", cancelled_at: new Date().toISOString(),
   }).eq("id", appt.id).select("*").single();
   if (error) return publicError("Could not cancel", 500);
+
+  // Cancel the generated job too. Leaving it live meant a cancelled booking
+  // still sat on the crew's schedule and somebody turned up.
+  if (appt.work_order_id) {
+    await sb.from("work_orders").update({ status: "cancelled" })
+      .eq("id", appt.work_order_id).eq("business_id", appt.business_id);
+  }
 
   await sb.from("booking_audit_log").insert({
     business_id: appt.business_id, appointment_id: appt.id, event: "cancelled", actor: "customer",
