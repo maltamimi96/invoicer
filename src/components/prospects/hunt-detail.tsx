@@ -24,7 +24,9 @@ import {
 import { cn } from "@/lib/utils";
 import { CandidateQueue } from "@/components/prospects/candidate-queue";
 import { HuntProgress, startHunt } from "@/components/prospects/hunt-progress";
-import { HuntBuilder, draftFrom, validateDraft, type HuntDraft } from "@/components/prospects/hunt-builder";
+import {
+  HuntBuilder, draftFrom, validateDraft, type HuntDraft, type CampaignOption,
+} from "@/components/prospects/hunt-builder";
 import { deleteHunt, updateHunt } from "@/lib/actions/prospecting";
 import type {
   ProspectHunt, ProspectHuntRun, ProspectCandidate, ProspectAudit,
@@ -36,6 +38,7 @@ interface Props {
   candidates: ProspectCandidate[];
   /** A run already in flight when the page loaded, so reopening rejoins it. */
   activeRunId: string | null;
+  campaigns: CampaignOption[];
 }
 
 const SEVERITY: Record<string, string> = {
@@ -77,7 +80,7 @@ function AuditPanel({ audit, shortfall }: { audit: ProspectAudit; shortfall: boo
   );
 }
 
-export function HuntDetail({ hunt, runs, candidates, activeRunId }: Props) {
+export function HuntDetail({ hunt, runs, candidates, activeRunId, campaigns }: Props) {
   const router = useRouter();
   const { run: mutate, pending } = useMutation();
   const [runId, setRunId] = useState<string | null>(activeRunId);
@@ -108,6 +111,11 @@ export function HuntDetail({ hunt, runs, candidates, activeRunId }: Props) {
         suburb_labels: draft.suburb_labels,
         custom_params: draft.custom_params,
         filters: draft.filters,
+        campaign_id: draft.campaign_id,
+        auto_enrol: draft.auto_enrol,
+        auto_approve: draft.auto_approve,
+        run_days: draft.run_days,
+        run_hour: draft.run_hour,
       });
       setEditing(false);
     }, { busy: "Saving hunt…", success: "Hunt updated", error: "Couldn't save" });
@@ -194,7 +202,7 @@ export function HuntDetail({ hunt, runs, candidates, activeRunId }: Props) {
       <Dialog open={editing} onOpenChange={setEditing}>
         <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
           <DialogHeader><DialogTitle>Edit hunt</DialogTitle></DialogHeader>
-          <HuntBuilder draft={draft} onChange={setDraft} />
+          <HuntBuilder draft={draft} onChange={setDraft} campaigns={campaigns} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditing(false)} disabled={pending}>Cancel</Button>
             <Button onClick={handleSave} disabled={pending}>Save</Button>

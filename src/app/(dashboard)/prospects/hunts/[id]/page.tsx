@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getHunt, listHuntRuns, listCandidates } from "@/lib/actions/prospecting";
+import { getHunt, listHuntRuns, listCandidates, listCampaignsForHunts } from "@/lib/actions/prospecting";
 import { HuntDetail } from "@/components/prospects/hunt-detail";
 
 export default async function HuntPage({ params }: { params: Promise<{ id: string }> }) {
@@ -8,9 +8,10 @@ export default async function HuntPage({ params }: { params: Promise<{ id: strin
   const hunt = await getHunt(id);
   if (!hunt) notFound();
 
-  const [runs, candidates] = await Promise.all([
+  const [runs, candidates, campaigns] = await Promise.all([
     listHuntRuns(id),
     listCandidates({ hunt_id: id, status: "verified" }),
+    listCampaignsForHunts(),
   ]);
 
   // A run started in another tab (or before a reload) is rejoined rather than
@@ -24,6 +25,7 @@ export default async function HuntPage({ params }: { params: Promise<{ id: strin
       runs={runs}
       candidates={candidates}
       activeRunId={active?.id ?? null}
+      campaigns={campaigns}
     />
   );
 }
