@@ -12,14 +12,23 @@ interface Props {
   title: React.ReactNode;
   subtitle?: React.ReactNode;
   actions?: React.ReactNode;
-  /** Optional accent gradient — defaults to brand teal. Pass a custom CSS
-   *  linear-gradient string (e.g. `linear-gradient(135deg, #fbbf24, #b45309)`)
-   *  to tint the left rail with the page's domain colour. */
-  accent?: string;
 }
 
-export function PageHeader({ title, subtitle, actions, accent }: Props) {
-  const accentBg = accent ?? "linear-gradient(180deg, hsl(var(--primary)) 0%, hsl(var(--primary) / 0.6) 100%)";
+/**
+ * The rail is the theme's primary, always.
+ *
+ * There was an `accent` prop taking a raw CSS gradient string, and 22 pages
+ * passed one: quotes violet, leads blue, work orders amber, products emerald.
+ * Two of them (`customers/new`, `automations`) were still passing
+ * `#3a847e → #1f4f4a` — the teal of a palette that was retired and now exists
+ * in no theme at all. A page's identity is its title, not a colour nobody
+ * chose deliberately, and a CSS string can never respond to the five palettes.
+ *
+ * If per-section colour is ever genuinely wanted, it comes back as a token
+ * enum resolved here — never as a string passed in from the page.
+ */
+export function PageHeader({ title, subtitle, actions }: Props) {
+  const accentBg = "linear-gradient(180deg, hsl(var(--primary)) 0%, hsl(var(--primary) / 0.6) 100%)";
   return (
     <div className="flex items-end justify-between gap-3 flex-wrap mb-6">
       <div className="flex items-stretch gap-3 min-w-0">

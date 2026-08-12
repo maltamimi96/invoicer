@@ -119,7 +119,6 @@ export function ResponseViewerClient({
             {response.submitted_at ? ` · submitted ${formatDate(response.submitted_at)}` : " · draft (not submitted yet)"}
           </span>
         }
-        accent="linear-gradient(180deg, #2dd4bf 0%, #0e7490 100%)"
         actions={
           editing ? (
             <>

@@ -141,7 +141,6 @@ export function EmailTemplatesClient({ initial }: Props) {
       <PageHeader
         title="Email templates"
         subtitle="Customise the emails sent to customers and your team"
-        accent="linear-gradient(180deg, #60a5fa 0%, #1d4ed8 100%)"
       />
 
       <Tabs value={active} onValueChange={(v) => setActive(v as EmailTemplateType)}>

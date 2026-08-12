@@ -44,7 +44,6 @@ export default async function NewCustomerPage() {
       <PageHeader
         title="New customer"
         subtitle="Add a customer to your account"
-        accent="linear-gradient(180deg, #3a847e 0%, #1f4f4a 100%)"
       />
       {fieldConfig.error && (
         <p className="mb-4 rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">

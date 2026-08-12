@@ -112,7 +112,6 @@ export function ProductsClient({ products: initial, currency = "GBP" }: { produc
       <PageHeader
         title="Products & Services"
         subtitle={`${activeCount} active · ${archivedCount} archived`}
-        accent="linear-gradient(180deg, #34d399 0%, #047857 100%)"
         actions={
           <>
             <CleanupButton entity="products" entityLabel="products" />

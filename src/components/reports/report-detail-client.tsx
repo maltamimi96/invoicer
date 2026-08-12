@@ -23,11 +23,20 @@ interface ReportDetailClientProps {
   business: Business;
 }
 
+/**
+ * Severity from the theme, not from Tailwind's raw palette.
+ *
+ * These were `bg-red-100 text-red-700` etc. — fixed light pairs on a card that
+ * is dark by default. Worse, the row underneath was an explicit `bg-white`
+ * while the cell text inherited near-white `text-card-foreground`, so on every
+ * dark theme the DEFECT DESCRIPTIONS were white-on-white. This is the
+ * scope-of-work document Crown Roofers puts in front of a customer.
+ */
 const ratingColors: Record<string, string> = {
-  Critical: "bg-red-100 text-red-700",
-  High: "bg-orange-100 text-orange-700",
-  Medium: "bg-yellow-100 text-yellow-700",
-  Low: "bg-green-100 text-green-700",
+  Critical: "bg-bad/15 text-bad",
+  High: "bg-bad/10 text-bad",
+  Medium: "bg-warn/15 text-warn",
+  Low: "bg-ok/15 text-ok",
 };
 
 export function ReportDetailClient({ report: initialReport, business }: ReportDetailClientProps) {
@@ -255,7 +264,7 @@ export function ReportDetailClient({ report: initialReport, business }: ReportDe
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="bg-slate-800 text-white">
+                      <tr className="bg-secondary text-secondary-foreground">
                         <th className="text-left p-2 rounded-tl font-medium text-xs">Defect</th>
                         <th className="text-left p-2 font-medium text-xs">Likelihood</th>
                         <th className="text-left p-2 font-medium text-xs">Consequence</th>
@@ -264,12 +273,12 @@ export function ReportDetailClient({ report: initialReport, business }: ReportDe
                     </thead>
                     <tbody>
                       {m.risk_items.map((item: RiskItem, i: number) => (
-                        <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-slate-50"}>
+                        <tr key={i} className={i % 2 === 0 ? "" : "bg-muted/40"}>
                           <td className="p-2 text-xs">{item.defect}</td>
                           <td className="p-2 text-xs">{item.likelihood}</td>
                           <td className="p-2 text-xs">{item.consequence}</td>
                           <td className="p-2">
-                            <Badge className={`text-xs ${ratingColors[item.rating] ?? "bg-gray-100 text-gray-700"}`}>{item.rating}</Badge>
+                            <Badge className={`text-xs ${ratingColors[item.rating] ?? "bg-muted text-muted-foreground"}`}>{item.rating}</Badge>
                           </td>
                         </tr>
                       ))}
@@ -355,7 +364,7 @@ export function ReportDetailClient({ report: initialReport, business }: ReportDe
             <CardContent className="p-5 space-y-3">
               <h3 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">Report Info</h3>
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-muted-foreground">Status</span><Badge className={report.status === "complete" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}>{report.status}</Badge></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Status</span><Badge className={report.status === "complete" ? "bg-ok/15 text-ok" : "bg-warn/15 text-warn"}>{report.status}</Badge></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Photos</span><span>{report.photos?.length ?? 0}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Sections</span><span>{report.sections?.length ?? 0}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Risk items</span><span>{m.risk_items?.length ?? 0}</span></div>

@@ -19,7 +19,6 @@ export function SeoPipelineView() {
       <PageHeader
         title="Content pipeline"
         subtitle="13 SEO agents, from finding what to write to publishing it live"
-        accent="linear-gradient(180deg, #10b981 0%, #047857 100%)"
         actions={
           <Link
             href="/seo"

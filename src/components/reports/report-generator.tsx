@@ -280,7 +280,6 @@ export function ReportGenerator({ customers: initialCustomers, business, default
       <PageHeader
         title="New site report"
         subtitle={`Step ${step} of 2`}
-        accent="linear-gradient(180deg, #a78bfa 0%, #6d28d9 100%)"
       />
 
       {/* Progress */}

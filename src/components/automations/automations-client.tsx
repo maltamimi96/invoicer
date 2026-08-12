@@ -78,7 +78,6 @@ export function AutomationsClient({ automations, runs, forms }: Props) {
       <PageHeader
         title="Automations"
         subtitle="When something happens, do something about it."
-        accent="linear-gradient(180deg, #3a847e 0%, #1f4f4a 100%)"
         actions={
           <Button onClick={() => setDraft({ ...BLANK })}>
             <Plus className="w-4 h-4 mr-1.5" /> New automation

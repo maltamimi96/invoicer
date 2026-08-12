@@ -93,7 +93,6 @@ export function FormsListClient({ enabled, forms, baseUrl }: Props) {
       <PageHeader
         title="Forms"
         subtitle="Public lead-capture forms you can share or embed"
-        accent="linear-gradient(180deg, #818cf8 0%, #7c3aed 100%)"
         actions={
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">

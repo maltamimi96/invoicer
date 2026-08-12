@@ -11,14 +11,37 @@ import { JobModal } from "./job-modal";
 import { DispatchBoard } from "./dispatch-board";
 import type { ScheduledJob, MemberProfile, Customer } from "@/types/database";
 
+import { toneOf, type Tone } from "@/components/ui/kirei/pill";
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-const STATUS_STYLE: Record<string, { card: string; badge: string; label: string }> = {
-  draft:       { card: "border-l-blue-400 bg-blue-50 dark:bg-blue-950/30",    badge: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",    label: "Scheduled" },
-  assigned:    { card: "border-l-indigo-400 bg-indigo-50 dark:bg-indigo-950/30", badge: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300", label: "Assigned" },
-  in_progress: { card: "border-l-orange-400 bg-orange-50 dark:bg-orange-950/30", badge: "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300", label: "In Progress" },
-  submitted:   { card: "border-l-purple-400 bg-purple-50 dark:bg-purple-950/30", badge: "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300", label: "Submitted" },
-  completed:   { card: "border-l-green-400 bg-green-50 dark:bg-green-950/30",  badge: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",  label: "Completed" },
+/**
+ * Status appearance comes from the shared table in kirei/pill.tsx.
+ *
+ * This used to be its own map, and it disagreed with the other three: an
+ * `in_progress` job was orange here, amber on its own detail page, and
+ * orange-400 as a dot on the dispatch board. `draft` was worse — blue, and
+ * LABELLED "Scheduled", so the same job had a different name depending on
+ * which screen you opened.
+ */
+/** Left rail — the tone as a border, same table as the pill. */
+const TONE_BORDER: Record<Tone, string> = {
+  success: "border-l-ok", warn: "border-l-warn", danger: "border-l-bad",
+  info: "border-l-primary", violet: "border-l-accent-2", neutral: "border-l-muted-foreground",
+};
+const TONE_PILL: Record<Tone, string> = {
+  success: "bg-ok/15 text-ok", warn: "bg-warn/15 text-warn", danger: "bg-bad/15 text-bad",
+  info: "bg-primary/15 text-primary", violet: "bg-accent-2/15 text-accent-2",
+  neutral: "bg-muted text-muted-foreground",
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  draft: "Draft",
+  assigned: "Assigned",
+  in_progress: "In progress",
+  submitted: "Submitted",
+  reviewed: "Reviewed",
+  completed: "Completed",
+  cancelled: "Cancelled",
 };
 
 function addDays(dateStr: string, n: number): string {
@@ -263,9 +286,11 @@ export function ScheduleClient({ initialJobs, initialStart, initialEnd, profiles
 
       {/* Legend */}
       <div className="flex flex-wrap gap-3 pt-1">
-        {Object.entries(STATUS_STYLE).map(([, v]) => (
-          <div key={v.label} className="flex items-center gap-1.5">
-            <span className={`inline-flex text-xs px-2 py-0.5 rounded-full font-medium ${v.badge}`}>{v.label}</span>
+        {Object.entries(STATUS_LABEL).map(([status, label]) => (
+          <div key={status} className="flex items-center gap-1.5">
+            <span className={`inline-flex text-xs px-2 py-0.5 rounded-full font-medium ${TONE_PILL[toneOf(status)]}`}>
+              {label}
+            </span>
           </div>
         ))}
       </div>
@@ -292,7 +317,8 @@ export function ScheduleClient({ initialJobs, initialStart, initialEnd, profiles
 }
 
 function JobCard({ job, onClick }: { job: ScheduledJob; onClick: () => void }) {
-  const style = STATUS_STYLE[job.status] ?? STATUS_STYLE.draft;
+  const tone = toneOf(job.status);
+  const label = STATUS_LABEL[job.status] ?? job.status;
   const workers = job.work_order_assignments ?? [];
 
   return (
@@ -300,12 +326,12 @@ function JobCard({ job, onClick }: { job: ScheduledJob; onClick: () => void }) {
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       onClick={onClick}
-      className={`w-full text-left rounded-lg border-l-4 p-2.5 shadow-sm hover:shadow-md transition-shadow space-y-1.5 ${style.card}`}
+      className={`w-full text-left rounded-lg border-l-4 p-2.5 shadow-sm hover:shadow-md transition-shadow space-y-1.5 bg-card ${TONE_BORDER[tone]}`}
     >
       <div className="flex items-start justify-between gap-1">
         <p className="text-xs font-semibold leading-tight line-clamp-2">{job.title}</p>
-        <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${style.badge}`}>
-          {style.label}
+        <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${TONE_PILL[tone]}`}>
+          {label}
         </span>
       </div>
 
