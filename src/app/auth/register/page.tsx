@@ -12,7 +12,7 @@ import { Eye, EyeOff, Loader2, UserCheck } from "@/components/ui/icons";
 import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AnimatedPress } from "@/components/ui/kirei";
+import { Button } from "@/components/ui/button";
 
 const schema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -190,13 +190,12 @@ export default function RegisterPage() {
           </div>
           {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
         </div>
-        <AnimatedPress
-          onClick={handleSubmit(onSubmit) as unknown as () => void}
-          className={`w-full inline-flex items-center justify-center gap-2  bg-primary text-primary-foreground text-sm font-semibold shadow-sm cursor-pointer ${isSubmitting ? "opacity-70" : ""}`}
-        >
+        {/* Same as login: this was an unstyled AnimatedPress div carrying
+            bg-primary with no radius, height or padding. */}
+        <Button type="submit" className="w-full" disabled={isSubmitting}>
           {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
           {inviteEmail ? "Join team" : "Create account"}
-        </AnimatedPress>
+        </Button>
       </form>
 
       <p className="text-center text-sm text-muted-foreground mt-6">
