@@ -12,6 +12,7 @@ import { ctxFrom, UUID, type ToolFn } from "./shared";
 import { geocodeArea } from "@/lib/prospecting/places";
 import { getPlacesKey, resolvePlacesKey, runHunt, type HuntRow } from "@/lib/prospecting/run";
 import { prospectingSpendStatus } from "@/lib/prospecting/budget";
+import { approveCandidates } from "@/lib/prospecting/enrol";
 
 const FILTERS = z.object({
   no_website: z.boolean().optional(),
@@ -97,6 +98,16 @@ export function registerHuntTools(tool: ToolFn): void {
         .describe("Named suburbs, each searched separately. Used when area_mode = suburbs."),
       custom_params: PARAMS.optional()
         .describe("Named requirements judged one by one, so a rejection says which failed."),
+      campaign_id: UUID.optional()
+        .describe("Outreach campaign approved prospects join. The campaign owns the sequence."),
+      auto_enrol: z.boolean().optional()
+        .describe("Approving a candidate also finds an email and enrols it."),
+      auto_approve: z.boolean().optional()
+        .describe("Verified candidates skip the review queue. Leave off until the criteria are proven."),
+      run_days: z.array(z.number().int().min(0).max(6)).optional()
+        .describe("Days this hunt runs itself: 0=Sunday..6=Saturday. e.g. [1] for Mondays only."),
+      run_hour: z.number().int().min(0).max(23).optional(),
+      timezone: z.string().optional(),
     },
     async (args, extra) => {
       const ctx = ctxFrom(extra); assertScope(ctx, "prospects:write");
@@ -127,6 +138,12 @@ export function registerHuntTools(tool: ToolFn): void {
           ? await geocodeSuburbs(ctx.sb, ctx.businessId, args.suburbs ?? [])
           : [],
         custom_params: normaliseParams(args.custom_params ?? []),
+        campaign_id: args.campaign_id ?? null,
+        auto_enrol: args.auto_enrol ?? false,
+        auto_approve: args.auto_approve ?? false,
+        run_days: args.run_days ?? [],
+        run_hour: args.run_hour ?? 9,
+        timezone: args.timezone ?? "Australia/Sydney",
       }).select("id").single();
       if (error) throw error;
 
@@ -155,6 +172,12 @@ export function registerHuntTools(tool: ToolFn): void {
       area_mode: z.enum(["radius", "suburbs"]).optional(),
       suburbs: z.array(z.string()).max(25).optional(),
       custom_params: PARAMS.optional(),
+      campaign_id: UUID.nullable().optional(),
+      auto_enrol: z.boolean().optional(),
+      auto_approve: z.boolean().optional(),
+      run_days: z.array(z.number().int().min(0).max(6)).optional(),
+      run_hour: z.number().int().min(0).max(23).optional(),
+      timezone: z.string().optional(),
       active: z.boolean().optional(),
     },
     async (args, extra) => {
@@ -167,6 +190,12 @@ export function registerHuntTools(tool: ToolFn): void {
       if (args.active !== undefined) patch.active = args.active;
       if (args.radius_km !== undefined) patch.radius_m = radiusM(args.radius_km);
       if (args.target_count !== undefined) patch.target_count = args.target_count;
+      if (args.campaign_id !== undefined) patch.campaign_id = args.campaign_id;
+      if (args.auto_enrol !== undefined) patch.auto_enrol = args.auto_enrol;
+      if (args.auto_approve !== undefined) patch.auto_approve = args.auto_approve;
+      if (args.run_days !== undefined) patch.run_days = args.run_days;
+      if (args.run_hour !== undefined) patch.run_hour = args.run_hour;
+      if (args.timezone !== undefined) patch.timezone = args.timezone;
       if (args.area_mode !== undefined) patch.area_mode = args.area_mode;
       if (args.custom_params !== undefined) patch.custom_params = normaliseParams(args.custom_params);
       if (args.suburbs !== undefined) {
@@ -265,7 +294,7 @@ export function registerHuntTools(tool: ToolFn): void {
     });
 
   tool("add_prospect_candidates",
-    "Approve candidates from the review queue and add them to the prospect list. Takes explicit ids — show the operator what was found before calling this.",
+    "Approve candidates from the review queue: creates prospects, looks for a contact address on each business's own website (if the crawler is enabled), and enrols them in the hunt's outreach campaign when the hunt is set to. Takes explicit ids — show the operator what was found before calling this.",
     { candidate_ids: z.array(UUID).min(1).max(200) },
     async (args, extra) => {
       const ctx = ctxFrom(extra); assertScope(ctx, "prospects:write");
@@ -274,35 +303,17 @@ export function registerHuntTools(tool: ToolFn): void {
       if (error) throw error;
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const fresh = ((rows ?? []) as any[]).filter((c) => !c.prospect_id);
-      if (!fresh.length) return text({ added: 0, note: "Nothing new — those are already added." });
+      const candidates = ((rows ?? []) as any[]);
+      const huntId = candidates[0]?.hunt_id ?? null;
+      const { data: hunt } = huntId
+        ? await t(ctx, "prospect_hunts").select("id, campaign_id, auto_enrol")
+            .eq("id", huntId).eq("business_id", ctx.businessId).maybeSingle()
+        : { data: null };
 
-      const { data: created, error: insErr } = await t(ctx, "prospects").insert(
-        fresh.map((c) => ({
-          business_id: ctx.businessId, user_id: ctx.userId,
-          company: c.name, name: null, email: null,
-          phone: c.phone, website: c.website,
-          source: "hunt", status: "new",
-          tags: c.category ? [c.category] : [],
-          notes: [c.address, c.reasoning ? `Why it matched: ${c.reasoning}` : null]
-            .filter(Boolean).join(" · ") || null,
-          custom_fields: {
-            place_id: c.place_id, hunt_id: c.hunt_id, fit_score: c.score,
-            rating: c.rating, review_count: c.review_count,
-          },
-        })),
-      ).select("id");
-      if (insErr) throw insErr;
-
-      const newIds = (created ?? []) as { id: string }[];
-      await Promise.all(fresh.map((c, i) =>
-        t(ctx, "prospect_candidates").update({
-          status: "added", prospect_id: newIds[i]?.id ?? null,
-          updated_at: new Date().toISOString(),
-        }).eq("id", c.id).eq("business_id", ctx.businessId),
-      ));
-
-      return text({ added: fresh.length });
+      // Same code as the server action. Two copies of this is how the previous
+      // version paired candidates to prospects by array index in one place and
+      // not the other.
+      return text(await approveCandidates(ctx.sb, ctx.businessId, ctx.userId, candidates, hunt));
     });
 
   tool("dismiss_prospect_candidates", "Dismiss candidates from the review queue so they stop appearing.",

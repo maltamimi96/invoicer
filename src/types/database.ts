@@ -746,6 +746,11 @@ export interface Prospect {
   notes: string | null;
   custom_fields: Record<string, unknown>;
   last_contacted_at: string | null;
+  /** When we last looked for an address — distinct from having none. */
+  enriched_at: string | null;
+  /** 'places' | 'crawl' | 'manual' | 'import' — how the address was obtained. */
+  email_source: string | null;
+  hunt_id: string | null;
   lead_id: string | null;
   created_at: string;
   updated_at: string;
@@ -799,6 +804,17 @@ export interface ProspectHunt {
   area_mode: ProspectHuntAreaMode;
   suburbs: ProspectHuntSuburb[];
   custom_params: ProspectHuntParam[];
+  /** The outreach campaign approved prospects join. Owns the sequence. */
+  campaign_id: string | null;
+  /** Approving a candidate also enriches and enrols it. */
+  auto_enrol: boolean;
+  /** Verified candidates bypass the review queue entirely. */
+  auto_approve: boolean;
+  /** 0=Sun..6=Sat, in `timezone`. Empty = manual only. */
+  run_days: number[];
+  run_hour: number;
+  timezone: string;
+  last_run_at: string | null;
   active: boolean;
   created_by: string | null;
   created_at: string;
