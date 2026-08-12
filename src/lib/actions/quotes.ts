@@ -28,7 +28,7 @@ export async function getQuotes(filters?: { status?: string; customer_id?: strin
       id, user_id, number, status, customer_id,
       issue_date, expiry_date, total, invoice_id,
       created_at, updated_at,
-      customers(id, name, email, company)
+      customers(id, name, email, company, lifecycle_stage)
     `)
     .eq("business_id", businessId)
     .order("created_at", { ascending: false })

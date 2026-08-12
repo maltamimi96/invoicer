@@ -261,9 +261,21 @@ export async function deleteLeadNote(noteId: string): Promise<void> {
 
 // ── Pipeline conversions ────────────────────────────────────────────────────
 
+/**
+ * The contact row behind a quoted lead.
+ *
+ * `lifecycle_stage: "lead"` is the whole point and was missing. The column
+ * defaults to 'client', so every lead you quoted became indistinguishable from
+ * a real customer the moment you quoted them — 9 out of 9 rows in production
+ * were mislabelled. The lead-lifecycle migration's stated design is "a lead
+ * gets a real contact row the moment you first quote them, and that row is
+ * marked as still being a lead"; the marking was never wired up, so the Lead
+ * tag it exists to drive could never appear anywhere.
+ */
 async function ensureCustomerForLead(lead: Lead): Promise<string> {
   if (lead.customer_id) return lead.customer_id;
   const customer = await createCustomer({
+    lifecycle_stage: "lead",
     name: lead.name,
     email: lead.email ?? null,
     phone: lead.phone ?? null,

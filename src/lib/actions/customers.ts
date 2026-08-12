@@ -64,9 +64,15 @@ export async function getCustomer(id: string): Promise<Customer> {
   return data as Customer;
 }
 
+/**
+ * `lifecycle_stage` is part of the input on purpose.
+ *
+ * The column defaults to 'client', and the one caller that must NOT take that
+ * default — quoting a lead — was silently getting it. See ensureCustomerForLead.
+ */
 type CreateCustomerInput =
-  Omit<Customer, "id" | "created_at" | "updated_at" | "user_id" | "business_id" | "account_type" | "website" | "secondary_phone" | "contact_role" | "preferred_contact" | "state" | "allowed_payment_methods" | "stripe_customer_id" | "stripe_payment_method_id" | "stripe_pm_brand" | "stripe_pm_last4" | "stripe_pm_exp" | "autopay_enabled">
-  & Partial<Pick<Customer, "account_type" | "website" | "secondary_phone" | "contact_role" | "preferred_contact" | "state" | "allowed_payment_methods">>;
+  Omit<Customer, "lifecycle_stage" | "id" | "created_at" | "updated_at" | "user_id" | "business_id" | "account_type" | "website" | "secondary_phone" | "contact_role" | "preferred_contact" | "state" | "allowed_payment_methods" | "stripe_customer_id" | "stripe_payment_method_id" | "stripe_pm_brand" | "stripe_pm_last4" | "stripe_pm_exp" | "autopay_enabled">
+  & Partial<Pick<Customer, "account_type" | "website" | "secondary_phone" | "contact_role" | "preferred_contact" | "state" | "allowed_payment_methods" | "lifecycle_stage">>;
 
 export async function createCustomer(payload: CreateCustomerInput): Promise<Customer> {
   const supabase = await createClient();
