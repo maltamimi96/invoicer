@@ -308,18 +308,37 @@ export function registerPluginFormTools(tool: ToolFn): void {
       return text({ created: true, form: data });
     });
 
-  tool("update_onboarding_form", "Update an onboarding form's name/description/status/fields.",
+  tool("update_onboarding_form",
+    "Update an onboarding form's name/description/status/fields, or its settings — " +
+    "thank_you_message is the copy shown after submitting, and allow_edit_after_submit lets a " +
+    "client come back and correct a typo instead of the request having to be deleted and resent.",
     {
       form_id: UUID, name: z.string().optional(), description: z.string().optional(),
       status: z.enum(["draft", "active", "archived"]).optional(),
       fields: z.array(ONBOARDING_FIELD).optional(),
+      thank_you_message: z.string().optional(),
+      allow_edit_after_submit: z.boolean().optional(),
     },
     async (args, extra) => {
       const ctx = ctxFrom(extra); assertScope(ctx, "onboarding:write");
-      const { form_id, fields, ...rest } = args;
+      const { form_id, fields, thank_you_message, allow_edit_after_submit, ...rest } = args;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const clean: Record<string, any> = Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== undefined));
       if (fields !== undefined) clean.schema = fields;
+
+      // settings is a single JSONB column, so a partial update has to merge
+      // over what's stored — otherwise setting the thank-you message would
+      // silently clear allow_edit_after_submit.
+      if (thank_you_message !== undefined || allow_edit_after_submit !== undefined) {
+        const { data: existing } = await t(ctx, "onboarding_forms")
+          .select("settings").eq("id", form_id).eq("business_id", ctx.businessId).maybeSingle();
+        clean.settings = {
+          ...((existing?.settings as Record<string, unknown>) ?? {}),
+          ...(thank_you_message !== undefined ? { thank_you_message } : {}),
+          ...(allow_edit_after_submit !== undefined ? { allow_edit_after_submit } : {}),
+        };
+      }
+
       if (Object.keys(clean).length === 0) return errorText("No fields to update.");
       const { error } = await t(ctx, "onboarding_forms").update(clean).eq("id", form_id).eq("business_id", ctx.businessId);
       if (error) throw error;

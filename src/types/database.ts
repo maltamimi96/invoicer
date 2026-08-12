@@ -624,7 +624,7 @@ export interface PublicFormSettings {
   /** Create a lead in the sales pipeline on submit. */
   create_lead?: boolean;
   /** Which field ids map onto lead name / email / phone. */
-  lead_map?: { name?: string; email?: string; phone?: string };
+  lead_map?: { name?: string; email?: string; phone?: string; address?: string };
   /** Email addresses notified on each submission. */
   notify_emails?: string[];
 }
