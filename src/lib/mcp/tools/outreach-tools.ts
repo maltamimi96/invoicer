@@ -352,4 +352,23 @@ export function registerOutreachTools(tool: ToolFn): void {
       if (res.errors.length && !res.created) return errorText(res.errors[0]);
       return text(res);
     });
+
+  tool("list_sent_emails",
+    "Every email the outreach agent has actually sent, newest first — recipient, subject, which sequence step, and whether it was delivered, opened, clicked, replied to or bounced. Use this to answer 'what did we send this person' and 'is the campaign working'.",
+    {
+      campaign_id: UUID.optional(),
+      status: z.enum(["sent", "delivered", "opened", "clicked", "bounced", "complained", "failed"]).optional(),
+      limit: z.number().int().min(1).max(500).optional(),
+    },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "outreach:read");
+      let q = t(ctx, "outreach_messages")
+        .select("id, recipient, subject, status, step_order, sent_at, opened_at, clicked_at, replied_at, bounced_at, error, prospects(id, name, company), outreach_campaigns(id, name)")
+        .eq("business_id", ctx.businessId);
+      if (args.campaign_id) q = q.eq("campaign_id", args.campaign_id);
+      if (args.status) q = q.eq("status", args.status);
+      const { data, error } = await q.order("sent_at", { ascending: false }).limit(args.limit ?? 100);
+      if (error) throw error;
+      return text(data);
+    });
 }

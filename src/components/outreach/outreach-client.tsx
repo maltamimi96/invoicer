@@ -126,6 +126,11 @@ export function OutreachClient({
         subtitle="Multi-step cold email over your prospect list — sequences, campaigns and delivery tracking."
         actions={
           <>
+            {/* The record of what actually went out. It was being written all
+                along and had nowhere to be read. */}
+            <Button variant="outline" asChild>
+              <Link href="/outreach/sent"><MailCheck className="mr-1.5 h-4 w-4" /> Sent</Link>
+            </Button>
             <Button variant="outline" onClick={sendNow} disabled={running || !settings.enabled}>
               {running ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Send className="mr-1.5 h-4 w-4" />}
               Send due now

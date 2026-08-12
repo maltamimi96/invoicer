@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/layout/page-header";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import { Send } from "@/components/ui/icons";
 import { createProspect, bulkUpdateProspects, bulkDeleteProspects } from "@/lib/actions/prospects";
 import { ProspectsImport } from "@/components/prospects/prospects-import";
@@ -37,6 +37,7 @@ export function ProspectsView({ prospects }: { prospects: Prospect[] }) {
   const [emailOpen, setEmailOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ProspectStatus | "">("");
+  const [contactFilter, setContactFilter] = useState<"" | "yes" | "no">("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkStatus, setBulkStatus] = useState<ProspectStatus | "">("");
   const [bulkTag, setBulkTag] = useState("");
@@ -57,10 +58,12 @@ export function ProspectsView({ prospects }: { prospects: Prospect[] }) {
     const s = search.trim().toLowerCase();
     return prospects.filter((p) => {
       if (statusFilter && p.status !== statusFilter) return false;
+      if (contactFilter === "yes" && !p.last_contacted_at) return false;
+      if (contactFilter === "no" && p.last_contacted_at) return false;
       if (s && !`${p.name ?? ""} ${p.email ?? ""} ${p.company ?? ""}`.toLowerCase().includes(s)) return false;
       return true;
     });
-  }, [prospects, search, statusFilter]);
+  }, [prospects, search, statusFilter, contactFilter]);
 
   function handleAdd() {
     if (!name.trim() && !email.trim()) { toast.error("Enter a name or email"); return; }
@@ -94,6 +97,18 @@ export function ProspectsView({ prospects }: { prospects: Prospect[] }) {
           <option value="">All statuses</option>
           {STATUSES.map((s) => <option key={s} value={s} className="capitalize">{s}</option>)}
         </select>
+        {/* "Who haven't I reached out to yet" is the question this list exists
+            to answer, and it needed opening every row to find out. */}
+        <select
+          className={selectCls}
+          value={contactFilter}
+          onChange={(e) => setContactFilter(e.target.value as "" | "yes" | "no")}
+          aria-label="Filter by whether they've been contacted"
+        >
+          <option value="">Contacted or not</option>
+          <option value="no">Not contacted yet</option>
+          <option value="yes">Already contacted</option>
+        </select>
       </div>
 
       {prospects.length === 0 ? (
@@ -125,7 +140,7 @@ export function ProspectsView({ prospects }: { prospects: Prospect[] }) {
             <table className="ch-table w-full">
               <thead><tr>
                 <th className="w-8"><input type="checkbox" checked={filtered.length > 0 && filtered.every((p) => selected.has(p.id))} onChange={(e) => setSelected(e.target.checked ? new Set(filtered.map((p) => p.id)) : new Set())} /></th>
-                <th>Name</th><th>Company</th><th>Email</th><th>Source</th><th>Status</th>
+                <th>Name</th><th>Company</th><th>Email</th><th>Source</th><th>Contacted</th><th>Status</th>
               </tr></thead>
               <tbody>
                 {filtered.map((p) => (
@@ -134,11 +149,25 @@ export function ProspectsView({ prospects }: { prospects: Prospect[] }) {
                     <td className="font-medium cursor-pointer" onClick={() => router.push(`/prospects/${p.id}`)}>{p.name || "—"}</td>
                     <td className="cursor-pointer" onClick={() => router.push(`/prospects/${p.id}`)}>{p.company || "—"}</td>
                     <td className="break-words cursor-pointer" onClick={() => router.push(`/prospects/${p.id}`)}>{p.email || "—"}</td>
+                    {/* Whether anyone has actually reached out. Without this
+                        the only way to know was to open each prospect, and a
+                        list you can't triage is a list you re-work. */}
                     <td>{p.source || "—"}</td>
+                    <td>
+                      {p.last_contacted_at ? (
+                        <span className="text-[11px] text-muted-foreground">
+                          {formatDate(p.last_contacted_at)}
+                        </span>
+                      ) : (
+                        <span className="text-[11px] font-medium rounded-full px-2 py-0.5 bg-muted text-muted-foreground">
+                          Not yet
+                        </span>
+                      )}
+                    </td>
                     <td><span className={cn("text-[11px] font-medium rounded-full px-2 py-0.5 capitalize", TONE[p.status])}>{p.status}</span></td>
                   </tr>
                 ))}
-                {filtered.length === 0 && <tr><td colSpan={6} className="text-center text-muted-foreground py-6">No prospects match.</td></tr>}
+                {filtered.length === 0 && <tr><td colSpan={7} className="text-center text-muted-foreground py-6">No prospects match.</td></tr>}
               </tbody>
             </table>
           </div>

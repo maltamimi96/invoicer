@@ -313,3 +313,49 @@ export async function runOutreachNow(limit = 25): Promise<{ sent: number; skippe
   revalidatePath("/outreach");
   return { sent: res.sent, skipped: res.skipped, failed: res.failed };
 }
+
+
+// ── What actually went out ───────────────────────────────────────────────────
+
+export interface SentMessage {
+  id: string;
+  recipient: string;
+  subject: string | null;
+  status: string;
+  step_order: number | null;
+  sent_at: string;
+  opened_at: string | null;
+  clicked_at: string | null;
+  replied_at: string | null;
+  bounced_at: string | null;
+  error: string | null;
+  prospects?: { id: string; name: string | null; company: string | null } | null;
+  outreach_campaigns?: { id: string; name: string } | null;
+}
+
+/**
+ * Every email the outreach agent has sent, newest first.
+ *
+ * All of this was already recorded — recipient, subject, opens, clicks,
+ * bounces, replies — and none of it was visible anywhere. An agent that sends
+ * on your behalf and can't show you what it sent is asking to be trusted on
+ * nothing, and it's how the mobile toggle that silently did nothing survived
+ * as long as it did.
+ */
+export async function listSentMessages(filters?: {
+  campaign_id?: string;
+  status?: string;
+  limit?: number;
+}): Promise<SentMessage[]> {
+  const { supabase, businessId } = await ctx();
+  let q = tbl(supabase, "outreach_messages")
+    .select("id, recipient, subject, status, step_order, sent_at, opened_at, clicked_at, replied_at, bounced_at, error, prospects(id, name, company), outreach_campaigns(id, name)")
+    .eq("business_id", businessId);
+  if (filters?.campaign_id) q = q.eq("campaign_id", filters.campaign_id);
+  if (filters?.status) q = q.eq("status", filters.status);
+  const { data, error } = await q
+    .order("sent_at", { ascending: false })
+    .limit(filters?.limit ?? 300);
+  if (error) throw error;
+  return (data ?? []) as SentMessage[];
+}
