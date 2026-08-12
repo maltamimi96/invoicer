@@ -21,15 +21,29 @@ import { Badge } from "@/components/ui/badge";
 import { Trash2, Search, X, ListChecks } from "@/components/ui/icons";
 import { cn, formatDate } from "@/lib/utils";
 import { deleteFormSubmission, type SubmissionWithForm } from "@/lib/actions/forms";
+import { FormUploadAnswer, type UploadAnswer } from "./form-upload-answer";
 import type { OnboardingField, PublicForm } from "@/types/database";
 
 const LAYOUT_ONLY = ["heading", "divider", "instructions"];
+
+/** An upload answer carries a storage path; anything else is display text. */
+function asUpload(v: unknown): UploadAnswer | null {
+  if (!v || typeof v !== "object") return null;
+  const o = v as Record<string, unknown>;
+  return typeof o.path === "string" && o.path
+    ? { path: o.path, name: typeof o.name === "string" ? o.name : null, type: typeof o.type === "string" ? o.type : null }
+    : null;
+}
 
 /** Answers are keyed by field id, so a label needs the form's schema. */
 function answerRows(schema: OnboardingField[] | undefined, answers: Record<string, unknown> | null) {
   return (schema ?? [])
     .filter((f) => !LAYOUT_ONLY.includes(f.type))
-    .map((f) => ({ id: f.id, label: f.label, value: fmtAnswer(answers?.[f.id]) }));
+    .map((f) => ({
+      id: f.id, label: f.label,
+      upload: asUpload(answers?.[f.id]),
+      value: fmtAnswer(answers?.[f.id]),
+    }));
 }
 
 function fmtAnswer(v: unknown): string {
@@ -198,7 +212,9 @@ export function SubmissionsView({ submissions, forms, activeFormId }: Props) {
                       {rows.map((r) => (
                         <div key={r.id} className="min-w-0">
                           <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">{r.label}</dt>
-                          <dd className="text-sm break-words">{r.value}</dd>
+                          <dd className="text-sm break-words">
+                            {r.upload ? <FormUploadAnswer upload={r.upload} /> : r.value}
+                          </dd>
                         </div>
                       ))}
                     </dl>

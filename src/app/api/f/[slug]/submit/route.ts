@@ -72,6 +72,33 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     const email = val(emailFieldId);
     const phone = val(phoneFieldId);
 
+    // Everything the visitor actually told us used to stop here. The lead got a
+    // name, an email and a phone number; address, roof type, urgency and the
+    // message they wrote went only to public_form_submissions, so the
+    // salesperson had to open /forms/[id] → Submissions and match by timestamp.
+    // A lead you have to go and look up somewhere else is half a lead.
+    const addressFieldId = settings.lead_map?.address ?? firstOfType(["address"]);
+    const addressValue = val(addressFieldId);
+
+    // Everything answered, in the form's own field order, minus the display-only
+    // furniture and the three fields already promoted to lead columns.
+    const promoted = new Set([nameFieldId, emailFieldId, phoneFieldId, addressFieldId].filter(Boolean));
+    const detailLines = schema
+      .filter((f) => !["heading", "divider", "instructions"].includes(f.type))
+      .filter((f) => !promoted.has(f.id))
+      .map((f) => {
+        const raw = answers[f.id];
+        const text = Array.isArray(raw)
+          ? raw.join(", ")
+          : raw && typeof raw === "object" && "name" in (raw as Record<string, unknown>)
+            ? String((raw as { name?: string }).name ?? "")
+            : raw === true ? "Yes" : raw === false ? "No" : String(raw ?? "");
+        return text.trim() ? `${f.label}: ${text.trim()}` : "";
+      })
+      .filter(Boolean);
+
+    const leadNotes = [`Submitted via form "${form.name}"`, ...detailLines].join("\n");
+
     if (name || email || phone) {
       const { data: biz } = await tbl(sb, "businesses").select("user_id, name, email").eq("id", form.business_id).single();
       const leadName = name || email || phone || "Website enquiry";
@@ -85,9 +112,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
           p_name: leadName,
           p_email: email || null,
           p_phone: phone || null,
-          p_address: null, p_suburb: null, p_service: null,
+          p_address: addressValue || null, p_suburb: null, p_service: null,
           p_property_type: null, p_timing: null,
-          p_notes: `Submitted via form "${form.name}"`,
+          p_notes: leadNotes,
           p_source: "form",
           p_source_ref: slug,
         }).single();
@@ -100,7 +127,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
             const { data: ins, error: insErr } = await tbl(sb, "leads").insert({
               business_id: form.business_id, user_id: ownerId, name: leadName,
               email: email || null, phone: phone || null, status: "new",
-              source: "form", notes: `Submitted via form "${form.name}" (${slug})`,
+              source: "form", notes: leadNotes, address: addressValue || null,
             }).select("id").single();
             if (insErr) console.error("[form-submit] lead insert fallback failed:", insErr.message);
             // eslint-disable-next-line @typescript-eslint/no-explicit-any

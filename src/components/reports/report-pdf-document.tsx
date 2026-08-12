@@ -73,6 +73,10 @@ interface Props {
    *  callers convert the logo to base64 once and pass it in. Falls back to
    *  business.logo_url for client-side rendering. */
   logoDataUrl?: string | null;
+  /** Pre-fetched photos as data URLs, keyed by photo id — same reason as the
+   *  logo. A photo missing from this map failed to fetch and is skipped rather
+   *  than taking the whole render down with it. */
+  photoDataUrls?: Record<string, string>;
 }
 
 function BrandHeader({ business, logoDataUrl }: { business: Business; logoDataUrl?: string | null }) {
@@ -104,7 +108,7 @@ function BrandHeader({ business, logoDataUrl }: { business: Business; logoDataUr
   );
 }
 
-export function ReportPdfDocument({ report, business, logoDataUrl }: Props) {
+export function ReportPdfDocument({ report, business, logoDataUrl, photoDataUrls }: Props) {
   const m = report.meta;
   const sectionMap = Object.fromEntries(report.sections.map((s) => [s.id, s.content]));
   const inspectorLine = m.inspector_name + (m.inspector_license ? `  (Lic. ${m.inspector_license})` : "");
@@ -221,13 +225,20 @@ export function ReportPdfDocument({ report, business, logoDataUrl }: Props) {
             The following {report.photos.length} photograph{report.photos.length !== 1 ? "s" : ""} were captured on-site at {report.property_address} on {report.inspection_date}.
           </Text>
           <View style={styles.photoGrid}>
-            {report.photos.map((photo) => (
-              <View key={photo.id} style={styles.photoItem}>
-                <Image style={styles.photoImage} src={photo.url} />
-                <Text style={styles.photoNumber}>Photo {photo.order} of {report.photos.length}</Text>
-                <Text style={styles.photoCaption}>{photo.caption || "Site photograph"}</Text>
-              </View>
-            ))}
+            {report.photos.map((photo) => {
+              // Server renders pass pre-fetched data URLs; a client-side render
+              // can still use the remote URL directly.
+              const src = photoDataUrls?.[photo.id] ?? (photoDataUrls ? null : photo.url);
+              return (
+                <View key={photo.id} style={styles.photoItem}>
+                  {src
+                    ? <Image style={styles.photoImage} src={src} />
+                    : <Text style={styles.photoCaption}>Photo unavailable</Text>}
+                  <Text style={styles.photoNumber}>Photo {photo.order} of {report.photos.length}</Text>
+                  <Text style={styles.photoCaption}>{photo.caption || "Site photograph"}</Text>
+                </View>
+              );
+            })}
           </View>
           <Text style={styles.businessName}>{business.name}</Text>
           <Text style={styles.pageNumber} render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} fixed />

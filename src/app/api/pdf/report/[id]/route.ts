@@ -60,6 +60,28 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       } catch { /* fall back to nothing — header renders the business name */ }
     }
 
+    // Photos need exactly the same treatment as the logo, and never got it:
+    // they were handed to <Image src={photo.url}> as raw remote URLs, so ONE
+    // unreachable photo rejected the whole render and the customer opening the
+    // link got a JSON error blob instead of their report.
+    //
+    // Fetched in parallel with a timeout — a slow host used to stall every PDF,
+    // since nothing bounded these — and a failure drops that single photo
+    // rather than the document.
+    const photoDataUrls: Record<string, string> = {};
+    await Promise.all((reportData.photos ?? []).map(async (photo) => {
+      if (!photo?.url) return;
+      try {
+        const res = await fetch(photo.url, { signal: AbortSignal.timeout(8000) });
+        if (!res.ok) return;
+        const buf = Buffer.from(await res.arrayBuffer());
+        const ct = res.headers.get("content-type") ?? "image/jpeg";
+        photoDataUrls[photo.id] = `data:${ct};base64,${buf.toString("base64")}`;
+      } catch {
+        // Skip this photo; the report is still worth producing without it.
+      }
+    }));
+
     const { renderToStream } = await import("@react-pdf/renderer");
     const { ReportPdfDocument } = await import("@/components/reports/report-pdf-document");
     const React = await import("react");
@@ -68,6 +90,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       report: reportData,
       business,
       logoDataUrl,
+      photoDataUrls,
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -90,6 +113,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[Report PDF]", message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    // This URL is always opened in a browser tab — a customer or an inspector
+    // clicking "Download PDF". Returning JSON meant they saw a raw error blob
+    // with a stack-ish message in it and no idea what to do next.
+    return new NextResponse(
+      `<!doctype html><meta charset="utf-8"><title>Report unavailable</title>` +
+      `<div style="font-family:system-ui,sans-serif;max-width:34rem;margin:12vh auto;padding:0 1.5rem;line-height:1.6">` +
+      `<h1 style="font-size:1.25rem;margin:0 0 .5rem">This report couldn't be generated</h1>` +
+      `<p style="color:#555;margin:0">Please try again in a moment. If it keeps happening, contact the business that sent you this link.</p>` +
+      `</div>`,
+      { status: 500, headers: { "Content-Type": "text/html; charset=utf-8" } },
+    );
   }
 }

@@ -105,6 +105,8 @@ export function FormBuilderClient({ form, secureAvailable, startInPreview = fals
   const [name, setName] = useState(form.name);
   const [description, setDescription] = useState(form.description ?? "");
   const [status, setStatus] = useState(form.status);
+  const [thankYou, setThankYou] = useState(form.settings?.thank_you_message ?? "");
+  const [allowEdit, setAllowEdit] = useState(Boolean(form.settings?.allow_edit_after_submit));
   const [fields, setFields] = useState<OnboardingField[]>(form.schema ?? []);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [preview, setPreview] = useState(startInPreview);
@@ -147,6 +149,15 @@ export function FormBuilderClient({ form, secureAvailable, startInPreview = fals
     try {
       await updateOnboardingForm(form.id, {
         name: name.trim(), description: description.trim() || null, status, schema: fields,
+        // The action and the portal both handled settings end-to-end; the
+        // builder just never sent them, so allow_edit_after_submit was
+        // permanently falsy (a client with a typo got a 409 forever and the
+        // request had to be deleted and resent) and the thank-you screen was
+        // the same hardcoded copy for everyone.
+        settings: {
+          thank_you_message: thankYou.trim() || undefined,
+          allow_edit_after_submit: allowEdit,
+        },
       });
       toast.success("Saved");
       refresh();
@@ -173,6 +184,13 @@ export function FormBuilderClient({ form, secureAvailable, startInPreview = fals
             className="text-lg font-semibold h-10" placeholder="Form name" />
           <Input value={description} onChange={(e) => setDescription(e.target.value)}
             className="h-8 text-sm" placeholder="Description shown to the customer (optional)" />
+          <Input value={thankYou} onChange={(e) => setThankYou(e.target.value)}
+            className="h-8 text-sm" placeholder="Thank-you message shown after they submit (optional)" />
+          <label className="flex items-center gap-2 pt-1 text-xs text-muted-foreground">
+            <input type="checkbox" checked={allowEdit} onChange={(e) => setAllowEdit(e.target.checked)}
+              className="size-3.5 accent-[var(--primary)]" />
+            Let them come back and edit after submitting
+          </label>
         </div>
         <div className="flex items-center gap-2">
           <Select value={status} onValueChange={(v) => setStatus(v as typeof status)}>

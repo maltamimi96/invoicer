@@ -225,18 +225,41 @@ export async function deleteReport(id: string): Promise<void> {
 
   const businessId = await getActiveBizId(supabase, user.id);
 
-  // Delete storage objects first
-  try {
-    const { data: files } = await supabase.storage
-      .from("report-images")
-      .list(`${user.id}/${id}`);
+  // Delete storage objects first.
+  //
+  // Photos are uploaded under the CREATING user's id (report-generator.tsx:
+  // `${user.id}/${report.id}/…`), but this used the DELETING user's id — so the
+  // normal case on a multi-user account, one person deleting another's report,
+  // listed an empty prefix, removed nothing, and reported success. The
+  // report-images bucket is PUBLIC, so every inspection photo stayed resolvable
+  // by URL forever and storage grew without bound.
+  //
+  // Two changes: key the prefix to the report's own owner, and do the removal
+  // with the admin client — the bucket's DELETE policy is
+  // `auth.uid() = (storage.foldername(name))[1]`, which would refuse anyone but
+  // the original uploader even with the right path.
+  const { data: reportRow } = await tbl(supabase, "reports")
+    .select("user_id").eq("id", id).eq("business_id", businessId).maybeSingle();
+  const ownerId: string | null = reportRow?.user_id ?? null;
 
-    if (files && files.length > 0) {
-      const paths = files.map((f) => `${user.id}/${id}/${f.name}`);
-      await supabase.storage.from("report-images").remove(paths);
+  if (ownerId) {
+    try {
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const admin = createAdminClient();
+      const prefix = `${ownerId}/${id}`;
+      const { data: files, error: listErr } = await admin.storage.from("report-images").list(prefix);
+      if (listErr) {
+        console.error("[deleteReport] could not list photos:", listErr.message);
+      } else if (files?.length) {
+        const { error: rmErr } = await admin.storage.from("report-images")
+          .remove(files.map((f) => `${prefix}/${f.name}`));
+        // Don't block the DB delete, but don't pretend it worked either — a
+        // silent catch is how these went unnoticed in a public bucket.
+        if (rmErr) console.error("[deleteReport] could not remove photos:", rmErr.message);
+      }
+    } catch (e) {
+      console.error("[deleteReport] storage cleanup threw:", e instanceof Error ? e.message : e);
     }
-  } catch {
-    // Storage cleanup failure should not block DB delete
   }
 
   const { error } = await tbl(supabase, "reports")
