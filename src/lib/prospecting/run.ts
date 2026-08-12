@@ -157,6 +157,26 @@ function areasFor(hunt: HuntRow): { label: string; area: SearchArea }[] {
   }];
 }
 
+/**
+ * Write candidates, and NOTICE when it fails.
+ *
+ * The original code called `.upsert(...)` and never looked at `error`. The
+ * conflict target was a partial unique index, which Postgres refuses to use as
+ * an ON CONFLICT arbiter, so every single write raised 42P10 — and a hunt
+ * searched Google, screened 93 businesses, paid to judge 5 of them, reported
+ * "5 to review" and stored nothing. CLAUDE.md already says to check `error`,
+ * not just `data`; this is that rule costing money.
+ *
+ * Returns the error message so the run can report it rather than claim a
+ * success it didn't have.
+ */
+async function writeCandidates(sb: SB, rows: Record<string, unknown>[]): Promise<string | null> {
+  if (!rows.length) return null;
+  const { error } = await sb.from("prospect_candidates")
+    .upsert(rows, { onConflict: "business_id,place_id", ignoreDuplicates: true });
+  return error ? (error.message ?? "Couldn't save candidates") : null;
+}
+
 export async function runHunt(sb: SB, hunt: HuntRow, existingRunId?: string): Promise<RunResult> {
   const result: RunResult = {
     run_id: existingRunId ?? null, found: 0, screened_out: 0, verified: 0, rejected: 0,
@@ -317,14 +337,13 @@ export async function runHunt(sb: SB, hunt: HuntRow, existingRunId?: string): Pr
 
   // Screened-out rows are still written: they're why the funnel adds up, and
   // they stop the next run re-finding the same rejects.
-  if (rejects.length) {
-    await sb.from("prospect_candidates").upsert(
-      rejects.map(({ hit, reason, checks }) => ({
-        ...candidateRow(hunt, result.run_id, hit),
-        status: "screened_out", reasoning: reason, checks,
-      })),
-      { onConflict: "business_id,place_id", ignoreDuplicates: true },
-    );
+  const screenWriteError = await writeCandidates(sb, rejects.map(({ hit, reason, checks }) => ({
+    ...candidateRow(hunt, result.run_id, hit),
+    status: "screened_out", reasoning: reason, checks,
+  })));
+  if (screenWriteError) {
+    await say(`Couldn't save screened-out businesses — ${screenWriteError}`, "error");
+    return finish("failed", `Couldn't save results: ${screenWriteError}`);
   }
 
   await say(`${survivors.length} past the filters, ${result.screened_out} removed`,
@@ -381,14 +400,20 @@ export async function runHunt(sb: SB, hunt: HuntRow, existingRunId?: string): Pr
       }
     }
 
-    await sb.from("prospect_candidates").upsert({
+    // Written one at a time so a judgement is never paid for twice: if this
+    // throws we stop here rather than carrying on spending.
+    const writeError = await writeCandidates(sb, [{
       ...candidateRow(hunt, result.run_id, hit),
       status: verdict.fit ? "verified" : "rejected",
       score: verdict.score,
       reasoning: verdict.reasoning,
       checks: { screened: "passed" },
       param_results: verdict.params,
-    }, { onConflict: "business_id,place_id", ignoreDuplicates: true });
+    }]);
+    if (writeError) {
+      await say(`Couldn't save "${hit.name}" — ${writeError}`, "error");
+      return finish("failed", `Couldn't save results: ${writeError}`);
+    }
 
     await progress("verifying", result.verified, target);
   }
