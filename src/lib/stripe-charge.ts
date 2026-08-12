@@ -55,6 +55,20 @@ export async function chargeInvoiceToSavedCard(
   if (!customerAllowsCard(customer.allowed_payment_methods)) {
     return { ok: false, reason: "not_eligible", message: "Card payment is disabled for this customer" };
   }
+  // The customer's standing consent to be charged off-session. This gate used
+  // to live only on the send-invoice path, so the recurring cron happily kept
+  // billing saved cards that the customer had switched autopay OFF on — the
+  // manual path honoured the flag and the automated one didn't, which is the
+  // shape of bug that never shows up in testing.
+  //
+  // It belongs here rather than at each caller because EVERY route through this
+  // function charges off_session, and an off-session merchant-initiated charge
+  // is exactly what withdrawn consent forbids. That deliberately covers the
+  // "Charge saved card" button too: the operator gets told why, and can send a
+  // pay link instead. Fails closed — only an explicit true is consent.
+  if (customer.autopay_enabled !== true) {
+    return { ok: false, reason: "not_eligible", message: "Customer has autopay disabled" };
+  }
 
   const currency = (biz.currency || "GBP").toLowerCase();
   const surcharge = computeSurcharge(balance, {

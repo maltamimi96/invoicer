@@ -47,3 +47,32 @@ export const getActiveBizId = cache(async (supabase: AnySupabase, userId: string
 
   throw new Error("No business found. Please complete onboarding.");
 });
+
+/**
+ * Does this user actually belong to this business?
+ *
+ * getActiveBizId trusts the cookie, and everywhere it's used that is fine —
+ * RLS re-checks access on every query, so a tampered cookie just yields empty
+ * results. The exception is any path that goes on to use the SERVICE-ROLE
+ * client, which bypasses RLS entirely: there the cookie is the only thing
+ * naming the tenant, and trusting it is a cross-tenant read.
+ *
+ * Call this before handing a cookie-derived business id to an admin client.
+ *
+ * The lookups run on the caller's own RLS-scoped client, so a business the user
+ * has no claim to simply returns no row — the check can't be talked out of it
+ * by a forged id. Errors fail closed.
+ */
+export async function userBelongsToBusiness(
+  supabase: AnySupabase,
+  userId: string,
+  businessId: string,
+): Promise<boolean> {
+  const [owned, member] = await Promise.all([
+    supabase.from("businesses").select("id").eq("id", businessId).eq("user_id", userId).maybeSingle(),
+    supabase.from("business_members").select("business_id")
+      .eq("business_id", businessId).eq("user_id", userId).eq("status", "active").maybeSingle(),
+  ]);
+  if (owned.error || member.error) return false;
+  return Boolean(owned.data) || Boolean(member.data);
+}
