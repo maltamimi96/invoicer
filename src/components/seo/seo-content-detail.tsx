@@ -154,7 +154,6 @@ export function SeoContentDetail({ piece, connections }: Props) {
             <span className={cn("text-[11px] font-medium rounded-full px-2 py-0.5", STATUS_TONE[status])}>{status.replace("_", " ")}</span>
           </span>
         }
-        accent="linear-gradient(180deg, #10b981 0%, #047857 100%)"
         actions={
           <>
             <button onClick={openDelete} disabled={isPending} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-destructive rounded-md border border-border px-3 py-1.5">

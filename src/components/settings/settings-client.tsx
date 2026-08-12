@@ -242,7 +242,6 @@ export function SettingsClient({ business: initial, apiKeys, emailConfig, webhoo
       <PageHeader
         title="Settings"
         subtitle={`Configuration for ${initial.name}`}
-        accent="linear-gradient(180deg, #60a5fa 0%, #1d4ed8 100%)"
       />
 
       <Tabs value={tab} onValueChange={setTab}>

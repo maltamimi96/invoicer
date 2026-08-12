@@ -87,7 +87,6 @@ export function ContractsClient({ initial, customers, templates }: Props) {
       <PageHeader
         title="Contracts"
         subtitle="Create agreements and send them to customers to sign"
-        accent="linear-gradient(180deg, #818cf8 0%, #4f46e5 100%)"
         actions={<Button onClick={() => { reset(); setOpen(true); }}><Plus className="w-4 h-4 mr-1.5" /> New contract</Button>}
       />
 

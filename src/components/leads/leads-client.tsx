@@ -249,7 +249,6 @@ export function LeadsClient({ leads: initial, tagPresets: initialPresets = [] }:
       <PageHeader
         title="Leads"
         subtitle={`${stats.total} total · ${stats.new} awaiting first contact`}
-        accent="linear-gradient(180deg, #60a5fa 0%, #1d4ed8 100%)"
         actions={
           <>
             <CleanupButton entity="leads" entityLabel="leads" />

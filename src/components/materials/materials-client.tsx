@@ -120,7 +120,6 @@ export function MaterialsClient({ materials: initial, currency = "GBP" }: { mate
       <PageHeader
         title="Materials"
         subtitle={`${activeCount} active · ${archivedCount} archived · cost reference catalog`}
-        accent="linear-gradient(180deg, #fbbf24 0%, #b45309 100%)"
         actions={
           <>
             <button

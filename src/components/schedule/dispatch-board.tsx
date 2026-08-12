@@ -6,15 +6,9 @@ import { toast } from "sonner";
 import { rescheduleJob } from "@/lib/actions/schedule";
 import type { ScheduledJob, MemberProfile } from "@/types/database";
 
+import { toneOf, TONE_SOLID } from "@/components/ui/kirei/pill";
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-const STATUS_DOT: Record<string, string> = {
-  draft:       "bg-blue-400",
-  assigned:    "bg-indigo-400",
-  in_progress: "bg-orange-400",
-  submitted:   "bg-purple-400",
-  completed:   "bg-green-400",
-};
 
 function addDays(dateStr: string, n: number): string {
   const d = new Date(dateStr + "T00:00:00");
@@ -163,7 +157,7 @@ export function DispatchBoard({ jobs, weekStart, profiles, onJobClick, onChanged
                       className="w-full text-left rounded border bg-card p-1.5 text-[11px] hover:shadow-sm cursor-grab active:cursor-grabbing space-y-0.5"
                     >
                       <div className="flex items-center gap-1">
-                        <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${STATUS_DOT[job.status] ?? "bg-gray-400"}`} />
+                        <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${TONE_SOLID[toneOf(job.status)]}`} />
                         <span className="font-semibold truncate">{job.title}</span>
                       </div>
                       {(job.start_time || job.end_time) && (

@@ -147,7 +147,6 @@ export function WorkOrdersClient({ workOrders, userRole }: WorkOrdersClientProps
       <PageHeader
         title={v.plural}
         subtitle={`${workOrders.length} total · ${stats.onSite} on site now`}
-        accent="linear-gradient(180deg, #fbbf24 0%, #b45309 100%)"
         actions={
           <>
             <CleanupButton entity="work_orders" entityLabel={lower(v.plural)} />

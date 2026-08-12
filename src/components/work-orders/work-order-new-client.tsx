@@ -222,7 +222,6 @@ export function WorkOrderNewClient({
       <PageHeader
         title={`New ${lower(v.singular)}`}
         subtitle="Assign a job to your team — they'll submit photos from site"
-        accent="linear-gradient(180deg, #fbbf24 0%, #b45309 100%)"
       />
 
       {templates.length > 0 && (
