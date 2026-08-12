@@ -159,6 +159,47 @@ export async function notifyBookingReminder(sb: Sb, businessId: string, settings
   }
 }
 
+/**
+ * Reschedule notice (customer + team).
+ *
+ * A customer could move their own appointment and NOBODY was told — not the
+ * crew who'd turn up at the old time, not the customer who got no confirmation
+ * that it took. Cancellation notified both; reschedule notified neither.
+ *
+ * Reuses the "confirmed" email body deliberately: it already renders the new
+ * time and the manage link, which is precisely what a reschedule confirmation
+ * needs to say. Only the subject differs, so nobody mistakes it for a new
+ * booking.
+ */
+export async function notifyBookingRescheduled(
+  sb: Sb, businessId: string, settings: BookingSettings, appt: Appointment, previousStart: string,
+): Promise<void> {
+  const biz = await getBiz(sb, businessId);
+  if (!biz) return;
+  const when = fmtLocal(appt.starts_at, settings.timezone);
+  const wasWhen = fmtLocal(previousStart, settings.timezone);
+  const from = buildBusinessFrom({ name: biz.name, localPart: "bookings" });
+  const manageUrl = `${APP_URL}/booking/${appt.manage_token}`;
+
+  if (settings.notify_customer_email && appt.customer_email) {
+    await sendEmail({
+      to: appt.customer_email, subject: `Booking moved to ${when} — ${biz.name}`,
+      from, replyTo: biz.email ?? undefined,
+      tags: { business_id: businessId, doc_type: "custom" },
+      html: await bookingEmail(sb, biz, settings, appt, "confirmed", manageUrl),
+    }).catch(() => undefined);
+  }
+  if (settings.notify_team_email) {
+    const teamTo = settings.team_notify_email || biz.email;
+    if (teamTo) await sendEmail({
+      to: teamTo, subject: `Booking moved: ${appt.customer_name} — ${when}`, from,
+      tags: { business_id: businessId, doc_type: "custom" },
+      html: `<div style="font-family:system-ui,sans-serif"><p><strong>${appt.customer_name}</strong> moved their booking.</p>`
+        + `<p>Was: ${wasWhen}<br>Now: <strong>${when}</strong></p></div>`,
+    }).catch(() => undefined);
+  }
+}
+
 /** Cancellation notice (customer + team). */
 export async function notifyBookingCancelled(sb: Sb, businessId: string, settings: BookingSettings, appt: Appointment): Promise<void> {
   const biz = await getBiz(sb, businessId);

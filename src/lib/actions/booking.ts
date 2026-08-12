@@ -240,10 +240,42 @@ export async function updateResource(id: string, patch: Partial<{
   revalidate();
 }
 
-export async function deleteResource(id: string): Promise<void> {
+/**
+ * Remove a resource — or, if anything was ever booked with it, retire it.
+ *
+ * This used to be an unconditional delete behind a bare trash icon, and the FK
+ * was ON DELETE CASCADE: tidying up after a worker left took that worker's
+ * entire appointment history with them, past and future, with no undo.
+ *
+ * The `active` flag already existed for exactly this. A retired resource stops
+ * being offered for new bookings and everything already booked with it survives,
+ * so the calendar and the audit log still make sense. Only a resource with no
+ * appointments at all is actually deleted.
+ *
+ * Returns what happened so the UI can say so rather than claiming it deleted
+ * something it retired.
+ */
+export async function deleteResource(id: string): Promise<{ deleted: boolean; appointments: number }> {
   const { supabase, businessId } = await ctx();
-  await tbl(supabase, "booking_resources").delete().eq("id", id).eq("business_id", businessId);
+
+  const { count } = await tbl(supabase, "appointments")
+    .select("id", { count: "exact", head: true })
+    .eq("business_id", businessId).eq("resource_id", id);
+  const appointments = count ?? 0;
+
+  if (appointments > 0) {
+    const { error } = await tbl(supabase, "booking_resources")
+      .update({ active: false }).eq("id", id).eq("business_id", businessId);
+    if (error) throw new Error(error.message);
+    revalidate();
+    return { deleted: false, appointments };
+  }
+
+  const { error } = await tbl(supabase, "booking_resources")
+    .delete().eq("id", id).eq("business_id", businessId);
+  if (error) throw new Error(error.message);
   revalidate();
+  return { deleted: true, appointments: 0 };
 }
 
 // ---------------------------------------------------------------------------
@@ -354,5 +386,16 @@ export async function setAppointmentStatus(id: string, status: Appointment["stat
   if (status === "cancelled") patch.cancelled_at = new Date().toISOString();
   const { error } = await tbl(supabase, "appointments").update(patch).eq("id", id).eq("business_id", businessId);
   if (error) throw new Error(error.message);
+
+  // Same as the customer-facing cancel: take the generated job down with the
+  // booking, or the crew keeps a cancelled visit on their schedule.
+  if (status === "cancelled") {
+    const { data: appt } = await tbl(supabase, "appointments")
+      .select("work_order_id").eq("id", id).eq("business_id", businessId).maybeSingle();
+    if (appt?.work_order_id) {
+      await tbl(supabase, "work_orders").update({ status: "cancelled" })
+        .eq("id", appt.work_order_id).eq("business_id", businessId);
+    }
+  }
   revalidatePath("/settings/booking");
 }

@@ -5,6 +5,7 @@
  * while the customer fills the form. Returns { hold_token, expires_at }.
  */
 import { NextRequest } from "next/server";
+import { isSlotBookable } from "@/lib/booking/validate";
 import {
   resolveTenant, json, publicError, preflight, rateLimit, clientIp, honeypotTripped,
 } from "@/lib/booking/public";
@@ -20,7 +21,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
 
   const tenant = await resolveTenant(slug);
   if (!tenant) return publicError("Booking not available", 404);
-  const { businessId, sb } = tenant;
+  const { businessId, sb, settings } = tenant;
 
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return publicError("Invalid JSON", 400); }
@@ -46,6 +47,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
   if (!resource || !resource.active) return publicError("Resource not found", 404);
 
   const end = new Date(start.getTime() + type.duration_minutes * 60_000);
+
+  // A hold is later trusted by the booking route, which reads its stored
+  // start/end verbatim — so if a bogus time can be held, it can be booked.
+  // This checks the same thing the booking route does: that the time is one
+  // the business actually offered, honouring working hours, blackouts,
+  // max_advance_days, and the form's own type/resource restriction (which the
+  // per-tenant lookups above don't cover).
+  const check = await isSlotBookable(sb, settings, typeId, resourceId, start);
+  if (!check.ok) return publicError(check.reason, 409);
 
   // Re-check the slot is actually free for this resource (appointments + holds + jobs).
   const { data: busy } = await sb.rpc("booking_busy_intervals", {
