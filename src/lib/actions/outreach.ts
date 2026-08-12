@@ -219,7 +219,7 @@ export async function createCampaign(input: {
 }
 
 export async function updateCampaign(id: string, patch: Partial<Pick<OutreachCampaign,
-  "name" | "sequence_id" | "status" | "filter" | "auto_enroll" | "daily_cap">>): Promise<void> {
+  "name" | "sequence_id" | "status" | "filter" | "auto_enroll" | "daily_cap" | "design">>): Promise<void> {
   const { supabase, businessId } = await ctx();
   const clean: Record<string, unknown> = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined));
   if (clean.status === "running") clean.started_at = new Date().toISOString();

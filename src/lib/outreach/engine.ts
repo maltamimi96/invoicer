@@ -15,7 +15,7 @@
 import { randomBytes } from "node:crypto";
 import { sendEmail, buildBusinessFrom } from "@/lib/email";
 import { appUrl } from "@/lib/app-url";
-import { renderOutreachEmail, mergeFields } from "./render";
+import { renderOutreachEmail, mergeFields, resolveOutreachDesign } from "./render";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SB = any;
@@ -74,7 +74,7 @@ export async function runOutreachForBusiness(
 
   // Due enrollments, oldest first, only from running campaigns.
   const { data: due } = await sb.from("outreach_enrollments")
-    .select("*, outreach_campaigns!inner(id,status,daily_cap), prospects!inner(id,name,email,company,title,website,status)")
+    .select("*, outreach_campaigns!inner(id,status,daily_cap,design), prospects!inner(id,name,email,company,title,website,status)")
     .eq("business_id", businessId)
     .eq("status", "active")
     .eq("outreach_campaigns.status", "running")
@@ -135,7 +135,8 @@ export async function runOutreachForBusiness(
     // user saw is byte-for-byte what goes out (src/lib/outreach/render.ts).
     const html = renderOutreachEmail({
       body: step.body,
-      design: settings,
+      // Business design, with this campaign's overrides layered on top.
+      design: resolveOutreachDesign(settings, enr.outreach_campaigns?.design),
       businessName: business?.name ?? "us",
       businessLogoUrl: business?.logo_url ?? null,
       unsubUrl: `${appUrl()}/unsubscribe/${token}`,

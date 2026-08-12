@@ -12,7 +12,9 @@ import { ctxFrom, UUID, type ToolFn } from "./shared";
 import { autoEnroll, runOutreachForBusiness, stopEnrollments } from "@/lib/outreach/engine";
 import { sourceProspects } from "@/lib/outreach/sourcing";
 import { SEED_SEQUENCES, SEEDS_BY_VERTICAL } from "@/lib/outreach/seed-sequences";
-import { renderOutreachEmail, mergeFields, PREVIEW_PROSPECT } from "@/lib/outreach/render";
+import {
+  renderOutreachEmail, mergeFields, PREVIEW_PROSPECT, resolveOutreachDesign, DESIGN_KEYS,
+} from "@/lib/outreach/render";
 
 const STEP = z.object({
   subject: z.string().min(1),
@@ -211,6 +213,68 @@ export function registerOutreachTools(tool: ToolFn): void {
       return text({ created: true, campaign_id: data.id, status: "draft" });
     });
 
+  tool("update_outreach_campaign",
+    "Edit a campaign: rename it, repoint its sequence, change the prospect filter or cap, or set its own email branding. " +
+    "Branding is SPARSE — pass only the fields this campaign should override, and anything you omit keeps inheriting " +
+    "from the business Outreach Settings. Pass reset_branding:true to drop every override.",
+    {
+      campaign_id: UUID,
+      name: z.string().min(1).optional(),
+      sequence_id: UUID.optional(),
+      tags: z.array(z.string()).optional(),
+      statuses: z.array(z.string()).optional(),
+      sources: z.array(z.string()).optional(),
+      auto_enroll: z.boolean().optional(),
+      daily_cap: z.number().int().min(0).optional(),
+      email_font: z.enum(["system", "sans", "serif", "mono"]).optional(),
+      email_accent: z.string().optional(),
+      email_text_color: z.string().optional(),
+      email_width: z.number().int().min(320).max(900).optional(),
+      email_show_logo: z.boolean().optional(),
+      signature_html: z.string().optional(),
+      logo_url: z.string().optional(),
+      reset_branding: z.boolean().optional(),
+    },
+    async (args, extra) => {
+      const ctx = ctxFrom(extra); assertScope(ctx, "outreach:write");
+
+      const { data: existing, error: readErr } = await t(ctx, "outreach_campaigns")
+        .select("design").eq("id", args.campaign_id).eq("business_id", ctx.businessId).maybeSingle();
+      if (readErr) throw readErr;
+      if (!existing) throw new Error("Campaign not found");
+
+      const patch: Record<string, unknown> = {};
+      if (args.name !== undefined) patch.name = args.name;
+      if (args.sequence_id !== undefined) patch.sequence_id = args.sequence_id;
+      if (args.auto_enroll !== undefined) patch.auto_enroll = args.auto_enroll;
+      if (args.daily_cap !== undefined) patch.daily_cap = args.daily_cap;
+      if (args.tags || args.statuses || args.sources) {
+        patch.filter = {
+          tags: args.tags ?? [], status: args.statuses ?? [], sources: args.sources ?? [],
+        };
+      }
+
+      // Merge branding over whatever the campaign already overrode, so setting
+      // one colour doesn't silently drop the rest.
+      const design: Record<string, unknown> = args.reset_branding
+        ? {}
+        : { ...((existing.design as Record<string, unknown>) ?? {}) };
+      for (const k of DESIGN_KEYS) {
+        const v = (args as Record<string, unknown>)[k];
+        if (v !== undefined) design[k] = v;
+      }
+      if (args.reset_branding || Object.keys(design).length === 0) patch.design = null;
+      else patch.design = design;
+
+      const { error } = await t(ctx, "outreach_campaigns").update(patch)
+        .eq("id", args.campaign_id).eq("business_id", ctx.businessId);
+      if (error) throw error;
+      return text({
+        updated: true,
+        branding_overrides: patch.design ? Object.keys(patch.design as object) : [],
+      });
+    });
+
   tool("set_outreach_campaign_status",
     "Start, pause or complete a campaign. 'running' is what actually lets its enrollments send.",
     { campaign_id: UUID, status: z.enum(["draft", "running", "paused", "completed"]) },
@@ -310,8 +374,11 @@ export function registerOutreachTools(tool: ToolFn): void {
     });
 
   tool("preview_outreach_email",
-    "Render a step to the exact HTML that would be sent, using the business's current email design and a sample prospect. Same renderer the engine uses, so this is the email — not an approximation. Pass a sequence_id + step_order, or raw body copy.",
-    { sequence_id: UUID.optional(), step_order: z.number().int().min(1).optional(), body: z.string().optional() },
+    "Render a step to the exact HTML that would be sent, using the business's current email design and a sample prospect. Same renderer the engine uses, so this is the email — not an approximation. Pass a sequence_id + step_order, or raw body copy. Pass campaign_id to layer that campaign's own branding on top, which is what its enrollments will actually receive.",
+    {
+      sequence_id: UUID.optional(), step_order: z.number().int().min(1).optional(),
+      body: z.string().optional(), campaign_id: UUID.optional(),
+    },
     async (args, extra) => {
       const ctx = ctxFrom(extra); assertScope(ctx, "outreach:read");
 
@@ -326,20 +393,29 @@ export function registerOutreachTools(tool: ToolFn): void {
       }
       if (!body) return errorText("Provide a sequence_id or body copy to preview");
 
-      const [{ data: settings }, { data: business }] = await Promise.all([
+      const [{ data: settings }, { data: business }, { data: campaign }] = await Promise.all([
         t(ctx, "outreach_settings").select("*").eq("business_id", ctx.businessId).maybeSingle(),
         t(ctx, "businesses").select("name, logo_url").eq("id", ctx.businessId).maybeSingle(),
+        args.campaign_id
+          ? t(ctx, "outreach_campaigns").select("design")
+              .eq("id", args.campaign_id).eq("business_id", ctx.businessId).maybeSingle()
+          : Promise.resolve({ data: null }),
       ]);
+
+      const design = resolveOutreachDesign(settings, campaign?.design ?? null);
 
       return text({
         subject: mergeFields(subject, PREVIEW_PROSPECT),
         html: renderOutreachEmail({
-          body, design: settings, businessName: business?.name ?? "us",
+          body, design, businessName: business?.name ?? "us",
           businessLogoUrl: business?.logo_url ?? null,
           unsubUrl: "https://example.invalid/unsubscribe/preview",
           prospect: PREVIEW_PROSPECT,
         }),
         rendered_with: PREVIEW_PROSPECT,
+        branding: args.campaign_id
+          ? { source: "campaign + business", overrides: Object.keys(campaign?.design ?? {}) }
+          : { source: "business" },
       });
     });
 

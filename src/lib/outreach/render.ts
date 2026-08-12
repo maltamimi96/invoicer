@@ -45,6 +45,11 @@ export interface OutreachDesign {
   email_width: number;
   email_show_logo: boolean;
   signature_html: string | null;
+  /**
+   * Campaign-specific logo. Falls back to the business logo when unset, so a
+   * campaign can carry a different mark without touching the business record.
+   */
+  logo_url: string | null;
 }
 
 export const DEFAULT_DESIGN: OutreachDesign = {
@@ -54,11 +59,67 @@ export const DEFAULT_DESIGN: OutreachDesign = {
   email_width: 560,
   email_show_logo: false,
   signature_html: null,
+  logo_url: null,
 };
+
+/** The keys a campaign is allowed to override. */
+export const DESIGN_KEYS = Object.keys(DEFAULT_DESIGN) as (keyof OutreachDesign)[];
+
+/**
+ * A partial design where null is meaningful: it means "inherit", not "unset to
+ * nothing". Stored campaign overrides arrive in this shape straight from JSONB.
+ */
+export type DesignOverride = { [K in keyof OutreachDesign]?: OutreachDesign[K] | null };
+
+/**
+ * Layer a campaign's overrides over the business defaults.
+ *
+ * Only keys the campaign actually set win. An absent key — and equally a null
+ * or an empty string, which is what a cleared input posts — inherits, so
+ * editing the business accent still moves every campaign that never opted out.
+ * Storing a full copy per campaign would silently freeze each one at whatever
+ * the business looked like the day it was created.
+ */
+export function resolveOutreachDesign(
+  business: DesignOverride | null | undefined,
+  campaign: DesignOverride | null | undefined,
+): OutreachDesign {
+  const out = { ...DEFAULT_DESIGN, ...pick(business) };
+  return { ...out, ...pick(campaign) };
+}
+
+/** Drop keys that mean "inherit" (absent / null / blank) and anything unknown. */
+function pick(src: DesignOverride | null | undefined): Partial<OutreachDesign> {
+  if (!src || typeof src !== "object") return {};
+  const out: Record<string, unknown> = {};
+  for (const k of DESIGN_KEYS) {
+    const v = (src as Record<string, unknown>)[k];
+    if (v === undefined || v === null) continue;
+    if (typeof v === "string" && v.trim() === "") continue;
+    out[k] = v;
+  }
+  return out as Partial<OutreachDesign>;
+}
 
 /** A colour we're willing to interpolate into a style attribute. */
 function hex(v: string | null | undefined, fallback: string): string {
   return v && /^#[0-9a-f]{3,8}$/i.test(v.trim()) ? v.trim() : fallback;
+}
+
+/**
+ * A URL we're willing to put in an img src.
+ *
+ * The business logo comes from our own storage bucket, but a campaign logo is
+ * typed in by a user, so it reaches the same attribute untrusted. Anything but
+ * a plain http(s) URL is dropped — that rules out `javascript:` and `data:`
+ * payloads — and the value is escaped so a quote can't break out of the
+ * attribute and add its own.
+ */
+function safeUrl(v: string | null | undefined): string | null {
+  if (!v) return null;
+  const s = v.trim();
+  if (!/^https?:\/\/[^\s"'<>]+$/i.test(s)) return null;
+  return esc(s).replace(/"/g, "&quot;");
 }
 
 export interface RenderInput {
@@ -90,8 +151,10 @@ export function renderOutreachEmail(input: RenderInput): string {
 
   const bodyHtml = esc(mergeFields(input.body, input.prospect ?? {})).replace(/\n/g, "<br>");
 
-  const logo = d.email_show_logo && input.businessLogoUrl
-    ? `<img src="${input.businessLogoUrl}" alt="${esc(input.businessName)}" height="36" style="display:block;height:36px;width:auto;margin:0 0 20px;border:0">`
+  // The campaign's own logo wins; the business logo is the fallback.
+  const logoSrc = safeUrl(d.logo_url) ?? safeUrl(input.businessLogoUrl);
+  const logo = d.email_show_logo && logoSrc
+    ? `<img src="${logoSrc}" alt="${esc(input.businessName)}" height="36" style="display:block;height:36px;width:auto;margin:0 0 20px;border:0">`
     : "";
 
   const signature = d.signature_html

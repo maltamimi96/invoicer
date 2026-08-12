@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { mergeFields, withinSendWindow } from "@/lib/outreach/engine";
-import { renderOutreachEmail, PREVIEW_PROSPECT } from "@/lib/outreach/render";
+import { renderOutreachEmail, PREVIEW_PROSPECT, resolveOutreachDesign } from "@/lib/outreach/render";
 import { SEED_SEQUENCES, SEEDS_BY_VERTICAL, unfilledPlaceholders } from "@/lib/outreach/seed-sequences";
 
 describe("mergeFields", () => {
@@ -119,11 +119,84 @@ describe("seed sequence library", () => {
   });
 });
 
+describe("resolveOutreachDesign — campaign branding over business branding", () => {
+  const business = {
+    email_font: "serif", email_accent: "#111111", email_text_color: "#222222",
+    email_width: 700, email_show_logo: true, signature_html: "<b>Biz</b>",
+  };
+
+  it("inherits every unset key from the business", () => {
+    const d = resolveOutreachDesign(business, { email_accent: "#ff0000" });
+    expect(d.email_accent).toBe("#ff0000");
+    expect(d.email_font).toBe("serif");
+    expect(d.email_width).toBe(700);
+    expect(d.signature_html).toBe("<b>Biz</b>");
+  });
+
+  it("treats null and blank as inherit, not as a value", () => {
+    // A cleared input posts "" — if that overrode, the campaign would render
+    // with no accent instead of the business one.
+    const d = resolveOutreachDesign(business, {
+      email_accent: "", email_font: null, signature_html: "  ",
+    });
+    expect(d.email_accent).toBe("#111111");
+    expect(d.email_font).toBe("serif");
+    expect(d.signature_html).toBe("<b>Biz</b>");
+  });
+
+  it("falls back to app defaults when the business has nothing set", () => {
+    const d = resolveOutreachDesign(null, null);
+    expect(d.email_font).toBe("system");
+    expect(d.email_width).toBe(560);
+    expect(d.email_show_logo).toBe(false);
+  });
+
+  it("lets a campaign turn the logo off even though the business has it on", () => {
+    // false is a real override — a naive falsy check would drop it and the
+    // campaign would keep showing a logo it explicitly hid.
+    expect(resolveOutreachDesign(business, { email_show_logo: false }).email_show_logo).toBe(false);
+  });
+
+  it("ignores keys that aren't part of the design", () => {
+    const d = resolveOutreachDesign(business, { status: "running", id: "x" } as never);
+    expect(d).not.toHaveProperty("status");
+    expect(d).not.toHaveProperty("id");
+  });
+});
+
 describe("renderOutreachEmail", () => {
   const base = {
     businessName: "Crown Services",
     unsubUrl: "https://kireihq.com/unsubscribe/u_abc",
   };
+
+  it("prefers the campaign logo over the business logo", () => {
+    const html = renderOutreachEmail({
+      ...base, body: "Hi", businessLogoUrl: "https://biz/logo.png",
+      design: { email_show_logo: true, logo_url: "https://campaign/mark.png" },
+    });
+    expect(html).toContain("https://campaign/mark.png");
+    expect(html).not.toContain("https://biz/logo.png");
+  });
+
+  it("drops a logo URL that isn't a plain http(s) link", () => {
+    // The campaign logo is typed in by a user and lands in an img src, so a
+    // javascript:/data: payload must never survive into a sent email.
+    for (const bad of ["javascript:alert(1)", "data:text/html;base64,PHN2Zz4=", "/relative.png"]) {
+      const html = renderOutreachEmail({
+        ...base, body: "Hi", design: { email_show_logo: true, logo_url: bad },
+      });
+      expect(html).not.toContain("<img");
+    }
+  });
+
+  it("cannot break out of the src attribute", () => {
+    const html = renderOutreachEmail({
+      ...base, body: "Hi",
+      design: { email_show_logo: true, logo_url: 'https://x/a.png" onerror="alert(1)' },
+    });
+    expect(html).not.toContain("onerror");
+  });
 
   it("fills merge fields and preserves line breaks", () => {
     const html = renderOutreachEmail({ ...base, body: "Hi {{first_name}},\n\nSecond line.", prospect: PREVIEW_PROSPECT });

@@ -49,10 +49,31 @@ describe.skipIf(!ready)("booking DB guarantees", () => {
     );
     const results = await Promise.all(attempts);
     const successes = results.filter((r) => !r.error);
-    const exclusionFailures = results.filter((r) => r.error?.code === "23P01");
+    const failures = results.filter((r) => r.error);
 
+    // THE guarantee: the GiST exclusion constraint lets exactly one racer in.
+    // If it were dropped, every insert would succeed and this is what catches it.
     expect(successes.length).toBe(1);
-    expect(exclusionFailures.length).toBe(N - 1);
+    expect(failures.length).toBe(N - 1);
+
+    // The losers should be rejected BY THE CONSTRAINT (23P01), not by something
+    // incidental. This runs against the live remote project over the network,
+    // though, so a racer can also die of a transport hiccup — a timeout, a
+    // pooler blip, a 5xx — which carries no Postgres SQLSTATE. Demanding all
+    // N-1 be exactly 23P01 made this test fail intermittently on network
+    // weather while the guarantee itself held.
+    //
+    // So: any loser that failed with a Postgres error must have failed with
+    // 23P01 (a 23505/40001/anything-else means the DB behaved differently and
+    // we want to know), and at least one must have, proving the constraint
+    // actually fired rather than everything having merely timed out.
+    // SQLSTATE is five ALPHANUMERIC characters — 23P01 has a letter in it.
+    const pgFailures = failures.filter((r) => /^[0-9A-Z]{5}$/.test(String(r.error?.code ?? "")));
+    const wrongReason = pgFailures.filter((r) => r.error?.code !== "23P01");
+    expect(
+      wrongReason.map((r) => `${r.error?.code}: ${r.error?.message}`),
+    ).toEqual([]);
+    expect(pgFailures.length).toBeGreaterThanOrEqual(1);
 
     // A non-overlapping (back-to-back) slot for the same resource still succeeds.
     const { error: backToBack } = await admin.from("appointments").insert({

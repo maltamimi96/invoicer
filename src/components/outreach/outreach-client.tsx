@@ -16,7 +16,7 @@ import { StatTile } from "@/components/ui/kirei/stat-tile";
 import { EmptyState } from "@/components/ui/kirei/empty-state";
 import { TimePicker } from "@/components/ui/time-picker";
 import {
-  Send, Play, Pause, Plus, Trash2, Loader2, Target, MailCheck, MousePointer2, AlertCircle,
+  Send, Play, Pause, Plus, Trash2, Loader2, Target, MailCheck, MousePointer2, AlertCircle, Palette,
 } from "@/components/ui/icons";
 import {
   updateOutreachSettings, seedSequence, createSequence, deleteSequence,
@@ -24,8 +24,9 @@ import {
   runOutreachNow, runSourcingNow, setPlacesApiKey, acknowledgeCrawlerCompliance,
 } from "@/lib/actions/outreach";
 import { SEED_SEQUENCES } from "@/lib/outreach/seed-sequences";
-import { EMAIL_FONTS } from "@/lib/outreach/render";
+import { EMAIL_FONTS, type OutreachDesign } from "@/lib/outreach/render";
 import { EmailPreview } from "./email-preview";
+import { CampaignBranding } from "./campaign-branding";
 import type { OutreachStats } from "@/lib/actions/outreach";
 import type {
   OutreachSettings, OutreachSequence, OutreachCampaign, OutreachMessage,
@@ -223,7 +224,10 @@ export function OutreachClient({
       )}
 
       {tab === "campaigns" && (
-        <CampaignsTab campaigns={campaigns} sequences={sequences} onDone={() => refresh()} />
+        <CampaignsTab
+          campaigns={campaigns} sequences={sequences} onDone={() => refresh()}
+          businessDesign={settings} businessName={businessName} businessLogoUrl={businessLogoUrl}
+        />
       )}
 
       {tab === "sequences" && (
@@ -246,8 +250,11 @@ export function OutreachClient({
 // ── Campaigns ────────────────────────────────────────────────────────────────
 
 function CampaignsTab({
-  campaigns, sequences, onDone,
+  campaigns, sequences, onDone, businessDesign, businessName, businessLogoUrl,
 }: {
+  businessDesign: Partial<OutreachDesign>;
+  businessName: string;
+  businessLogoUrl?: string | null;
   campaigns: OutreachCampaign[];
   sequences: (OutreachSequence & { step_count: number })[];
   onDone: () => void;
@@ -255,6 +262,7 @@ function CampaignsTab({
   const [name, setName] = useState("");
   const [seqId, setSeqId] = useState(sequences[0]?.id ?? "");
   const [busy, setBusy] = useState(false);
+  const [branding, setBranding] = useState<OutreachCampaign | null>(null);
 
   const create = async () => {
     if (!name.trim() || !seqId) { toast.error("Name and sequence are both required"); return; }
@@ -341,6 +349,15 @@ function CampaignsTab({
                   {c.status}
                 </span>
                 <Button size="sm" variant="outline" onClick={() => enrol(c)}>Enrol matches</Button>
+                <Button size="sm" variant="outline" onClick={() => setBranding(c)}>
+                  <Palette className="mr-1.5 h-3.5 w-3.5" />
+                  Branding
+                  {c.design && Object.keys(c.design).length > 0 && (
+                    <span className="ml-1.5 rounded-full bg-primary/15 px-1.5 text-[10px] font-semibold text-primary">
+                      {Object.keys(c.design).length}
+                    </span>
+                  )}
+                </Button>
                 {c.status === "running" ? (
                   <Button size="sm" variant="outline" onClick={() => setStatus(c, "paused")}>
                     <Pause className="mr-1.5 h-3.5 w-3.5" /> Pause
@@ -364,6 +381,21 @@ function CampaignsTab({
             );
           })}
         </div>
+      )}
+
+      {/* Keyed by campaign so the draft resets when you open a different one —
+          useState(initial) does not re-sync on a prop change. */}
+      {branding && (
+        <CampaignBranding
+          key={branding.id}
+          campaign={branding}
+          businessDesign={businessDesign}
+          businessName={businessName}
+          businessLogoUrl={businessLogoUrl}
+          open
+          onOpenChange={(v) => { if (!v) setBranding(null); }}
+          onDone={onDone}
+        />
       )}
     </div>
   );
