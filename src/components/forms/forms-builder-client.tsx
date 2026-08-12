@@ -13,8 +13,7 @@ import Link from "next/link";
 import { Reorder } from "framer-motion";
 import { toast } from "sonner";
 import {
-  ArrowLeft, Plus, Trash2, Save, Loader2, Eye, Pencil, GripVertical, Copy, ExternalLink, CodeIcon,
-} from "@/components/ui/icons";
+  ArrowLeft, Plus, Trash2, Save, Loader2, Eye, Pencil, GripVertical, Copy, ExternalLink, CodeIcon, ListChecks } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -172,11 +171,20 @@ export function FormsBuilderClient({ form, submissions, baseUrl }: Props) {
       )}
 
       <Tabs defaultValue="build">
-        <TabsList>
-          <TabsTrigger value="build">Build</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
-          <TabsTrigger value="submissions">Submissions ({submissions.length})</TabsTrigger>
-        </TabsList>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <TabsList>
+            <TabsTrigger value="build">Build</TabsTrigger>
+            <TabsTrigger value="settings">Settings</TabsTrigger>
+          </TabsList>
+          {/* Replies live on their own tab now, not inside the editor. The
+              link keeps the per-form path a click away. */}
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/forms?tab=submissions&form=${form.id}`}>
+              <ListChecks className="w-3.5 h-3.5 mr-1.5" />
+              Submissions ({submissions.length})
+            </Link>
+          </Button>
+        </div>
 
         {/* ── BUILD ── */}
         <TabsContent value="build" className="mt-4">
@@ -357,35 +365,6 @@ export function FormsBuilderClient({ form, submissions, baseUrl }: Props) {
           </div>
         </TabsContent>
 
-        {/* ── SUBMISSIONS ── */}
-        <TabsContent value="submissions" className="mt-4">
-          {submissions.length === 0 ? (
-            <Card><CardContent className="py-12 text-center text-muted-foreground text-sm">No submissions yet.</CardContent></Card>
-          ) : (
-            <div className="space-y-2">
-              {submissions.map((s) => (
-                <Card key={s.id}><CardContent className="p-4 space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs text-muted-foreground">{formatDate(s.created_at)}
-                      {s.leads?.name ? <> · lead: <Link href={`/leads/${s.lead_id}`} className="underline hover:text-foreground">{s.leads.name}</Link></> : ""}</p>
-                    <button className="text-muted-foreground hover:text-destructive"
-                      onClick={async () => { if (!confirm("Delete this submission?")) return; try { await deleteFormSubmission(s.id); refresh(); } catch { toast.error("Delete failed"); } }}>
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                  <dl className="grid gap-x-6 gap-y-1 sm:grid-cols-2">
-                    {(form.schema ?? []).filter((f) => !["heading", "divider", "instructions"].includes(f.type)).map((f) => (
-                      <div key={f.id} className="min-w-0">
-                        <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">{f.label}</dt>
-                        <dd className="text-sm break-words">{fmtAnswer(s.answers?.[f.id])}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                </CardContent></Card>
-              ))}
-            </div>
-          )}
-        </TabsContent>
       </Tabs>
     </div>
   );

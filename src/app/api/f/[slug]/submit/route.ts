@@ -3,6 +3,7 @@ import { emitAutomationEvent } from "@/lib/automations/emit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { processAnswersForStorage, missingRequiredFields, invalidAnswerFields } from "@/lib/onboarding/answers";
 import { sendEmail, buildBusinessFrom } from "@/lib/email";
+import { esc } from "@/lib/outreach/render";
 import { rateLimit, clientIp } from "@/lib/booking/public";
 import { resolveInvite } from "@/lib/forms/invite";
 import type { OnboardingField, PublicFormSettings } from "@/types/database";
@@ -139,13 +140,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
   if (notify.length > 0) {
     try {
       const { data: biz } = await tbl(sb, "businesses").select("name, email").eq("id", form.business_id).single();
+
+      // ESCAPE EVERYTHING. `answers` is whatever an anonymous stranger typed
+      // into a public form; interpolated raw it lands as live HTML in the
+      // owner's inbox, in an email they trust because it came from their own
+      // form. A link reading "view invoice" pointing anywhere is enough.
+      // `f.label` and `form.name` are business-authored and lower risk, but
+      // there is no reason for any of it to be raw.
       const rows = schema.filter((f) => !["heading", "divider", "instructions"].includes(f.type))
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .map((f) => `<tr><td style="padding:4px 10px;color:#666">${f.label}</td><td style="padding:4px 10px"><strong>${fmt((answers as any)[f.id])}</strong></td></tr>`).join("");
-      const html = `<!doctype html><html><body style="font-family:Arial,Helvetica,sans-serif;background:#f6f6f4;padding:24px"><div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;border:1px solid #e5e3d9;padding:24px"><h1 style="font-size:18px;margin:0 0 12px">New submission: ${form.name}</h1><table style="width:100%;border-collapse:collapse;font-size:14px">${rows}</table>${leadId ? '<p style="font-size:12px;color:#2f6f73;margin-top:12px">✓ A lead was created in your pipeline.</p>' : ""}</div></body></html>`;
+        .map((f) => `<tr><td style="padding:4px 10px;color:#666">${esc(f.label ?? "")}</td><td style="padding:4px 10px"><strong>${esc(fmt((answers as any)[f.id]))}</strong></td></tr>`).join("");
+      const formName = esc(form.name ?? "");
+      const html = `<!doctype html><html><body style="font-family:Arial,Helvetica,sans-serif;background:#f6f6f4;padding:24px"><div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;border:1px solid #e5e3d9;padding:24px"><h1 style="font-size:18px;margin:0 0 12px">New submission: ${formName}</h1><table style="width:100%;border-collapse:collapse;font-size:14px">${rows}</table>${leadId ? '<p style="font-size:12px;color:#2f6f73;margin-top:12px">✓ A lead was created in your pipeline.</p>' : ""}</div></body></html>`;
       await sendEmail({
         to: notify, subject: `New form submission — ${form.name}`, html,
-        from: buildBusinessFrom({ name: biz?.name ?? "Kirei", slug: biz?.slug, localPart: "forms" }),
+        // No `slug` here: `businesses` has no such column (only `audit_slug`),
+        // the select above doesn't ask for one, and `tbl()` returns `any` so
+        // TypeScript never flagged the undefined it was quietly passing.
+        from: buildBusinessFrom({ name: biz?.name ?? "Kirei", localPart: "forms" }),
         replyTo: biz?.email ?? undefined,
         tags: { business_id: form.business_id, doc_type: "custom", doc_id: form.id },
       });
