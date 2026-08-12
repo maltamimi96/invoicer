@@ -24,7 +24,7 @@ import {
 import { Target, Plus, MapPin, Search, Globe, Star } from "@/components/ui/icons";
 import { createHunt, setProspectingBudget } from "@/lib/actions/prospecting";
 import {
-  HuntBuilder, emptyDraft, validateDraft, type HuntDraft,
+  HuntBuilder, emptyDraft, validateDraft, type HuntDraft, type CampaignOption,
 } from "@/components/prospects/hunt-builder";
 import type { SpendStatus } from "@/lib/prospecting/budget";
 import type { ProspectHunt } from "@/types/database";
@@ -35,6 +35,7 @@ interface Props {
   budget: SpendStatus;
   /** A Places key is available — the business's own, or Kirei's. */
   canHunt: boolean;
+  campaigns: CampaignOption[];
 }
 
 const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
@@ -110,7 +111,7 @@ function BudgetCard({ budget }: { budget: SpendStatus }) {
   );
 }
 
-export function HuntsView({ hunts, pendingReview, budget, canHunt }: Props) {
+export function HuntsView({ hunts, pendingReview, budget, canHunt, campaigns }: Props) {
   const { run, pending } = useMutation();
   const [open, setOpen] = useState(false);
 
@@ -132,6 +133,11 @@ export function HuntsView({ hunts, pendingReview, budget, canHunt }: Props) {
         suburb_labels: draft.suburb_labels,
         custom_params: draft.custom_params,
         filters: draft.filters,
+        campaign_id: draft.campaign_id,
+        auto_enrol: draft.auto_enrol,
+        auto_approve: draft.auto_approve,
+        run_days: draft.run_days,
+        run_hour: draft.run_hour,
       });
       setOpen(false);
       setDraft(emptyDraft());
@@ -226,7 +232,7 @@ export function HuntsView({ hunts, pendingReview, budget, canHunt }: Props) {
             </DialogDescription>
           </DialogHeader>
 
-          <HuntBuilder draft={draft} onChange={setDraft} />
+          <HuntBuilder draft={draft} onChange={setDraft} campaigns={campaigns} />
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)} disabled={pending}>Cancel</Button>

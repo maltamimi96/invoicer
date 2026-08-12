@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, X, Trash2, MapPin, Search, Target } from "@/components/ui/icons";
+import { Plus, X, Trash2, MapPin, Search, Target, Calendar, Send } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 import type {
   ProspectHunt, ProspectHuntParam, ProspectHuntAreaMode, ProspectHuntFilters,
@@ -36,13 +36,24 @@ export interface HuntDraft {
   suburb_labels: string[];
   custom_params: ProspectHuntParam[];
   filters: ProspectHuntFilters;
+  /** Outreach campaign approved prospects join. The campaign owns the sequence. */
+  campaign_id: string | null;
+  auto_enrol: boolean;
+  auto_approve: boolean;
+  /** 0=Sun..6=Sat. Empty means it only runs when you press Run. */
+  run_days: number[];
+  run_hour: number;
 }
+
+export interface CampaignOption { id: string; name: string; status: string }
 
 export function emptyDraft(): HuntDraft {
   return {
     name: "", queries: [], criteria: "", target_count: 20,
     area_mode: "radius", area: "", radius_km: 25, suburb_labels: [],
     custom_params: [], filters: { require_phone: true },
+    campaign_id: null, auto_enrol: false, auto_approve: false,
+    run_days: [], run_hour: 9,
   };
 }
 
@@ -58,6 +69,11 @@ export function draftFrom(h: ProspectHunt): HuntDraft {
     suburb_labels: (h.suburbs ?? []).map((s) => s.label),
     custom_params: h.custom_params ?? [],
     filters: h.filters ?? {},
+    campaign_id: h.campaign_id ?? null,
+    auto_enrol: h.auto_enrol ?? false,
+    auto_approve: h.auto_approve ?? false,
+    run_days: h.run_days ?? [],
+    run_hour: h.run_hour ?? 9,
   };
 }
 
@@ -211,9 +227,17 @@ function ParamEditor({ params, onChange }: {
   );
 }
 
-export function HuntBuilder({ draft, onChange }: {
+const DAYS = [
+  { n: 1, label: "Mon" }, { n: 2, label: "Tue" }, { n: 3, label: "Wed" },
+  { n: 4, label: "Thu" }, { n: 5, label: "Fri" }, { n: 6, label: "Sat" },
+  { n: 0, label: "Sun" },
+];
+
+export function HuntBuilder({ draft, onChange, campaigns = [] }: {
   draft: HuntDraft;
   onChange: (next: HuntDraft) => void;
+  /** Campaigns this hunt can feed. Empty until one exists in Outreach. */
+  campaigns?: CampaignOption[];
 }) {
   const set = <K extends keyof HuntDraft>(key: K, value: HuntDraft[K]) =>
     onChange({ ...draft, [key]: value });
@@ -320,6 +344,119 @@ export function HuntBuilder({ draft, onChange }: {
         params={draft.custom_params}
         onChange={(next) => set("custom_params", next)}
       />
+
+      {/* ── When it runs ─────────────────────────────────────────────── */}
+      <div>
+        <Label className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> Run it automatically</Label>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Pick the days this hunt goes looking on its own. One hunt per weekday is how you
+          get builders on Monday and strata on Tuesday — each with its own criteria and its
+          own pitch, rather than one hunt sending everybody the same email.
+        </p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {DAYS.map((d) => {
+            const on = draft.run_days.includes(d.n);
+            return (
+              <button
+                key={d.n}
+                type="button"
+                onClick={() => set("run_days", on
+                  ? draft.run_days.filter((x) => x !== d.n)
+                  : [...draft.run_days, d.n])}
+                className={cn(
+                  "h-9 w-12 rounded-md border text-xs font-medium transition-colors",
+                  on
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-input text-muted-foreground hover:text-foreground",
+                )}
+                aria-pressed={on}
+              >
+                {d.label}
+              </button>
+            );
+          })}
+        </div>
+        {draft.run_days.length > 0 && (
+          <label className="mt-2 flex items-center gap-2 text-sm">
+            at
+            <Input
+              type="number" min={0} max={23} className="h-8 w-20"
+              value={draft.run_hour}
+              onChange={(e) => set("run_hour", Number(e.target.value))}
+            />
+            <span className="text-xs text-muted-foreground">
+              :00, your local time
+            </span>
+          </label>
+        )}
+        {draft.run_days.length === 0 && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            No days picked — this hunt only runs when you press Run.
+          </p>
+        )}
+      </div>
+
+      {/* ── What happens to what it finds ────────────────────────────── */}
+      <div className="space-y-3 rounded-lg border border-border p-3">
+        <div>
+          <Label className="flex items-center gap-1.5"><Send className="w-3.5 h-3.5" /> Outreach</Label>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Approving a prospect can hand it straight to a campaign — Kirei looks for a
+            contact address on the business&apos;s own website and enrols them.
+          </p>
+        </div>
+
+        {campaigns.length === 0 ? (
+          <p className="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
+            No outreach campaigns yet. Create one under Outreach and it&apos;ll appear here.
+          </p>
+        ) : (
+          <select
+            value={draft.campaign_id ?? ""}
+            onChange={(e) => set("campaign_id", e.target.value || null)}
+            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+            aria-label="Outreach campaign"
+          >
+            <option value="">No campaign — just add to prospects</option>
+            {campaigns.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}{c.status !== "active" ? ` (${c.status})` : ""}
+              </option>
+            ))}
+          </select>
+        )}
+
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox" className="mt-0.5"
+            checked={draft.auto_enrol}
+            disabled={!draft.campaign_id}
+            onChange={(e) => set("auto_enrol", e.target.checked)}
+          />
+          <span>
+            Find an email and enrol on approval
+            <span className="block text-xs text-muted-foreground">
+              Needs email lookup switched on in Outreach settings.
+            </span>
+          </span>
+        </label>
+
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox" className="mt-0.5"
+            checked={draft.auto_approve}
+            onChange={(e) => set("auto_approve", e.target.checked)}
+          />
+          <span>
+            Skip the review queue
+            <span className="block text-xs text-muted-foreground">
+              Verified businesses are approved without you seeing them first. Leave this off
+              until a few runs have shown the criteria pick the right people — it is the
+              difference between a tool and a machine that emails whoever it matched.
+            </span>
+          </span>
+        </label>
+      </div>
 
       {/* ── Hard filters ─────────────────────────────────────────────── */}
       <div className="space-y-2 rounded-lg border border-border p-3">

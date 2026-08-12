@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { getUser } from "@/lib/auth";
-import { listHunts, getProspectingBudget } from "@/lib/actions/prospecting";
+import { listHunts, getProspectingBudget, listCampaignsForHunts } from "@/lib/actions/prospecting";
 import { resolvePlacesKey } from "@/lib/prospecting/run";
 import { HuntsView } from "@/components/prospects/hunts-view";
 
@@ -17,13 +17,14 @@ export default async function HuntsPage() {
     redirect("/auth/login");
   }
 
-  const [hunts, review, budget, places] = await Promise.all([
+  const [hunts, review, budget, places, campaigns] = await Promise.all([
     listHunts(),
     supabase.from("prospect_candidates")
       .select("id", { count: "exact", head: true })
       .eq("business_id", businessId).eq("status", "verified"),
     getProspectingBudget(),
     resolvePlacesKey(supabase, businessId),
+    listCampaignsForHunts(),
   ]);
 
   return (
@@ -33,6 +34,7 @@ export default async function HuntsPage() {
       budget={budget}
       // Only whether a key exists crosses to the client — never the key.
       canHunt={Boolean(places.key)}
+      campaigns={campaigns}
     />
   );
 }
