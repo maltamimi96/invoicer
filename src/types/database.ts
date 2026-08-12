@@ -2272,7 +2272,20 @@ export interface OutreachCampaign {
   status: OutreachCampaignStatus;
   filter: { tags?: string[]; status?: string[]; sources?: string[] };
   auto_enroll: boolean; daily_cap: number | null; started_at: string | null;
+  /** Sparse email-design overrides. Absent key = inherit from outreach_settings. */
+  design: OutreachCampaignDesign | null;
   created_at: string; updated_at: string;
+}
+
+/** Every field optional — a campaign only stores what it actually overrides. */
+export interface OutreachCampaignDesign {
+  email_font?: string | null;
+  email_accent?: string | null;
+  email_text_color?: string | null;
+  email_width?: number | null;
+  email_show_logo?: boolean | null;
+  signature_html?: string | null;
+  logo_url?: string | null;
 }
 
 export interface OutreachEnrollment {
