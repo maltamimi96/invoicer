@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, FileStack, Download } from "@/components/ui/icons";
-import { fillMergeFields } from "@/lib/contracts/render";
+import { renderContractBodyHtml } from "@/lib/contracts/render";
 import { formatDate } from "@/lib/utils";
 import { SignContract } from "@/components/customer-portal/sign-contract";
 
@@ -38,7 +38,7 @@ export default async function PortalContractPage({ params }: { params: Promise<{
   const isSigned = contract.status === "signed";
   const isVoided = contract.status === "voided";
   const bodyHtml = contract.kind === "rich_text"
-    ? fillMergeFields(contract.content_html ?? "", {
+    ? renderContractBodyHtml(contract.content_html ?? "", {
         customer, business,
         date: new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }),
       })

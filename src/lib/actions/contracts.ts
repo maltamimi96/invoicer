@@ -8,6 +8,7 @@ import { getActiveBizId } from "@/lib/active-business";
 import { mintUpload, assertSize, safeExt, UPLOAD_LIMITS, type SignedUpload } from "@/lib/uploads";
 import { getUser } from "@/lib/auth";
 import { renderTemplateVars } from "@/lib/emails/templates";
+import { sanitizeContractHtml } from "@/lib/contracts/render";
 import { appUrl } from "@/lib/app-url";
 import { sendEmail, buildBusinessFrom } from "@/lib/email";
 import type { Contract, ContractTemplate } from "@/types/database";
@@ -283,7 +284,11 @@ export async function renderContractHtml(contractId: string): Promise<string> {
     tbl(supabase, "businesses").select("name, email, phone, address").eq("id", businessId).single(),
     c.customer_id ? tbl(supabase, "customers").select("name, email, company, address").eq("id", c.customer_id).maybeSingle() : Promise.resolve({ data: null }),
   ]);
-  return renderTemplateVars(c.content_html, {
+  // Sanitized on the way out, same as the portal. This body also goes through
+  // dangerouslySetInnerHTML (contract-detail-client.tsx) — in an owner's
+  // session, where a payload authored by an editor or transcribed by the
+  // assistant would run with more privilege than on the customer's screen.
+  return sanitizeContractHtml(renderTemplateVars(c.content_html, {
     customer_name: cust?.name ?? "",
     customer_company: cust?.company ?? "",
     customer_email: cust?.email ?? "",
@@ -293,5 +298,5 @@ export async function renderContractHtml(contractId: string): Promise<string> {
     business_phone: biz?.phone ?? "",
     business_address: biz?.address ?? "",
     date: new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }),
-  });
+  }));
 }
