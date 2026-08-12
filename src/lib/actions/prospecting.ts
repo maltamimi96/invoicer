@@ -17,6 +17,7 @@ import { getUser } from "@/lib/auth";
 import { geocodeArea } from "@/lib/prospecting/places";
 import { getPlacesKey, resolvePlacesKey, runHunt, type HuntRow, type RunResult } from "@/lib/prospecting/run";
 import { prospectingSpendStatus, type SpendStatus } from "@/lib/prospecting/budget";
+import { approveCandidates, type EnrolOutcome } from "@/lib/prospecting/enrol";
 import type {
   ProspectHunt, ProspectHuntRun, ProspectCandidate, ProspectHuntFilters,
   ProspectHuntParam, ProspectHuntSuburb, ProspectHuntAreaMode, ProspectHuntEvent,
@@ -49,6 +50,14 @@ export interface HuntInput {
   /** Named areas, geocoded on save so a run never pays to look them up. */
   suburb_labels?: string[];
   custom_params?: ProspectHuntParam[];
+  /** Outreach campaign approved prospects join; the campaign owns the sequence. */
+  campaign_id?: string | null;
+  auto_enrol?: boolean;
+  auto_approve?: boolean;
+  /** 0=Sun..6=Sat. Empty means the hunt only runs when you press Run. */
+  run_days?: number[];
+  run_hour?: number;
+  timezone?: string;
   active?: boolean;
 }
 
@@ -149,6 +158,12 @@ export async function createHunt(input: HuntInput): Promise<ProspectHunt> {
       ? await geocodeSuburbs(supabase, businessId, input.suburb_labels)
       : [],
     custom_params: normaliseParams(input.custom_params ?? []),
+    campaign_id: input.campaign_id ?? null,
+    auto_enrol: input.auto_enrol ?? false,
+    auto_approve: input.auto_approve ?? false,
+    run_days: (input.run_days ?? []).filter((d) => d >= 0 && d <= 6),
+    run_hour: Math.min(Math.max(input.run_hour ?? 9, 0), 23),
+    timezone: input.timezone ?? "Australia/Sydney",
     active: input.active ?? true,
   }).select().single();
   if (error) throw error;
@@ -169,6 +184,12 @@ export async function updateHunt(id: string, input: Partial<HuntInput>): Promise
   if (input.target_count !== undefined) patch.target_count = clampTarget(input.target_count);
   if (input.area_mode !== undefined) patch.area_mode = input.area_mode;
   if (input.custom_params !== undefined) patch.custom_params = normaliseParams(input.custom_params);
+  if (input.campaign_id !== undefined) patch.campaign_id = input.campaign_id;
+  if (input.auto_enrol !== undefined) patch.auto_enrol = input.auto_enrol;
+  if (input.auto_approve !== undefined) patch.auto_approve = input.auto_approve;
+  if (input.run_days !== undefined) patch.run_days = input.run_days.filter((d) => d >= 0 && d <= 6);
+  if (input.run_hour !== undefined) patch.run_hour = Math.min(Math.max(input.run_hour, 0), 23);
+  if (input.timezone !== undefined) patch.timezone = input.timezone;
   if (input.suburb_labels !== undefined) {
     patch.suburbs = await geocodeSuburbs(supabase, businessId, input.suburb_labels);
   }
@@ -284,6 +305,15 @@ export async function listHuntRuns(huntId: string, limit = 20): Promise<Prospect
   return (data ?? []) as ProspectHuntRun[];
 }
 
+/** Campaigns a hunt can feed, for the picker in the hunt builder. */
+export async function listCampaignsForHunts(): Promise<{ id: string; name: string; status: string }[]> {
+  const { supabase, businessId } = await ctx();
+  const { data } = await tbl(supabase, "outreach_campaigns")
+    .select("id, name, status").eq("business_id", businessId)
+    .order("created_at", { ascending: false }).limit(100);
+  return (data ?? []) as { id: string; name: string; status: string }[];
+}
+
 // ── Budget ──────────────────────────────────────────────────────────────────
 
 /**
@@ -333,59 +363,36 @@ export async function listCandidates(filters: CandidateFilters = {}): Promise<Pr
  * Approve candidates — this is the only path from "the agent found it" to
  * "it's in my prospect list".
  */
-export async function addCandidates(ids: string[]): Promise<{ added: number }> {
+/**
+ * Approve candidates — the only path from "the agent found it" to a prospect,
+ * and now the path into outreach too.
+ *
+ * The work itself lives in lib/prospecting/enrol.ts so the MCP tool runs the
+ * same code. Two copies of this logic is how the last version ended up pairing
+ * candidates to prospects by array index in one place and not the other.
+ */
+export async function addCandidates(ids: string[]): Promise<EnrolOutcome> {
   const { supabase, user, businessId } = await ctx();
-  if (!ids.length) return { added: 0 };
+  if (!ids.length) return { added: 0, enriched: 0, enrolled: 0, notes: [] };
 
   const { data: rows, error } = await tbl(supabase, "prospect_candidates").select("*")
     .eq("business_id", businessId).in("id", ids);
   if (error) throw error;
 
   const candidates = (rows ?? []) as ProspectCandidate[];
-  // Already-added rows carry a prospect_id; adding twice would duplicate.
-  const fresh = candidates.filter((c) => !c.prospect_id);
-  if (!fresh.length) return { added: 0 };
+  const huntId = candidates[0]?.hunt_id ?? null;
+  const { data: hunt } = huntId
+    ? await tbl(supabase, "prospect_hunts")
+        .select("id, campaign_id, auto_enrol")
+        .eq("id", huntId).eq("business_id", businessId).maybeSingle()
+    : { data: null };
 
-  const { data: created, error: insertErr } = await tbl(supabase, "prospects").insert(
-    fresh.map((c) => ({
-      business_id: businessId,
-      user_id: user.id,
-      company: c.name,
-      name: null,
-      email: null,                      // Places never returns one
-      phone: c.phone,
-      website: c.website,
-      source: "hunt",
-      status: "new",
-      tags: c.category ? [c.category] : [],
-      notes: [
-        c.address,
-        c.reasoning ? `Why it matched: ${c.reasoning}` : null,
-      ].filter(Boolean).join(" · ") || null,
-      custom_fields: {
-        place_id: c.place_id,
-        hunt_id: c.hunt_id,
-        fit_score: c.score,
-        rating: c.rating,
-        review_count: c.review_count,
-      },
-    })),
-  ).select("id");
-  if (insertErr) throw insertErr;
-
-  // Pair each candidate with its new prospect — same order as inserted.
-  const newIds = (created ?? []) as { id: string }[];
-  await Promise.all(fresh.map((c, i) =>
-    tbl(supabase, "prospect_candidates").update({
-      status: "added",
-      prospect_id: newIds[i]?.id ?? null,
-      updated_at: new Date().toISOString(),
-    }).eq("id", c.id).eq("business_id", businessId),
-  ));
+  const outcome = await approveCandidates(supabase, businessId, user.id, candidates, hunt);
 
   revalidatePath("/prospects");
   revalidatePath("/prospects/hunts");
-  return { added: fresh.length };
+  revalidatePath("/prospects/review");
+  return outcome;
 }
 
 export async function dismissCandidates(ids: string[]): Promise<{ dismissed: number }> {
