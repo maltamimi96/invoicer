@@ -174,7 +174,17 @@ export function QuotesClient({ quotes: initial, currency = "GBP" }: { quotes: Qu
                 </GradientTile>
                 <div className="flex-1 min-w-[140px] basis-0">
                   <div className="font-mono text-xs text-muted-foreground">{quote.number}</div>
-                  <div className="text-sm font-semibold break-words">{quote.customers?.name ?? "No client"}</div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-sm font-semibold break-words">{quote.customers?.name ?? "No contact yet"}</span>
+                    {quote.customers?.lifecycle_stage === "lead" && (
+                      /* They've been quoted but haven't bought yet. Without this
+                         a quoted lead is indistinguishable from a paying client
+                         the moment you quote them. */
+                      <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                        Lead
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="hidden md:block w-32 text-xs text-muted-foreground">{formatDate(quote.issue_date)}</div>
                 <div className="hidden md:block w-32 text-xs text-muted-foreground">{formatDate(quote.expiry_date)}</div>
