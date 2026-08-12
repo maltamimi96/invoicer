@@ -266,15 +266,15 @@ export function LeadsClient({ leads: initial, tagPresets: initialPresets = [] }:
       {/* Four KPIs — the numbers the board columns and list tabs don't repeat. */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { icon: <Users className="w-3.5 h-3.5" />, label: "Total leads", value: String(stats.total), sub: "all time", gradient: "softBlue" as const, tone: "#1e3a8a" },
-          { icon: <Sparkles className="w-3.5 h-3.5" />, label: "New", value: String(stats.new), sub: "need first contact", gradient: "softAmber" as const, tone: "#78350f" },
-          { icon: <CheckCircle className="w-3.5 h-3.5" />, label: "Won", value: String(stats.won), sub: "converted", gradient: "softTeal" as const, tone: "#064e3b" },
-          { icon: <TrendingUp className="w-3.5 h-3.5" />, label: "Conv. rate", value: `${stats.conversion}%`, sub: "won / total", gradient: "softViolet" as const, tone: "#3b1d6b" },
+          { icon: <Users className="w-3.5 h-3.5" />, label: "Total leads", value: String(stats.total), sub: "all time", gradient: "softBlue" as const, tone: "info" as const },
+          { icon: <Sparkles className="w-3.5 h-3.5" />, label: "New", value: String(stats.new), sub: "need first contact", gradient: "softAmber" as const, tone: "warn" as const },
+          { icon: <CheckCircle className="w-3.5 h-3.5" />, label: "Won", value: String(stats.won), sub: "converted", gradient: "softTeal" as const, tone: "ok" as const },
+          { icon: <TrendingUp className="w-3.5 h-3.5" />, label: "Conv. rate", value: `${stats.conversion}%`, sub: "won / total", gradient: "softViolet" as const, tone: "accent" as const },
         ].map((k, i) => (
           <FadeIn key={k.label} delay={60 + i * 40}>
             <StatTile
               gradient={k.gradient}
-              toneColor={k.tone}
+              tone={k.tone}
               icon={k.icon}
               label={k.label}
               value={k.value}

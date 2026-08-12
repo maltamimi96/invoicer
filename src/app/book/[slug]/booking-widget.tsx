@@ -29,7 +29,6 @@ interface Slot { start: string; end: string; resource_id: string; resource_name:
 type Step = "type" | "worker" | "time" | "details" | "done";
 
 const API = (slug: string, path: string) => `/api/public/v1/biz/${encodeURIComponent(slug)}${path}`;
-const KIREI_LOGO = "/kirei-logo.png"; // fallback when the business has no logo
 
 function addDays(key: string, n: number) {
   const [y, m, d] = key.split("-").map(Number);
@@ -44,6 +43,13 @@ function shade(hex: string, pct: number) {
   const adj = (c: number) => Math.max(0, Math.min(255, Math.round(c + 255 * pct)));
   const [r, g, b] = [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)];
   return `#${[adj(r), adj(g), adj(b)].map((c) => c.toString(16).padStart(2, "0")).join("")}`;
+}
+
+/** First letters of the first two words — "Crown Roofers" reads as CR. */
+function initialsOf(name: string | null | undefined): string {
+  const words = (name ?? "").trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return "•";
+  return words.slice(0, 2).map((w) => w[0]!.toUpperCase()).join("");
 }
 
 export function BookingWidget({ slug }: { slug: string }) {
@@ -205,9 +211,20 @@ export function BookingWidget({ slug }: { slug: string }) {
           <div style={{ display: "flex", alignItems: "center", gap: 14, position: "relative" }}>
             <motion.div initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.1, type: "spring", stiffness: 200 }}
               style={{ width: 56, height: 56, borderRadius: 16, background: "rgba(255,255,255,0.2)", border: "2px solid rgba(255,255,255,0.4)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img loading="lazy" decoding="async" src={config.branding.logo_url || KIREI_LOGO} alt={config.business_name || "Kirei"}
-                style={{ width: "100%", height: "100%", objectFit: "contain", background: config.branding.logo_url ? "transparent" : "#fff", padding: config.branding.logo_url ? 0 : 4 }} />
+              {/* No vendor logo fallback. A business that hasn't uploaded one
+                  used to get KIREI's mark here — actively telling the customer
+                  they're booking with a company they've never heard of, on the
+                  one page that is supposed to be the tradie's shopfront.
+                  Initials belong to the business; our logo doesn't. */}
+              {config.branding.logo_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img loading="lazy" decoding="async" src={config.branding.logo_url} alt={config.business_name || "Logo"}
+                  style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+              ) : (
+                <span style={{ fontSize: 22, fontWeight: 800, letterSpacing: "0.02em" }}>
+                  {initialsOf(config.business_name)}
+                </span>
+              )}
             </motion.div>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: "clamp(18px, 5vw, 21px)", fontWeight: 800, lineHeight: 1.15 }}>{config.business_name || "Book an appointment"}</div>

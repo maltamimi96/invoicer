@@ -135,16 +135,16 @@ export function InvoicesClient({ invoices: initial, currency = "GBP" }: Invoices
       {/* KPI strip */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <FadeIn delay={60}>
-          <StatTile gradient="softTeal"  toneColor="#1f4f4a" icon={<FileText      className="w-3.5 h-3.5" />} label="Total"       value={String(invoices.length)} sub="all time" />
+          <StatTile gradient="softTeal"  tone="info" icon={<FileText      className="w-3.5 h-3.5" />} label="Total"       value={String(invoices.length)} sub="all time" />
         </FadeIn>
         <FadeIn delay={110}>
-          <StatTile gradient="softBlue"  toneColor="#1e3a8a" icon={<Clock         className="w-3.5 h-3.5" />} label="Outstanding" value={formatCurrency(totalOutstanding, currency)} sub="awaiting payment" />
+          <StatTile gradient="softBlue"  tone="warn" icon={<Clock         className="w-3.5 h-3.5" />} label="Outstanding" value={formatCurrency(totalOutstanding, currency)} sub="awaiting payment" />
         </FadeIn>
         <FadeIn delay={160}>
-          <StatTile gradient="softTeal"  toneColor="#064e3b" icon={<DollarSign    className="w-3.5 h-3.5" />} label="Paid"        value={formatCurrency(totalPaid, currency)} sub="all time" />
+          <StatTile gradient="softTeal"  tone="ok" icon={<DollarSign    className="w-3.5 h-3.5" />} label="Paid"        value={formatCurrency(totalPaid, currency)} sub="all time" />
         </FadeIn>
         <FadeIn delay={210}>
-          <StatTile gradient="softRose"  toneColor="#9f1239" icon={<AlertTriangle className="w-3.5 h-3.5" />} label="Overdue"     value={String(counts.overdue ?? 0)} sub="need follow-up" />
+          <StatTile gradient="softRose"  tone="bad" icon={<AlertTriangle className="w-3.5 h-3.5" />} label="Overdue"     value={String(counts.overdue ?? 0)} sub="need follow-up" />
         </FadeIn>
       </div>
 

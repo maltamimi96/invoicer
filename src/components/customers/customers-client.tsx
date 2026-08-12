@@ -115,16 +115,16 @@ export function CustomersClient({
       {/* KPI tiles */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <FadeIn delay={60}>
-          <StatTile gradient="softTeal"   toneColor="#1f4f4a" icon={<Users      className="w-3.5 h-3.5" />} label="Total"      value={String(counts.all)}        sub={`${counts.active} active`} />
+          <StatTile gradient="softTeal"   tone="info" icon={<Users      className="w-3.5 h-3.5" />} label="Total"      value={String(counts.all)}        sub={`${counts.active} active`} />
         </FadeIn>
         <FadeIn delay={110}>
-          <StatTile gradient="softBlue"   toneColor="#1e3a8a" icon={<Mail       className="w-3.5 h-3.5" />} label="With email" value={String(counts.withEmail)}  sub="reachable" />
+          <StatTile gradient="softBlue"   tone="info" icon={<Mail       className="w-3.5 h-3.5" />} label="With email" value={String(counts.withEmail)}  sub="reachable" />
         </FadeIn>
         <FadeIn delay={160}>
-          <StatTile gradient="softViolet" toneColor="#3b1d6b" icon={<Building2  className="w-3.5 h-3.5" />} label="Companies"  value={String(counts.withCompany)} sub="B2B accounts" />
+          <StatTile gradient="softViolet" tone="accent" icon={<Building2  className="w-3.5 h-3.5" />} label="Companies"  value={String(counts.withCompany)} sub="B2B accounts" />
         </FadeIn>
         <FadeIn delay={210}>
-          <StatTile gradient="softAmber"  toneColor="#78350f" icon={<Archive    className="w-3.5 h-3.5" />} label="Archived"   value={String(counts.archived)}   sub="hidden by default" />
+          <StatTile gradient="softAmber"  tone="neutral" icon={<Archive    className="w-3.5 h-3.5" />} label="Archived"   value={String(counts.archived)}   sub="hidden by default" />
         </FadeIn>
       </div>
 

@@ -1,18 +1,41 @@
 "use client";
 
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 import type { GradientName } from "./gradient-tokens";
 
 /**
- * Stat tile — a clean white card with a big value and a small tinted icon chip.
- * (The vibrant gradient background was dropped for the calmer MYOB/Linear look;
- * `gradient` is kept for API compatibility. `toneColor` still tints the icon
- * chip so KPIs stay lightly colour-coded without the loud fill.)
+ * Stat tile — a card with a big value and a small tinted icon chip.
+ *
+ * The chip used to be painted from a `toneColor` hex prop, and every call site
+ * passed a 900-level colour picked against a white card: #1f4f4a, #1e3a8a,
+ * #064e3b, #9f1239. The app ships `data-theme="Midnight"` by default, whose
+ * card is roughly #1a2333 — a #1e3a8a glyph on that is about 1.2:1, which is
+ * to say invisible. This is the KPI strip on Invoices, Quotes, Leads,
+ * Customers, Work Orders and every customer detail page, so it was the first
+ * thing both businesses saw on almost every screen, and it only ever looked
+ * right on the one light theme nobody was using.
+ *
+ * So the tone is now a name, not a colour, and the colour comes from the
+ * theme. No hex survives in this file — that is the point of it.
  */
+
+export type StatTone = "neutral" | "ok" | "warn" | "bad" | "info" | "accent";
+
+const TONES: Record<StatTone, string> = {
+  neutral: "bg-muted text-muted-foreground",
+  ok: "bg-ok/15 text-ok",
+  warn: "bg-warn/15 text-warn",
+  bad: "bg-bad/15 text-bad",
+  info: "bg-primary/15 text-primary",
+  accent: "bg-accent-2/15 text-accent-2",
+};
+
 interface StatTileProps {
+  /** Retained for API compatibility; the vibrant fill was dropped long ago. */
   gradient?: GradientName;
-  /** Hex colour (e.g. "#1f4f4a") used to tint the small icon chip. */
-  toneColor: string;
+  /** What the number MEANS, not what colour to paint it. */
+  tone?: StatTone;
   icon: React.ReactNode;
   label: string;
   value: string;
@@ -20,14 +43,11 @@ interface StatTileProps {
   href?: string;
 }
 
-export function StatTile({ toneColor, icon, label, value, sub, href }: StatTileProps) {
+export function StatTile({ tone = "info", icon, label, value, sub, href }: StatTileProps) {
   const card = (
     <div className="h-full rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/30">
       <div className="flex items-center gap-2">
-        <div
-          className="flex h-7 w-7 items-center justify-center rounded-md"
-          style={{ backgroundColor: `${toneColor}1a`, color: toneColor }}
-        >
+        <div className={cn("flex h-7 w-7 items-center justify-center rounded-md", TONES[tone])}>
           {icon}
         </div>
         <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>

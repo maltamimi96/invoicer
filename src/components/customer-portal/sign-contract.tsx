@@ -94,7 +94,14 @@ export function SignContract({ token, contractId }: { token: string; contractId:
         <div>
           <canvas ref={canvasRef} width={500} height={160}
             onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerLeave={up}
-            className="w-full rounded-lg border border-border bg-background touch-none cursor-crosshair" />
+            // Paper, not a theme surface. `bg-background` made the canvas
+            // #111a29 under the dark default while the ink stayed #0f172a —
+            // two near-identical near-blacks, so a customer dragged a finger
+            // across the signature box and nothing appeared, at the exact
+            // moment the product most needs to feel deliberate. A signature is
+            // ink on paper in every theme.
+            style={{ background: "#ffffff" }}
+            className="w-full rounded-lg border border-border touch-none cursor-crosshair" />
           <button onClick={clear} className="mt-1 text-xs text-muted-foreground hover:text-foreground">Clear</button>
         </div>
       )}
