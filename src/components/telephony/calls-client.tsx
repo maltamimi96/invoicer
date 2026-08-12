@@ -171,12 +171,12 @@ export function CallsClient({
       {tab !== "setup" && (
         <>
           <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <StatTile toneColor="#1f4f4a" icon={<Phone className="h-4 w-4" />} label="Calls" value={String(stats.total)}
+            <StatTile tone="info" icon={<Phone className="h-4 w-4" />} label="Calls" value={String(stats.total)}
               sub={`${stats.inbound} in · ${stats.outbound} out`} />
-            <StatTile toneColor="#dc2626" icon={<PhoneOff className="h-4 w-4" />} label="Missed" value={String(stats.missed)}
+            <StatTile tone="bad" icon={<PhoneOff className="h-4 w-4" />} label="Missed" value={String(stats.missed)}
               sub="each one is a possible lost job" />
-            <StatTile toneColor="#b45309" icon={<AlertCircle className="h-4 w-4" />} label="Voicemail" value={String(stats.voicemail)} />
-            <StatTile toneColor="#64748b" icon={<Phone className="h-4 w-4" />} label="Unknown numbers" value={String(stats.unmatched)}
+            <StatTile tone="info" icon={<AlertCircle className="h-4 w-4" />} label="Voicemail" value={String(stats.voicemail)} />
+            <StatTile tone="info" icon={<Phone className="h-4 w-4" />} label="Unknown numbers" value={String(stats.unmatched)}
               sub="not on file yet" />
           </div>
 

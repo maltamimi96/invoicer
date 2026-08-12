@@ -129,17 +129,19 @@ Conventions:
 - `src/components/layout/dashboard-shell.tsx` — single `<main>` wrapper at `w-full p-6` with **no max-width cap** (the prototype is 240px sidebar + 1fr content). Pages should NOT add their own `max-w-*` outer wrappers — only narrow forms (e.g. `/customers/new` at `max-w-2xl`) keep their own caps for readability.
 - The shell `<div key={business.id}>`-keys content so switching businesses fully remounts the tree (works around `useState(initial)` not syncing on prop changes — see Known traps).
 
-### Theme — Connected Hub design system
+### Theme — five palettes, and the default is DARK
 
-The active theme is set via `<html data-theme="console">` in `src/app/layout.tsx`. The Connected Hub palette in `src/app/globals.css` under `[data-theme="console"]`:
+**🔴 The app ships `<html data-theme="Midnight">` (`src/app/layout.tsx`), and `Midnight` is dark.** This section used to claim the default was `console` with a warm off-white canvas. It wasn't, and hadn't been for a while — `console` isn't in `UI_THEMES`, so no code path can select it and its CSS block is unreachable. That stale line caused a whole class of bug: components were written and reviewed against a white card nobody was looking at, so the KPI icon chips, the status pills and the Site Reports table were all painted in light-mode literals that vanished or glared on the theme users actually had.
 
-- Canvas: warm off-white `#fafaf7` · cards: pure white · borders: warm-grey `#e5e3d9`
-- Primary/accent: deep teal (`oklch(0.55 0.08 195)` ≈ `hsl(191 38% 36%)`)
-- `--radius: 0.625rem` (10px) so `rounded-md/lg/xl` resolve to **8 / 10 / 14 px** matching the prototype's `--r-md / --r-lg / --r-xl`
-- Card defaults to `rounded-xl + border-border + shadow-sm`
-- Button defaults to `rounded-md` (NOT pill — that was the earlier flux pass)
-- Default sidebar theme is `light`; default accent is `teal`
-- `data-accent`, `data-sidebar-theme`, `data-pattern` overrides in globals.css drive Settings → Appearance customisation
+The live palettes are in `src/lib/ui-themes.ts` and defined in `globals.css`: **Midnight** (default, dark), **Daylight** (light), **Azure**, **Orchid**, **Studio**. Settings → Appearance switches them; `layout.tsx` pre-paints the stored choice so a cold load doesn't flash.
+
+**Never author a colour at a call site.** Every palette defines the full token set — `--primary`, `--ok`, `--warn`, `--bad`, `--accent-2`, `--lime`, `--muted` — and they're registered as Tailwind colours in the `@theme` block, so `bg-ok/15`, `text-warn`, `bg-accent-2` all work. A literal hex or a raw Tailwind palette class (`bg-green-100`, `text-slate-700`) is a bug: it can only ever be right on one theme.
+
+- `--radius: 0.875rem` on the v2 palettes; the scale must stay **monotonic** (`sm < md < lg < xl < 2xl < 3xl`). It wasn't once — `xl` was 18px while `2xl` was 16px, so every Card inside a panel had a rounder inner corner than its outer one.
+- Card defaults to `rounded-xl + border-border + shadow-sm`; Button to `rounded-md`
+- `data-accent`, `data-sidebar-theme`, `data-pattern` overrides drive Settings → Appearance
+
+**🔴 Customer-facing pages do NOT inherit the operator's theme.** `src/app/{portal,f,book,embed}/layout.tsx` each wrap their tree in `<CustomerSurface>`, which pins `Daylight` and strips `.dark`. Without it a homeowner opening an invoice link gets a dark navy SaaS panel — the software's identity instead of the business's. Any new customer-facing route group needs the same layout.
 
 **Connected Hub utility classes** at the bottom of `globals.css` (prefix `.ch-*`) are the prototype's design vocabulary. List pages compose with them rather than ad-hoc Tailwind:
 
