@@ -105,10 +105,10 @@ export function SiteDetailClient({
             {/* Stat tiles */}
             <FadeIn delay={60}>
               <div className="grid grid-cols-2 gap-2">
-                <StatTile gradient="softTeal"   toneColor="#1f4f4a" icon={<Wrench   className="w-3 h-3" />} label="Total jobs" value={String(jobs.length)} />
-                <StatTile gradient="softAmber"  toneColor="#78350f" icon={<Wrench   className="w-3 h-3" />} label="Open"       value={String(jobs.filter((j) => !["completed", "cancelled"].includes(j.status)).length)} />
-                <StatTile gradient="softBlue"   toneColor="#1e3a8a" icon={<Boxes    className="w-3 h-3" />} label="Assets"     value={String(assets.length)} />
-                <StatTile gradient="softViolet" toneColor="#3b1d6b" icon={<Users    className="w-3 h-3" />} label="Contacts"   value={String(siteContacts.length)} />
+                <StatTile gradient="softTeal"   tone="info" icon={<Wrench   className="w-3 h-3" />} label="Total jobs" value={String(jobs.length)} />
+                <StatTile gradient="softAmber"  tone="warn" icon={<Wrench   className="w-3 h-3" />} label="Open"       value={String(jobs.filter((j) => !["completed", "cancelled"].includes(j.status)).length)} />
+                <StatTile gradient="softBlue"   tone="info" icon={<Boxes    className="w-3 h-3" />} label="Assets"     value={String(assets.length)} />
+                <StatTile gradient="softViolet" tone="accent" icon={<Users    className="w-3 h-3" />} label="Contacts"   value={String(siteContacts.length)} />
               </div>
             </FadeIn>
 

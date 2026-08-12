@@ -4,6 +4,7 @@
  * relies on session-scoped helpers. Fire-and-forget: never throws to callers.
  */
 import { sendEmail, buildBusinessFrom } from "@/lib/email";
+import { esc } from "@/lib/outreach/render";
 import { clickSendSend, deriveSenderId } from "@/lib/sms";
 import { dispatchWebhook } from "@/lib/webhooks";
 import { bookingEmailHtml, type BookingEmailKind } from "@/lib/emails/booking";
@@ -120,12 +121,15 @@ export async function notifyBookingCreated(sb: Sb, businessId: string, settings:
         subject: `New booking: ${appt.customer_name} — ${when}`,
         from, replyTo: appt.customer_email ?? undefined,
         tags: { business_id: businessId, doc_type: "custom" },
+        // Every field here was typed by an anonymous member of the public on
+        // the booking page. Raw, `notes` alone is enough to put a live link
+        // into the owner's inbox inside an email they trust.
         html: `<div style="font-family:system-ui,sans-serif">
           <h3>New online booking</h3>
-          <p><strong>${appt.customer_name}</strong><br>${when}</p>
-          <p>${appt.customer_phone ?? ""} ${appt.customer_email ? `· ${appt.customer_email}` : ""}</p>
-          ${appt.customer_address ? `<p>${appt.customer_address}</p>` : ""}
-          ${appt.notes ? `<p>Notes: ${appt.notes}</p>` : ""}
+          <p><strong>${esc(appt.customer_name ?? "")}</strong><br>${when}</p>
+          <p>${esc(appt.customer_phone ?? "")} ${appt.customer_email ? `· ${esc(appt.customer_email)}` : ""}</p>
+          ${appt.customer_address ? `<p>${esc(appt.customer_address)}</p>` : ""}
+          ${appt.notes ? `<p>Notes: ${esc(appt.notes)}</p>` : ""}
         </div>`,
       }).catch(() => undefined);
     }

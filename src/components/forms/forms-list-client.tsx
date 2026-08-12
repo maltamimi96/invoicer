@@ -16,9 +16,11 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { setFormBuilderEnabled, createPublicForm, deletePublicForm } from "@/lib/actions/forms";
-import { formatDate } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import { embedSnippet } from "@/lib/forms/embed";
+import { SubmissionsView } from "@/components/forms/submissions-view";
 import type { PublicForm } from "@/types/database";
+import type { SubmissionWithForm } from "@/lib/actions/forms";
 
 const STATUS_TONES: Record<string, string> = {
   draft: "bg-muted text-muted-foreground",
@@ -30,9 +32,16 @@ interface Props {
   enabled: boolean;
   forms: (PublicForm & { submission_count: number })[];
   baseUrl: string;
+  submissions?: SubmissionWithForm[];
+  /** Which tab the URL asked for. */
+  tab?: "forms" | "submissions";
+  /** ?form= — the builder deep-links here filtered to one form. */
+  activeFormId?: string;
 }
 
-export function FormsListClient({ enabled, forms, baseUrl }: Props) {
+export function FormsListClient({
+  enabled, forms, baseUrl, submissions = [], tab = "forms", activeFormId,
+}: Props) {
   const router = useRouter();
   // The scrim has to outlast the refresh: a local `finally { setBusy(false) }`
   // fires when refresh() is CALLED, not when the server output arrives.
@@ -85,6 +94,11 @@ export function FormsListClient({ enabled, forms, baseUrl }: Props) {
     finally { setBusy(false); }
   };
 
+  // The tab count comes from the forms list, not the loaded page of
+  // submissions — the Forms tab must show the true total even when the
+  // Submissions tab hasn't been opened and `submissions` is empty.
+  const totalSubmissions = forms.reduce((n, f) => n + (f.submission_count ?? 0), 0);
+
   const publicUrl = (slug: string) => `${baseUrl}/f/${slug}`;
   const copy = (text: string, msg: string) => navigator.clipboard.writeText(text).then(() => toast.success(msg), () => toast.error("Copy failed"));
 
@@ -109,7 +123,36 @@ export function FormsListClient({ enabled, forms, baseUrl }: Props) {
         }
       />
 
-      {forms.length === 0 ? (
+      {/* Reading replies and editing the form are different jobs. Submissions
+          used to sit INSIDE the builder, so checking what someone sent meant
+          opening the editor for a live form. Two tabs, one nav entry. */}
+      <div className="mb-5 flex gap-2 border-b border-border">
+        {([
+          { id: "forms", label: `Forms (${forms.length})`, href: "/forms" },
+          { id: "submissions", label: `Submissions (${totalSubmissions})`, href: "/forms?tab=submissions" },
+        ] as const).map((t) => (
+          <Link
+            key={t.id}
+            href={t.href}
+            className={cn(
+              "-mb-px border-b-2 px-1 pb-2 text-sm font-medium transition-colors",
+              tab === t.id
+                ? "border-primary text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {t.label}
+          </Link>
+        ))}
+      </div>
+
+      {tab === "submissions" ? (
+        <SubmissionsView
+          submissions={submissions}
+          forms={forms.map((f) => ({ id: f.id, name: f.name }))}
+          activeFormId={activeFormId}
+        />
+      ) : forms.length === 0 ? (
         <Card><CardContent className="py-12 text-center text-muted-foreground">
           <ListChecks className="w-8 h-8 mx-auto mb-3 opacity-40" />
           <p className="font-medium">No forms yet</p>

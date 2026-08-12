@@ -161,10 +161,10 @@ export function WorkOrdersClient({ workOrders, userRole }: WorkOrdersClientProps
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <FadeIn delay={60}><StatTile gradient="softAmber" toneColor="#78350f" icon={<Calendar className="w-3.5 h-3.5" />} label="Today"        value={String(stats.todayCount)}  sub={stats.todayCount === 1 ? "scheduled job" : "scheduled jobs"} /></FadeIn>
-        <FadeIn delay={110}><StatTile gradient="softBlue"  toneColor="#1e3a8a" icon={<Wrench   className="w-3.5 h-3.5" />} label="On site now"  value={String(stats.onSite)}      sub="in progress" /></FadeIn>
-        <FadeIn delay={160}><StatTile gradient="softViolet"toneColor="#3b1d6b" icon={<Wrench   className="w-3.5 h-3.5" />} label="Needs review" value={String(stats.needsReview)} sub="submitted by workers" /></FadeIn>
-        <FadeIn delay={210}><StatTile gradient="softTeal"  toneColor="#064e3b" icon={<Wrench   className="w-3.5 h-3.5" />} label="Completed"    value={String(stats.completed)}   sub="all time" /></FadeIn>
+        <FadeIn delay={60}><StatTile gradient="softAmber" tone="warn" icon={<Calendar className="w-3.5 h-3.5" />} label="Today"        value={String(stats.todayCount)}  sub={stats.todayCount === 1 ? "scheduled job" : "scheduled jobs"} /></FadeIn>
+        <FadeIn delay={110}><StatTile gradient="softBlue"  tone="info" icon={<Wrench   className="w-3.5 h-3.5" />} label="On site now"  value={String(stats.onSite)}      sub="in progress" /></FadeIn>
+        <FadeIn delay={160}><StatTile gradient="softViolet"tone="accent" icon={<Wrench   className="w-3.5 h-3.5" />} label="Needs review" value={String(stats.needsReview)} sub="submitted by workers" /></FadeIn>
+        <FadeIn delay={210}><StatTile gradient="softTeal"  tone="ok" icon={<Wrench   className="w-3.5 h-3.5" />} label="Completed"    value={String(stats.completed)}   sub="all time" /></FadeIn>
       </div>
 
       <KireiTabs

@@ -632,12 +632,12 @@ export function CustomerDetailClient({
             {/* Stat tiles */}
             <FadeIn delay={60}>
               <div className="grid grid-cols-2 gap-2">
-                <StatTile gradient="softTeal"   toneColor="#1f4f4a" icon={<DollarSign  className="w-3 h-3" />} label="Total spent" value={formatCurrency(totalSpent, currency)} />
-                <StatTile gradient="softAmber"  toneColor="#78350f" icon={<DollarSign  className="w-3 h-3" />} label="Outstanding" value={formatCurrency(outstanding, currency)} />
-                <StatTile gradient="softBlue"   toneColor="#1e3a8a" icon={<Wrench      className="w-3 h-3" />} label="Work orders" value={String(initialWorkOrders.length)} />
-                <StatTile gradient="softTeal"   toneColor="#064e3b" icon={<FileText    className="w-3 h-3" />} label="Invoices"    value={String(invoices.length)} />
-                <StatTile gradient="softViolet" toneColor="#3b1d6b" icon={<FileCheck   className="w-3 h-3" />} label="Quotes"      value={String(quotes.length)} />
-                <StatTile gradient="softRose"   toneColor="#9f1239" icon={<Home        className="w-3 h-3" />} label="Properties"  value={String(properties.length)} />
+                <StatTile gradient="softTeal"   tone="info" icon={<DollarSign  className="w-3 h-3" />} label="Total spent" value={formatCurrency(totalSpent, currency)} />
+                <StatTile gradient="softAmber"  tone="warn" icon={<DollarSign  className="w-3 h-3" />} label="Outstanding" value={formatCurrency(outstanding, currency)} />
+                <StatTile gradient="softBlue"   tone="info" icon={<Wrench      className="w-3 h-3" />} label="Work orders" value={String(initialWorkOrders.length)} />
+                <StatTile gradient="softTeal"   tone="ok" icon={<FileText    className="w-3 h-3" />} label="Invoices"    value={String(invoices.length)} />
+                <StatTile gradient="softViolet" tone="accent" icon={<FileCheck   className="w-3 h-3" />} label="Quotes"      value={String(quotes.length)} />
+                <StatTile gradient="softRose"   tone="bad" icon={<Home        className="w-3 h-3" />} label="Properties"  value={String(properties.length)} />
               </div>
             </FadeIn>
 

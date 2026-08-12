@@ -58,8 +58,12 @@
   /* 2xl/3xl were never defined, so `rounded-2xl` and `rounded-3xl` silently
      produced no radius at all wherever they were used. The v2 design needs
      both (16px controls, 22px cards), so they are defined off the same
-     --radius the rest of the scale uses. */
-  --radius-2xl: calc(var(--radius) + 2px);
+     --radius the rest of the scale uses.
+     2xl was +2px, i.e. SMALLER than xl's +4px — a non-monotonic scale, so
+     every Card (rounded-xl) sitting inside a rounded-2xl panel had a rounder
+     inner corner than its outer one and read as a rendering fault. The scale
+     must only ever increase. */
+  --radius-2xl: calc(var(--radius) + 6px);
   --radius-3xl: calc(var(--radius) + 8px);
 }
 
@@ -656,8 +660,8 @@
   gap: 6px;
 }
 .ch-stat-delta { font-weight: 600; font-variant-numeric: tabular-nums; }
-.ch-stat-delta.up   { color: hsl(150 60% 38%); }
-.ch-stat-delta.down { color: hsl(0 70% 50%); }
+.ch-stat-delta.up   { color: hsl(var(--ok)); }
+.ch-stat-delta.down { color: hsl(var(--bad)); }
 
 /* Tables */
 .ch-table-wrap {
@@ -718,26 +722,41 @@
   background: currentColor;
 }
 .ch-pill.no-dot::before { display: none; }
+
+/* Status colours resolve from the theme, they are not authored here.
+ *
+ * These were 16 literal light pastels — `background: hsl(150 50% 95%)` — with
+ * no dark override anywhere. The app ships `data-theme="Midnight"` by default,
+ * where a 95%-lightness chip on a #1a2333 card measures 14.7:1 the WRONG way:
+ * a near-white sticker, the brightest thing on the screen, attached to the
+ * least important information on it. That is what a roofer saw when he checked
+ * a job status on his phone.
+ *
+ * `.sent` and `.new` already read from --primary and were the only two that
+ * survived the dark default. Every other status now follows that pattern
+ * against --ok / --warn / --bad / --primary / --accent-2, which all five live
+ * palettes define. One tint alpha throughout, so the row of pills in a list
+ * reads as one family. */
 .ch-pill.paid,
 .ch-pill.completed,
-.ch-pill.accepted   { background: hsl(150 50% 95%); color: hsl(150 60% 32%); }
+.ch-pill.accepted,
+.ch-pill.won,
+.ch-pill.active     { background: hsl(var(--ok) / 0.15);       color: hsl(var(--ok)); }
 .ch-pill.pending,
-.ch-pill.in-progress { background: hsl(40 80% 95%); color: hsl(35 75% 38%); }
+.ch-pill.in-progress,
+.ch-pill.partial    { background: hsl(var(--warn) / 0.15);     color: hsl(var(--warn)); }
 .ch-pill.overdue,
-.ch-pill.cancelled  { background: hsl(0 70% 96%); color: hsl(0 70% 45%); }
-.ch-pill.draft      { background: hsl(220 14% 95%); color: hsl(220 10% 40%); }
-.ch-pill.scheduled  { background: hsl(280 40% 96%); color: hsl(280 40% 40%); }
-.ch-pill.sent       { background: hsl(var(--primary) / 0.12); color: hsl(var(--primary)); }
-.ch-pill.partial    { background: hsl(40 80% 95%); color: hsl(35 75% 38%); }
+.ch-pill.cancelled,
+.ch-pill.lost       { background: hsl(var(--bad) / 0.15);      color: hsl(var(--bad)); }
+.ch-pill.sent,
+.ch-pill.new,
+.ch-pill.contacted  { background: hsl(var(--primary) / 0.15);  color: hsl(var(--primary)); }
+.ch-pill.scheduled,
+.ch-pill.quoted     { background: hsl(var(--accent-2) / 0.15); color: hsl(var(--accent-2)); }
+.ch-pill.draft,
 .ch-pill.declined,
-.ch-pill.rejected   { background: hsl(220 14% 95%); color: hsl(220 10% 40%); }
-.ch-pill.new        { background: hsl(var(--primary) / 0.12); color: hsl(var(--primary)); }
-.ch-pill.contacted  { background: hsl(220 80% 95%); color: hsl(220 70% 45%); }
-.ch-pill.quoted     { background: hsl(280 40% 96%); color: hsl(280 40% 40%); }
-.ch-pill.won        { background: hsl(150 50% 95%); color: hsl(150 60% 32%); }
-.ch-pill.lost       { background: hsl(0 70% 96%); color: hsl(0 70% 45%); }
-.ch-pill.active     { background: hsl(150 50% 95%); color: hsl(150 60% 32%); }
-.ch-pill.archived   { background: hsl(220 14% 95%); color: hsl(220 10% 40%); }
+.ch-pill.rejected,
+.ch-pill.archived   { background: hsl(var(--muted));           color: hsl(var(--muted-foreground)); }
 
 /* Tabs */
 .ch-tabs {

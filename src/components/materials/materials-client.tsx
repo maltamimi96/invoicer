@@ -140,9 +140,9 @@ export function MaterialsClient({ materials: initial, currency = "GBP" }: { mate
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-        <FadeIn delay={60}><StatTile gradient="softAmber" toneColor="#78350f" icon={<Package     className="w-3.5 h-3.5" />} label="Total items"  value={String(materials.length)}                  sub="in catalog" /></FadeIn>
-        <FadeIn delay={110}><StatTile gradient="softAmber" toneColor="#78350f" icon={<DollarSign  className="w-3.5 h-3.5" />} label="Total cost"   value={formatCurrency(totalCatalogCost, currency)} sub="sum of cost prices" /></FadeIn>
-        <FadeIn delay={160}><StatTile gradient="softTeal"  toneColor="#064e3b" icon={<CheckCircle className="w-3.5 h-3.5" />} label="Active"       value={String(activeCount)}                        sub="materials on file" /></FadeIn>
+        <FadeIn delay={60}><StatTile gradient="softAmber" tone="warn" icon={<Package     className="w-3.5 h-3.5" />} label="Total items"  value={String(materials.length)}                  sub="in catalog" /></FadeIn>
+        <FadeIn delay={110}><StatTile gradient="softAmber" tone="warn" icon={<DollarSign  className="w-3.5 h-3.5" />} label="Total cost"   value={formatCurrency(totalCatalogCost, currency)} sub="sum of cost prices" /></FadeIn>
+        <FadeIn delay={160}><StatTile gradient="softTeal"  tone="ok" icon={<CheckCircle className="w-3.5 h-3.5" />} label="Active"       value={String(activeCount)}                        sub="materials on file" /></FadeIn>
       </div>
 
       <div className="flex items-center gap-3 flex-wrap">

@@ -173,8 +173,29 @@ export async function updateMemberProfile(
     if (profile?.user_id !== user.id) throw new Error("You can only edit your own profile");
   }
 
+  // Allow-list the columns, don't spread the payload.
+  //
+  // `payload`'s type excludes hourly_rate, but a type is a compile-time claim
+  // about a value that arrives at runtime from the client — a hand-made server
+  // action call can put anything in it, and `...payload` would spread it
+  // straight into the UPDATE. The database trigger
+  // (trg_guard_member_profile_columns) is the real gate; this is the layer
+  // that means a worker's own UI can never even try.
+  const FIELDS = ["name", "phone", "avatar_url", "role_title", "skills", "bio", "is_active"] as const;
+  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  for (const f of FIELDS) {
+    if (payload[f] !== undefined) patch[f] = payload[f];
+  }
+
+  // role_title / skills / is_active describe standing, not self-description.
+  if (!canManageTeam(callerRole)) {
+    delete patch.role_title;
+    delete patch.skills;
+    delete patch.is_active;
+  }
+
   const { error } = await tbl(supabase, "member_profiles")
-    .update({ ...payload, updated_at: new Date().toISOString() })
+    .update(patch)
     .eq("id", profileId)
     .eq("business_id", businessId);
   if (error) throw error;

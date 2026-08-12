@@ -176,13 +176,13 @@ export function OutreachClient({
       {tab === "overview" && (
         <div className="space-y-5">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <StatTile toneColor="#1f4f4a" icon={<Send className="h-4 w-4" />} label="Sent" value={String(stats.sent)}
+            <StatTile tone="info" icon={<Send className="h-4 w-4" />} label="Sent" value={String(stats.sent)}
               sub={`${stats.delivered} delivered`} />
-            <StatTile toneColor="#2563eb" icon={<MailCheck className="h-4 w-4" />} label="Opened" value={String(stats.opened)}
+            <StatTile tone="info" icon={<MailCheck className="h-4 w-4" />} label="Opened" value={String(stats.opened)}
               sub={`${pct(stats.opened, stats.sent)} of sent`} />
-            <StatTile toneColor="#7c3aed" icon={<MousePointer2 className="h-4 w-4" />} label="Clicked" value={String(stats.clicked)}
+            <StatTile tone="accent" icon={<MousePointer2 className="h-4 w-4" />} label="Clicked" value={String(stats.clicked)}
               sub={`${pct(stats.clicked, stats.sent)} of sent`} />
-            <StatTile toneColor="#dc2626" icon={<AlertCircle className="h-4 w-4" />} label="Bounced" value={String(stats.bounced)}
+            <StatTile tone="bad" icon={<AlertCircle className="h-4 w-4" />} label="Bounced" value={String(stats.bounced)}
               sub={`${pct(stats.bounced, stats.sent)} — keep under 2%`} />
           </div>
 

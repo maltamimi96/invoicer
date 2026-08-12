@@ -119,16 +119,16 @@ export function QuotesClient({ quotes: initial, currency = "GBP" }: { quotes: Qu
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <FadeIn delay={60}>
-          <StatTile gradient="softTeal"   toneColor="#1f4f4a" icon={<FileCheck  className="w-3.5 h-3.5" />} label="Total"          value={String(quotes.length)}            sub="all time" />
+          <StatTile gradient="softTeal"   tone="info" icon={<FileCheck  className="w-3.5 h-3.5" />} label="Total"          value={String(quotes.length)}            sub="all time" />
         </FadeIn>
         <FadeIn delay={110}>
-          <StatTile gradient="softBlue"   toneColor="#1e3a8a" icon={<Briefcase  className="w-3.5 h-3.5" />} label="Open pipeline"  value={formatCurrency(totalPipeline, currency)} sub="awaiting decision" />
+          <StatTile gradient="softBlue"   tone="warn" icon={<Briefcase  className="w-3.5 h-3.5" />} label="Open pipeline"  value={formatCurrency(totalPipeline, currency)} sub="awaiting decision" />
         </FadeIn>
         <FadeIn delay={160}>
-          <StatTile gradient="softTeal"   toneColor="#064e3b" icon={<CheckCircle className="w-3.5 h-3.5" />} label="Accepted"      value={formatCurrency(totalAccepted, currency)} sub="won deals" />
+          <StatTile gradient="softTeal"   tone="ok" icon={<CheckCircle className="w-3.5 h-3.5" />} label="Accepted"      value={formatCurrency(totalAccepted, currency)} sub="won deals" />
         </FadeIn>
         <FadeIn delay={210}>
-          <StatTile gradient="softViolet" toneColor="#3b1d6b" icon={<TrendingUp  className="w-3.5 h-3.5" />} label="Acceptance"    value={`${acceptanceRate}%`}              sub="of decided quotes" />
+          <StatTile gradient="softViolet" tone="accent" icon={<TrendingUp  className="w-3.5 h-3.5" />} label="Acceptance"    value={`${acceptanceRate}%`}              sub="of decided quotes" />
         </FadeIn>
       </div>
 
