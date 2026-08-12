@@ -12,6 +12,22 @@ export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isAuthRoute = pathname.startsWith("/auth");
 
+  /**
+   * The one auth route a signed-in user must be allowed to stay on.
+   *
+   * A password reset link lands on /auth/callback, which exchanges the code for
+   * a REAL session before forwarding here. So the recovery visit always arrives
+   * holding a session, and the "signed in? go to /dashboard" bounce fired every
+   * single time: the reset page was unreachable, and the emailed link silently
+   * behaved as a passwordless sign-in that left the forgotten — or compromised
+   * — password still live.
+   *
+   * Only the signed-in bounce is exempted, not the signed-out one: someone
+   * arriving with an expired link and no session should still reach the page
+   * that tells them so, rather than a login screen that explains nothing.
+   */
+  const isPasswordReset = pathname === "/auth/reset-password";
+
   // Endpoints that authenticate themselves via an Authorization: Bearer
   // header (mobile clients) — let the route handler do its own auth check
   // instead of cookie-redirecting them to the login page (which produces
@@ -125,7 +141,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (claims && isAuthRoute) {
+  if (claims && isAuthRoute && !isPasswordReset) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);
