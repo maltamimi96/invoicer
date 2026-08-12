@@ -99,14 +99,15 @@ const STATUS_LABELS: Record<WorkOrderStatus, string> = {
   draft: "Draft", assigned: "Assigned", in_progress: "In progress",
   submitted: "Submitted", reviewed: "Reviewed", completed: "Completed", cancelled: "Cancelled",
 };
-const STATUS_COLORS: Record<WorkOrderStatus, string> = {
-  draft: "bg-gray-100 text-gray-700",
-  assigned: "bg-blue-100 text-blue-700",
-  in_progress: "bg-amber-100 text-amber-700",
-  submitted: "bg-purple-100 text-purple-700",
-  reviewed: "bg-indigo-100 text-indigo-700",
-  completed: "bg-green-100 text-green-700",
-  cancelled: "bg-red-100 text-red-700",
+/** Status colour comes from the one shared table; see kirei/pill.tsx. */
+const STATUS_COLORS: Record<string, string> = {
+  draft: "bg-muted text-muted-foreground",
+  assigned: "bg-primary/15 text-primary",
+  in_progress: "bg-warn/15 text-warn",
+  submitted: "bg-accent-2/15 text-accent-2",
+  reviewed: "bg-warn/15 text-warn",
+  completed: "bg-ok/15 text-ok",
+  cancelled: "bg-bad/15 text-bad",
 };
 
 const SECTIONS = [

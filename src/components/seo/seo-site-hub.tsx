@@ -108,7 +108,6 @@ export function SeoSiteHub({
             <span className={cn("text-[11px] font-medium rounded-full px-2 py-0.5", STATUS_TONE[site.status] ?? "bg-muted text-muted-foreground")}>{site.status}</span>
           </span>
         }
-        accent="linear-gradient(180deg, #10b981 0%, #047857 100%)"
         actions={
           <>
             <Link href="/seo" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md border border-border px-3 py-1.5">

@@ -144,7 +144,6 @@ export function RecurringInvoicesClient({ initial, customers, products, currency
       <PageHeader
         title="Recurring invoices"
         subtitle="Auto-generate and auto-charge invoices on a schedule"
-        accent="linear-gradient(180deg, #34d399 0%, #059669 100%)"
         actions={<Button onClick={openNew}><Plus className="w-4 h-4 mr-1.5" /> New schedule</Button>}
       />
 

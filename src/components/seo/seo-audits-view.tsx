@@ -49,7 +49,6 @@ export function SeoAuditsView({ link, audits }: Props) {
       <PageHeader
         title="Audit tool"
         subtitle="A free-SEO-audit lead magnet — share the link, prospects who submit become leads."
-        accent="linear-gradient(180deg, #10b981 0%, #047857 100%)"
         actions={
           <Link href="/seo" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md border border-border px-3 py-1.5">
             <ArrowLeft className="w-4 h-4" /> Sites

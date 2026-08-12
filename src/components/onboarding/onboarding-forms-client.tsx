@@ -131,7 +131,6 @@ export function OnboardingFormsClient({ enabled, forms, requests, customers }: P
       <PageHeader
         title="Client Onboarding"
         subtitle="Custom intake forms your customers fill in through their portal"
-        accent="linear-gradient(180deg, #2dd4bf 0%, #0e7490 100%)"
         actions={
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">

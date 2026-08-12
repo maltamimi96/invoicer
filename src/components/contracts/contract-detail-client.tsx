@@ -100,7 +100,6 @@ export function ContractDetailClient({ contract, renderedHtml, canEdit }: Props)
       <PageHeader
         title={contract.title}
         subtitle={<span>For {contract.customers?.name ?? "—"} · created {formatDate(contract.created_at)}</span>}
-        accent="linear-gradient(180deg, #818cf8 0%, #4f46e5 100%)"
         actions={
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className={STATUS_TONES[contract.status] ?? ""}>{contract.status}</Badge>

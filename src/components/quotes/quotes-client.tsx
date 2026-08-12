@@ -104,7 +104,6 @@ export function QuotesClient({ quotes: initial, currency = "GBP" }: { quotes: Qu
       <PageHeader
         title="Quotes"
         subtitle={`${quotes.length} total · ${formatCurrency(totalPipeline, currency)} in pipeline`}
-        accent="linear-gradient(180deg, #a78bfa 0%, #6d28d9 100%)"
         actions={
           <>
             <CleanupButton entity="quotes" entityLabel="quotes" />

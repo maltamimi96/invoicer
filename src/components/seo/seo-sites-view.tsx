@@ -119,7 +119,6 @@ export function SeoSitesView({ sites, customers, budget }: Props) {
       <PageHeader
         title="SEO Production"
         subtitle="Client sites you manage — connectors, opportunities and content pipeline"
-        accent="linear-gradient(180deg, #10b981 0%, #047857 100%)"
         actions={
           // One primary action. The lead-gen audit tool and the pipeline docs
           // are secondary — they used to sit here as equal-weight peers next to
