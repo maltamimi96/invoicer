@@ -22,7 +22,7 @@ export const getMyRoleCached = cache(async (): Promise<Role> => {
   const businessId = await getActiveBizId(supabase, user.id);
 
   // Owner check and member lookup are independent — run them in parallel.
-  const [{ data: biz }, { data: member }] = await Promise.all([
+  const [{ data: biz }, { data: member, error: memberError }] = await Promise.all([
     tbl(supabase, "businesses").select("user_id").eq("id", businessId).single(),
     tbl(supabase, "business_members")
       .select("role")
@@ -33,5 +33,19 @@ export const getMyRoleCached = cache(async (): Promise<Role> => {
   ]);
 
   if (biz?.user_id === user.id) return "owner";
-  return (member?.role ?? "viewer") as Role;
+
+  /**
+   * No membership row — or a lookup that failed — means we do not know who this
+   * is, and the answer to that must be the LEAST privilege, not a middling one.
+   *
+   * This used to return "viewer", which is a real role carrying every read
+   * scope. Combined with the active_business_id cookie being trusted, that
+   * handed a stranger read access to a business they'd merely named. Worker is
+   * the hard-isolation role, and it's what mobile already falls back to.
+   *
+   * A legitimate user is always either the owner (returned above) or holds an
+   * active member row, so this branch only fires on the anomaly it guards.
+   */
+  if (memberError || !member?.role) return "worker";
+  return member.role as Role;
 });

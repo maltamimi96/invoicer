@@ -22,7 +22,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getActiveBizId } from "@/lib/active-business";
+import { getActiveBizId, userBelongsToBusiness } from "@/lib/active-business";
 import { getUser } from "@/lib/auth";
 import { getMyRoleCached } from "@/lib/role";
 import { ANTHROPIC_TOOLS } from "@/lib/mcp/anthropic-tools";
@@ -163,6 +163,16 @@ export async function POST(request: NextRequest) {
   }
 
   const businessId = await getActiveBizId(supabase, user.id);
+
+  // That business id came from a cookie, and on this route the tools run as
+  // service-role — so RLS, which everywhere else makes a tampered cookie
+  // harmless, is not going to catch it. Without this check any signed-in user
+  // could point active_business_id at another tenant's UUID, resolve to a role
+  // (see the fail-closed fallback in lib/role.ts), and have the tools read that
+  // tenant's customers, invoices and leads straight past RLS.
+  if (!(await userBelongsToBusiness(supabase, user.id, businessId))) {
+    return Response.json({ error: "Business not found" }, { status: 403 });
+  }
 
   // The tools run as service-role, bypassing RLS — so the caller's role, not
   // the database, decides what they can reach here. See lib/assistant/scopes.
