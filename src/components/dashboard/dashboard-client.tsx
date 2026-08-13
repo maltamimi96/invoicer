@@ -52,7 +52,11 @@ export function DashboardClient({ stats, currency = "GBP", todayJobs }: Dashboar
           className="flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-sm font-medium transition-colors hover:border-border-strong">
           <UserPlus className="h-4 w-4 text-accent-2" /> New client
         </Link>
-        <Link href="/leads/new"
+        {/* /leads/new does not exist. It fell through to /leads/[id] with
+            id="new", which reached Postgres as a uuid and raised 22P02 — so the
+            dashboard's own "New lead" button crashed the page it landed on.
+            /leads carries the create affordance. */}
+        <Link href="/leads"
           className="flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-sm font-medium transition-colors hover:border-border-strong">
           <Plus className="h-4 w-4 text-lime" /> New lead
         </Link>

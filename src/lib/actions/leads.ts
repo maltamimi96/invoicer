@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveBizId } from "@/lib/active-business";
 import { dispatchWebhook } from "@/lib/webhooks";
@@ -32,7 +33,16 @@ export async function getLeads(filters?: { status?: LeadStatus }): Promise<Lead[
   return data as Lead[];
 }
 
+/** A route param is a string; the column is a uuid. Anything else is a 404. */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function getLead(id: string): Promise<Lead> {
+  // A non-uuid reached Postgres and raised 22P02 — a 500, not a 404. Any stale
+  // or hand-typed link did it; /leads/new (which the dashboard linked to, and
+  // which has never existed) did it every time. notFound() is the honest
+  // answer: there is no lead with that id.
+  if (!UUID_RE.test(id.trim())) notFound();
+
   const supabase = await createClient();
   const user = await getUser();
 
@@ -42,9 +52,12 @@ export async function getLead(id: string): Promise<Lead> {
     .select("*")
     .eq("id", id)
     .eq("business_id", businessId)
-    .single();
+    .maybeSingle();
 
   if (error) throw error;
+  // RLS already scopes this to the business, so "no row" means it isn't theirs
+  // or it's gone — both a 404 rather than an exception.
+  if (!data) notFound();
   return data as Lead;
 }
 

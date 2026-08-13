@@ -25,7 +25,13 @@ export function AppLoadingProvider({ children }: { children: ReactNode }) {
       {children}
       {busy && (
         <div
-          className="fixed inset-0 z-[200] flex flex-col items-center justify-center gap-6 bg-background"
+          // Translucent rather than opaque. This fires on 67 surfaces,
+          // including row-level mutations, and a solid background blanked the
+          // entire app — losing the user's place — for something that often
+          // finished in under a second. Now the page stays visible behind it,
+          // which also makes a fast operation read as fast rather than as a
+          // full-screen flash.
+          className="fixed inset-0 z-[200] flex flex-col items-center justify-center gap-6 bg-background/70 backdrop-blur-sm"
           role="status"
           aria-live="polite"
         >

@@ -152,7 +152,7 @@ export function ProductsClient({ products: initial, currency = "GBP" }: { produc
           gradient="emerald"
           title={search ? "No matches" : "No products yet"}
           hint={search ? "Try a different search." : "Add your products and services to quickly fill line items."}
-          cta={!search ? { label: "Add product", href: "#", icon: <Plus className="w-4 h-4" /> } : undefined}
+          cta={!search ? { label: "Add product", onClick: () => setShowNew(true), icon: <Plus className="w-4 h-4" /> } : undefined}
         />
       ) : (
         <div className="rounded-xl border border-border bg-card overflow-hidden">

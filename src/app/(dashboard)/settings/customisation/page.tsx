@@ -72,7 +72,7 @@ const GROUPS: Array<{ title: string; blurb: string; items: Item[] }> = [
     blurb: "Templates and rules for the day-to-day.",
     items: [
       { href: "/settings/work-order-templates", label: "Job templates", hint: "Starting points that prefill a new job.", icon: Wrench },
-      { href: "/settings/booking", label: "Booking", hint: "Appointment types, working hours and exceptions.", icon: CalendarDays, plugin: "bookings" },
+      { href: "/settings/booking", label: "Booking", hint: "Appointment types, working hours and exceptions.", icon: CalendarDays, plugin: "booking" },
       { href: "/automations", label: "Automations", hint: "When something happens, do something.", icon: Zap, plugin: "automations" },
     ],
   },

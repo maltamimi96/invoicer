@@ -118,7 +118,7 @@ export function AppSidebar({
             key={group.section}
             className="flex w-full shrink-0 flex-col gap-0.5 rounded-3xl bg-secondary px-2 py-2.5"
           >
-            <p className="px-3 pb-1 pt-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground/70">
+            <p className="px-3 pb-1 pt-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
               {group.section}
             </p>
             {group.items.map((item) => navRow(item))}
