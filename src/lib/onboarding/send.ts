@@ -22,6 +22,21 @@ export type SendOnboardingResult =
   | { ok: true; request_id: string; url: string }
   | { ok: false; error: string };
 
+/**
+ * Is this an address a mail provider will actually accept?
+ *
+ * Deliberately stricter than the EMAIL_RE in ./validate.ts, which is
+ * `[^\s@]+@[^\s@]+\.[^\s@]{2,}` — that permits a comma anywhere, so
+ * `info@crownroofers.com,au` (a comma typed for the second dot, the exact
+ * failure this guard was written for) sails through it while Resend rejects it.
+ *
+ * Here the domain must be dot-separated labels of letters, digits and hyphens,
+ * ending in an alphabetic TLD, so a stray comma or space can't hide in it.
+ */
+function looksLikeEmail(v: string): boolean {
+  return /^[^\s@,;]+@[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$/i.test(v.trim());
+}
+
 /** Reuse a live portal token for this customer, or mint one. */
 export async function mintPortalTokenFor(
   sb: Sb, businessId: string, customerId: string, createdBy: string | null,
@@ -55,14 +70,18 @@ export async function sendOnboardingFormFor(
   customerId: string,
   opts: { email?: boolean; createdBy?: string | null } = {},
 ): Promise<SendOnboardingResult> {
-  const [{ data: form }, { data: customer }, { data: biz }] = await Promise.all([
+  const [{ data: form }, { data: customer }, { data: biz, error: bizErr }] = await Promise.all([
     tbl(sb, "onboarding_forms").select("id, name, status, schema").eq("id", formId).eq("business_id", businessId).maybeSingle(),
     tbl(sb, "customers").select("id, name, email").eq("id", customerId).eq("business_id", businessId).maybeSingle(),
-    // slug included: buildBusinessFrom uses it for the sending subdomain, and
-    // it was referenced here while never being selected — so every one of
-    // these emails fell back to the default sender.
-    tbl(sb, "businesses").select("name, email, slug").eq("id", businessId).single(),
+    // NOT `slug` — businesses has no such column, only audit_slug. Asking for it
+    // made PostgREST reject the whole select, and because only `data` was
+    // destructured the error went unread: biz came back null and every one of
+    // these emails went out as "Your provider" from the fallback sender.
+    // buildBusinessFrom slugifies the name when no slug is given, which is what
+    // we want anyway.
+    tbl(sb, "businesses").select("name, email").eq("id", businessId).single(),
   ]);
+  if (bizErr) console.error("[onboarding/send] business lookup failed:", bizErr.message);
 
   if (!form) return { ok: false, error: "Form not found" };
   if (!customer) return { ok: false, error: "Customer not found" };
@@ -84,6 +103,23 @@ export async function sendOnboardingFormFor(
     };
   }
 
+  // Check the address BEFORE minting anything. A malformed one (a comma for a
+  // dot in a TLD is the common one) is rejected by the mail provider, which
+  // threw — leaving a pending request behind and, because Next masks thrown
+  // server-action messages in production, no usable reason on screen. From the
+  // sender's side that reads as the button doing nothing at all.
+  if (opts.email !== false) {
+    if (!customer.email) {
+      return { ok: false, error: "This customer has no email address — use Copy link instead" };
+    }
+    if (!looksLikeEmail(customer.email)) {
+      return {
+        ok: false,
+        error: `"${customer.email}" doesn't look like a valid email address — fix it on the customer, or use Copy link instead.`,
+      };
+    }
+  }
+
   // Reuse an open request for the same form+customer instead of duplicating.
   const { data: openReq } = await tbl(sb, "onboarding_requests")
     .select("id").eq("business_id", businessId).eq("form_id", formId)
@@ -102,10 +138,7 @@ export async function sendOnboardingFormFor(
   const token = await mintPortalTokenFor(sb, businessId, customerId, opts.createdBy ?? null);
   const url = `${appUrl()}/portal/${token}/onboarding/${requestId}`;
 
-  if (opts.email !== false) {
-    if (!customer.email) {
-      return { ok: false, error: "This customer has no email address — use Copy link instead" };
-    }
+  if (opts.email !== false && customer.email) {
     const html = `<!doctype html><html><body style="font-family:Arial,Helvetica,sans-serif;background:#f6f6f4;padding:24px;color:#111">
       <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;border:1px solid #e5e3d9;padding:28px">
         <p style="font-size:13px;color:#666;margin:0 0 4px">${biz?.name ?? "Your provider"}</p>
@@ -114,14 +147,27 @@ export async function sendOnboardingFormFor(
         <p style="margin:24px 0"><a href="${url}" style="background:#2f6f73;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-size:14px;font-weight:600">Open the form</a></p>
         <p style="font-size:12px;color:#888">Or paste this link into your browser:<br>${url}</p>
       </div></body></html>`;
-    await sendEmail({
-      to: customer.email,
-      subject: `${biz?.name ?? "Onboarding"}: ${form.name}`,
-      html,
-      from: buildBusinessFrom({ name: biz?.name ?? "Kirei", slug: biz?.slug, localPart: "onboarding" }),
-      replyTo: biz?.email ?? undefined,
-      tags: { business_id: businessId, doc_type: "custom", doc_id: requestId },
-    });
+    try {
+      await sendEmail({
+        to: customer.email,
+        subject: `${biz?.name ?? "Onboarding"}: ${form.name}`,
+        html,
+        from: buildBusinessFrom({ name: biz?.name ?? "Kirei", localPart: "onboarding" }),
+        replyTo: biz?.email ?? undefined,
+        tags: { business_id: businessId, doc_type: "custom", doc_id: requestId },
+      });
+    } catch (e) {
+      // A rejected send used to throw out of the server action, and Next masks
+      // those messages in production — so the sender saw nothing actionable
+      // while a pending request sat there as if it had gone. Return the reason,
+      // and the link, because it exists and works: they can still copy it.
+      const why = e instanceof Error ? e.message : "the email provider rejected it";
+      console.error("[onboarding/send] email failed:", why);
+      return {
+        ok: false,
+        error: `The form link was created but the email couldn't be sent (${why}). Use Copy link to share it.`,
+      };
+    }
   }
 
   return { ok: true, request_id: requestId, url };
