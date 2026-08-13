@@ -159,7 +159,7 @@ export function MaterialsClient({ materials: initial, currency = "GBP" }: { mate
           gradient="amber"
           title={search ? "No matches" : "No materials yet"}
           hint={search ? "Try a different search." : "Build a catalog of your material costs to use as a reference when pricing jobs."}
-          cta={!search ? { label: "Add material", href: "#", icon: <Plus className="w-4 h-4" /> } : undefined}
+          cta={!search ? { label: "Add material", onClick: () => setShowNew(true), icon: <Plus className="w-4 h-4" /> } : undefined}
         />
       ) : (
         <div className="rounded-xl border border-border bg-card overflow-hidden">

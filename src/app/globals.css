@@ -1031,3 +1031,28 @@
   background-clip: content-box;
 }
 .ch-scroll::-webkit-scrollbar-corner { background: transparent; }
+
+/* ---------------------------------------------------------------------------
+ * Reduced motion.
+ *
+ * The app animates a lot — spring rails, fade-in stagger, count-ups, confetti,
+ * shimmer skeletons. For someone with vestibular sensitivity that is not
+ * decoration, it is a reason to stop using the software, and the OS already
+ * carries their answer. Nothing here is load-bearing: every animation is
+ * ornament over a layout that reads fine static.
+ *
+ * Durations go to ~0 rather than `animation: none` so anything relying on an
+ * animationend/transitionend event still fires and doesn't strand state.
+ * Framer's own animations are handled by <MotionConfig reducedMotion="user">
+ * in dashboard-shell.tsx, which this mirrors for plain CSS.
+ * ------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

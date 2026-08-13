@@ -32,7 +32,7 @@ export function Confetti({ fireKey = 0, delay = 0 }: Props) {
   }, [fireKey, delay]);
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-50 overflow-hidden">
+    <div className="pointer-events-none fixed inset-0 z-[300] overflow-hidden">
       <AnimatePresence>
         {active && (
           <div key={round}>

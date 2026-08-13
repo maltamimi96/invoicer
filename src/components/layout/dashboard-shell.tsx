@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useState } from "react";
+import { MotionConfig } from "framer-motion";
 import dynamic from "next/dynamic";
 import { AppSidebar } from "./app-sidebar";
 import { AppHeader } from "./app-header";
@@ -62,6 +63,11 @@ function ShellBody({ business, businesses, user, userRole, features, vocab, navC
   const workerView = isWorker(userRole);
 
   return (
+    /* reducedMotion="user" makes every framer animation in the tree respect
+       prefers-reduced-motion. The CSS counterpart lives at the end of
+       globals.css; this covers the springs, the sidebar rail and the stagger,
+       which CSS can't reach. */
+    <MotionConfig reducedMotion="user">
     <VocabProvider labels={vocab ?? null}>
       <Suspense fallback={null}><RouteProgress /></Suspense>
       {/* Full bleed, and flat. The reference's chrome is SOLID: the top bar
@@ -70,7 +76,7 @@ function ShellBody({ business, businesses, user, userRole, features, vocab, navC
           washed a gradient across the bar and the rail and was exactly what
           made them look wrong. The only surface that differs is the content
           card. */}
-      <div className="relative flex h-screen flex-col overflow-hidden bg-background">
+      <div className="relative flex h-dvh flex-col overflow-hidden bg-background">
 
         <AppHeader
           user={user}
@@ -129,5 +135,6 @@ function ShellBody({ business, businesses, user, userRole, features, vocab, navC
 
       <AgentPanel />
     </VocabProvider>
+    </MotionConfig>
   );
 }

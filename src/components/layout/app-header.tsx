@@ -118,11 +118,9 @@ export function AppHeader({ user, business, businesses, onMenuClick, workerView,
                 <Settings className="h-4 w-4" /> Settings
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/settings/profile" className="flex cursor-pointer items-center gap-2">
-                <User className="h-4 w-4" /> Profile
-              </Link>
-            </DropdownMenuItem>
+            {/* "Profile" pointed at /settings/profile, which does not exist —
+                it 404s for every role. A menu item that goes nowhere is worse
+                than no menu item; if the page gets built, put the link back. */}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-destructive focus:text-destructive">
               <LogOut className="mr-2 h-4 w-4" /> Sign out
