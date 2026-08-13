@@ -125,7 +125,10 @@ function ShellBody({ business, businesses, user, userRole, features, vocab, navC
           <TabBusinessGuard businessId={business.id} />
           <div
             key={business.id}
-            className="h-full w-full overflow-auto rounded-3xl border border-border bg-card p-5 md:p-7"
+            // ch-scroll: the app's main scroll container was the one place not
+            // using it, so on Windows every page got the default light-grey
+            // browser scrollbar down the side of a Midnight-themed card.
+            className="ch-scroll h-full w-full overflow-auto rounded-3xl border border-border bg-card p-5 md:p-7"
           >
               {children}
             </div>

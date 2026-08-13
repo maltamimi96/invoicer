@@ -74,11 +74,41 @@ export function AppSidebar({
     [workerView, features, navConfig],
   );
 
-  const isActive = (href: string) =>
-    href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);
+  /**
+   * Exactly one row is active, decided once for the whole sidebar.
+   *
+   * This was `pathname.startsWith(href)` per row, which is true for more than
+   * one row at a time in two ways:
+   *
+   *   - no segment boundary, so /recurring-invoices lit up /recurring;
+   *   - nested routes, so /expenses/recurring lit up /expenses AND itself.
+   *
+   * Both are live trades-preset routes. Every active row mounts an <ActiveChip>
+   * carrying the same framer `layoutId`, and two elements claiming one layoutId
+   * is undefined behaviour — the teal rail flickered between them on every
+   * render. Fixing the predicate alone wouldn't have been enough for the nested
+   * case, so the winner is computed here and rows just compare against it:
+   * longest match wins, which is the most specific route.
+   */
+  const activeHref = useMemo(() => {
+    const matches = (href: string) =>
+      href === "/dashboard"
+        ? pathname === "/dashboard"
+        : pathname === href || pathname.startsWith(href + "/");
+
+    let winner: string | null = null;
+    for (const section of sections) {
+      for (const item of section.items) {
+        if (matches(item.href) && (winner === null || item.href.length > winner.length)) {
+          winner = item.href;
+        }
+      }
+    }
+    return winner;
+  }, [pathname, sections]);
 
   const navRow = (item: NavItem) => {
-    const active = isActive(item.href);
+    const active = item.href === activeHref;
     const label = vocab?.[item.href] ?? item.label;
     return (
       <Link
@@ -160,14 +190,16 @@ export function AppSidebar({
         </button>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-3">
+      <nav className="ch-scroll flex-1 overflow-y-auto px-3 py-3">
         {sections.map((group, gi) => (
           <div key={group.section} className={cn("flex flex-col gap-1", gi > 0 && "mt-4")}>
             <p className="px-2.5 pb-1.5 pt-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
               {group.section}
             </p>
             {group.items.map((item) => {
-              const active = isActive(item.href);
+              // Same single-winner rule as the desktop rail — the drawer had
+              // its own copy of the startsWith test and lit up two rows too.
+              const active = item.href === activeHref;
               return (
                 <Link
                   key={item.href}
