@@ -266,7 +266,8 @@ export function ContactsClient({ contacts: initial }: { contacts: Contact[] }) {
                 </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <Button variant="ghost" size="icon" aria-label={`Actions for ${c.name}`}
+                      className="relative h-8 w-8 before:absolute before:-inset-1.5 before:content-['']">
                       <MoreHorizontal className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>

@@ -234,7 +234,16 @@ export function ScheduleClient({ initialJobs, initialStart, initialEnd, profiles
       </div>
 
       {/* Calendar grid */}
-      <div className={`grid gap-3 flex-1 ${displayDays.length > 1 ? "grid-cols-7" : "grid-cols-1"} min-h-[400px]`}>
+      {/* Seven columns is a week on a desktop and seven crushed slivers on a
+          phone. It stacks below `sm` instead — which is also where the day
+          tabs above appear, so a phone user can either scroll the week or tap
+          a single day.
+
+          Note the day tabs are `sm:hidden` but `selectedDay` is not: it feeds
+          displayDays at every width. Defaulting it to today would have
+          collapsed the DESKTOP week view to one column, so the fix belongs in
+          the grid, not in the state. */}
+      <div className={`grid gap-3 flex-1 ${displayDays.length > 1 ? "grid-cols-1 sm:grid-cols-7" : "grid-cols-1"} min-h-[400px]`}>
         {displayDays.map((dateStr) => {
           const { day, num, today } = formatDateHeader(dateStr);
           const dayJobs = jobsForDay(dateStr);

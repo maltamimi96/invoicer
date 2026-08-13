@@ -258,7 +258,9 @@ export function CustomersClient({
                   <div className="w-8 text-right shrink-0" onClick={(e) => e.stopPropagation()}>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <button className="inline-flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
+                        <button
+                        aria-label={`Actions for ${customer.name}`}
+                        className="relative inline-flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground before:absolute before:-inset-2 before:content-['']">
                           <MoreHorizontal className="w-4 h-4" />
                         </button>
                       </DropdownMenuTrigger>
