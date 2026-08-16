@@ -90,7 +90,7 @@ export default async function PortalContractPage({ params }: { params: Promise<{
           </Card>
         ) : (
           <Card className="p-6">
-            <div className="prose prose-sm max-w-none break-words" dangerouslySetInnerHTML={{ __html: bodyHtml }} />
+            <div className="contract-body max-w-none break-words" dangerouslySetInnerHTML={{ __html: bodyHtml }} />
           </Card>
         )}
 
