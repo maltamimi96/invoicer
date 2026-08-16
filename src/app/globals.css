@@ -1056,3 +1056,65 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * Contract body.
+ *
+ * The signing page marked this block `prose prose-sm`, but
+ * @tailwindcss/typography is not installed — those classes match nothing, so a
+ * contract rendered as bare unstyled HTML: headings the same size as body text,
+ * no paragraph spacing, list markers missing. That is the document a customer
+ * reads before typing their legal name under it.
+ *
+ * Scoped rather than a dependency: the allowed tag set is fixed by
+ * sanitizeContractHtml, so this only has to style what can actually appear.
+ * ------------------------------------------------------------------------- */
+.contract-body { line-height: 1.65; }
+.contract-body > :first-child { margin-top: 0; }
+.contract-body p { margin: 0 0 0.85em; }
+.contract-body h1,
+.contract-body h2,
+.contract-body h3,
+.contract-body h4,
+.contract-body h5,
+.contract-body h6 {
+  font-weight: 650;
+  line-height: 1.3;
+  margin: 1.6em 0 0.6em;
+}
+.contract-body h1 { font-size: 1.35em; }
+.contract-body h2 { font-size: 1.18em; }
+.contract-body h3 { font-size: 1.05em; }
+.contract-body h4,
+.contract-body h5,
+.contract-body h6 { font-size: 1em; }
+.contract-body ul,
+.contract-body ol { margin: 0 0 0.85em; padding-left: 1.4em; }
+.contract-body ul { list-style: disc; }
+.contract-body ol { list-style: decimal; }
+.contract-body li { margin: 0.25em 0; }
+.contract-body li::marker { color: hsl(var(--muted-foreground)); }
+.contract-body blockquote {
+  margin: 0 0 0.85em;
+  padding-left: 0.9em;
+  border-left: 3px solid hsl(var(--border));
+  color: hsl(var(--muted-foreground));
+}
+.contract-body a { color: hsl(var(--primary)); text-decoration: underline; }
+.contract-body strong { font-weight: 650; }
+.contract-body hr { margin: 1.4em 0; border: 0; border-top: 1px solid hsl(var(--border)); }
+/* A pasted table must not push the signing page sideways on a phone. */
+.contract-body table {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin: 0 0 0.85em;
+}
+.contract-body th,
+.contract-body td {
+  border: 1px solid hsl(var(--border));
+  padding: 0.45em 0.6em;
+  text-align: left;
+}
+.contract-body th { background: hsl(var(--muted) / 0.4); font-weight: 600; }

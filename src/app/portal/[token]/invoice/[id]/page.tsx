@@ -130,8 +130,16 @@ export default async function PortalInvoicePage({ params, searchParams }: {
         </Card>
 
         {/* Line items */}
-        <Card className="p-0 overflow-hidden">
-          <table className="w-full text-sm">
+        {/* overflow-x-auto, not overflow-hidden.
+            The three right-hand columns are w-16 + w-28 + w-28 = 288px of
+            FIXED width, plus 128px of cell padding, before the Item column is
+            given anything. On a 375px phone that has ~263px to work with, and
+            `overflow-hidden` clipped the difference — so the customer could
+            not see the Total column of the invoice they were being asked to
+            pay. Now it scrolls, and min-w keeps the columns readable rather
+            than crushing them into each other. */}
+        <Card className="p-0 overflow-x-auto">
+          <table className="w-full min-w-[30rem] text-sm">
             <thead className="bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
               <tr>
                 <th className="text-left px-4 py-3 font-semibold">Item</th>
