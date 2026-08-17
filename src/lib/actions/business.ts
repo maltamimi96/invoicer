@@ -189,10 +189,46 @@ export async function uploadLogo(formData: FormData): Promise<string> {
   const file = formData.get("logo") as File;
   if (!file) throw new Error("No file provided");
 
-  const ext = file.name.split(".").pop();
+  /**
+   * Store something every consumer can actually read.
+   *
+   * The file input accepts `image/*`, so an SVG went straight to storage — and
+   * @react-pdf/renderer decodes JPEG and PNG only. The web app rendered the
+   * logo perfectly (it's an <img>), so nothing looked wrong, while every
+   * invoice and quote PDF silently shipped with no logo on it. Crown Roofers
+   * had exactly this: a logo.svg, and blank PDFs for months.
+   *
+   * WebP and AVIF are the same trap — a browser shows them, react-pdf can't.
+   * So anything that isn't already PNG or JPEG is rasterised to PNG here, at
+   * the one place a logo enters the system, rather than at the ten places that
+   * render a document from it.
+   */
+  const RASTER_OK = ["image/png", "image/jpeg"];
+  let body: Blob = file;
+  let ext = (file.name.split(".").pop() ?? "png").toLowerCase();
+
+  if (!RASTER_OK.includes(file.type)) {
+    try {
+      const sharp = (await import("sharp")).default;
+      const png = await sharp(Buffer.from(await file.arrayBuffer()))
+        // A logo is placed at ~108pt in the PDFs; 512 wide is crisp at print
+        // density without storing something enormous.
+        .resize({ width: 512, height: 512, fit: "inside", withoutEnlargement: true })
+        .png()
+        .toBuffer();
+      body = new Blob([new Uint8Array(png)], { type: "image/png" });
+      ext = "png";
+    } catch (e) {
+      // Don't fail the upload — a logo that shows on screen but not on PDFs is
+      // still better than no logo at all, and the user gets to keep working.
+      console.error("[uploadLogo] could not rasterise:", e instanceof Error ? e.message : e);
+    }
+  }
+
   const path = `${user.id}/${businessId}/logo.${ext}`;
 
-  const { error: uploadError } = await supabase.storage.from("logos").upload(path, file, { upsert: true });
+  const { error: uploadError } = await supabase.storage.from("logos")
+    .upload(path, body, { upsert: true, contentType: ext === "png" ? "image/png" : file.type });
   if (uploadError) throw uploadError;
 
   const { data: urlData } = supabase.storage.from("logos").getPublicUrl(path);
