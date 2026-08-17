@@ -35,7 +35,7 @@ const nextConfig: NextConfig = {
   // @sentry/nextjs is server-only here (dynamically imported inside
   // src/instrumentation.ts, gated on SENTRY_DSN) — keep it external so it never
   // gets bundled/transpiled into route chunks and stays out of the client build.
-  serverExternalPackages: ["@react-pdf/renderer", "@sentry/nextjs"],
+  serverExternalPackages: ["@react-pdf/renderer", "@sentry/nextjs", "sharp"],
   // RFC 8414 / 9728 discovery lives at /.well-known/* by spec, but App Router
   // dot-folders are flaky — serve them from plain API routes via rewrites so
   // the public URL stays correct.
