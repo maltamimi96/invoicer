@@ -193,12 +193,52 @@ export async function runSourcingNow(limit?: number): Promise<SourcingResult> {
 
 // ── Campaigns ────────────────────────────────────────────────────────────────
 
-export async function listCampaigns(): Promise<OutreachCampaign[]> {
+/** A campaign plus the two numbers that decide whether it can send anything. */
+export type CampaignWithReach = OutreachCampaign & {
+  /** Enrollments still working through the sequence. */
+  active_enrollments: number;
+  /** Prospects with an email that match this campaign's filter right now. */
+  matching_prospects: number;
+};
+
+/**
+ * Campaigns, each with its reach.
+ *
+ * A campaign whose filter matches nobody looks exactly like a healthy one: the
+ * card says "running" and nothing else. A live one sat like that — filtering on
+ * a tag no prospect carried, with auto_enroll off so the cron would never enrol
+ * anyone either — and the only symptom was silence. These two counts are what
+ * the card needs to be able to say so.
+ */
+export async function listCampaigns(): Promise<CampaignWithReach[]> {
   const { supabase, businessId } = await ctx();
   const { data, error } = await tbl(supabase, "outreach_campaigns").select("*")
     .eq("business_id", businessId).order("created_at", { ascending: false });
   if (error) throw error;
-  return data as OutreachCampaign[];
+
+  const campaigns = (data ?? []) as OutreachCampaign[];
+
+  return Promise.all(campaigns.map(async (c) => {
+    const [{ count: enrolled }, matching] = await Promise.all([
+      tbl(supabase, "outreach_enrollments")
+        .select("id", { count: "exact", head: true })
+        .eq("business_id", businessId).eq("campaign_id", c.id).eq("status", "active"),
+      (async () => {
+        // Same filter the enroller applies, so the number on screen is the
+        // number that would actually be enrolled.
+        let q = tbl(supabase, "prospects")
+          .select("id", { count: "exact", head: true })
+          .eq("business_id", businessId).not("email", "is", null);
+        const f = c.filter ?? {};
+        if (f.status?.length) q = q.in("status", f.status);
+        if (f.sources?.length) q = q.in("source", f.sources);
+        if (f.tags?.length) q = q.overlaps("tags", f.tags);
+        const { count } = await q;
+        return count ?? 0;
+      })(),
+    ]);
+    return { ...c, active_enrollments: enrolled ?? 0, matching_prospects: matching };
+  }));
 }
 
 export async function createCampaign(input: {

@@ -27,7 +27,7 @@ import { SEED_SEQUENCES } from "@/lib/outreach/seed-sequences";
 import { EMAIL_FONTS, type OutreachDesign } from "@/lib/outreach/render";
 import { EmailPreview } from "./email-preview";
 import { CampaignBranding } from "./campaign-branding";
-import type { OutreachStats } from "@/lib/actions/outreach";
+import type { OutreachStats, CampaignWithReach } from "@/lib/actions/outreach";
 import type {
   OutreachSettings, OutreachSequence, OutreachCampaign, OutreachMessage,
 } from "@/types/database";
@@ -54,7 +54,7 @@ export function OutreachClient({
 }: {
   settings: OutreachSettings;
   stats: OutreachStats;
-  campaigns: OutreachCampaign[];
+  campaigns: CampaignWithReach[];
   sequences: (OutreachSequence & { step_count: number })[];
   messages: OutreachMessage[];
   businessName: string;
@@ -255,7 +255,7 @@ function CampaignsTab({
   businessDesign: Partial<OutreachDesign>;
   businessName: string;
   businessLogoUrl?: string | null;
-  campaigns: OutreachCampaign[];
+  campaigns: CampaignWithReach[];
   sequences: (OutreachSequence & { step_count: number })[];
   onDone: () => void;
 }) {
@@ -339,8 +339,24 @@ function CampaignsTab({
                   <p className="truncate text-sm font-semibold">{c.name}</p>
                   <p className="text-xs text-muted-foreground">
                     {seq ? `${seq.name} · ${seq.step_count} steps` : "No sequence"}
+                    {" · "}{c.active_enrollments} enrolled
                     {c.auto_enroll ? " · auto-enrols new matches" : ""}
                   </p>
+                  {/* A running campaign with nobody in it is silent, and used to
+                      look identical to a working one. Say which of the two
+                      reasons it is, because they need different fixes. */}
+                  {c.status === "running" && c.active_enrollments === 0 && (
+                    <p className="mt-1 flex items-start gap-1.5 text-xs text-warn">
+                      <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      <span>
+                        {c.matching_prospects === 0
+                          ? "Running, but no prospect matches this filter — so nothing will send. Tag some prospects, or widen the filter."
+                          : c.auto_enroll
+                            ? `Running with ${c.matching_prospects} matching prospect${c.matching_prospects === 1 ? "" : "s"} — they'll be enrolled on the next hourly run.`
+                            : `Running, but nobody is enrolled. ${c.matching_prospects} prospect${c.matching_prospects === 1 ? "" : "s"} match — press Enrol matches, or turn on auto-enrol.`}
+                      </span>
+                    </p>
+                  )}
                 </div>
                 <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                   c.status === "running" ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
