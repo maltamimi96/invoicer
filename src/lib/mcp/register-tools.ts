@@ -909,9 +909,12 @@ export function registerTools(register: ToolFn): void {
     });
 
   // ===== QUOTES (update / delete / status / convert) =====
-  tool("update_quote", "Update a quote's notes, terms, expiry, status or line items. Provide line_items to fully replace them (totals recomputed).",
+  tool("update_quote",
+    "Update a quote's notes, terms, expiry, status, line items or customer. Provide line_items to fully replace them (totals recomputed). " +
+    "customer_id reassigns the quote — use it when one was raised against the wrong record.",
     {
       quote_id: UUID, notes: z.string().optional(), terms: z.string().optional(),
+      customer_id: UUID.optional(),
       expiry_date: z.string().optional(), property_address: z.string().optional(),
       status: z.enum(["draft", "sent", "accepted", "rejected", "expired"]).optional(),
       line_items: z.array(z.object({ name: z.string(), description: z.string().optional(), quantity: z.number().optional(), unit_price: z.number(), tax_rate: z.number().optional(), discount_percent: z.number().optional() })).optional(),
@@ -921,6 +924,18 @@ export function registerTools(register: ToolFn): void {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const patch: any = {};
       for (const k of ["notes", "terms", "expiry_date", "property_address", "status"] as const) if (args[k] !== undefined) patch[k] = args[k];
+
+      // customer_id was not updatable, so a quote raised against the wrong
+      // record — which the duplicate-customer bug above made easy — could not
+      // be moved without deleting and re-raising it. Verified against this
+      // business so a quote can't be pushed onto another tenant's customer.
+      if (args.customer_id !== undefined) {
+        const { data: cust } = await t(ctx, "customers")
+          .select("id").eq("id", args.customer_id).eq("business_id", ctx.businessId).maybeSingle();
+        if (!cust) return errorText("Customer not found");
+        patch.customer_id = args.customer_id;
+      }
+
       if (args.line_items) {
         const { items, subtotal, tax_total, total } = buildLineItems(args.line_items);
         patch.line_items = items; patch.subtotal = subtotal; patch.tax_total = tax_total; patch.total = total;
@@ -1908,8 +1923,17 @@ export function registerTools(register: ToolFn): void {
     });
 
   // ===== LEADS — convert to quote / work order =====
-  tool("convert_lead_to_quote", "Create a customer (if not linked) + a draft quote from a lead, and link them (lead → quoted).",
-    { lead_id: UUID, expiry_days: z.number().int().optional() },
+  tool("convert_lead_to_quote",
+    "Create a customer (if not already linked or matched by email/phone) + a draft quote from a lead, and link them (lead → quoted). " +
+    "Pass line_items to price the quote in the same call — omitting them creates a $0 draft you have to fill in by hand afterwards.",
+    {
+      lead_id: UUID, expiry_days: z.number().int().optional(),
+      line_items: z.array(z.object({
+        name: z.string(), description: z.string().optional(), quantity: z.number().optional(),
+        unit_price: z.number(), tax_rate: z.number().optional(), discount_percent: z.number().optional(),
+      })).optional(),
+      notes: z.string().optional(), terms: z.string().optional(),
+    },
     async (args, extra) => {
       const ctx = ctxFrom(extra); assertScope(ctx, "leads:write"); assertScope(ctx, "quotes:write");
       const customerId = await ensureCustomerForLead(ctx, args.lead_id);
@@ -1917,10 +1941,18 @@ export function registerTools(register: ToolFn): void {
       const number = await mintNumber(ctx, "quote_prefix", "quote_next_number", "QT");
       const issue = new Date().toISOString().split("T")[0];
       const expiry = new Date(Date.now() + (args.expiry_days ?? 30) * 86_400_000).toISOString().split("T")[0];
+      // line_items was not a parameter at all, so this always wrote an empty
+      // array and a $0 total — every converted lead produced a quote that had
+      // to be re-keyed by hand before it could be sent. Same maths as
+      // update_quote, via the shared buildLineItems.
+      const priced = args.line_items?.length ? buildLineItems(args.line_items) : null;
       const { data: quote, error } = await t(ctx, "quotes").insert({
         business_id: ctx.businessId, user_id: ctx.userId, customer_id: customerId, number,
-        issue_date: issue, expiry_date: expiry, line_items: [], subtotal: 0,
-        discount_type: "fixed", discount_value: 0, discount_amount: 0, tax_total: 0, total: 0,
+        issue_date: issue, expiry_date: expiry,
+        line_items: priced?.items ?? [], subtotal: priced?.subtotal ?? 0,
+        discount_type: "fixed", discount_value: 0, discount_amount: 0,
+        tax_total: priced?.tax_total ?? 0, total: priced?.total ?? 0,
+        notes: args.notes ?? null, terms: args.terms ?? null,
         status: "draft", invoice_id: null,
       }).select().single();
       if (error) throw error;
@@ -2402,10 +2434,63 @@ export function registerTools(register: ToolFn): void {
 
 /** Find or create the customer for a lead (mirrors ensureCustomerForLead in
  *  the web app). Returns the customer id, or null if the lead is missing. */
+/**
+ * The customer a lead belongs to — reusing the existing record wherever there
+ * is one.
+ *
+ * This only ever checked `lead.customer_id`, so a lead captured without that
+ * link minted a NEW customer even when the same person was already on file.
+ * That is how Anne Sculley ended up with two records sharing an email and a
+ * phone number, her history stranded on the first and a new quote on the
+ * second. A duplicate customer is expensive to undo — quotes, invoices,
+ * reports and portal tokens all hang off the id.
+ *
+ * So before creating one, look for a live customer with the same email, or
+ * failing that the same phone. Both are normalised: emails case-insensitively,
+ * phones stripped of the spaces and punctuation people type inconsistently.
+ * Matching on name is deliberately NOT done — two different Smiths are common,
+ * and merging them would be worse than the duplicate this avoids.
+ */
+/** Digits only — "0485 542 633", "+61485542633" and "0485542633" are one number. */
+function normalisePhone(v: string | null | undefined): string {
+  return String(v ?? "").replace(/\D/g, "").replace(/^61/, "0");
+}
+
+/** An existing, non-archived customer matching this email or phone. */
+async function findCustomerByContact(
+  ctx: McpContext, email: string | null | undefined, phone: string | null | undefined,
+): Promise<string | null> {
+  const cleanEmail = String(email ?? "").trim();
+  if (cleanEmail) {
+    const { data } = await t(ctx, "customers")
+      .select("id").eq("business_id", ctx.businessId).eq("archived", false)
+      .ilike("email", cleanEmail).limit(1).maybeSingle();
+    if (data?.id) return data.id;
+  }
+  const wanted = normalisePhone(phone);
+  if (wanted.length >= 8) {
+    // Stored phones are free text, so compare normalised in app code rather
+    // than trusting the column to be in any one format.
+    const { data: rows } = await t(ctx, "customers")
+      .select("id, phone").eq("business_id", ctx.businessId).eq("archived", false)
+      .not("phone", "is", null).limit(500);
+    const hit = (rows ?? []).find((r: { phone: string | null }) => normalisePhone(r.phone) === wanted);
+    if (hit) return hit.id;
+  }
+  return null;
+}
+
 async function ensureCustomerForLead(ctx: McpContext, leadId: string): Promise<string | null> {
   const { data: lead } = await t(ctx, "leads").select("*").eq("id", leadId).eq("business_id", ctx.businessId).maybeSingle();
   if (!lead) return null;
   if (lead.customer_id) return lead.customer_id;
+
+  const existingId = await findCustomerByContact(ctx, lead.email, lead.phone);
+  if (existingId) {
+    await t(ctx, "leads").update({ customer_id: existingId }).eq("id", leadId).eq("business_id", ctx.businessId);
+    return existingId;
+  }
+
   const { data: customer, error } = await t(ctx, "customers").insert({
     business_id: ctx.businessId, user_id: ctx.userId, name: lead.name,
     email: lead.email ?? null, phone: lead.phone ?? null, city: lead.suburb ?? null,
