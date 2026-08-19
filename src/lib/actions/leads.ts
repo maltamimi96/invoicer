@@ -9,7 +9,7 @@ import { emitAutomationEvent } from "@/lib/automations/emit";
 import { createCustomer } from "@/lib/actions/customers";
 import { createQuote } from "@/lib/actions/quotes";
 import { createWorkOrder } from "@/lib/actions/work-orders";
-import type { Lead, LeadStatus, LeadNote, LeadTagPreset } from "@/types/database";
+import type { Lead, LeadStatus, LeadNote, LeadTagPreset, LineItem } from "@/types/database";
 
 import { getUser } from "@/lib/auth";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -285,8 +285,48 @@ export async function deleteLeadNote(noteId: string): Promise<void> {
  * marked as still being a lead"; the marking was never wired up, so the Lead
  * tag it exists to drive could never appear anywhere.
  */
+/** Digits only, so "0485 542 633" and "+61485542633" compare equal. */
+function normalisePhone(v: string | null | undefined): string {
+  return String(v ?? "").replace(/\D/g, "").replace(/^61/, "0");
+}
+
+/**
+ * The customer a lead belongs to — reusing the existing record wherever there
+ * is one.
+ *
+ * This only checked `lead.customer_id`, so a lead captured without that link
+ * minted a NEW customer even when the same person was already on file. That is
+ * how one contact ended up with two records sharing an email and a phone, her
+ * history on the first and a new quote on the second. Undoing it is expensive:
+ * quotes, invoices, reports and portal tokens all hang off the id.
+ *
+ * Matches on email first, then phone, both normalised. Deliberately NOT on
+ * name — two different Smiths are common, and wrongly merging them is worse
+ * than the duplicate this prevents.
+ */
 async function ensureCustomerForLead(lead: Lead): Promise<string> {
   if (lead.customer_id) return lead.customer_id;
+
+  const supabase = await createClient();
+  const user = await getUser();
+  const businessId = await getActiveBizId(supabase, user.id);
+
+  const email = (lead.email ?? "").trim();
+  if (email) {
+    const { data } = await tbl(supabase, "customers")
+      .select("id").eq("business_id", businessId).eq("archived", false)
+      .ilike("email", email).limit(1).maybeSingle();
+    if (data?.id) return data.id as string;
+  }
+  const wanted = normalisePhone(lead.phone);
+  if (wanted.length >= 8) {
+    const { data: rows } = await tbl(supabase, "customers")
+      .select("id, phone").eq("business_id", businessId).eq("archived", false)
+      .not("phone", "is", null).limit(500);
+    const hit = (rows ?? []).find((r: { phone: string | null }) => normalisePhone(r.phone) === wanted);
+    if (hit) return hit.id as string;
+  }
+
   const customer = await createCustomer({
     lifecycle_stage: "lead",
     name: lead.name,
@@ -316,25 +356,37 @@ export async function convertLeadToCustomer(leadId: string): Promise<{ customer_
 
 export async function convertLeadToQuote(
   leadId: string,
-  options: { expiry_days?: number; notes?: string | null } = {},
+  options: {
+    expiry_days?: number;
+    notes?: string | null;
+    /** Price the quote in the same step. Omitted, it stays a $0 draft. */
+    line_items?: LineItem[];
+  } = {},
 ): Promise<{ quote_id: string; quote_number: string; customer_id: string }> {
   const lead = await getLead(leadId);
   const customerId = await ensureCustomerForLead(lead);
   const issueDate = new Date().toISOString().split("T")[0];
   const expiryDate = new Date(Date.now() + (options.expiry_days ?? 30) * 86400000).toISOString().split("T")[0];
 
+  const items = options.line_items ?? [];
+  const subtotal = items.reduce((s, i) => s + Number(i.subtotal ?? 0), 0);
+  const taxTotal = items.reduce((s, i) => s + Number(i.tax_amount ?? 0), 0);
+  const total = subtotal + taxTotal;
+
   const quote = await createQuote({
     status: "draft",
     customer_id: customerId,
     issue_date: issueDate,
     expiry_date: expiryDate,
-    line_items: [],
-    subtotal: 0,
+    // Was hardcoded empty, so a converted lead always produced a $0 quote that
+    // had to be re-keyed by hand before it could be sent.
+    line_items: items,
+    subtotal,
     discount_type: null,
     discount_value: 0,
     discount_amount: 0,
-    tax_total: 0,
-    total: 0,
+    tax_total: taxTotal,
+    total,
     notes: options.notes ?? lead.notes ?? null,
     terms: null,
     invoice_id: null,
