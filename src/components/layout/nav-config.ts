@@ -13,73 +13,75 @@ export type NavItem = {
   /** Owning plugin id (src/lib/plugins/registry.ts). Untagged = core, always shown. */
   plugin?: string;
 };
-export type NavSection = { section: string; items: NavItem[] };
+export type NavSection = {
+  section: string;
+  items: NavItem[];
+  /** Folded away behind a "More" toggle until opened. */
+  collapsed?: boolean;
+};
 
 export const navSections: NavSection[] = [
+  // Five sections that follow the shape of the work — win it, deliver it, get
+  // paid — plus the workspace you sit in and a drawer for everything else.
+  //
+  // This replaced eleven sections, four of which held a single row. Every href
+  // below is unchanged: labels, hidden rows and ordering all persist keyed by
+  // href (lib/nav/config.ts), so a business's own customisations survive the
+  // regroup and its label overrides still win over these defaults.
   { section: "Workspace", items: [
     { label: "Dashboard",  href: "/dashboard",  icon: LayoutDashboard, worker: true },
     { label: "Assistant",  href: "/assistant",  icon: Sparkles                      },
     { label: "Messages",   href: "/messages",   icon: MessageSquare,   plugin: "messages" },
     { label: "Calls",      href: "/calls",      icon: Phone,           plugin: "telephony" },
     { label: "Tasks",      href: "/tasks",      icon: Columns3                      },
-    { label: "Automations",href: "/automations",icon: Zap,             plugin: "automations" },
   ]},
-  // Sections follow the same needs the Plugins store groups by: win the work,
-  // do the work, get paid. Expenses used to sit under "Sales", which is the
-  // one place money going OUT does not belong.
-  { section: "Sales", items: [
-    { label: "Leads",         href: "/leads",         icon: UserPlus,     plugin: "leads"             },
-    { label: "Forms",         href: "/forms",         icon: ListChecks,   plugin: "form-builder"      },
-    { label: "Quoting Agent", href: "/quoting-agent", icon: Sparkles,     plugin: "quoting-agent"     },
-    { label: "Quotes",        href: "/quotes",        icon: FileCheck,    plugin: "quotes"            },
-    { label: "Contracts",     href: "/contracts",     icon: FileStack,    plugin: "contracts"         },
+  { section: "Win work", items: [
+    { label: "Leads",      href: "/leads",      icon: UserPlus,     plugin: "leads"        },
+    { label: "Quotes",     href: "/quotes",     icon: FileCheck,    plugin: "quotes"       },
+    { label: "Prospects",  href: "/prospects",  icon: Target,       plugin: "prospects"    },
+    { label: "Outreach",   href: "/outreach",   icon: Send,         plugin: "outreach"     },
+    { label: "Forms",      href: "/forms",      icon: ListChecks,   plugin: "form-builder" },
+    { label: "Contracts",  href: "/contracts",  icon: FileStack,    plugin: "contracts"    },
   ]},
-  { section: "Service", items: [
-    { label: "Work Orders",    href: "/work-orders",     icon: Wrench,        worker: true, plugin: "jobs" },
-    { label: "Schedule",       href: "/schedule",        icon: CalendarDays,  worker: true, plugin: "scheduling" },
-    { label: "Recurring",      href: "/recurring",       icon: Repeat,        plugin: "recurring-jobs" },
-    { label: "Site Reports",   href: "/reports",         icon: ClipboardList, plugin: "site-reports" },
-    { label: "Bookings",       href: "/bookings",        icon: CalendarDays,  plugin: "booking" },
-    { label: "Online Booking", href: "/settings/booking", icon: CalendarDays,  plugin: "booking" },
-    { label: "Assets",         href: "/assets",          icon: Hammer,        plugin: "assets" },
+  { section: "Deliver", items: [
+    { label: "Work Orders",     href: "/work-orders", icon: Wrench,        worker: true, plugin: "jobs" },
+    { label: "Schedule",        href: "/schedule",    icon: CalendarDays,  worker: true, plugin: "scheduling" },
+    { label: "Bookings",        href: "/bookings",    icon: CalendarDays,  plugin: "booking" },
+    { label: "Site Reports",    href: "/reports",     icon: ClipboardList, plugin: "site-reports" },
+    // "Recurring" three times over, in three sections, was unreadable — each
+    // one now says what recurs. The hrefs are untouched.
+    { label: "Recurring jobs",  href: "/recurring",   icon: Repeat,        plugin: "recurring-jobs" },
   ]},
   { section: "Money", items: [
-    { label: "Invoices",      href: "/invoices",      icon: FileText,     plugin: "invoicing"         },
-    { label: "Recurring billing", href: "/recurring-invoices", icon: Repeat, plugin: "recurring-billing" },
-    { label: "Expenses",      href: "/expenses",      icon: Receipt,      plugin: "expenses"          },
-    { label: "Recurring costs", href: "/expenses/recurring", icon: Repeat, plugin: "expenses"        },
-    { label: "Payroll",       href: "/payroll",       icon: DollarSign,   plugin: "payroll"           },
+    { label: "Invoices",           href: "/invoices",            icon: FileText,   plugin: "invoicing" },
+    { label: "Recurring invoices", href: "/recurring-invoices",  icon: Repeat,     plugin: "recurring-billing" },
+    { label: "Expenses",           href: "/expenses",            icon: Receipt,    plugin: "expenses" },
+    { label: "Recurring expenses", href: "/expenses/recurring",  icon: Repeat,     plugin: "expenses" },
+    { label: "Payroll",            href: "/payroll",             icon: DollarSign, plugin: "payroll" },
   ]},
-  { section: "Contacts", items: [
-    { label: "Prospects",  href: "/prospects",  icon: Target,        plugin: "prospects" },
-    { label: "Outreach",   href: "/outreach",   icon: Send,          plugin: "outreach" },
-    { label: "Client accounts", href: "/agency", icon: Building2, plugin: "agency-console" },
-    { label: "Customers",  href: "/customers",  icon: Users                         },
-    { label: "Contacts",   href: "/contacts",   icon: Users2                        },
-    { label: "Passwords",  href: "/vault",      icon: Lock,          plugin: "vault" },
-    { label: "Onboarding", href: "/onboarding-forms", icon: ClipboardList, plugin: "client-onboarding" },
+  { section: "People", items: [
+    { label: "Customers",       href: "/customers",        icon: Users                          },
+    { label: "Contacts",        href: "/contacts",         icon: Users2                         },
+    { label: "Client accounts", href: "/agency",           icon: Building2,     plugin: "agency-console" },
+    { label: "Onboarding",      href: "/onboarding-forms", icon: ClipboardList, plugin: "client-onboarding" },
+    { label: "Passwords",       href: "/vault",            icon: Lock,          plugin: "vault" },
+    { label: "Team",            href: "/team",             icon: Users2                         },
   ]},
-  { section: "Catalog", items: [
-    { label: "Products",   href: "/products",   icon: Package,       plugin: "products" },
-    { label: "Materials",  href: "/materials",  icon: Package,       plugin: "materials" },
-    { label: "Inventory",  href: "/inventory",  icon: Boxes,         plugin: "inventory" },
-  ]},
-  { section: "Workforce", items: [
-    { label: "Team",       href: "/team",       icon: Users2                        },
-    { label: "Timesheets", href: "/timesheets", icon: Clock,        plugin: "timesheets" },
-    { label: "Plugins",    href: "/agents",     icon: Bot                           },
-  ]},
-  { section: "SEO", items: [
-    { label: "SEO Production", href: "/seo", icon: Search, plugin: "seo-production" },
-  ]},
-  { section: "Content", items: [
-    { label: "Content Studio", href: "/content", icon: Megaphone, plugin: "content-studio" },
-  ]},
-  { section: "Insights", items: [
-    { label: "Analytics",  href: "/analytics",  icon: TrendingUp,    plugin: "analytics" },
-  ]},
-  { section: "Account", items: [
-    { label: "Help",       href: "/help",       icon: HelpCircle,    worker: true   },
+  // Collapsed by default. Everything stays one click away; it just stops
+  // competing with the rows people open every day.
+  { section: "More", collapsed: true, items: [
+    { label: "Products",       href: "/products",      icon: Package,    plugin: "products" },
+    { label: "Materials",      href: "/materials",     icon: Package,    plugin: "materials" },
+    { label: "Inventory",      href: "/inventory",     icon: Boxes,      plugin: "inventory" },
+    { label: "Assets",         href: "/assets",        icon: Hammer,     plugin: "assets" },
+    { label: "Timesheets",     href: "/timesheets",    icon: Clock,      plugin: "timesheets" },
+    { label: "Automations",    href: "/automations",   icon: Zap,        plugin: "automations" },
+    { label: "Analytics",      href: "/analytics",     icon: TrendingUp, plugin: "analytics" },
+    { label: "SEO Production", href: "/seo",           icon: Search,     plugin: "seo-production" },
+    { label: "Content Studio", href: "/content",       icon: Megaphone,  plugin: "content-studio" },
+    { label: "Quoting Agent",  href: "/quoting-agent", icon: Sparkles,   plugin: "quoting-agent" },
+    { label: "Plugins",        href: "/agents",        icon: Bot                              },
+    { label: "Help",           href: "/help",          icon: HelpCircle, worker: true          },
   ]},
 ];
 

@@ -19,8 +19,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { useMemo } from "react";
-import { Settings, X, ChevronUp, ChevronDown } from "@/components/ui/icons";
+import { useMemo, useState } from "react";
+import { Settings, X, ChevronDown } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 import type { Business } from "@/types/database";
 import type { Role } from "@/lib/permissions";
@@ -65,6 +65,9 @@ export function AppSidebar({
 }: AppSidebarProps) {
   const pathname = usePathname();
   const workerView = isWorker(userRole);
+  // "More" starts folded. Ephemeral by design: a glance-and-go drawer,
+  // not a preference worth persisting.
+  const [moreOpen, setMoreOpen] = useState(false);
   // Memoised because filterNav returns a fresh array on every call, and this
   // feeds a list of ~40 rows. (It also used to feed a paging effect, where the
   // churning identity made the arrows appear dead — that whole mechanism is
@@ -119,7 +122,7 @@ export function AppSidebar({
         className={cn(
           NAV_ROW,
           active ? "font-semibold text-primary-foreground"
-                 : "text-muted-foreground hover:bg-background hover:text-foreground",
+                 : "text-muted-foreground hover:bg-secondary hover:text-foreground",
         )}
       >
         {active && <ActiveChip />}
@@ -131,33 +134,59 @@ export function AppSidebar({
     );
   };
 
-  /* ── Desktop sidebar ───────────────────────────────────────────────── */
+  /* -- Desktop sidebar ------------------------------------------------ */
+  /*
+   * One surface, not eleven.
+   *
+   * Every section used to sit on its own `rounded-3xl bg-secondary` panel --
+   * eleven of them stacked down a 256px column, four holding a single row
+   * each, a 24px corner radius wrapped around one link. That put three
+   * background levels in one narrow column (rail, panel, active pill), and the
+   * eye read a stack of boxes before it read any navigation.
+   *
+   * The panels are gone. A letterspaced label with room above it groups just
+   * as clearly and costs nothing visually, which leaves the active pill as the
+   * only filled shape in the rail -- the one thing that should be filled,
+   * doing the single job the rail exists for.
+   */
   const rail = (
-    // w-64 (256px). Wide enough that "Recurring billing" and "Client
+    // w-64 (256px). Wide enough that "Recurring invoices" and "Client
     // accounts" read in full rather than truncating to nothing. A registered
     // scale step, not a bracket value: arbitrary widths compile in the
     // production build but NOT under this dev server.
     <div className="hidden h-full w-64 shrink-0 flex-col bg-background px-3 py-5 md:flex">
-      {/* One list, scrolled. `.ch-scroll` themes the bar itself (globals.css)
-          — the OS default was a light slab on a dark rail, which is the only
-          reason the earlier versions went to such lengths to avoid one. */}
-      <nav className="ch-scroll flex min-h-0 w-full flex-1 flex-col gap-2.5 overflow-y-auto pr-1">
-        {sections.map((group) => (
-          // Each category on its own raised panel, with its name on it.
-          <div
-            key={group.section}
-            className="flex w-full shrink-0 flex-col gap-0.5 rounded-3xl bg-secondary px-2 py-2.5"
-          >
-            <p className="px-3 pb-1 pt-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
-              {group.section}
-            </p>
-            {group.items.map((item) => navRow(item))}
-          </div>
-        ))}
+      <nav className="ch-scroll flex min-h-0 w-full flex-1 flex-col overflow-y-auto pr-1">
+        {sections.map((group) => {
+          const folded = group.collapsed && !moreOpen;
+          return (
+            <div key={group.section} className="mb-4 flex w-full shrink-0 flex-col gap-0.5 last:mb-0">
+              {group.collapsed ? (
+                <button
+                  type="button"
+                  onClick={() => setMoreOpen((o) => !o)}
+                  aria-expanded={moreOpen}
+                  className={cn(NAV_ROW, "text-muted-foreground hover:bg-secondary hover:text-foreground")}
+                >
+                  <ChevronDown
+                    className={cn("h-4 w-4 shrink-0 transition-transform duration-200", folded && "-rotate-90")}
+                    aria-hidden
+                  />
+                  <span className="truncate">{group.section}</span>
+                </button>
+              ) : (
+                <p className="px-3 pb-1.5 pt-1 text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+                  {group.section}
+                </p>
+              )}
+              {!folded && group.items.map((item) => navRow(item))}
+            </div>
+          );
+        })}
       </nav>
 
-      {/* Settings sits on its own panel, as one more category. */}
-      <div className="mt-3 flex w-full flex-col gap-0.5 rounded-3xl bg-secondary px-2 py-2.5">
+      {/* Pinned, behind a hairline rather than inside a twelfth panel -- so the
+          scroll area above is honest about where the list ends. */}
+      <div className="mt-2 flex w-full flex-col gap-0.5 border-t border-border pt-2">
         {canManageSettings(userRole) && (
           <Link
             href="/settings"
@@ -166,7 +195,7 @@ export function AppSidebar({
               NAV_ROW,
               pathname.startsWith("/settings")
                 ? "font-semibold text-primary-foreground"
-                : "text-muted-foreground hover:bg-background hover:text-foreground",
+                : "text-muted-foreground hover:bg-secondary hover:text-foreground",
             )}
           >
             {pathname.startsWith("/settings") && <ActiveChip />}
@@ -174,7 +203,7 @@ export function AppSidebar({
             <span className="relative z-10">Settings</span>
           </Link>
         )}
-        <div className="flex items-center justify-center pb-0.5 pt-1.5">
+        <div className="flex items-center justify-center pb-0.5 pt-2">
           <KireiMark className="h-4 w-auto text-muted-foreground/60" />
         </div>
       </div>
