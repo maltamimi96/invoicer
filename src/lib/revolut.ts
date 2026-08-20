@@ -181,3 +181,114 @@ export function revolutOrderIsPaid(state: string | undefined): boolean {
   const s = (state ?? "").toLowerCase();
   return s === "completed" || s === "paid" || s === "authorised" || s === "authorized";
 }
+
+// ── Saved cards (card-on-file) ──────────────────────────────────────────────
+//
+// ⚠️ FIELD NAMES NEED CONFIRMING AGAINST REVOLUT'S REFERENCE BEFORE LIVE USE.
+// developer.revolut.com returns 403 to unauthenticated fetches, so the field
+// names below come from Revolut's public guides rather than the API reference
+// I could read directly. The CAPABILITY is documented — save a payment method
+// for the merchant, then charge it off-session (MIT) — but an exact key could
+// differ. Everything uncertain is confined to the three functions below and
+// each one surfaces Revolut's own error text verbatim, so a wrong field name
+// shows up as a clear API message on the first sandbox run rather than a
+// silent failure. Run it in sandbox before switching a business to live.
+
+/** Create a hosted-checkout order that ALSO stores the card for later use. */
+export async function createRevolutSaveCardOrder(input: {
+  secret: string;
+  mode: RevolutMode;
+  /** Revolut requires an amount; a small verification charge is the usual
+   *  pattern. Pass the real first payment when there is one. */
+  amountMinor: number;
+  currency: string;
+  customerEmail?: string | null;
+  customerName?: string | null;
+  reference: string;
+  redirectUrl: string;
+  description?: string;
+}): Promise<RevolutOrder> {
+  const body = {
+    amount: input.amountMinor,
+    currency: input.currency.toUpperCase(),
+    description: input.description ?? "Save card for future payments",
+    ...(input.customerEmail
+      ? { customer: { email: input.customerEmail, ...(input.customerName ? { full_name: input.customerName } : {}) } }
+      : {}),
+    // "merchant" = we can charge later without the customer present, which is
+    // the whole point. "customer" would only speed up their next checkout.
+    save_payment_method_for: "merchant",
+    merchant_order_data: { reference: input.reference },
+    redirect_url: input.redirectUrl,
+  };
+  const res = await revolutFetch(input.secret, input.mode, "/api/orders", {
+    method: "POST", body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(`Revolut save-card order failed (${res.status}): ${txt.slice(0, 300)}`);
+  }
+  return (await res.json()) as RevolutOrder;
+}
+
+/** Every payment method Revolut holds for a customer. */
+export async function listRevolutPaymentMethods(
+  secret: string, mode: RevolutMode, customerId: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): Promise<any[]> {
+  const res = await revolutFetch(secret, mode, `/api/customers/${customerId}/payment-methods`);
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(`Revolut payment-method lookup failed (${res.status}): ${txt.slice(0, 300)}`);
+  }
+  const json = await res.json();
+  return Array.isArray(json) ? json : (json?.payment_methods ?? []);
+}
+
+export interface RevolutChargeResult { orderId: string; state: string }
+
+/**
+ * Charge a stored card with the customer absent (merchant-initiated).
+ *
+ * Two steps, mirroring how their hosted flow works: create the order, then
+ * confirm it against the saved payment method. Any failure throws with
+ * Revolut's own message so a decline, an expired card and a wrong field name
+ * are all distinguishable rather than a generic "charge failed".
+ */
+export async function chargeRevolutSavedCard(input: {
+  secret: string;
+  mode: RevolutMode;
+  amountMinor: number;
+  currency: string;
+  paymentMethodId: string;
+  reference: string;
+  description?: string;
+}): Promise<RevolutChargeResult> {
+  const created = await revolutFetch(input.secret, input.mode, "/api/orders", {
+    method: "POST",
+    body: JSON.stringify({
+      amount: input.amountMinor,
+      currency: input.currency.toUpperCase(),
+      description: input.description,
+      merchant_order_data: { reference: input.reference },
+    }),
+  });
+  if (!created.ok) {
+    const txt = await created.text().catch(() => "");
+    throw new Error(`Revolut order failed (${created.status}): ${txt.slice(0, 300)}`);
+  }
+  const order = (await created.json()) as RevolutOrder;
+
+  const confirmed = await revolutFetch(input.secret, input.mode, `/api/orders/${order.id}/confirm`, {
+    method: "POST",
+    body: JSON.stringify({
+      saved_payment_method: { id: input.paymentMethodId, initiator: "merchant" },
+    }),
+  });
+  if (!confirmed.ok) {
+    const txt = await confirmed.text().catch(() => "");
+    throw new Error(`Revolut charge declined or failed (${confirmed.status}): ${txt.slice(0, 300)}`);
+  }
+  const result = (await confirmed.json()) as RevolutOrder;
+  return { orderId: order.id, state: result.state ?? "unknown" };
+}

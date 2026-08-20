@@ -87,6 +87,8 @@ export async function updateSession(request: NextRequest) {
     // Revolut payment provider — signed webhook + token-gated hosted checkout.
     pathname === "/api/revolut/webhook" ||
     pathname === "/api/revolut/checkout" ||
+    // Customer-facing card setup — gated by a portal token, not a session.
+    pathname === "/api/revolut/save-card" ||
     // Resend delivery webhook (verifies its own Svix signature). Without this it
     // was 307'd to /auth/login, so delivered/bounced events never reached the
     // handler and every email stayed frozen at "Sent (in transit)".
