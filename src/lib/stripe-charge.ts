@@ -10,6 +10,7 @@
  */
 
 import { getStripe, toStripeAmount, computeApplicationFeeAmount, computeSurcharge } from "@/lib/stripe";
+import { chargeKey } from "@/lib/payments/idempotency";
 import { customerAllowsCard } from "@/lib/payment-methods";
 import { recordStripePayment } from "@/lib/stripe-payments";
 
@@ -102,7 +103,16 @@ export async function chargeInvoiceToSavedCard(
           kirei_surcharge: String(surcharge),
         },
       },
-      { stripeAccount: biz.stripe_account_id },
+      {
+        stripeAccount: biz.stripe_account_id,
+        // Without this, an operator double-clicking "Charge saved card"
+        // creates two PaymentIntents with different ids. Both succeed at
+        // Stripe, both pass the (business_id, provider_payment_id) unique
+        // index, and both get recorded — the database ends up consistent and
+        // the customer has been charged twice. There is no refund instrument
+        // in this product to undo that.
+        idempotencyKey: chargeKey(invoice.id, amountUnit),
+      },
     );
 
     if (pi.status === "succeeded") {

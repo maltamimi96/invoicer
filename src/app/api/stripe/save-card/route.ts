@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { customerKey, saveCardSessionKey } from "@/lib/payments/idempotency";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe";
 import { customerAllowsCard } from "@/lib/payment-methods";
@@ -57,7 +58,9 @@ export async function GET(request: NextRequest) {
         email: customer.email || undefined,
         metadata: { kirei_customer_id: customer.id, kirei_business_id: link.business_id },
       },
-      acctOpts,
+      // No date component: a Stripe customer is created once, ever. A rolling
+      // key would let the same customer be duplicated on the connected account.
+      { ...acctOpts, idempotencyKey: customerKey(link.business_id, customer.id) },
     );
     stripeCustomerId = created.id;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -79,7 +82,9 @@ export async function GET(request: NextRequest) {
         kirei_business_id: link.business_id,
       },
     },
-    acctOpts,
+    // Also a GET handler — a prefetch or a refresh must not mint a second
+    // setup session for the same customer on the same day.
+    { ...acctOpts, idempotencyKey: saveCardSessionKey(customer.id) },
   );
 
   if (!session.url) {

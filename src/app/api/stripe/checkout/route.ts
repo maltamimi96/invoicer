@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe, toStripeAmount, computeApplicationFeeAmount, computeSurcharge } from "@/lib/stripe";
 import { customerAllowsCard } from "@/lib/payment-methods";
+import { checkoutSessionKey } from "@/lib/payments/idempotency";
 
 /**
  * Public — token-gated. The customer portal hits this with ?invoice=<id>&token=<portal-token>
@@ -110,6 +111,9 @@ export async function GET(request: NextRequest) {
     },
   }, {
     stripeAccount: business.stripe_account_id,
+    // This handler is a GET, so a link prefetcher or a refresh can fire it more
+    // than once. Same invoice + same balance + same day is one session.
+    idempotencyKey: checkoutSessionKey(invoice.id, toStripeAmount(balance, currency)),
   });
 
   if (!session.url) {

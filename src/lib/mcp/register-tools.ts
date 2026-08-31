@@ -17,6 +17,7 @@ import { randomBytes } from "crypto";
 import { assertScope, t, text, errorText, type McpContext } from "./context";
 import { settleInvoiceToPaid } from "@/lib/payments/settle";
 import { recomputeInvoicePaid, recomputeParentPaid } from "@/lib/payments/recompute";
+import { checkoutSessionKey } from "@/lib/payments/idempotency";
 import { sendEmail, buildBusinessFrom } from "@/lib/email";
 import { invoiceEmailHtml, invoiceEmailSubject } from "@/lib/emails/invoice";
 import { quoteEmailHtml, quoteEmailSubject } from "@/lib/emails/quote";
@@ -1140,7 +1141,12 @@ export function registerTools(register: ToolFn): void {
           kirei_business_id: ctx.businessId,
           kirei_source: "mcp",
         },
-      }, { stripeAccount: biz.stripe_account_id });
+      }, {
+        stripeAccount: biz.stripe_account_id,
+        // An assistant retrying a tool call must not mint a second payment
+        // link for the same invoice and amount on the same day.
+        idempotencyKey: checkoutSessionKey(invoice.id, toStripeAmount(requested, currency)),
+      });
 
       return text({ payment_url: session.url, expires_at: session.expires_at, amount: requested });
     });
