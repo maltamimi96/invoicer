@@ -182,3 +182,57 @@ describe("settleInvoiceToPaid", () => {
     expect(db.inserted).toHaveLength(0);
   });
 });
+
+/**
+ * Boundary introduced by unifying settle's 0.005 epsilon onto recompute's
+ * PAID_TOLERANCE (0.01), found by code review of that very change.
+ *
+ * A residual balance in (0.005, 0.01] no longer gets a balancing row, so an
+ * invoice can be marked paid with amount_paid up to one cent short of total.
+ * That is deliberate and coherent — recomputeInvoicePaid uses the same
+ * tolerance to call it paid, so the two agree — but it is a real edge and it
+ * should be pinned rather than rediscovered.
+ */
+describe("the sub-cent boundary", () => {
+  it("writes no balancing row for a residue inside the tolerance", async () => {
+    const db = makeDb(oneInvoice({ total: 1000 }));
+    db.state.payments["most"] = { id: "most", invoice_id: "inv-1", business_id: BIZ, amount: 999.995 };
+
+    const res = await settleInvoiceToPaid(db.from, { businessId: BIZ, invoiceId: "inv-1", userId: USER });
+
+    expect(res.inserted).toBe(false);
+    // Marked paid, a fraction of a cent short. Consistent with what the
+    // recompute would independently conclude.
+    expect(db.state.invoices["inv-1"]).toMatchObject({ status: "paid" });
+    expect(Number(db.state.invoices["inv-1"].amount_paid)).toBeCloseTo(999.995, 3);
+  });
+
+  it("still writes a row for a residue just outside the tolerance", async () => {
+    const db = makeDb(oneInvoice({ total: 1000 }));
+    db.state.payments["most"] = { id: "most", invoice_id: "inv-1", business_id: BIZ, amount: 999.98 };
+
+    const res = await settleInvoiceToPaid(db.from, { businessId: BIZ, invoiceId: "inv-1", userId: USER });
+
+    expect(res.inserted).toBe(true);
+    expect(res.balancingAmount).toBeCloseTo(0.02, 2);
+  });
+
+  /**
+   * Flagged in round 1 and deliberately not "fixed": when children have
+   * collected more than the parent's total, the true collected amount is
+   * written rather than clamped to total. Clamping would hide money.
+   */
+  it("records an overpayment truthfully instead of clamping it to total", async () => {
+    const db = makeDb(oneInvoice({ total: 1000 }));
+    db.state.invoices["child"] = {
+      id: "child", business_id: BIZ, parent_invoice_id: "inv-1", amount_paid: 1200,
+    };
+
+    const res = await settleInvoiceToPaid(db.from, { businessId: BIZ, invoiceId: "inv-1", userId: USER });
+
+    expect(res.inserted).toBe(false);          // nothing owed — they overpaid
+    expect(res.amountPaid).toBe(1200);          // and the overpayment is visible
+    expect(res.amountPaid).toBeGreaterThan(1000);
+  });
+});
+

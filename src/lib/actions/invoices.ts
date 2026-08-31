@@ -96,7 +96,6 @@ export async function updateInvoice(id: string, payload: Partial<Invoice>): Prom
   // column left no ledger row behind, so the next real payment's recompute
   // un-paid the invoice and handed it to the dunning cron. settleInvoiceToPaid
   // writes the balancing entry, then derives amount_paid and status from it.
-  // Only do this when the caller didn't pass an explicit amount_paid.
   const patch: Partial<Invoice> = { ...payload };
   if (payload.status === "paid" && payload.amount_paid != null) {
     // Setting the column directly alongside status:'paid' is exactly the defect

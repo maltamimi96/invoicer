@@ -51,18 +51,34 @@ function sumColumn(rows: unknown, column: string): number {
  * invoice that still reads unpaid — and the dunning cron then chases the
  * customer for it, with nothing surfaced anywhere.
  */
+/**
+ * What has actually been collected against an invoice: its own payments plus
+ * whatever its child invoices have collected. Both sources must count, or a
+ * progress-billed parent looks unpaid while its children hold the money.
+ *
+ * Exported because `settleInvoiceToPaid` needs the same number to work out what
+ * balance is outstanding, and it previously carried its own copy of this sum.
+ * One definition, one place.
+ */
+export async function collectedForInvoice(
+  from: TableAccessor,
+  businessId: string,
+  invoiceId: string,
+): Promise<number> {
+  const [{ data: directs }, { data: childCollections }] = await Promise.all([
+    from("payments").select("amount").eq("invoice_id", invoiceId).eq("business_id", businessId),
+    from("invoices").select("amount_paid").eq("parent_invoice_id", invoiceId).eq("business_id", businessId),
+  ]);
+  return sumColumn(directs, "amount") + sumColumn(childCollections, "amount_paid");
+}
+
 export async function recomputeInvoicePaid(
   from: TableAccessor,
   businessId: string,
   invoiceId: string,
   invoiceTotal: number,
 ): Promise<{ amountPaid: number; status: string }> {
-  const [{ data: directs }, { data: childCollections }] = await Promise.all([
-    from("payments").select("amount").eq("invoice_id", invoiceId).eq("business_id", businessId),
-    from("invoices").select("amount_paid").eq("parent_invoice_id", invoiceId).eq("business_id", businessId),
-  ]);
-
-  const amountPaid = sumColumn(directs, "amount") + sumColumn(childCollections, "amount_paid");
+  const amountPaid = await collectedForInvoice(from, businessId, invoiceId);
 
   // A payment landing on a cancelled or draft invoice must not resurrect it.
   // recomputeParentPaid has always had this guard; this one did not.

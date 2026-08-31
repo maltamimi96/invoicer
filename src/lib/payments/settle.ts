@@ -8,8 +8,8 @@
  * invoice row and insert nothing into `payments`. Four server paths did it that
  * way and each had its own copy. That produced two live defects:
  *
- *  1. UN-PAYING. `addPayment` recomputes `amount_paid` from the payments ledger
- *     (src/lib/actions/invoices.ts). So: mark a $10,000 invoice paid, then
+ *  1. UN-PAYING. `addPayment` recomputes `amount_paid` from the payments ledger.
+ *     So: mark a $10,000 invoice paid, then
  *     record a $500 payment properly, and the recompute finds only that $500 in
  *     the ledger and writes `amount_paid = 500, status = 'partial'`. The invoice
  *     now reads $9,500 outstanding and is picked up by the dunning cron
@@ -41,7 +41,7 @@
 
 // One tolerance, shared with the recompute, so a balance this file decides is
 // worth writing is never one the recompute already treats as settled.
-import { PAID_TOLERANCE } from "./recompute";
+import { PAID_TOLERANCE, collectedForInvoice } from "./recompute";
 
 /**
  * Minimal shape this helper needs from a Supabase-ish client: give it a table
@@ -64,11 +64,6 @@ export type SettleResult = {
   /** What the invoice's amount_paid was set to. */
   amountPaid: number;
 };
-
-function sumColumn(rows: unknown, column: string): number {
-  return ((rows ?? []) as Record<string, unknown>[])
-    .reduce((total, row) => total + Number(row[column] ?? 0), 0);
-}
 
 /**
  * Bring an invoice to fully-paid by writing the balancing ledger entry, then
@@ -100,22 +95,10 @@ export async function settleInvoiceToPaid(
   const total = Number((invoice as { total: unknown }).total ?? 0);
 
   // Collected has two sources, and both must count or a parent invoice gets a
-  // balancing row for money its children already collected. This mirrors the
-  // recompute in src/lib/actions/invoices.ts exactly; if that definition
-  // changes, this must change with it.
-  const { data: directRows, error: directError } = await from("payments")
-    .select("amount")
-    .eq("invoice_id", invoiceId)
-    .eq("business_id", businessId);
-  if (directError) throw new Error(`Couldn't read the payments ledger: ${directError.message}`);
-
-  const { data: childRows, error: childError } = await from("invoices")
-    .select("amount_paid")
-    .eq("parent_invoice_id", invoiceId)
-    .eq("business_id", businessId);
-  if (childError) throw new Error(`Couldn't read child invoices: ${childError.message}`);
-
-  const collected = sumColumn(directRows, "amount") + sumColumn(childRows, "amount_paid");
+  // balancing row for money its children already collected. Delegated to the
+  // canonical reader rather than re-derived here — this file used to carry its
+  // own copy of that sum, which is the duplication recompute.ts exists to end.
+  const collected = await collectedForInvoice(from, businessId, invoiceId);
   const balance = Number((total - collected).toFixed(2));
 
   let inserted = false;
