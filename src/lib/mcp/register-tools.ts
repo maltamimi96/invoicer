@@ -16,6 +16,7 @@ import { v4 as uuidv4 } from "uuid";
 import { randomBytes } from "crypto";
 import { assertScope, t, text, errorText, type McpContext } from "./context";
 import { settleInvoiceToPaid } from "@/lib/payments/settle";
+import { recomputeInvoicePaid, recomputeParentPaid } from "@/lib/payments/recompute";
 import { sendEmail, buildBusinessFrom } from "@/lib/email";
 import { invoiceEmailHtml, invoiceEmailSubject } from "@/lib/emails/invoice";
 import { quoteEmailHtml, quoteEmailSubject } from "@/lib/emails/quote";
@@ -1039,7 +1040,7 @@ export function registerTools(register: ToolFn): void {
     { invoice_id: UUID, amount: z.number().positive(), date: z.string().optional(), method: z.string().optional(), reference: z.string().optional(), notes: z.string().optional() },
     async (args, extra) => {
       const ctx = ctxFrom(extra); assertScope(ctx, "invoices:write");
-      const { data: invoice } = await t(ctx, "invoices").select("total").eq("id", args.invoice_id).eq("business_id", ctx.businessId).maybeSingle();
+      const { data: invoice } = await t(ctx, "invoices").select("total, parent_invoice_id").eq("id", args.invoice_id).eq("business_id", ctx.businessId).maybeSingle();
       if (!invoice) return errorText("Invoice not found");
       const { error: payErr } = await t(ctx, "payments").insert({
         invoice_id: args.invoice_id, business_id: ctx.businessId, user_id: ctx.userId,
@@ -1047,27 +1048,14 @@ export function registerTools(register: ToolFn): void {
         method: args.method ?? null, reference: args.reference ?? null, notes: args.notes ?? null,
       });
       if (payErr) throw payErr;
-      // Recompute from truth: direct payments + any child-invoice collections.
-      const num = (v: unknown) => Number(v ?? 0) || 0;
-      const { data: direct } = await t(ctx, "payments").select("amount").eq("invoice_id", args.invoice_id).eq("business_id", ctx.businessId);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const directSum = (direct ?? []).reduce((s: number, r: any) => s + num(r.amount), 0);
-      const { data: children } = await t(ctx, "invoices").select("amount_paid").eq("parent_invoice_id", args.invoice_id).eq("business_id", ctx.businessId);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const childSum = (children ?? []).reduce((s: number, r: any) => s + num(r.amount_paid), 0);
-      const amountPaid = directSum + childSum;
-      // A payment on a cancelled or draft invoice must not resurrect it.
-      const { data: cur } = await t(ctx, "invoices").select("status").eq("id", args.invoice_id).eq("business_id", ctx.businessId).maybeSingle();
-      const curStatus = cur?.status as string | undefined;
-      const status = curStatus === "cancelled" || curStatus === "draft"
-        ? curStatus
-        : amountPaid >= num(invoice.total) - 0.01 ? "paid" : "partial";
-      // Unchecked before: the payment row was already written, so a failed
-      // balance update reported success with the invoice still reading unpaid.
-      const { error: balErr } = await t(ctx, "invoices")
-        .update({ amount_paid: amountPaid, status })
-        .eq("id", args.invoice_id).eq("business_id", ctx.businessId);
-      if (balErr) throw balErr;
+      // Shared recompute — this used to be a hand-rolled copy of the ledger sum
+      // that also never rolled up to a parent, so a payment recorded here
+      // against a progress-billed child left the parent job under-reporting.
+      const { amountPaid, status } = await recomputeInvoicePaid(
+        (table) => t(ctx, table), ctx.businessId, args.invoice_id, Number(invoice.total ?? 0));
+      if (invoice.parent_invoice_id) {
+        await recomputeParentPaid((table) => t(ctx, table), ctx.businessId, invoice.parent_invoice_id);
+      }
       return text({ recorded: true, amount_paid: amountPaid, status });
     });
 

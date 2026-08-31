@@ -213,3 +213,58 @@ describe("recomputeParentPaid", () => {
   });
 });
 
+/**
+ * The reviewer proved these were missing by deleting `.eq("business_id", ...)`
+ * from the ledger reads in settle.ts and recompute.ts and finding the suite
+ * still green. The top-level invoice lookup was covered; the SUM queries were
+ * not, because no fixture ever put another tenant's row in the ledger. These
+ * put one there, so dropping that filter now fails.
+ */
+describe("cross-tenant isolation on the money reads", () => {
+  const OTHER = "biz-2";
+
+  it("ignores another tenant's payments when summing the ledger", async () => {
+    const db = makeDb({
+      invoices: { "inv-1": { id: "inv-1", business_id: BIZ, total: 1000, amount_paid: 0, status: "sent" } },
+      payments: {
+        "ours":   { id: "ours",   invoice_id: "inv-1", business_id: BIZ,   amount: 400 },
+        // Same invoice_id, different tenant. Only reachable if the filter is dropped.
+        "theirs": { id: "theirs", invoice_id: "inv-1", business_id: OTHER, amount: 600 },
+      },
+    });
+
+    const res = await recomputeInvoicePaid(db.from, BIZ, "inv-1", 1000);
+
+    // 400, not 1000 — and status stays partial rather than flipping to paid.
+    expect(res).toEqual({ amountPaid: 400, status: "partial" });
+  });
+
+  it("ignores another tenant's child invoices when summing collections", async () => {
+    const db = makeDb({
+      invoices: {
+        "inv-1":   { id: "inv-1", business_id: BIZ, total: 1000, amount_paid: 0, status: "sent" },
+        "ours":    { id: "ours",   business_id: BIZ,   parent_invoice_id: "inv-1", amount_paid: 300 },
+        "theirs":  { id: "theirs", business_id: OTHER, parent_invoice_id: "inv-1", amount_paid: 700 },
+      },
+      payments: {},
+    });
+
+    const res = await recomputeInvoicePaid(db.from, BIZ, "inv-1", 1000);
+    expect(res).toEqual({ amountPaid: 300, status: "partial" });
+  });
+
+  it("ignores another tenant's rows when rolling up to a parent", async () => {
+    const db = makeDb({
+      invoices: {
+        "parent": { id: "parent", business_id: BIZ, total: 1000, amount_paid: 0, status: "sent" },
+        "ours":   { id: "ours",   business_id: BIZ,   parent_invoice_id: "parent", amount_paid: 250 },
+        "theirs": { id: "theirs", business_id: OTHER, parent_invoice_id: "parent", amount_paid: 750 },
+      },
+      payments: { "theirpay": { id: "theirpay", invoice_id: "parent", business_id: OTHER, amount: 500 } },
+    });
+
+    const res = await recomputeParentPaid(db.from, BIZ, "parent");
+    expect(res).toEqual({ amountPaid: 250, status: "partial" });
+  });
+});
+

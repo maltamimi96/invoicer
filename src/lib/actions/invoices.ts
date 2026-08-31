@@ -98,7 +98,16 @@ export async function updateInvoice(id: string, payload: Partial<Invoice>): Prom
   // writes the balancing entry, then derives amount_paid and status from it.
   // Only do this when the caller didn't pass an explicit amount_paid.
   const patch: Partial<Invoice> = { ...payload };
-  if (payload.status === "paid" && payload.amount_paid == null) {
+  if (payload.status === "paid" && payload.amount_paid != null) {
+    // Setting the column directly alongside status:'paid' is exactly the defect
+    // settleInvoiceToPaid exists to remove — it would write a balance with no
+    // ledger row behind it, and the next real payment would un-pay the invoice.
+    // No caller does this today; refuse rather than leave the hole open.
+    throw new Error(
+      "Set amount_paid by recording a payment (addPayment), not by marking an invoice paid.",
+    );
+  }
+  if (payload.status === "paid") {
     await settleInvoiceToPaid((table) => tbl(supabase, table), {
       businessId,
       invoiceId: id,

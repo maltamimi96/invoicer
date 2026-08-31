@@ -27,8 +27,13 @@
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type TableAccessor = (table: string) => any;
 
-/** Currency is numeric(12,2); anything inside a cent is float noise. */
-const PAID_TOLERANCE = 0.01;
+/**
+ * Currency is numeric(12,2); anything inside a cent is float noise.
+ * Exported so settle.ts uses the same number — they were 0.01 and 0.005, which
+ * left a sliver where settle would write a balancing row for an amount this
+ * function already considered settled.
+ */
+export const PAID_TOLERANCE = 0.01;
 
 /** Statuses that a payment must never move an invoice out of. */
 const FROZEN_STATUSES = new Set(["cancelled", "draft"]);

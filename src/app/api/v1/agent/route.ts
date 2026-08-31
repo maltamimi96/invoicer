@@ -14,6 +14,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { recomputeInvoicePaid, recomputeParentPaid } from "@/lib/payments/recompute";
 import Anthropic from "@anthropic-ai/sdk";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { authenticateApiKey, requireScope } from "@/lib/api-auth";
@@ -708,7 +709,7 @@ async function executeTool(name: string, input: Record<string, any>, ctx: BizCon
 
     case "record_payment": {
       const { data: invoice } = await tbl("invoices")
-        .select("total, amount_paid, status")
+        .select("total, amount_paid, status, parent_invoice_id")
         .eq("id", input.invoice_id)
         .eq("business_id", ctx.businessId)
         .single();
@@ -735,27 +736,16 @@ async function executeTool(name: string, input: Record<string, any>, ctx: BizCon
       // Was `(invoice.amount_paid ?? 0) + input.amount` — an increment off a
       // stale read, so two concurrent calls each added to the same starting
       // value and one payment's worth of money vanished from the balance.
-      // Recompute from the ledger instead, matching every other payment path.
-      const { data: directRows } = await tbl("payments")
-        .select("amount").eq("invoice_id", input.invoice_id).eq("business_id", ctx.businessId);
-      const { data: childRows } = await tbl("invoices")
-        .select("amount_paid").eq("parent_invoice_id", input.invoice_id).eq("business_id", ctx.businessId);
-      const sum = (rows: unknown, col: string) =>
-        ((rows ?? []) as Record<string, unknown>[]).reduce((s, r) => s + Number(r[col] ?? 0), 0);
-      const newPaid = sum(directRows, "amount") + sum(childRows, "amount_paid");
+      // Uses the shared recompute so this path cannot drift from the others,
+      // and so a payment on a progress-billed child rolls up to its parent —
+      // which this path never did.
+      const { amountPaid, status } = await recomputeInvoicePaid(
+        tbl, ctx.businessId, input.invoice_id, Number(invoice.total ?? 0));
+      if (invoice.parent_invoice_id) {
+        await recomputeParentPaid(tbl, ctx.businessId, invoice.parent_invoice_id as string);
+      }
 
-      // A payment on a cancelled or draft invoice must not resurrect it.
-      const cur = invoice.status as string | undefined;
-      const newStatus = cur === "cancelled" || cur === "draft"
-        ? cur
-        : newPaid >= Number(invoice.total) - 0.01 ? "paid" : "partial";
-
-      const { error: balErr } = await tbl("invoices")
-        .update({ amount_paid: newPaid, status: newStatus })
-        .eq("id", input.invoice_id).eq("business_id", ctx.businessId);
-      if (balErr) throw balErr;
-
-      return { message: `Payment of $${amount} recorded. Invoice is now ${newStatus}.` };
+      return { message: `Payment of $${amount} recorded. Invoice is now ${status}.` };
     }
 
     // ── Reports ───────────────────────────────────────────────────────────────

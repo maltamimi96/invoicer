@@ -39,6 +39,10 @@
  * means deleting it directly.
  */
 
+// One tolerance, shared with the recompute, so a balance this file decides is
+// worth writing is never one the recompute already treats as settled.
+import { PAID_TOLERANCE } from "./recompute";
+
 /**
  * Minimal shape this helper needs from a Supabase-ish client: give it a table
  * name, get a query builder. Callers pass whatever accessor they already use —
@@ -51,12 +55,6 @@ export type TableAccessor = (table: string) => any;
 /** Marks the ledger rows this helper writes, so they are identifiable later. */
 export const MARKED_PAID_METHOD = "Manual — marked paid";
 
-/**
- * Currency is stored as numeric(12,2), so anything under half a cent is noise
- * from float arithmetic rather than a real outstanding balance. Matches the
- * 0.01 tolerance the existing recompute uses when deciding paid vs partial.
- */
-const SETTLED_EPSILON = 0.005;
 
 export type SettleResult = {
   /** True when a balancing ledger row was written. */
@@ -121,7 +119,7 @@ export async function settleInvoiceToPaid(
   const balance = Number((total - collected).toFixed(2));
 
   let inserted = false;
-  if (balance > SETTLED_EPSILON) {
+  if (balance > PAID_TOLERANCE) {
     const { error: insertError } = await from("payments").insert({
       invoice_id: invoiceId,
       business_id: businessId,
