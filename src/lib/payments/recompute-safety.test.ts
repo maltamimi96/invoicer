@@ -14,13 +14,14 @@
  * before the recompute ever ran. These tests pin both halves, plus the
  * cancelled/draft guard.
  *
- * They exercise the same shapes as src/lib/stripe-payments.ts and
- * src/lib/revolut-payments.ts, which are byte-for-byte duplicates of one
- * another. Item 3 of the payments plan collapses that duplication into one
- * helper; until then, both copies carry the same fix and this file states the
- * contract both must satisfy.
+ * These exercise the SHIPPED function. An earlier version of this file
+ * re-implemented the logic locally, because the real one was private and
+ * duplicated across src/lib/stripe-payments.ts and src/lib/revolut-payments.ts
+ * — so the tests could pass while the shipped code drifted. Extracting
+ * src/lib/payments/recompute.ts is what made these real.
  */
 import { describe, it, expect } from "vitest";
+import { recomputeInvoicePaid, recomputeParentPaid } from "./recompute";
 
 type Row = Record<string, unknown>;
 
@@ -76,29 +77,6 @@ function makeDb(opts: { invoices: Record<string, Row>; payments: Record<string, 
 
 const BIZ = "biz-1";
 
-/** Mirrors the fixed recomputeInvoice in both provider files. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function recomputeInvoice(sb: any, businessId: string, invoiceId: string, invoiceTotal: number) {
-  const [{ data: directs }, { data: children }] = await Promise.all([
-    sb.from("payments").select("amount").eq("invoice_id", invoiceId).eq("business_id", businessId),
-    sb.from("invoices").select("amount_paid").eq("parent_invoice_id", invoiceId).eq("business_id", businessId),
-  ]);
-  const sum = (rows: Row[] | null, col: string) =>
-    (rows ?? []).reduce((s, r) => s + Number(r[col] ?? 0), 0);
-  const newPaid = sum(directs, "amount") + sum(children, "amount_paid");
-
-  const { data: current } = await sb.from("invoices")
-    .select("status").eq("id", invoiceId).eq("business_id", businessId).maybeSingle();
-  const cur = current?.status as string | undefined;
-  const newStatus = cur === "cancelled" || cur === "draft"
-    ? cur
-    : newPaid >= Number(invoiceTotal) - 0.01 ? "paid" : "partial";
-
-  const { error } = await sb.from("invoices")
-    .update({ amount_paid: newPaid, status: newStatus })
-    .eq("id", invoiceId).eq("business_id", businessId);
-  if (error) throw new Error(`Couldn't update the invoice balance: ${error.message}`);
-}
 
 describe("balance recompute after a payment", () => {
   it("throws when the balance write fails, instead of reporting success", async () => {
@@ -108,7 +86,7 @@ describe("balance recompute after a payment", () => {
       failUpdate: true,
     });
 
-    await expect(recomputeInvoice(db, BIZ, "inv-1", 1000)).rejects.toThrow(/invoice balance/i);
+    await expect(recomputeInvoicePaid(db.from, BIZ, "inv-1", 1000)).rejects.toThrow(/invoice balance/i);
   });
 
   it("does not resurrect a cancelled invoice", async () => {
@@ -117,7 +95,7 @@ describe("balance recompute after a payment", () => {
       payments: { "pay-1": { id: "pay-1", invoice_id: "inv-1", business_id: BIZ, amount: 1000 } },
     });
 
-    await recomputeInvoice(db, BIZ, "inv-1", 1000);
+    await recomputeInvoicePaid(db.from, BIZ, "inv-1", 1000);
 
     // The money is still recorded, but the invoice stays cancelled.
     expect(db.updates[0]).toMatchObject({ amount_paid: 1000, status: "cancelled" });
@@ -129,7 +107,7 @@ describe("balance recompute after a payment", () => {
       payments: { "pay-1": { id: "pay-1", invoice_id: "inv-1", business_id: BIZ, amount: 400 } },
     });
 
-    await recomputeInvoice(db, BIZ, "inv-1", 1000);
+    await recomputeInvoicePaid(db.from, BIZ, "inv-1", 1000);
     expect(db.updates[0]).toMatchObject({ status: "draft" });
   });
 
@@ -139,9 +117,9 @@ describe("balance recompute after a payment", () => {
       payments: { "pay-1": { id: "pay-1", invoice_id: "inv-1", business_id: BIZ, amount: 1000 } },
     });
 
-    await recomputeInvoice(db, BIZ, "inv-1", 1000);
-    await recomputeInvoice(db, BIZ, "inv-1", 1000);
-    await recomputeInvoice(db, BIZ, "inv-1", 1000);
+    await recomputeInvoicePaid(db.from, BIZ, "inv-1", 1000);
+    await recomputeInvoicePaid(db.from, BIZ, "inv-1", 1000);
+    await recomputeInvoicePaid(db.from, BIZ, "inv-1", 1000);
 
     // This is what makes the self-healing retry branch safe to run.
     expect(db.updates).toHaveLength(3);
@@ -173,8 +151,65 @@ describe("the already-recorded branch repairs instead of returning", () => {
       .select("id").eq("business_id", BIZ).eq("provider_payment_id", "pi_1").maybeSingle();
     expect(existing).not.toBeNull();
 
-    await recomputeInvoice(db, BIZ, "inv-1", 1000);
+    await recomputeInvoicePaid(db.from, BIZ, "inv-1", 1000);
 
     expect(db.updates.at(-1)).toMatchObject({ amount_paid: 1000, status: "paid" });
   });
 });
+
+describe("recomputeParentPaid", () => {
+  it("rolls child collections up into the parent", async () => {
+    const db = makeDb({
+      invoices: {
+        "parent": { id: "parent", business_id: BIZ, total: 1000, amount_paid: 0, status: "sent" },
+        "child-a": { id: "child-a", business_id: BIZ, parent_invoice_id: "parent", amount_paid: 400 },
+        "child-b": { id: "child-b", business_id: BIZ, parent_invoice_id: "parent", amount_paid: 600 },
+      },
+      payments: {},
+    });
+
+    const res = await recomputeParentPaid(db.from, BIZ, "parent");
+    expect(res).toEqual({ amountPaid: 1000, status: "paid" });
+  });
+
+  it("counts a direct payment on the parent alongside its children", async () => {
+    const db = makeDb({
+      invoices: {
+        "parent": { id: "parent", business_id: BIZ, total: 1000, amount_paid: 0, status: "sent" },
+        "child-a": { id: "child-a", business_id: BIZ, parent_invoice_id: "parent", amount_paid: 400 },
+      },
+      payments: { "p1": { id: "p1", invoice_id: "parent", business_id: BIZ, amount: 100 } },
+    });
+
+    const res = await recomputeParentPaid(db.from, BIZ, "parent");
+    expect(res).toMatchObject({ amountPaid: 500, status: "partial" });
+  });
+
+  it("does not resurrect a cancelled parent", async () => {
+    const db = makeDb({
+      invoices: {
+        "parent": { id: "parent", business_id: BIZ, total: 1000, amount_paid: 0, status: "cancelled" },
+        "child-a": { id: "child-a", business_id: BIZ, parent_invoice_id: "parent", amount_paid: 1000 },
+      },
+      payments: {},
+    });
+
+    const res = await recomputeParentPaid(db.from, BIZ, "parent");
+    expect(res).toMatchObject({ status: "cancelled" });
+  });
+
+  it("returns null when the parent is gone, rather than throwing", async () => {
+    const db = makeDb({ invoices: {}, payments: {} });
+    expect(await recomputeParentPaid(db.from, BIZ, "missing")).toBeNull();
+  });
+
+  it("throws when the parent balance write fails", async () => {
+    const db = makeDb({
+      invoices: { "parent": { id: "parent", business_id: BIZ, total: 1000, amount_paid: 0, status: "sent" } },
+      payments: { "p1": { id: "p1", invoice_id: "parent", business_id: BIZ, amount: 1000 } },
+      failUpdate: true,
+    });
+    await expect(recomputeParentPaid(db.from, BIZ, "parent")).rejects.toThrow(/parent invoice balance/i);
+  });
+});
+

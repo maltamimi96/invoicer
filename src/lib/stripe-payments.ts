@@ -12,6 +12,7 @@ import { markContactAsClient } from "@/lib/leads/promote";
 import type Stripe from "stripe";
 import { fromStripeAmount } from "@/lib/stripe";
 import { dispatchWebhook } from "@/lib/webhooks";
+import { recomputeInvoicePaid, recomputeParentPaid } from "@/lib/payments/recompute";
 
 interface RecordOpts {
   businessId: string;
@@ -118,8 +119,8 @@ export async function recordStripePayment(
     // ever attempted. Re-running the recompute repairs it. Both recomputes are
     // pure projections of SUM(payments), so re-running is idempotent and cannot
     // double-count. This is what makes the retry worth having.
-    await recomputeInvoice(sb, businessId, invoiceId, invoice.total);
-    if (invoice.parent_invoice_id) await recomputeParent(sb, businessId, invoice.parent_invoice_id);
+    await recomputeInvoicePaid((t) => sb.from(t), businessId, invoiceId, invoice.total);
+    if (invoice.parent_invoice_id) await recomputeParentPaid((t) => sb.from(t), businessId, invoice.parent_invoice_id);
     return false;
   }
 
@@ -147,8 +148,8 @@ export async function recordStripePayment(
     throw insErr;
   }
 
-  await recomputeInvoice(sb, businessId, invoiceId, invoice.total);
-  if (invoice.parent_invoice_id) await recomputeParent(sb, businessId, invoice.parent_invoice_id);
+  await recomputeInvoicePaid((t) => sb.from(t), businessId, invoiceId, invoice.total);
+  if (invoice.parent_invoice_id) await recomputeParentPaid((t) => sb.from(t), businessId, invoice.parent_invoice_id);
   // Money arrived: if this contact was still a lead, they are a client now.
   // Best-effort inside promote() — a labelling failure must not fail a payment.
   await markContactAsClient(sb, businessId, invoice.customer_id);
@@ -208,58 +209,4 @@ async function sendPaymentReceipt(sb: any, opts: { businessId: string; invoiceId
   });
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function recomputeInvoice(sb: any, businessId: string, invoiceId: string, invoiceTotal: number) {
-  const [{ data: directs }, { data: childCollections }] = await Promise.all([
-    sb.from("payments").select("amount").eq("invoice_id", invoiceId).eq("business_id", businessId),
-    sb.from("invoices").select("amount_paid").eq("parent_invoice_id", invoiceId).eq("business_id", businessId),
-  ]);
-  const direct = (directs ?? []).reduce((s: number, r: { amount: unknown }) => s + Number(r.amount ?? 0), 0);
-  const childSum = (childCollections ?? []).reduce((s: number, r: { amount_paid: unknown }) => s + Number(r.amount_paid ?? 0), 0);
-  const total = Number(invoiceTotal);
-  const newPaid = direct + childSum;
 
-  // A payment landing on a cancelled or draft invoice must not resurrect it.
-  // recomputeParent below has always had this guard; this one did not, so the
-  // money was recorded and the invoice silently went back to live.
-  const { data: current } = await sb.from("invoices")
-    .select("status").eq("id", invoiceId).eq("business_id", businessId).maybeSingle();
-  const currentStatus = current?.status as string | undefined;
-  const newStatus = currentStatus === "cancelled" || currentStatus === "draft"
-    ? currentStatus
-    : newPaid >= total - 0.01 ? "paid" : "partial";
-
-  // Unchecked before: the payments row was already committed, so a failed
-  // balance write left the money in the ledger with the invoice reading unpaid,
-  // the webhook returning 200, and the dunning cron chasing the customer for it.
-  // Throwing makes the webhook 500 so Stripe retries — see the self-healing
-  // branch in recordStripePayment, which is what makes that retry useful.
-  const { error } = await sb.from("invoices")
-    .update({ amount_paid: newPaid, status: newStatus })
-    .eq("id", invoiceId).eq("business_id", businessId);
-  if (error) throw new Error(`Couldn't update the invoice balance: ${error.message}`);
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function recomputeParent(sb: any, businessId: string, parentId: string) {
-  const [{ data: siblings }, { data: parentDirects }, { data: parentRow }] = await Promise.all([
-    sb.from("invoices").select("amount_paid").eq("parent_invoice_id", parentId).eq("business_id", businessId),
-    sb.from("payments").select("amount").eq("invoice_id", parentId).eq("business_id", businessId),
-    sb.from("invoices").select("total, status").eq("id", parentId).eq("business_id", businessId).maybeSingle(),
-  ]);
-  if (!parentRow) return;
-  const collectedChildren = (siblings ?? []).reduce((s: number, r: { amount_paid: unknown }) => s + Number(r.amount_paid ?? 0), 0);
-  const direct = (parentDirects ?? []).reduce((s: number, r: { amount: unknown }) => s + Number(r.amount ?? 0), 0);
-  const totalCollected = direct + collectedChildren;
-  const parentTotal = Number(parentRow.total ?? 0);
-  const fullyCovered = totalCollected >= parentTotal - 0.01;
-  let nextStatus = parentRow.status as string;
-  if (nextStatus !== "cancelled" && nextStatus !== "draft") {
-    if (fullyCovered)               nextStatus = "paid";
-    else if (totalCollected > 0.01) nextStatus = "partial";
-  }
-  const { error } = await sb.from("invoices")
-    .update({ amount_paid: totalCollected, status: nextStatus })
-    .eq("id", parentId).eq("business_id", businessId);
-  if (error) throw new Error(`Couldn't update the parent invoice balance: ${error.message}`);
-}
