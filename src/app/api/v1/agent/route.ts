@@ -708,27 +708,54 @@ async function executeTool(name: string, input: Record<string, any>, ctx: BizCon
 
     case "record_payment": {
       const { data: invoice } = await tbl("invoices")
-        .select("total, amount_paid")
+        .select("total, amount_paid, status")
         .eq("id", input.invoice_id)
         .eq("business_id", ctx.businessId)
         .single();
       if (!invoice) throw new Error("Invoice not found");
 
-      await tbl("payments").insert({
+      const amount = Number(input.amount);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        throw new Error("Payment amount must be a positive number.");
+      }
+
+      // Unchecked before: a rejected insert returned normally and the balance
+      // write below then reported a payment that was never recorded.
+      const { error: payErr } = await tbl("payments").insert({
         invoice_id: input.invoice_id,
-        amount: input.amount,
+        amount,
         date: input.date ?? new Date().toISOString().split("T")[0],
         method: input.method ?? null,
         reference: input.reference ?? null,
         business_id: ctx.businessId,
         user_id: ctx.userId,
       });
+      if (payErr) throw payErr;
 
-      const newPaid = (invoice.amount_paid ?? 0) + input.amount;
-      const newStatus = newPaid >= invoice.total ? "paid" : "partial";
-      await tbl("invoices").update({ amount_paid: newPaid, status: newStatus }).eq("id", input.invoice_id);
+      // Was `(invoice.amount_paid ?? 0) + input.amount` — an increment off a
+      // stale read, so two concurrent calls each added to the same starting
+      // value and one payment's worth of money vanished from the balance.
+      // Recompute from the ledger instead, matching every other payment path.
+      const { data: directRows } = await tbl("payments")
+        .select("amount").eq("invoice_id", input.invoice_id).eq("business_id", ctx.businessId);
+      const { data: childRows } = await tbl("invoices")
+        .select("amount_paid").eq("parent_invoice_id", input.invoice_id).eq("business_id", ctx.businessId);
+      const sum = (rows: unknown, col: string) =>
+        ((rows ?? []) as Record<string, unknown>[]).reduce((s, r) => s + Number(r[col] ?? 0), 0);
+      const newPaid = sum(directRows, "amount") + sum(childRows, "amount_paid");
 
-      return { message: `Payment of $${input.amount} recorded. Invoice is now ${newStatus}.` };
+      // A payment on a cancelled or draft invoice must not resurrect it.
+      const cur = invoice.status as string | undefined;
+      const newStatus = cur === "cancelled" || cur === "draft"
+        ? cur
+        : newPaid >= Number(invoice.total) - 0.01 ? "paid" : "partial";
+
+      const { error: balErr } = await tbl("invoices")
+        .update({ amount_paid: newPaid, status: newStatus })
+        .eq("id", input.invoice_id).eq("business_id", ctx.businessId);
+      if (balErr) throw balErr;
+
+      return { message: `Payment of $${amount} recorded. Invoice is now ${newStatus}.` };
     }
 
     // ── Reports ───────────────────────────────────────────────────────────────

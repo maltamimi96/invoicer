@@ -44,13 +44,23 @@ export async function recordRevolutPayment(
 
   const { data: existing } = await sb.from("payments")
     .select("id").eq("business_id", businessId).eq("provider_payment_id", orderId).maybeSingle();
-  if (existing) return false;
 
   const { data: invoice } = await sb.from("invoices")
     .select("id, total, amount_paid, parent_invoice_id, user_id, status, number, customer_id")
     .eq("id", invoiceId).eq("business_id", businessId).single();
   if (!invoice) {
     console.warn("[revolut] invoice not found for payment", invoiceId);
+    return false;
+  }
+
+  if (existing) {
+    // Already recorded — repair rather than return. A redelivery most likely
+    // means a previous attempt wrote the payment row and then failed on the
+    // balance update; returning here would leave that wrong forever. The
+    // recomputes are pure projections of SUM(payments), so re-running them is
+    // idempotent and cannot double-count.
+    await recomputeInvoice(sb, businessId, invoiceId, invoice.total);
+    if (invoice.parent_invoice_id) await recomputeParent(sb, businessId, invoice.parent_invoice_id);
     return false;
   }
 
@@ -142,8 +152,24 @@ async function recomputeInvoice(sb: any, businessId: string, invoiceId: string, 
   const childSum = (childCollections ?? []).reduce((s: number, r: { amount_paid: unknown }) => s + Number(r.amount_paid ?? 0), 0);
   const total = Number(invoiceTotal);
   const newPaid = direct + childSum;
-  const newStatus = newPaid >= total - 0.01 ? "paid" : "partial";
-  await sb.from("invoices").update({ amount_paid: newPaid, status: newStatus }).eq("id", invoiceId);
+
+  // A payment landing on a cancelled or draft invoice must not resurrect it.
+  // recomputeParent below has always had this guard; this one did not.
+  const { data: current } = await sb.from("invoices")
+    .select("status").eq("id", invoiceId).eq("business_id", businessId).maybeSingle();
+  const currentStatus = current?.status as string | undefined;
+  const newStatus = currentStatus === "cancelled" || currentStatus === "draft"
+    ? currentStatus
+    : newPaid >= total - 0.01 ? "paid" : "partial";
+
+  // Unchecked before: the payments row was already committed, so a failed
+  // balance write left money in the ledger with the invoice reading unpaid and
+  // the dunning cron chasing the customer for it. Throwing surfaces the failure
+  // to the caller so the webhook can be retried into the self-healing branch.
+  const { error } = await sb.from("invoices")
+    .update({ amount_paid: newPaid, status: newStatus })
+    .eq("id", invoiceId).eq("business_id", businessId);
+  if (error) throw new Error(`Couldn't update the invoice balance: ${error.message}`);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -164,5 +190,8 @@ async function recomputeParent(sb: any, businessId: string, parentId: string) {
     if (fullyCovered)               nextStatus = "paid";
     else if (totalCollected > 0.01) nextStatus = "partial";
   }
-  await sb.from("invoices").update({ amount_paid: totalCollected, status: nextStatus }).eq("id", parentId);
+  const { error } = await sb.from("invoices")
+    .update({ amount_paid: totalCollected, status: nextStatus })
+    .eq("id", parentId).eq("business_id", businessId);
+  if (error) throw new Error(`Couldn't update the parent invoice balance: ${error.message}`);
 }

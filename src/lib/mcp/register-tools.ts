@@ -1056,8 +1056,18 @@ export function registerTools(register: ToolFn): void {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const childSum = (children ?? []).reduce((s: number, r: any) => s + num(r.amount_paid), 0);
       const amountPaid = directSum + childSum;
-      const status = amountPaid >= num(invoice.total) - 0.01 ? "paid" : "partial";
-      await t(ctx, "invoices").update({ amount_paid: amountPaid, status }).eq("id", args.invoice_id);
+      // A payment on a cancelled or draft invoice must not resurrect it.
+      const { data: cur } = await t(ctx, "invoices").select("status").eq("id", args.invoice_id).eq("business_id", ctx.businessId).maybeSingle();
+      const curStatus = cur?.status as string | undefined;
+      const status = curStatus === "cancelled" || curStatus === "draft"
+        ? curStatus
+        : amountPaid >= num(invoice.total) - 0.01 ? "paid" : "partial";
+      // Unchecked before: the payment row was already written, so a failed
+      // balance update reported success with the invoice still reading unpaid.
+      const { error: balErr } = await t(ctx, "invoices")
+        .update({ amount_paid: amountPaid, status })
+        .eq("id", args.invoice_id).eq("business_id", ctx.businessId);
+      if (balErr) throw balErr;
       return text({ recorded: true, amount_paid: amountPaid, status });
     });
 

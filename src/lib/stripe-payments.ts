@@ -98,16 +98,28 @@ export async function recordStripePayment(
 ): Promise<boolean> {
   const { businessId, invoiceId, piId } = opts;
 
-  // Idempotency: bail if this PaymentIntent is already recorded.
+  // Idempotency: this PaymentIntent may already be recorded.
   const { data: existing } = await sb.from("payments")
     .select("id").eq("business_id", businessId).eq("provider_payment_id", piId).maybeSingle();
-  if (existing) return false;
 
   const { data: invoice } = await sb.from("invoices")
     .select("id, total, amount_paid, parent_invoice_id, user_id, status, number, customer_id")
     .eq("id", invoiceId).eq("business_id", businessId).single();
   if (!invoice) {
     console.warn("[stripe] invoice not found for payment", invoiceId);
+    return false;
+  }
+
+  if (existing) {
+    // Already recorded — but do NOT just return. This branch is where a Stripe
+    // retry lands, and the reason it retried is most likely that a previous
+    // attempt wrote the payment row and then failed on the balance update. If
+    // we return here the balance stays wrong forever and no further delivery is
+    // ever attempted. Re-running the recompute repairs it. Both recomputes are
+    // pure projections of SUM(payments), so re-running is idempotent and cannot
+    // double-count. This is what makes the retry worth having.
+    await recomputeInvoice(sb, businessId, invoiceId, invoice.total);
+    if (invoice.parent_invoice_id) await recomputeParent(sb, businessId, invoice.parent_invoice_id);
     return false;
   }
 
@@ -206,8 +218,26 @@ async function recomputeInvoice(sb: any, businessId: string, invoiceId: string, 
   const childSum = (childCollections ?? []).reduce((s: number, r: { amount_paid: unknown }) => s + Number(r.amount_paid ?? 0), 0);
   const total = Number(invoiceTotal);
   const newPaid = direct + childSum;
-  const newStatus = newPaid >= total - 0.01 ? "paid" : "partial";
-  await sb.from("invoices").update({ amount_paid: newPaid, status: newStatus }).eq("id", invoiceId);
+
+  // A payment landing on a cancelled or draft invoice must not resurrect it.
+  // recomputeParent below has always had this guard; this one did not, so the
+  // money was recorded and the invoice silently went back to live.
+  const { data: current } = await sb.from("invoices")
+    .select("status").eq("id", invoiceId).eq("business_id", businessId).maybeSingle();
+  const currentStatus = current?.status as string | undefined;
+  const newStatus = currentStatus === "cancelled" || currentStatus === "draft"
+    ? currentStatus
+    : newPaid >= total - 0.01 ? "paid" : "partial";
+
+  // Unchecked before: the payments row was already committed, so a failed
+  // balance write left the money in the ledger with the invoice reading unpaid,
+  // the webhook returning 200, and the dunning cron chasing the customer for it.
+  // Throwing makes the webhook 500 so Stripe retries — see the self-healing
+  // branch in recordStripePayment, which is what makes that retry useful.
+  const { error } = await sb.from("invoices")
+    .update({ amount_paid: newPaid, status: newStatus })
+    .eq("id", invoiceId).eq("business_id", businessId);
+  if (error) throw new Error(`Couldn't update the invoice balance: ${error.message}`);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -228,5 +258,8 @@ async function recomputeParent(sb: any, businessId: string, parentId: string) {
     if (fullyCovered)               nextStatus = "paid";
     else if (totalCollected > 0.01) nextStatus = "partial";
   }
-  await sb.from("invoices").update({ amount_paid: totalCollected, status: nextStatus }).eq("id", parentId);
+  const { error } = await sb.from("invoices")
+    .update({ amount_paid: totalCollected, status: nextStatus })
+    .eq("id", parentId).eq("business_id", businessId);
+  if (error) throw new Error(`Couldn't update the parent invoice balance: ${error.message}`);
 }
