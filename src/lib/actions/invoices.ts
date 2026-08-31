@@ -10,6 +10,7 @@ import { sendEmail, buildBusinessFrom } from "@/lib/email";
 import { invoiceEmailHtml, invoiceEmailSubject } from "@/lib/emails/invoice";
 import { getResolvedEmailTemplate } from "@/lib/emails/templates";
 import { customerAllowsCard } from "@/lib/payment-methods";
+import { settleInvoiceToPaid } from "@/lib/payments/settle";
 import { appUrl } from "@/lib/app-url";
 import { randomBytes } from "node:crypto";
 import type { Customer, Invoice, InvoiceWithCustomer, LineItem, Payment } from "@/types/database";
@@ -90,14 +91,25 @@ export async function updateInvoice(id: string, payload: Partial<Invoice>): Prom
 
   const businessId = await getActiveBizId(supabase, user.id);
 
-  // Marking an invoice "paid" via the status dropdown should also settle the
-  // balance — otherwise amount_paid stays behind and (for deposit children)
-  // the parent-reconcile trigger has nothing to roll up. Only auto-fill when
-  // the caller didn't pass an explicit amount_paid.
+  // Marking an invoice "paid" via the status dropdown settles it through the
+  // payments ledger rather than by writing amount_paid directly. Writing the
+  // column left no ledger row behind, so the next real payment's recompute
+  // un-paid the invoice and handed it to the dunning cron. settleInvoiceToPaid
+  // writes the balancing entry, then derives amount_paid and status from it.
+  // Only do this when the caller didn't pass an explicit amount_paid.
   const patch: Partial<Invoice> = { ...payload };
   if (payload.status === "paid" && payload.amount_paid == null) {
-    const { data: cur } = await tbl(supabase, "invoices").select("total").eq("id", id).eq("business_id", businessId).single();
-    if (cur) patch.amount_paid = cur.total;
+    await settleInvoiceToPaid((table) => tbl(supabase, table), {
+      businessId,
+      invoiceId: id,
+      userId: user.id,
+    });
+    // settle() has already derived amount_paid from the ledger. The update
+    // below still runs (it carries any other fields the caller passed, and
+    // returns the row for revalidation), but it must not write amount_paid
+    // back over the derived value. Re-writing status: 'paid' is a harmless
+    // no-op.
+    delete patch.amount_paid;
   }
 
   const { data, error } = await tbl(supabase, "invoices")

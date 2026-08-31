@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient as createSupaClient, SupabaseClient } from "@supabase/supabase-js";
 import { ilikeAcross } from "@/lib/pg-filter";
 import { AI_MODELS } from "@/lib/ai/models";
+import { settleInvoiceToPaid } from "@/lib/payments/settle";
 
 /**
  * Mobile-flavoured agent endpoint.
@@ -102,7 +103,7 @@ const num = (v: unknown) => { const n = typeof v === "number" ? v : parseFloat(S
 const daysAgo = (iso: string) => Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000));
 
 async function runTool(name: string, input: Record<string, unknown>, ctx: ToolContext): Promise<unknown> {
-  const { supa, businessId } = ctx;
+  const { supa, businessId, userId } = ctx;
 
   if (name === "search_customers") {
     const q = String(input.query ?? "").trim();
@@ -241,10 +242,19 @@ async function runTool(name: string, input: Record<string, unknown>, ctx: ToolCo
 
   if (name === "mark_invoice_paid") {
     const id = String(input.invoice_id);
-    const { data: inv } = await supa.from("invoices").select("total").eq("id", id).eq("business_id", businessId).single();
-    const total = num((inv as { total: unknown } | null)?.total);
-    const { error } = await supa.from("invoices").update({ amount_paid: total, status: "paid" }).eq("id", id);
-    return error ? { error: error.message } : { ok: true, total };
+    // Settles through the payments ledger — see src/lib/payments/settle.ts.
+    // The previous update was also missing its business_id filter, so it was
+    // scoped only by invoice id on a service-role client.
+    try {
+      const settled = await settleInvoiceToPaid((table) => supa.from(table), {
+        businessId,
+        invoiceId: id,
+        userId,
+      });
+      return { ok: true, ...settled };
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   if (name === "mark_quote_status") {

@@ -15,6 +15,7 @@ import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
 import { randomBytes } from "crypto";
 import { assertScope, t, text, errorText, type McpContext } from "./context";
+import { settleInvoiceToPaid } from "@/lib/payments/settle";
 import { sendEmail, buildBusinessFrom } from "@/lib/email";
 import { invoiceEmailHtml, invoiceEmailSubject } from "@/lib/emails/invoice";
 import { quoteEmailHtml, quoteEmailSubject } from "@/lib/emails/quote";
@@ -394,11 +395,15 @@ export function registerTools(register: ToolFn): void {
     { invoice_id: UUID },
     async (args, extra) => {
       const ctx = ctxFrom(extra); assertScope(ctx, "invoices:write");
-      const { data: inv } = await t(ctx, "invoices").select("total").eq("id", args.invoice_id).eq("business_id", ctx.businessId).maybeSingle();
-      if (!inv) return errorText("Invoice not found");
-      const { error } = await t(ctx, "invoices").update({ status: "paid", amount_paid: inv.total }).eq("id", args.invoice_id).eq("business_id", ctx.businessId);
-      if (error) throw error;
-      return text({ updated: true });
+      // Settles through the payments ledger rather than writing amount_paid
+      // directly — see src/lib/payments/settle.ts for why the column write was
+      // wrong. Throws (rather than reporting success) if any write fails.
+      const settled = await settleInvoiceToPaid((table) => t(ctx, table), {
+        businessId: ctx.businessId,
+        invoiceId: args.invoice_id,
+        userId: ctx.userId,
+      });
+      return text({ updated: true, ...settled });
     });
 
   // ===== LEADS =====
@@ -1015,13 +1020,17 @@ export function registerTools(register: ToolFn): void {
     { invoice_id: UUID, status: z.enum(["draft", "sent", "partial", "paid", "overdue", "cancelled"]) },
     async (args, extra) => {
       const ctx = ctxFrom(extra); assertScope(ctx, "invoices:write");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const patch: any = { status: args.status };
       if (args.status === "paid") {
-        const { data: cur } = await t(ctx, "invoices").select("total").eq("id", args.invoice_id).eq("business_id", ctx.businessId).maybeSingle();
-        if (cur) patch.amount_paid = cur.total;  // DB trigger rolls this up to any parent
+        // Ledger-first, same as mark_invoice_paid. Writing amount_paid here
+        // left no payments row, so the next real payment un-paid the invoice.
+        const settled = await settleInvoiceToPaid((table) => t(ctx, table), {
+          businessId: ctx.businessId,
+          invoiceId: args.invoice_id,
+          userId: ctx.userId,
+        });
+        return text({ updated: true, ...settled });
       }
-      const { error } = await t(ctx, "invoices").update(patch).eq("id", args.invoice_id).eq("business_id", ctx.businessId);
+      const { error } = await t(ctx, "invoices").update({ status: args.status }).eq("id", args.invoice_id).eq("business_id", ctx.businessId);
       if (error) throw error;
       return text({ updated: true });
     });
