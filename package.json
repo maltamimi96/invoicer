@@ -9,6 +9,9 @@
     "lint": "next lint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:db": "RUN_DB_TESTS=1 vitest run",
+    "db:local": "supabase start",
+    "db:local:stop": "supabase stop",
     "bundle:check": "node scripts/check-bundle-size.mjs",
     "env:pull": "vercel env pull .env.local --environment=production --yes",
     "prebuild": "node scripts/build-content-prompts.mjs"
